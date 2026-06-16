@@ -1,0 +1,16 @@
+---
+description: AI generation rules
+globs:
+  - "app/generation.py"
+  - "app/templates.py"
+  - "docs/PROMPTS.md"
+alwaysApply: true
+---
+
+# AI Generation Rules
+
+Generation must be template-driven and section-based. Do not generate one giant unstructured document.
+
+Each generated section should include section_id, title, body, source_facts_used, assumptions, and validation_notes.
+
+Never invent certifications, customer names, case studies, market size, guaranteed SEO outcomes, or legal conclusions.

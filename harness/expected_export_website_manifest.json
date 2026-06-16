@@ -1,0 +1,11 @@
+{
+  "required_files": [
+    "website_strategy_report.md",
+    "website_page_copy.md",
+    "seo_keyword_map.csv",
+    "cms_content_model.csv",
+    "developer_task_list.md",
+    "technical_implementation_plan.md",
+    "package_manifest.json"
+  ]
+}

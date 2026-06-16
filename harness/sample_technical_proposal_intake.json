@@ -1,0 +1,19 @@
+{
+  "deliverable_type": "technical_proposal",
+  "project": {
+    "name": "AI Deliverable Generator MVP",
+    "goal": "Generate structured business documents from intake data"
+  },
+  "constraints": [
+    "MVP only",
+    "Mock AI provider first",
+    "No payment integration"
+  ],
+  "required_outputs": [
+    "architecture",
+    "module design",
+    "roadmap",
+    "budget",
+    "acceptance criteria"
+  ]
+}

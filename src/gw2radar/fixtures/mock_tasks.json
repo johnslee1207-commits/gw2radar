@@ -1,0 +1,16 @@
+[
+  {
+    "task_id": "gw2:task:bitterfrost_daily",
+    "name": "Bitterfrost Frontier Daily Route",
+    "action_type": "do_daily",
+    "produces": [
+      {
+        "entity_id": "gw2:currency:unbound_magic",
+        "estimated_quantity": 250
+      }
+    ],
+    "estimated_minutes": 20,
+    "repeatability": "daily",
+    "requires_group": false
+  }
+]

@@ -1,0 +1,27 @@
+{
+  "goal_id": "gw2:goal:aurora",
+  "name": "Aurora",
+  "goal_type": "legendary_trinket",
+  "requirements": [
+    {
+      "entity_id": "gw2:item:mystic_coin",
+      "type": "item",
+      "required_quantity": 77
+    },
+    {
+      "entity_id": "gw2:item:mystic_clover",
+      "type": "item",
+      "required_quantity": 77
+    },
+    {
+      "entity_id": "gw2:currency:unbound_magic",
+      "type": "currency",
+      "required_quantity": 3000
+    },
+    {
+      "entity_id": "gw2:achievement:aurora_step_x",
+      "type": "achievement",
+      "required_quantity": 1
+    }
+  ]
+}

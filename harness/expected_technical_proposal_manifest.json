@@ -1,0 +1,9 @@
+{
+  "required_files": [
+    "technical_proposal.md",
+    "roadmap.csv",
+    "budget_estimate.csv",
+    "acceptance_criteria.csv",
+    "package_manifest.json"
+  ]
+}

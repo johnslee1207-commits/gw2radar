@@ -1,0 +1,37 @@
+[
+  {
+    "entity_id": "gw2:item:mystic_coin",
+    "name": "Mystic Coin",
+    "type": "item",
+    "tradable": true,
+    "legendary_related": true
+  },
+  {
+    "entity_id": "gw2:item:mystic_clover",
+    "name": "Mystic Clover",
+    "type": "item",
+    "tradable": false,
+    "legendary_related": true
+  },
+  {
+    "entity_id": "gw2:item:glob_of_ectoplasm",
+    "name": "Glob of Ectoplasm",
+    "type": "item",
+    "tradable": true,
+    "legendary_related": true
+  },
+  {
+    "entity_id": "gw2:currency:unbound_magic",
+    "name": "Unbound Magic",
+    "type": "currency",
+    "tradable": false,
+    "legendary_related": true
+  },
+  {
+    "entity_id": "gw2:achievement:aurora_step_x",
+    "name": "Aurora Collection Step X",
+    "type": "achievement",
+    "tradable": false,
+    "legendary_related": true
+  }
+]

@@ -1,0 +1,17 @@
+---
+description: Backend implementation rules
+globs:
+  - "app/**/*.py"
+  - "tests/**/*.py"
+alwaysApply: true
+---
+
+# Backend Rules
+
+Use typed Python and Pydantic models.
+
+Keep modules small: models.py, knowledge_pack.py, templates.py, generation.py, validators.py, exporters.py.
+
+The first implementation must use MockGenerationProvider.
+
+Do not call real AI APIs in tests. Do not store API keys in code. Do not execute uploaded user files.

@@ -1,0 +1,16 @@
+---
+description: Testing and harness rules
+globs:
+  - "tests/**/*"
+  - "harness/**/*"
+  - "app/**/*"
+alwaysApply: true
+---
+
+# Testing Rules
+
+Every implementation must include unit tests, integration tests, golden output tests, or a smoke harness.
+
+Before marking a task complete, run the relevant tests.
+
+The smoke harness must verify both sample products, output manifest validity, required sections, and assumption markers.

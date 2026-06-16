@@ -1,0 +1,33 @@
+{
+  "deliverable_type": "export_website_kit",
+  "company": {
+    "name": "Sample Precision Manufacturing Co.",
+    "type": "factory",
+    "markets": [
+      "United States",
+      "Germany"
+    ]
+  },
+  "products": [
+    {
+      "name": "CNC machined aluminum parts",
+      "applications": [
+        "industrial automation",
+        "robotics"
+      ],
+      "specs": [
+        "OEM/ODM",
+        "ISO tolerance capability - user must verify"
+      ]
+    }
+  ],
+  "goals": [
+    "generate inquiries",
+    "improve B2B trust",
+    "support SEO"
+  ],
+  "missing_information": [
+    "certifications",
+    "customer case studies"
+  ]
+}

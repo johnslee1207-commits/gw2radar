@@ -1,0 +1,15 @@
+{
+  "account_id": "mock:account:lee",
+  "wallet_gold": 120,
+  "materials": {
+    "gw2:item:mystic_coin": 120,
+    "gw2:item:mystic_clover": 34,
+    "gw2:item:glob_of_ectoplasm": 180
+  },
+  "currencies": {
+    "gw2:currency:unbound_magic": 800
+  },
+  "achievements": {
+    "gw2:achievement:aurora_step_x": 0
+  }
+}

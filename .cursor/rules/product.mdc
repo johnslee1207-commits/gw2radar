@@ -1,0 +1,21 @@
+---
+description: Product rules for AI deliverable generator MVP
+globs:
+  - "**/*"
+alwaysApply: true
+---
+
+# Product Rules
+
+This repository implements two MVP products:
+1. AI Export Website Kit Generator
+2. AI Technical Proposal / PDF Report Generator
+
+The system is a structured deliverable generator, not a generic chatbot.
+
+Always preserve the shared pipeline:
+Intake -> Knowledge Pack -> Template Rendering -> AI Generation -> Validation -> Export Package.
+
+Do not add large SaaS features unless explicitly requested.
+
+Generated output must mark assumptions, avoid fabricated facts, include required sections, be exportable, and pass harness validation.
