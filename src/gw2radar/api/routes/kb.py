@@ -15,6 +15,7 @@ from gw2radar.kb.kb_report_quality import score_kb_report_quality
 from gw2radar.kb.kb_repository import (
     create_article,
     deprecate_article,
+    enable_rule,
     get_article,
     get_source,
     list_articles,
@@ -30,6 +31,7 @@ from gw2radar.kb.patch_impact_review import (
     build_patch_rule_candidates,
     list_patch_impact_drafts,
     list_pending_patch_impact_drafts,
+    persist_patch_rule_candidates,
     save_patch_impact_review,
 )
 from gw2radar.inference.action_generator import generate_actions
@@ -39,6 +41,14 @@ router = APIRouter(prefix="/api/v1/kb", tags=["kb"])
 
 class LoadDirectoryRequest(BaseModel):
     directory: str = "docs/knowledge_base"
+
+
+class ConfirmPatchRulePersistenceRequest(BaseModel):
+    confirmed: bool = False
+
+
+class EnableKnowledgeRuleRequest(BaseModel):
+    confirmed_reviewed: bool = False
 
 
 @router.post("/sources", response_model=ApiDataEnvelope)
@@ -203,6 +213,40 @@ def get_patch_impact_rule_candidates(patch_id: str) -> ApiDataEnvelope:
             "rules": [rule.model_dump(mode="json") for rule in candidate.rules],
         }
     )
+
+
+@router.post("/patch-impact/{patch_id}/rule-candidates/persist", response_model=ApiDataEnvelope)
+def post_patch_impact_rule_candidates_persist(
+    patch_id: str,
+    request: ConfirmPatchRulePersistenceRequest,
+) -> ApiDataEnvelope:
+    init_db()
+    with db_session.SessionLocal() as session:
+        try:
+            result = persist_patch_rule_candidates(session, patch_id, confirmed=request.confirmed)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return ApiDataEnvelope(
+        data={
+            "patch_id": result.patch_id,
+            "created_count": result.created_count,
+            "skipped_existing_count": result.skipped_existing_count,
+            "rules": [rule.model_dump(mode="json") for rule in result.rules],
+        }
+    )
+
+
+@router.post("/rules/{rule_id}/enable", response_model=ApiDataEnvelope)
+def post_kb_rule_enable(rule_id: str, request: EnableKnowledgeRuleRequest) -> ApiDataEnvelope:
+    if not request.confirmed_reviewed:
+        raise HTTPException(status_code=400, detail="Enabling a KnowledgeRule requires reviewed confirmation.")
+    init_db()
+    with db_session.SessionLocal() as session:
+        try:
+            rule = enable_rule(session, rule_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return ApiDataEnvelope(data={"rule": rule.model_dump(mode="json")})
 
 
 @router.get("/goals/{goal_id}/action-explanations", response_model=ApiDataEnvelope)

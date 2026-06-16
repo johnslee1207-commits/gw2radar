@@ -4,8 +4,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from pydantic import BaseModel, Field, model_validator
+from sqlalchemy.orm import Session
 
-from gw2radar.kb.kb_models import KnowledgeDomain, KnowledgeReviewStatus, KnowledgeRuleInput
+from gw2radar.kb.kb_models import KnowledgeDomain, KnowledgeReviewStatus, KnowledgeRule, KnowledgeRuleInput
+from gw2radar.kb.kb_repository import create_rule, list_rules
 from gw2radar.ontology.action_types import ActionType
 
 
@@ -76,6 +78,13 @@ class PatchImpactReview(PatchImpactReviewInput):
 class PatchKnowledgeRuleCandidate(BaseModel):
     patch_id: str
     rules: list[KnowledgeRuleInput]
+
+
+class PersistedPatchRuleCandidate(BaseModel):
+    patch_id: str
+    created_count: int
+    skipped_existing_count: int
+    rules: list[KnowledgeRule]
 
 
 def list_patch_impact_drafts(
@@ -174,6 +183,40 @@ def build_patch_rule_candidates(
     if review.market_impact:
         rules.append(_build_rule_for_impact(draft, review, "market", review.market_impact))
     return PatchKnowledgeRuleCandidate(patch_id=patch_id, rules=rules)
+
+
+def persist_patch_rule_candidates(
+    session: Session,
+    patch_id: str,
+    confirmed: bool,
+    summary_root: Path | None = None,
+    review_store: Path | None = None,
+) -> PersistedPatchRuleCandidate:
+    if not confirmed:
+        raise ValueError("Persisting patch rule candidates requires explicit manual confirmation.")
+    candidates = build_patch_rule_candidates(patch_id, summary_root, review_store)
+    existing_signatures = {
+        (rule.condition, rule.action_type)
+        for rule in list_rules(session)
+    }
+    persisted = []
+    created_count = 0
+    skipped_count = 0
+    for candidate in candidates.rules:
+        safe_candidate = candidate.model_copy(update={"enabled": False})
+        signature = (safe_candidate.condition, safe_candidate.action_type)
+        if signature in existing_signatures:
+            skipped_count += 1
+            continue
+        persisted.append(create_rule(session, safe_candidate))
+        existing_signatures.add(signature)
+        created_count += 1
+    return PersistedPatchRuleCandidate(
+        patch_id=patch_id,
+        created_count=created_count,
+        skipped_existing_count=skipped_count,
+        rules=persisted,
+    )
 
 
 def _build_rule_for_impact(

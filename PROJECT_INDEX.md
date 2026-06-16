@@ -75,6 +75,7 @@ The Knowledge Base explains recommendations, while the Knowledge Graph reasons o
 - [MVP 0.4.4 Patch Note Structured Summaries](docs/mvp/MVP_0_4_4_PATCH_NOTE_STRUCTURED_SUMMARIES.md)
 - [MVP 0.4.5 Official News Source Processing](docs/mvp/MVP_0_4_5_OFFICIAL_NEWS_SOURCE_PROCESSING.md)
 - [MVP 0.4.6 Patch Impact Review Assistant](docs/mvp/MVP_0_4_6_PATCH_IMPACT_REVIEW_ASSISTANT.md)
+- [MVP 0.4.7 Patch Rule Confirmation Gate](docs/mvp/MVP_0_4_7_PATCH_RULE_CONFIRMATION_GATE.md)
 
 ## Analysis And Maturity
 

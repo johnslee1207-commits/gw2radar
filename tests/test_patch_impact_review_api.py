@@ -31,6 +31,17 @@ def test_patch_impact_review_api_lists_and_reviews_existing_patch(monkeypatch) -
             },
         )
         candidate = client.get(f"/api/v1/kb/patch-impact/{patch_id}/rule-candidates")
+        blocked_persist = client.post(
+            f"/api/v1/kb/patch-impact/{patch_id}/rule-candidates/persist",
+            json={"confirmed": False},
+        )
+        persisted = client.post(
+            f"/api/v1/kb/patch-impact/{patch_id}/rule-candidates/persist",
+            json={"confirmed": True},
+        )
+        rule_id = persisted.json()["data"]["rules"][0]["rule_id"]
+        blocked_enable = client.post(f"/api/v1/kb/rules/{rule_id}/enable", json={"confirmed_reviewed": False})
+        enabled = client.post(f"/api/v1/kb/rules/{rule_id}/enable", json={"confirmed_reviewed": True})
 
         assert listed.status_code == 200
         assert listed.json()["data"]["count"] >= 1
@@ -38,5 +49,12 @@ def test_patch_impact_review_api_lists_and_reviews_existing_patch(monkeypatch) -
         assert reviewed.json()["data"]["review"]["review_status"] == "reviewed"
         assert candidate.status_code == 200
         assert [rule["enabled"] for rule in candidate.json()["data"]["rules"]] == [False, False]
+        assert blocked_persist.status_code == 400
+        assert persisted.status_code == 200
+        assert persisted.json()["data"]["created_count"] == 2
+        assert [rule["enabled"] for rule in persisted.json()["data"]["rules"]] == [False, False]
+        assert blocked_enable.status_code == 400
+        assert enabled.status_code == 200
+        assert enabled.json()["data"]["rule"]["enabled"] is True
     finally:
         close_database()

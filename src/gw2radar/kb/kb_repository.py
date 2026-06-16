@@ -185,12 +185,29 @@ def create_rule(session: Session, rule: KnowledgeRuleInput) -> KnowledgeRule:
     return _rule_from_model(row)
 
 
+def get_rule(session: Session, rule_id: str) -> KnowledgeRule | None:
+    row = session.get(KnowledgeRuleModel, rule_id)
+    return _rule_from_model(row) if row else None
+
+
 def list_rules(session: Session, domain: KnowledgeDomain | None = None) -> list[KnowledgeRule]:
     query = session.query(KnowledgeRuleModel)
     if domain is not None:
         query = query.filter(KnowledgeRuleModel.domain == domain.value)
     rows = query.order_by(KnowledgeRuleModel.domain, KnowledgeRuleModel.name).all()
     return [_rule_from_model(row) for row in rows]
+
+
+def enable_rule(session: Session, rule_id: str) -> KnowledgeRule:
+    row = session.get(KnowledgeRuleModel, rule_id)
+    if row is None:
+        raise ValueError("Knowledge rule not found.")
+    if row.review_status != KnowledgeReviewStatus.REVIEWED.value:
+        raise ValueError("Only reviewed KnowledgeRule records can be enabled.")
+    row.enabled = True
+    row.updated_at = utc_now()
+    session.commit()
+    return _rule_from_model(row)
 
 
 def _ensure_sources_exist(session: Session, source_refs: list[str]) -> None:

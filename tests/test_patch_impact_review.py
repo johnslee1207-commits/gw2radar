@@ -5,15 +5,20 @@ from uuid import uuid4
 import pytest
 
 from gw2radar.kb.kb_models import KnowledgeReviewStatus
+from gw2radar.kb.kb_repository import enable_rule, list_rules
 from gw2radar.kb.patch_impact_review import (
     PatchImpactReviewInput,
     build_patch_rule_candidates,
     list_patch_impact_drafts,
     list_pending_patch_impact_drafts,
+    persist_patch_rule_candidates,
     save_patch_impact_review,
 )
 from gw2radar.kb_pdf.patch_note_summarizer import build_recent_patch_summaries, write_patch_note_summaries
 from gw2radar.kb_pdf.pdf_inventory import PdfSourceRecord
+from gw2radar.db import session as db_session
+from gw2radar.db.init_db import init_db
+from gw2radar.db.session import close_database, configure_database
 
 
 def test_patch_impact_review_lists_drafts_by_year_and_pending_status() -> None:
@@ -80,6 +85,53 @@ def test_patch_impact_review_saves_manual_impacts_and_builds_disabled_rule_candi
         assert all(rule.enabled is False for rule in candidate.rules)
         assert candidate.rules[0].evidence_refs[0] == "evidence:pdf:patch:2026-06-02"
     finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def test_patch_impact_review_persists_candidates_disabled_until_enable_gate() -> None:
+    temp_dir = Path(".test_tmp") / f"patch-review-persist-{uuid4().hex}"
+    try:
+        summary_root = temp_dir / "patch_notes"
+        review_store = temp_dir / "reviews.jsonl"
+        write_patch_note_summaries(
+            [
+                build_recent_patch_summaries(
+                    [_patch_record("Game Update Notes_ June 2, 2026 - Game Update Notes - Guild Wars 2 Forums.pdf")]
+                )[0]
+            ],
+            summary_root,
+        )
+        save_patch_impact_review(
+            PatchImpactReviewInput(
+                patch_id="patch:2026-06-02",
+                affected_systems=["build", "market"],
+                build_impact=["Review build assumptions."],
+                market_impact=["Watch affected prices."],
+                reviewer="qa",
+            ),
+            summary_root,
+            review_store,
+        )
+        configure_database(f"sqlite:///{temp_dir / 'kb.db'}")
+        init_db()
+        with db_session.SessionLocal() as session:
+            with pytest.raises(ValueError, match="explicit manual confirmation"):
+                persist_patch_rule_candidates(session, "patch:2026-06-02", False, summary_root, review_store)
+
+            persisted = persist_patch_rule_candidates(session, "patch:2026-06-02", True, summary_root, review_store)
+            duplicate = persist_patch_rule_candidates(session, "patch:2026-06-02", True, summary_root, review_store)
+            enabled = enable_rule(session, persisted.rules[0].rule_id)
+            rules = list_rules(session)
+
+        assert persisted.created_count == 2
+        assert persisted.skipped_existing_count == 0
+        assert all(rule.enabled is False for rule in persisted.rules)
+        assert duplicate.created_count == 0
+        assert duplicate.skipped_existing_count == 2
+        assert enabled.enabled is True
+        assert len(rules) == 2
+    finally:
+        close_database()
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 

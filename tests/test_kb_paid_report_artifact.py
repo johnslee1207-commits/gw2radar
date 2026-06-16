@@ -122,5 +122,6 @@ def _create_reserve_rule(session, review_status: KnowledgeReviewStatus):
             explanation_template="Reviewed KB policy protects active legendary requirements.",
             confidence=0.85,
             review_status=review_status,
+            enabled=review_status == KnowledgeReviewStatus.REVIEWED,
         ),
     )

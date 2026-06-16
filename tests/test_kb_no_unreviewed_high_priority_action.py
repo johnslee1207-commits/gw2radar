@@ -14,4 +14,5 @@ def test_unreviewed_kb_rule_cannot_drive_high_priority_action() -> None:
             priority_delta=0.8,
             explanation_template="Unreviewed market rule.",
             review_status=KnowledgeReviewStatus.DRAFT,
+            enabled=False,
         )

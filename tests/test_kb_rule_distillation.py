@@ -10,8 +10,22 @@ from gw2radar.kb.kb_models import KnowledgeDomain, KnowledgeReviewStatus, Knowle
 from gw2radar.kb.kb_repository import create_rule, list_rules
 
 
+def test_kb_rule_requires_review_before_enabled() -> None:
+    with pytest.raises(ValueError, match="Unreviewed KB rules cannot be enabled"):
+        KnowledgeRuleInput(
+            name="Returner mobility first",
+            domain=KnowledgeDomain.RETURNER,
+            condition="travel_readiness_score < 0.5",
+            recommendation="Prioritize mobility recovery before advanced goals.",
+            action_type="complete_achievement",
+            priority_delta=0.2,
+            explanation_template="Recover basic movement first.",
+            review_status=KnowledgeReviewStatus.DRAFT,
+        )
+
+
 def test_kb_rule_requires_review_for_high_priority_delta() -> None:
-    with pytest.raises(ValueError, match="Unreviewed KB rules"):
+    with pytest.raises(ValueError, match="Unreviewed KB rules cannot drive high-priority actions"):
         KnowledgeRuleInput(
             name="Returner mobility first",
             domain=KnowledgeDomain.RETURNER,
@@ -21,6 +35,7 @@ def test_kb_rule_requires_review_for_high_priority_delta() -> None:
             priority_delta=0.9,
             explanation_template="Recover basic movement first.",
             review_status=KnowledgeReviewStatus.DRAFT,
+            enabled=False,
         )
 
 

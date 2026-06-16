@@ -169,6 +169,8 @@ class KnowledgeRuleInput(BaseModel):
     @model_validator(mode="after")
     def validate_rule_contract(self) -> "KnowledgeRuleInput":
         validate_kb_text(self.recommendation, self.explanation_template)
+        if self.review_status != KnowledgeReviewStatus.REVIEWED and self.enabled:
+            raise ValueError("Unreviewed KB rules cannot be enabled.")
         if self.review_status != KnowledgeReviewStatus.REVIEWED and self.priority_delta >= HIGH_PRIORITY_THRESHOLD:
             raise ValueError("Unreviewed KB rules cannot drive high-priority actions.")
         return self
