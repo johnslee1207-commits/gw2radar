@@ -46,13 +46,13 @@ Source scan summary:
 
 Current code volume signal:
 
-- 87 Python source files under `src/gw2radar`.
-- 163 extracted classes.
-- 337 extracted functions/methods.
-- 22 core enum classes.
-- 74 Pydantic model classes.
-- 25 SQLAlchemy persistence tables.
-- 89 pytest test files.
+- 89 Python source files under `src/gw2radar`.
+- 174 extracted classes.
+- 358 extracted functions/methods.
+- 25 core enum classes.
+- 81 Pydantic model classes.
+- 26 SQLAlchemy persistence tables.
+- 97 pytest test files.
 
 ## Semantic Graph
 
@@ -111,6 +111,12 @@ flowchart TD
   Growth --> GuildConsole["Guild Readiness Console"]
   GuildConsole --> Consent["Consent Records"]
   GuildConsole --> TeamReadiness["Team Readiness"]
+  Growth --> CreatorIntel["Creator Intelligence Console"]
+  CreatorIntel --> CommunitySignals["Community Signals"]
+  CreatorIntel --> TopicTrends["Topic Trends"]
+  CreatorIntel --> GuideGaps["Guide Gaps"]
+  CreatorIntel --> ContentOps["Content Opportunities"]
+  CreatorIntel --> SourcePolicy["Source Attribution + No Mass Copy"]
 
   API["FastAPI Routes"] --> GraphState["API State"]
   GraphState --> Repository
@@ -201,8 +207,9 @@ Scores use a 0-5 scale:
 | Market Radar Pro | 3.6 | P9 implements price snapshots, trends, goal cost index, watchlist, hold/sell-surplus signals, language policy, routes, and paid report generation. |
 | Growth CMS + Payment | 3.6 | P12 implements CMS pages, pricing, mock payment provider, checkout sessions, webhooks, subscriptions, entitlement integration, and trust pages. |
 | Guild Readiness Console | 3.6 | P10 implements guild/team/member/consent models, role coverage, readiness scoring, consent revocation, privacy-safe summaries, report, and routes. |
+| Creator Intelligence Console | 3.6 | P11 implements community signal import, topic trends, question clusters, guide gaps, content opportunities, source attribution, no-mass-copy policy, report, and routes. |
 
-Overall maturity: **4.72 / 5.0**
+Overall maturity: **4.76 / 5.0**
 
 Interpretation: GW2Radar is a solid governed MVP prototype with reliable mock intelligence, deterministic exports, durable refresh state, and gateway-bounded sync services. It is not yet a production ingestion service.
 
@@ -238,20 +245,20 @@ Interpretation: GW2Radar is a solid governed MVP prototype with reliable mock in
 
 ## Priority Recommendations
 
-### P0: Creator & Community Intelligence Console
+### P0: Subscription Analytics & Commercial Operations Dashboard
 
-Reason: P6-P10 and P12 now cover individual, market, payment, and guild product lanes. The remaining commercial lane is creator/community intelligence with careful source attribution.
+Reason: P6-P12 and P10-P11 now cover individual, market, payment, guild, and creator product lanes. The next commercial maturity gap is an operator view over subscriptions, entitlements, jobs, usage, and payment events.
 
 Deliverables:
 
-- Community signal import.
-- Topic trends.
-- Question clusters.
-- Guide gap analysis.
-- Content opportunities.
-- Source attribution.
-- No mass-copy policy.
-- Creator report.
+- Subscription and entitlement summary.
+- Checkout and webhook event timeline.
+- Report job health.
+- Product usage counters.
+- Commercial KPI snapshot.
+- Privacy-safe audit views.
+- Admin-only API routes.
+- Dashboard report export.
 
 ### Completed Priority Trail
 

@@ -358,3 +358,20 @@ class ConsentRecordModel(Base):
     granted: Mapped[bool] = mapped_column(Boolean, default=True)
     granted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class CommunitySignalModel(Base):
+    __tablename__ = "community_signals"
+
+    signal_id: Mapped[str] = mapped_column(String, primary_key=True)
+    source_type: Mapped[str] = mapped_column(String, nullable=False)
+    source_url: Mapped[str] = mapped_column(String, nullable=False)
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    topic: Mapped[str] = mapped_column(String, nullable=False)
+    audience_segment: Mapped[str] = mapped_column(String, default="general")
+    signal_kind: Mapped[str] = mapped_column(String, default="discussion")
+    confidence: Mapped[float] = mapped_column(Float, default=0.4)
+    verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    authorized_source: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)

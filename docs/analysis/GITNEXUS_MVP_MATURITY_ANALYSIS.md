@@ -53,6 +53,7 @@ Domain spectrum:
 | `commercial.market_radar` | Market Radar Pro | Price snapshots, trends, goal cost index, watchlist, hold/sell-surplus signals, language policy, and paid report. |
 | `commercial.growth` | Growth CMS + Payment | CMS pages, pricing plans, payment provider protocol, mock checkout, webhooks, subscriptions, and entitlement integration. |
 | `commercial.guild_readiness` | Guild Readiness Console | Guild/team/member/consent models, role coverage, readiness score, privacy-safe summaries, and report. |
+| `commercial.creator_intelligence` | Creator Intelligence Console | Community signal import, topic trends, question clusters, guide gaps, content opportunities, source attribution, no-mass-copy policy, and creator report. |
 | `security` | encrypted local key lifecycle | Fernet-encrypted SQLite key persistence with masked API responses. |
 
 ## GitNexus Flow Findings
@@ -197,7 +198,7 @@ Scoring: 0 = absent, 5 = production-grade.
 | Evidence governance | 3.7 | Masking, freshness/confidence, report labels, action effects. |
 | Graph layer separation | 3.7 | Schema + DB fields + repository validation. |
 | SQLite persistence | 3.8 | Replace/load/delete flows, queue, key metadata, migrations. Repository still coarse-grained. |
-| FastAPI MVP surface | 4.0 | Health, mock load, goals, gap, actions, reports, export, lifecycle, sync routes, operational status, and uniform HTTP error envelope. |
+| FastAPI MVP surface | 4.0 | Health, mock load, goals, gap, actions, reports, export, lifecycle, sync routes, creator routes, operational status, and uniform HTTP error envelope. |
 | Export package | 3.8 | Markdown/CSV/manifest package, deterministic and tested. |
 | GW2 API gateway/client | 4.0 | Safe fake-tested skeleton with tokeninfo, permission validation, endpoint schema, structured errors, sync services, and worker contracts behind the gateway. |
 | Refresh queue durability | 3.9 | SQLite queue, retry metadata, 429 persistence, sanitized params hash, lease/worker fields, status transitions, and one-step worker compatibility. |
@@ -210,8 +211,9 @@ Scoring: 0 = absent, 5 = production-grade.
 | Market Radar Pro | 3.6 | Price snapshots, trends, goal cost index, watchlist, hold/sell-surplus signals, market language policy, routes, and P6-backed paid report. |
 | Growth CMS + Payment | 3.6 | CMS pages, SEO metadata, pricing plans, provider abstraction, mock checkout, webhook events, subscriptions, trust pages, and entitlement integration. |
 | Guild Readiness Console | 3.6 | Guild/team/member/consent models, role coverage, readiness score, consent revocation, privacy-safe summaries, report, and routes. |
+| Creator Intelligence Console | 3.6 | Community signals, trend aggregation, repeated-question clustering, guide gaps, content opportunities, source attribution, no-mass-copy guard, and creator routes. |
 
-Overall MVP maturity: **4.72 / 5.0**.
+Overall MVP maturity: **4.76 / 5.0**.
 
 Interpretation: GW2Radar is now a governed, test-backed MVP substrate with durable refresh state, encrypted local key storage, and gateway-bounded sync services. It is still not a production account-ingestion service until scheduling, monitoring, and external secret management are added.
 
@@ -244,23 +246,24 @@ Interpretation: GW2Radar is now a governed, test-backed MVP substrate with durab
 | Market Radar Pro | Complete for MVP; real TP polling and richer market history deferred |
 | Growth CMS + Payment | Complete for MVP; real payment provider deferred |
 | Guild Readiness Console | Complete for MVP; richer member workflows deferred |
+| Creator Intelligence Console | Complete for MVP; live platform ingestion and paid artifact export deferred |
 
 ## Recommended Next Priority
 
-### P0: Creator & Community Intelligence Console
+### P0: Subscription Analytics & Commercial Operations Dashboard
 
-Reason: P6-P10 and P12 now cover individual reports, market intelligence, monetization, and guild readiness. The next highest-value commercial lane is creator/community intelligence with strict source attribution and no mass copying.
+Reason: P6-P12 and P10-P11 now cover paid reports, personal planning, market intelligence, growth/payment, guild readiness, and creator intelligence. The next highest-value product step is an operator dashboard that shows subscriptions, entitlements, report jobs, conversion events, and product usage health.
 
 Minimum deliverables:
 
-- community signal import;
-- topic trends;
-- question clusters;
-- guide gap analysis;
-- content opportunities;
-- source attribution;
-- no mass-copy policy;
-- creator report.
+- subscription and entitlement summary;
+- checkout/webhook event timeline;
+- report job health;
+- product usage counters;
+- commercial KPI snapshot;
+- privacy-safe audit views;
+- admin-only API routes;
+- dashboard report export.
 
 ## Constitution Compliance Summary
 
