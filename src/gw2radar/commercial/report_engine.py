@@ -88,6 +88,13 @@ DEFAULT_PRODUCTS = [
         price_cents=900,
     ),
     ReportProduct(
+        product_id="legendary_planner_pro_report",
+        name="Legendary Planner Pro Report",
+        report_type="legendary_pro",
+        tier=ReportTier.PAID_ONCE,
+        price_cents=1500,
+    ),
+    ReportProduct(
         product_id="build_fit_report",
         name="Build Fit Report",
         report_type="build_fit",
@@ -200,6 +207,7 @@ def generate_report_job(
     goal_id: str,
     export_format: ReportExportFormat = ReportExportFormat.MARKDOWN,
     output_root: Path = Path("outputs") / "reports",
+    markdown_override: str | None = None,
 ) -> ReportExportJob:
     ensure_default_report_products(session)
     product = session.get(ReportProductModel, product_id)
@@ -225,7 +233,7 @@ def generate_report_job(
         job.status = ReportJobStatus.PROCESSING.value
         job.updated_at = utc_now()
         session.commit()
-        markdown = _render_full_markdown(graph, goal_id, product.name)
+        markdown = markdown_override or _render_full_markdown(graph, goal_id, product.name)
         content = _render_export_content(markdown, export_format)
         artifact_path, manifest_path = _write_artifact(
             content,

@@ -26,13 +26,13 @@ Local AST spectrum:
 
 | Metric | Count |
 |---|---:|
-| Python source files | 77 |
-| Classes | 89 |
-| Functions / methods | 240 |
-| Enums | 14 |
-| Pydantic models | 26 |
-| SQLAlchemy models | 11 |
-| Pytest test files | 49 |
+| Python source files | 79 |
+| Classes | 103 |
+| Functions / methods | 258 |
+| Enums | 15 |
+| Pydantic models | 37 |
+| SQLAlchemy models | 13 |
+| Pytest test files | 58 |
 
 ## Semantic Graph Summary
 
@@ -62,6 +62,9 @@ flowchart TD
   Report --> PaidReports["Paid Report Engine"]
   PaidReports --> Entitlements["Report Entitlements"]
   PaidReports --> Artifacts["Report Artifacts"]
+  PaidReports --> LegendaryPro["Legendary Planner Pro"]
+  LegendaryPro --> Portfolio["Goal Portfolio"]
+  LegendaryPro --> DoNotSell["Multi-Goal Do-Not-Sell"]
 
   KeyStore["EncryptedApiKeyStore"] --> SQLite
   Tests["54 Pytest Tests + Smoke"] --> Gateway
@@ -90,8 +93,9 @@ flowchart TD
 | Local encrypted key storage | 3.8 | Deployment modes, SecretStore interface, encrypted local/database stores, fingerprints, security routes, and log sanitizer. External vault/auth remain future. |
 | Account/public sync services | 3.8 | Account sync and public static refresh now have queue-backed API productization, fake gateway tests, layer constraints, and planner rules. |
 | Paid report engine | 3.6 | Product catalog, entitlement gate, preview/full rendering, export jobs, Markdown/HTML artifacts, manifest, and versioned report API are implemented. Real payment integration is deferred. |
+| Legendary Planner Pro | 3.6 | Portfolio persistence, shared requirements, conflicts, time gates, cheap/fast path planning, do-not-sell, daily/weekly routes, API, and P6-backed paid report are implemented. |
 
-Overall maturity: **4.48 / 5.0**.
+Overall maturity: **4.53 / 5.0**.
 
 ## Priority Roadmap
 
@@ -182,6 +186,8 @@ Deliverables:
 
 ### P7: Legendary Planner Pro
 
+Status: complete for MVP 0.3.1.
+
 Reason: P6 now provides the paid report substrate. The next commercial value step is deeper legendary planning, because it is the strongest individual-player subscription path.
 
 Deliverables:
@@ -192,3 +198,17 @@ Deliverables:
 - cheap and fast path planning;
 - multi-goal do-not-sell policy;
 - legendary planner pro report.
+
+### P8: Build Fit & Gear Transition Advisor
+
+Reason: the next commercial differentiator is account-specific build readiness, gear reuse, and transition cost. This builds on P6 paid reports and the same private-data safety boundaries.
+
+Deliverables:
+
+- build import schema;
+- gear requirement model;
+- account gear matcher;
+- build fit score;
+- gear transition plan;
+- budget alternative recommendation;
+- Build Fit paid report.

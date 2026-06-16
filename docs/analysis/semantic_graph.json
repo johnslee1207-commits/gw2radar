@@ -31,6 +31,10 @@
     {"id": "report_entitlements", "type": "commercial_model", "label": "Report Entitlements"},
     {"id": "report_export_jobs", "type": "commercial_model", "label": "Report Export Jobs"},
     {"id": "report_artifacts", "type": "export", "label": "Report Artifacts"},
+    {"id": "legendary_planner_pro", "type": "commercial_planner", "label": "Legendary Planner Pro"},
+    {"id": "goal_portfolio", "type": "commercial_model", "label": "Goal Portfolio"},
+    {"id": "shared_requirements", "type": "inference", "label": "Shared Requirements"},
+    {"id": "multi_goal_do_not_sell", "type": "policy", "label": "Multi-Goal Do-Not-Sell"},
     {"id": "export_package", "type": "export", "label": "Export Package"},
     {"id": "api", "type": "interface", "label": "FastAPI Routes"},
     {"id": "api_error_envelope", "type": "interface_contract", "label": "API Error Envelope"},
@@ -91,6 +95,11 @@
     {"from": "paid_report_engine", "to": "report_entitlements", "type": "requires_for_full"},
     {"from": "paid_report_engine", "to": "report_export_jobs", "type": "tracks"},
     {"from": "paid_report_engine", "to": "report_artifacts", "type": "writes"},
+    {"from": "paid_report_engine", "to": "legendary_planner_pro", "type": "monetizes"},
+    {"from": "legendary_planner_pro", "to": "goal_portfolio", "type": "uses"},
+    {"from": "legendary_planner_pro", "to": "shared_requirements", "type": "infers"},
+    {"from": "legendary_planner_pro", "to": "multi_goal_do_not_sell", "type": "creates"},
+    {"from": "api", "to": "legendary_planner_pro", "type": "exposes"},
     {"from": "api", "to": "paid_report_engine", "type": "exposes"},
     {"from": "actions", "to": "export_package", "type": "packaged_in"},
     {"from": "api", "to": "api_state", "type": "uses"},
@@ -129,11 +138,12 @@
     "durable_refresh_queue": 3.9,
     "encrypted_local_key_storage": 3.8,
     "account_public_sync_services": 3.8,
-    "paid_report_engine": 3.6
+    "paid_report_engine": 3.6,
+    "legendary_planner_pro": 3.6
   },
-  "overall_maturity": 4.48,
+  "overall_maturity": 4.53,
   "recommended_priorities": [
-    "P0 Legendary Planner Pro",
-    "Next: goal portfolio, shared requirements, cheap and fast paths"
+    "P0 Build Fit & Gear Transition Advisor",
+    "Next: build import, gear matcher, fit score, transition plan"
   ]
 }

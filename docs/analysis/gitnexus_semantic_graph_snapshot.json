@@ -10,12 +10,12 @@
     "status": "up-to-date"
   },
   "code_spectrum": {
-    "python_files": 77,
-    "classes": 89,
-    "functions": 240,
-    "enums": 14,
-    "pydantic_models": 26,
-    "sqlalchemy_models": 11
+    "python_files": 79,
+    "classes": 103,
+    "functions": 258,
+    "enums": 15,
+    "pydantic_models": 37,
+    "sqlalchemy_models": 13
   },
   "semantic_nodes": [
     "Constitution",
@@ -36,6 +36,10 @@
     "Report Entitlements",
     "Report Export Jobs",
     "Report Artifacts",
+    "Legendary Planner Pro",
+    "Goal Portfolio",
+    "Shared Requirements",
+    "Multi-Goal Do-Not-Sell",
     "Export Package",
     "Gw2ApiGateway",
     "GW2ApiClient Skeleton",
@@ -81,6 +85,11 @@
     ["Paid Report Engine", "Report Entitlements", "requires_for_full"],
     ["Paid Report Engine", "Report Export Jobs", "tracks"],
     ["Paid Report Engine", "Report Artifacts", "writes"],
+    ["Paid Report Engine", "Legendary Planner Pro", "monetizes"],
+    ["Legendary Planner Pro", "Goal Portfolio", "uses"],
+    ["Legendary Planner Pro", "Shared Requirements", "infers"],
+    ["Legendary Planner Pro", "Multi-Goal Do-Not-Sell", "creates"],
+    ["FastAPI Routes", "Legendary Planner Pro", "exposes"],
     ["FastAPI Routes", "Paid Report Engine", "exposes"],
     ["Action Generator", "Export Package", "exports"],
     ["EncryptedApiKeyStore", "FastAPI Routes", "serves"],
@@ -119,8 +128,9 @@
     "production_key_storage": 3.8,
     "real_account_ingestion": 3.6,
     "public_static_data_refresh": 3.8,
-    "paid_report_engine": 3.6
+    "paid_report_engine": 3.6,
+    "legendary_planner_pro": 3.6
   },
-  "overall_maturity": 4.48,
-  "next_priority": "Legendary Planner Pro"
+  "overall_maturity": 4.53,
+  "next_priority": "Build Fit & Gear Transition Advisor"
 }
