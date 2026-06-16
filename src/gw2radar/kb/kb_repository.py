@@ -91,6 +91,34 @@ def list_articles(session: Session, domain: KnowledgeDomain | None = None) -> li
     return [_article_from_model(row) for row in rows]
 
 
+def search_articles(
+    session: Session,
+    query_text: str,
+    domain: KnowledgeDomain | None = None,
+    include_deprecated: bool = False,
+) -> list[KnowledgeArticle]:
+    needle = query_text.strip().lower()
+    if not needle:
+        return []
+    articles = list_articles(session, domain)
+    results: list[KnowledgeArticle] = []
+    for article in articles:
+        if not include_deprecated and article.review_status == KnowledgeReviewStatus.DEPRECATED:
+            continue
+        haystack = "\n".join(
+            [
+                article.title,
+                article.summary,
+                article.body_markdown,
+                " ".join(article.linked_entities),
+                " ".join(article.linked_actions),
+            ]
+        ).lower()
+        if needle in haystack:
+            results.append(article)
+    return results
+
+
 def review_article(session: Session, kb_id: str) -> KnowledgeArticle:
     row = session.get(KnowledgeArticleModel, kb_id)
     if row is None:

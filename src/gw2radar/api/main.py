@@ -13,6 +13,7 @@ from gw2radar.api.routes.creator import router as creator_router
 from gw2radar.api.routes.goals import router as goals_router
 from gw2radar.api.routes.growth import router as growth_router
 from gw2radar.api.routes.guilds import guild_router, team_router
+from gw2radar.api.routes.kb import router as kb_router
 from gw2radar.api.routes.legendary import router as legendary_router
 from gw2radar.api.routes.market import router as market_router
 from gw2radar.api.routes.ops import router as ops_router
@@ -57,6 +58,7 @@ app.include_router(growth_router)
 app.include_router(guild_router)
 app.include_router(team_router)
 app.include_router(creator_router)
+app.include_router(kb_router)
 app.include_router(actions_router)
 app.include_router(reports_router)
 app.include_router(account_router)
