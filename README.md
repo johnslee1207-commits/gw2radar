@@ -2,8 +2,14 @@
 
 Legendary Goal Intelligence Edition.
 
+Repository navigation:
+
+- [Project Index](PROJECT_INDEX.md)
+- [Knowledge Base Overview](docs/knowledge_base/README.md)
+
 Before development, read:
 
+- `PROJECT_INDEX.md`
 - `GW2RADAR_PROJECT_CONSTITUTION.md`
 - `GW2RADAR_API_ACCESS_GOVERNANCE.md`
 - `docs/mvp/MVP_0_1_CODEX_DEVELOPMENT_SPEC.md`
@@ -13,6 +19,11 @@ This MVP validates one deterministic mock loop:
 ```text
 player goal -> requirements -> owned resources -> gap -> actions -> Markdown report
 ```
+
+The Knowledge Base is the explainable layer for report language, expert rules,
+source summaries, and future KB-backed recommendations. It complements the
+Knowledge Graph and must preserve attribution, avoid copied full text, and keep
+private player state out of public KB content.
 
 Run tests:
 
