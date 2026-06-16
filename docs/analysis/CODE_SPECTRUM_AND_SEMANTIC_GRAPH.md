@@ -2,11 +2,11 @@
 
 Date: 2026-06-16
 
-Scope: implemented code through MVP 0.1.1 plus Constitution/API Governance baseline.
+Scope: implemented code through MVP 0.1.8 plus Constitution/API Governance baseline.
 
 ## Executive Summary
 
-GW2Radar has reached a coherent MVP foundation. The strongest areas are ontology definition, mock legendary-goal inference, recommendation-only action generation, persistence round-trip, API hardening, and governance tests. The least mature areas are real GW2 API integration, asynchronous refresh processing, production key storage, export packaging, and public/private graph partition enforcement beyond tests and documents.
+GW2Radar has reached a coherent MVP foundation. The strongest areas are ontology definition, mock legendary-goal inference, recommendation-only action generation, persistence round-trip, API hardening, export packaging, graph layer enforcement, durable refresh state, encrypted local key storage, and governance tests. The least mature areas are release operations, API error-envelope consistency, partial repository updates for real sync, and production-grade secret management.
 
 The codebase is currently best described as:
 
@@ -22,9 +22,9 @@ It is not yet:
 
 ```text
 Real account ingestion product
-Real public GW2 knowledge graph
-Production data privacy boundary implementation
-Full delivery package exporter
+Real public GW2 knowledge graph at scale
+Production scheduling and monitoring plane
+External KMS / OS-vault backed secret storage
 ```
 
 ## Code Spectrum
@@ -36,23 +36,23 @@ Source scan summary:
 | ontology | enums and Pydantic semantic contracts | 11 | 1 | High |
 | graph | in-memory graph and mock graph builder | 1 | 17 | Medium-High |
 | inference | gap, material policy, action generation/ranking | 0 | 12 | Medium-High |
-| ingest | gateway, cache, limiter, queue, evidence writer, inert client | 14 | 26 | Medium |
-| db | SQLAlchemy models, repository, migration support | 7 | 19 | Medium-High |
+| ingest | gateway, cache, limiter, durable queue, sync services, evidence writer, safe client | 18 | 39 | Medium-High |
+| db | SQLAlchemy models, graph repository, refresh queue repository, migration support | 9 | 31 | Medium-High |
 | api | FastAPI routes and app state | 0 | 12 | Medium |
 | reports | Markdown report rendering | 0 | 3 | Medium |
-| config | runtime database setting | 1 | 1 | Medium |
+| config | runtime database and encryption settings | 1 | 1 | Medium |
 | fixtures | deterministic mock account/goal/items/tasks | 0 | 0 | High for MVP |
 | tests | unit, integration, governance, smoke | n/a | n/a | Medium-High |
 
 Current code volume signal:
 
-- 43 Python source files under `src/gw2radar`.
-- 34 extracted classes.
-- 91 extracted functions/methods.
-- 3 core enum classes.
-- 8 Pydantic model classes.
-- 5 SQLAlchemy persistence tables.
-- 21 pytest tests.
+- 56 Python source files under `src/gw2radar`.
+- 51 extracted classes.
+- 148 extracted functions/methods.
+- 6 core enum classes.
+- 10 Pydantic model classes.
+- 7 SQLAlchemy persistence tables.
+- 45 pytest tests.
 
 ## Semantic Graph
 
@@ -62,9 +62,11 @@ flowchart TD
   Governance --> Gateway["Gw2ApiGateway"]
   Gateway --> Cache["Endpoint TTL Cache"]
   Gateway --> Limiter["Token Bucket Rate Limiter"]
-  Gateway --> Queue["Request Queue"]
+  Gateway --> Queue["Durable Refresh Queue"]
   Gateway --> Client["GW2ApiClient Skeleton"]
   Gateway --> EvidenceWriter["Evidence Writer"]
+  Queue --> RefreshWorker["RefreshWorker"]
+  RefreshWorker --> Gateway
 
   Fixtures["Mock Fixtures"] --> GraphBuilder["Graph Builder"]
   GraphBuilder --> GraphData["GraphData"]
@@ -125,7 +127,7 @@ Maturity: high for MVP. Core values exist, gateway status is an enum, and batch/
 | Evidence | `Evidence`, `EvidenceModel`, `EvidenceWriter` | `evidence` | Governance fields added. |
 | Relation | `Relation`, `RelationModel` | `relations` | Important mock relations include evidence ids. |
 | Action | `Action`, `ActionModel` | `actions` | Recommendation-only constraints and evidence refs present. |
-| API Request | `QueuedRequest`, `GatewayResult` | in-memory only | Queue not persisted. |
+| API Request | `QueuedRequest`, `GatewayResult`, `RefreshQueueRepository` | SQLite durable queue plus in-memory gateway result | Retry metadata persists. |
 | Cache Entry | `CacheEntry` | in-memory only | TTL policy implemented in memory. |
 
 Maturity: medium-high for MVP graph, medium for governance/access entities.
@@ -151,24 +153,27 @@ Scores use a 0-5 scale:
 
 | Capability | Score | Assessment |
 |---|---:|---|
-| Constitution and safety governance | 4.2 | Strong baseline docs/tests plus API key deletion and account snapshot deletion. Production encrypted key storage remains future work. |
+| Constitution and safety governance | 4.2 | Strong baseline docs/tests plus API key deletion, encrypted local key storage, and account snapshot deletion. |
 | Ontology baseline | 4.0 | Core enums and schemas are explicit and tested. |
 | Mock graph construction | 4.0 | Deterministic Aurora graph works and has evidence. |
 | Goal gap inference | 4.0 | Rule is simple, deterministic, and tested. |
 | Material policy | 3.5 | HOLD/RESERVE logic works; SELL_SURPLUS remains intentionally conservative. |
 | Action generation | 3.5 | Required recommendations exist with explanations, evidence refs, constraints, ranking. More action types are enum-only. |
-| Markdown report | 3.0 | Required sections exist; report is not yet export-packaged or styled. |
-| SQLite persistence | 3.5 | Graph round-trip works; repository is coarse-grained replace/load. |
+| Markdown report | 3.5 | Required sections exist and are export-packaged. Styling remains simple. |
+| SQLite persistence | 3.8 | Graph round-trip works; queue and encrypted key metadata persist. Repository is still coarse-grained replace/load. |
 | FastAPI surface | 3.0 | MVP routes work; no API versioning/auth/error envelope yet. |
-| GW2 API access governance | 3.5 | Gateway/cache/limiter/429 skeleton exists with enum statuses, batch helper, TTL tests, retry metadata, and a safe HTTP client skeleton tested with fake transport. Durable queue is not implemented. |
+| GW2 API access governance | 3.6 | Gateway/cache/limiter/429 skeleton exists with enum statuses, batch helper, TTL tests, durable retry metadata, sync services, and a safe HTTP client skeleton tested with fake transport. |
 | Evidence governance | 3.5 | Evidence schema, masking, freshness/confidence evaluation, action downgrades, and report labels exist. |
-| Public/private graph separation | 3.0 | `graph_layer` exists on semantic and persistence objects; repository validates private/personal constraints. |
-| Test harness | 3.5 | 31+ tests plus smoke; coverage is good for MVP but lacks mutation and full golden export checks. |
-| Delivery export package | 3.5 | Markdown, gap CSV, actions CSV, and package manifest are implemented and tested. |
+| Public/private graph separation | 3.7 | `graph_layer` exists on semantic and persistence objects; repository validates private/personal constraints. |
+| Test harness | 3.7 | 45 tests plus smoke; coverage is good for MVP but lacks mutation and production sync smoke. |
+| Delivery export package | 3.8 | Markdown, gap CSV, actions CSV, and package manifest are implemented and tested. |
+| Durable refresh queue | 3.4 | SQLite queue with retry metadata and worker state transitions. |
+| Encrypted local key storage | 3.0 | Fernet-encrypted SQLite key storage; external vault remains future hardening. |
+| Account/public sync services | 3.0 | Gateway-bounded services with fake gateway tests; scheduling and monitoring remain future work. |
 
-Overall maturity: **3.2 / 5.0**
+Overall maturity: **3.85 / 5.0**
 
-Interpretation: GW2Radar is a solid governed MVP prototype with reliable mock intelligence, not yet a production ingestion/report delivery product.
+Interpretation: GW2Radar is a solid governed MVP prototype with reliable mock intelligence, deterministic exports, durable refresh state, and gateway-bounded sync services. It is not yet a production ingestion service.
 
 ## Function Maturity by Layer
 
@@ -186,31 +191,34 @@ Interpretation: GW2Radar is a solid governed MVP prototype with reliable mock in
 
 ### Partially Mature
 
-- API Gateway: safe skeleton, not a real GW2 API integration.
+- API Gateway: safe skeleton with fake-tested sync services, not an always-on production integration.
 - Cache and limiter: correct shape, in-memory only.
-- Request queue: stores delayed requests, no worker/processor.
+- Request queue: durable SQLite state exists; production scheduler is not implemented.
 - Evidence: fields, sanitization, freshness/confidence evaluation, report labels, and action downgrades exist.
 - Action schema: rich fields exist, but many enum action types are not generated yet.
 - FastAPI: functional MVP routes, no OpenAPI governance tags, API versioning, or auth.
 
 ### Immature / Missing
 
-- Durable refresh queue.
-- Production account sync, encrypted key storage, and durable refresh processing.
+- Uniform API error envelope and response schemas.
+- Production scheduler/monitoring for refresh workers.
+- External KMS or OS-vault backed key storage.
+- Partial repository updates for high-volume real sync.
 
 ## Priority Recommendations
 
-### P0: Report Export Package
+### P0: Release Readiness Hardening
 
-Reason: Converts current report-only output into a deterministic deliverable, matching the existing MVP direction without taking on real API risk.
+Reason: the previous maturity gaps have been closed for MVP. The next bottleneck is release readiness without expanding product scope.
 
 Deliverables:
 
-- Markdown report file.
-- `goal_gap.csv`.
-- `recommended_actions.csv`.
-- `package_manifest.json`.
-- Smoke check for required files.
+- Uniform API error envelope.
+- Route-level OpenAPI response schemas.
+- Fake-gateway smoke command for queue, account sync, and public item refresh.
+- Partial repository update methods for sync services.
+
+### Completed Priority Trail
 
 ### P1: Graph Layer Separation
 

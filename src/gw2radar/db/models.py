@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, Float, String
+from sqlalchemy import DateTime, Float, Integer, String, Text
 from sqlalchemy.dialects.sqlite import JSON
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -85,3 +85,30 @@ class ActionModel(Base):
     properties_json: Mapped[dict] = mapped_column(JSON, default=dict)
     explanation: Mapped[str] = mapped_column(String, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class RefreshQueueModel(Base):
+    __tablename__ = "refresh_queue"
+
+    request_id: Mapped[str] = mapped_column(String, primary_key=True)
+    endpoint: Mapped[str] = mapped_column(String, nullable=False)
+    params_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    priority: Mapped[str] = mapped_column(String, default="P3")
+    status: Mapped[str] = mapped_column(String, default="queued")
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    retry_after_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_error: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class ApiKeySecretModel(Base):
+    __tablename__ = "api_key_secrets"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    encrypted_value: Mapped[str] = mapped_column(Text, nullable=False)
+    masked_key: Mapped[str] = mapped_column(String, nullable=False)
+    storage: Mapped[str] = mapped_column(String, default="sqlite_fernet")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)

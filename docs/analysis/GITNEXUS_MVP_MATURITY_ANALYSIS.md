@@ -11,15 +11,11 @@ npx gitnexus analyze
 Index result:
 
 ```text
-1,242 nodes
-2,132 edges
-38 clusters
-62 flows
-Indexed commit: 185533e
-Status after analysis: up-to-date
+Previous indexed commit: 185533e
+Current implementation status: pending post-commit GitNexus re-run
 ```
 
-This report combines GitNexus graph findings with local AST extraction and the current MVP acceptance tests.
+This report combines prior GitNexus graph findings, local AST extraction, and the current MVP acceptance tests after the durable queue and sync-worker implementation.
 
 ## Code Spectrum
 
@@ -27,31 +23,31 @@ Current source spectrum under `src/gw2radar`:
 
 | Metric | Count |
 |---|---:|
-| Python source files | 51 |
-| Classes | 44 |
-| Functions / methods | 122 |
-| Enums | 5 |
+| Python source files | 56 |
+| Classes | 51 |
+| Functions / methods | 148 |
+| Enums | 6 |
 | Pydantic models | 10 |
-| SQLAlchemy models | 5 |
+| SQLAlchemy models | 7 |
 
 Domain spectrum:
 
 | Domain | Spectrum | Maturity Signal |
 |---|---|---|
-| `api` | 18 functions, 1 Pydantic request model | Functional MVP surface with lifecycle, goal, action, report, export routes. |
-| `config` | 1 settings model, 1 loader | Simple and adequate for MVP; no secret persistence. |
-| `db` | 5 SQLAlchemy models, repository, validators | Mature enough for MVP persistence and deletion flows. |
+| `api` | FastAPI route surface with account lifecycle | Functional MVP surface with lifecycle, goal, action, report, export routes. |
+| `config` | settings model and loader | Includes database URL, GW2 API key, and local API key encryption secret config. |
+| `db` | 7 SQLAlchemy models, graph repository, refresh queue repository | Mature enough for MVP persistence, deletion flows, durable queue, and encrypted key metadata. |
 | `exports` | export package builder | Deterministic package generation implemented. |
 | `graph` | in-memory graph and mock builder | Stable deterministic mock graph. |
 | `inference` | gap, policy, action, evidence quality | Core intelligence path is implemented and tested. |
-| `ingest` | gateway, client, cache, limiter, queue | Governance-first access boundary; real sync not yet productized. |
-| `ontology` | 4 enums, 8 Pydantic models | Strong semantic contract baseline. |
+| `ingest` | gateway, client, cache, limiter, durable queue, sync services, refresh worker | Governance-first access boundary with fake-tested real sync services. |
+| `ontology` | enums and Pydantic schemas | Strong semantic contract baseline. |
 | `reports` | Markdown renderer | Functional, evidence-aware, still simple. |
-| `security` | in-memory key lifecycle | Safe MVP behavior, not production encrypted storage. |
+| `security` | encrypted local key lifecycle | Fernet-encrypted SQLite key persistence with masked API responses. |
 
 ## GitNexus Flow Findings
 
-GitNexus surfaced these important flows:
+Prior GitNexus analysis surfaced these important flows:
 
 | Flow | Interpretation |
 |---|---|
@@ -59,20 +55,15 @@ GitNexus surfaced these important flows:
 | `post_generate_actions -> init_db/load_fixture/add_evidence/add_entity/quantity_owned` | Action generation crosses API, persistence, graph, and inference modules. |
 | `get_markdown_report -> build_mock_graph/add_evidence/add_entity` | Report generation can hydrate graph state and render evidence-backed output. |
 | `post_export_package -> load_fixture` | Export package route depends on existing graph/report/gap/action pipeline. |
-| `_format_evidence_notes -> evaluate_evidence_quality` | Evidence quality is now visible in report output. |
+| `_format_evidence_notes -> evaluate_evidence_quality` | Evidence quality is visible in report output. |
 
-Key GitNexus definition hits:
+New flow anchors added in this milestone:
 
-- `GraphRepository`
-- `GraphRepository.delete_account_snapshot`
-- `validate_graph_layers`
-- `GraphLayer`
-- `GraphData`
-- `EvidenceQuality`
-- `EvidenceQualitySummary`
-- `InMemoryApiKeyStore`
-- `Gw2ApiGateway`
-- gateway and graph governance tests
+- `RefreshQueueRepository.enqueue/mark_retry/next_due`;
+- `RefreshWorker.process_next`;
+- `EncryptedApiKeyStore.set/get/delete/status`;
+- `sync_account_snapshot`;
+- `refresh_public_items`.
 
 ## Semantic Graph
 
@@ -82,9 +73,11 @@ flowchart TD
   Governance --> Gateway["Gw2ApiGateway"]
   Gateway --> Cache["TTL Cache"]
   Gateway --> Limiter["Token Bucket"]
-  Gateway --> Queue["Request Queue"]
+  Gateway --> Queue["Durable Refresh Queue"]
   Gateway --> Client["GW2ApiClient Skeleton"]
   Gateway --> EvidenceWriter["EvidenceWriter"]
+  Queue --> RefreshWorker["RefreshWorker"]
+  RefreshWorker --> Gateway
 
   Fixtures["Mock Fixtures"] --> GraphBuilder["build_mock_graph"]
   GraphBuilder --> GraphData["GraphData"]
@@ -112,15 +105,23 @@ flowchart TD
   API --> Report
   API --> ExportPackage
   API --> AccountLifecycle["API Key + Snapshot Deletion"]
-  AccountLifecycle --> KeyStore["InMemoryApiKeyStore"]
+  AccountLifecycle --> KeyStore["EncryptedApiKeyStore"]
   AccountLifecycle --> Repo
 
-  Tests["40 pytest tests + smoke"] --> API
+  Gateway --> AccountSync["Account Snapshot Sync"]
+  Gateway --> PublicRefresh["Public Item Refresh"]
+  AccountSync --> GraphData
+  PublicRefresh --> GraphData
+
+  Tests["Pytest + Smoke Harness"] --> API
   Tests --> Repo
   Tests --> Gateway
   Tests --> EvidenceQuality
   Tests --> ExportPackage
-  Tests --> AccountLifecycle
+  Tests --> Queue
+  Tests --> KeyStore
+  Tests --> AccountSync
+  Tests --> PublicRefresh
 ```
 
 ## Triple-Axis Ontology Extraction
@@ -134,6 +135,7 @@ flowchart TD
 | `ActionType` | `ontology/action_types.py` | hold, farm, buy, do_daily, complete_achievement, etc. | High |
 | `GraphLayer` | `ontology/graph_layers.py` | public_game, private_player_state, personal_intelligence | High |
 | `GatewayStatus` | `ingest/gateway_status.py` | ok, cache_hit, refresh_pending, rate_limited_retrying | High |
+| `RefreshQueueStatus` | `ingest/refresh_queue_status.py` | queued, delayed, processing, succeeded, failed | High |
 | request priority | `ingest/request_queue.py` | P0-P4 policy string | Medium |
 | action urgency | `ontology/schemas.py` | low, medium, high string | Medium |
 
@@ -148,9 +150,9 @@ flowchart TD
 | Action | `Action`, `ActionModel` | SQLite | Medium-High |
 | GraphData | `graph_query.py` | in-memory plus repository hydration | Medium-High |
 | GatewayResult | `gw2_api_gateway.py` | in-memory | Medium |
-| QueuedRequest | `request_queue.py` | in-memory | Medium-Low |
+| QueuedRequest | `request_queue.py`, `refresh_queue_repository.py` | SQLite durable queue | Medium-High |
+| ApiKeyStatus | `security/api_key_store.py` | Fernet-encrypted SQLite storage | Medium-High for MVP |
 | ExportPackage | `exports/package_builder.py` | filesystem artifacts | Medium-High |
-| ApiKeyStatus | `security/api_key_store.py` | in-memory only | Medium for MVP |
 
 ### Constraint Axis
 
@@ -160,12 +162,14 @@ flowchart TD
 | No client/memory interaction | No modules for client control | governance scan | Low |
 | No proxy/IP rotation | Gateway/client omit these features | governance/gateway tests | Low |
 | API access through gateway | gateway skeleton and HTTP scan test | governance tests | Medium |
-| API key masking | `mask_api_key`, key lifecycle, fake transport tests | client/security tests | Medium until production storage exists |
+| API key masking and storage | `mask_api_key`, `EncryptedApiKeyStore`, key lifecycle tests | client/security tests | Medium until KMS or OS vault integration exists |
 | Private/public graph separation | `GraphLayer`, repository validation | graph layer tests | Medium |
 | Evidence freshness/confidence | `evidence_quality.py` | evidence tests | Medium |
-| 429 handling | gateway status and queue metadata | gateway tests | Medium |
+| 429 handling | gateway status and durable retry metadata | gateway/queue tests | Medium |
 | Deterministic export package | package builder + manifest | export/smoke tests | Low-Medium |
 | Account snapshot deletion | repository deletion + API route | lifecycle tests | Medium |
+| Account snapshot sync | gateway-bounded sync service | fake gateway tests | Medium |
+| Public item refresh | gateway batch service | fake gateway tests | Medium |
 
 ## MVP Functional Maturity
 
@@ -181,17 +185,18 @@ Scoring: 0 = absent, 5 = production-grade.
 | Action generation | 3.8 | Explanations, reason codes, evidence refs, quality downgrades. |
 | Evidence governance | 3.7 | Masking, freshness/confidence, report labels, action effects. |
 | Graph layer separation | 3.7 | Schema + DB fields + repository validation. |
-| SQLite persistence | 3.7 | Replace/load/delete flows, migrations. Repository still coarse-grained. |
+| SQLite persistence | 3.8 | Replace/load/delete flows, queue, key metadata, migrations. Repository still coarse-grained. |
 | FastAPI MVP surface | 3.5 | Health, mock load, goals, gap, actions, reports, export, lifecycle. |
 | Export package | 3.8 | Markdown/CSV/manifest package, deterministic and tested. |
-| GW2 API gateway/client | 3.2 | Safe fake-tested skeleton. No real sync worker yet. |
-| Refresh queue durability | 1.5 | In-memory queue only. |
-| Production key storage | 1.5 | In-memory only; encryption intentionally deferred. |
-| Real account ingestion | 1.0 | Client skeleton exists; no account snapshot sync pipeline. |
+| GW2 API gateway/client | 3.6 | Safe fake-tested skeleton with sync services and worker contracts behind the gateway. |
+| Refresh queue durability | 3.4 | SQLite queue, retry metadata, status transitions, and one-step worker contract. |
+| Production key storage | 3.0 | Local Fernet-encrypted SQLite storage; KMS or OS vault remains future production hardening. |
+| Real account ingestion | 3.0 | Account snapshot sync service writes private player state using gateway fake transport tests. |
+| Public static data refresh | 3.2 | Public item batch refresh writes public-game entities through gateway contract. |
 
-Overall MVP maturity: **3.55 / 5.0**.
+Overall MVP maturity: **3.85 / 5.0**.
 
-Interpretation: GW2Radar is now a governed, test-backed MVP substrate. It can generate deterministic legendary-goal intelligence packages from mock data and has safety boundaries for future real API work. It is not yet a production account-ingestion system.
+Interpretation: GW2Radar is now a governed, test-backed MVP substrate with durable refresh state, encrypted local key storage, and gateway-bounded sync services. It is still not a production account-ingestion service until scheduling, monitoring, and external secret management are added.
 
 ## Feature Completion Matrix
 
@@ -210,43 +215,26 @@ Interpretation: GW2Radar is now a governed, test-backed MVP substrate. It can ge
 | API governance skeleton | Complete for MVP |
 | Safe API client skeleton | Complete for MVP |
 | Evidence quality downgrades | Complete for MVP |
-| API key delete | Complete for MVP memory-only store |
+| API key delete | Complete for MVP encrypted local store |
 | Account snapshot delete | Complete for MVP |
-| Durable refresh queue | Not implemented |
-| Production encrypted key storage | Not implemented |
-| Real GW2 account sync | Not implemented |
-| Real public data refresh worker | Not implemented |
+| Durable refresh queue | Complete for MVP |
+| Production encrypted key storage | Complete for local MVP; external vault deferred |
+| Real GW2 account sync | Complete for MVP service layer with fake transport tests |
+| Real public data refresh worker | Complete for MVP service layer with fake transport tests |
 
 ## Recommended Next Priority
 
-### P0: Durable Refresh Queue
+### P0: Release Readiness Hardening
 
-Reason: GitNexus shows the access/governance path now has gateway, limiter, queue, client, and evidence writer, but the queue is still in-memory. Before any real account sync or public data refresh, retry tasks must survive process restarts and have clear state transitions.
+Reason: the previously immature infrastructure paths are now implemented for MVP. The next highest-value work is making the API and operations surface release-ready without expanding product scope.
 
 Minimum deliverables:
 
-- SQLite `refresh_queue` table.
-- `RefreshQueueStatus` enum: queued, delayed, processing, succeeded, failed.
-- repository for enqueue/list/mark_retry/mark_done/mark_failed.
-- no background worker yet unless explicitly scoped.
-- tests proving 429 retry metadata persists.
-
-### P1: Account Snapshot Sync Pipeline
-
-Only after durable queue exists:
-
-- use `Gw2ApiGateway`;
-- use fake transport in tests;
-- no real key snapshots;
-- write private player state into private layer only.
-
-### P2: Public Static Data Refresh
-
-Only after queue and account sync contract:
-
-- batch public endpoints;
-- cache TTLs;
-- public_game layer only.
+- uniform API error envelope;
+- route-level OpenAPI response schemas;
+- repository update operations for partial sync instead of full graph replacement only;
+- fake-gateway smoke command covering refresh queue, account sync, and public item refresh together;
+- GitNexus re-analysis after commit.
 
 ## Constitution Compliance Summary
 
@@ -256,21 +244,10 @@ Only after queue and account sync contract:
 - Automated trading: absent.
 - Proxy/IP rotation: absent.
 - API key logging: not present in implemented client/tests.
-- Raw evidence key storage: sanitized.
+- Raw evidence key storage: sanitized or encrypted.
 - Public/private layer leakage: guarded by repository validation.
 - Recommendation-only boundary: present in actions, reports, and export manifest.
 
 ## Notes on GitNexus Coverage
 
-GitNexus indexed the repository at commit `185533e`, which matches the current HEAD when analysis was run. The graph reported 62 flows and highlighted the core MVP paths:
-
-- mock load;
-- action generation;
-- markdown reporting;
-- export package;
-- evidence quality formatting;
-- graph layer validation;
-- account snapshot deletion;
-- gateway governance.
-
-The analysis should be re-run after the next implementation milestone because GitNexus indexes by commit.
+GitNexus should be re-run after this implementation is committed because it indexes by commit. The post-commit graph should include the new durable queue, refresh worker, encrypted key store, account snapshot sync, and public item refresh anchors.

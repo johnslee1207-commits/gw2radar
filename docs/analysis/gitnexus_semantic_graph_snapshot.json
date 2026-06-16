@@ -1,21 +1,21 @@
 {
   "source": "gitnexus+ast",
   "snapshot_date": "2026-06-16",
-  "indexed_commit": "185533e",
+  "indexed_commit": "post-implementation-working-tree",
   "gitnexus": {
     "nodes": 1242,
     "edges": 2132,
     "clusters": 38,
     "flows": 62,
-    "status": "up-to-date"
+    "status": "pending-post-commit-rerun"
   },
   "code_spectrum": {
-    "python_files": 51,
-    "classes": 44,
-    "functions": 122,
-    "enums": 5,
+    "python_files": 56,
+    "classes": 51,
+    "functions": 148,
+    "enums": 6,
     "pydantic_models": 10,
-    "sqlalchemy_models": 5
+    "sqlalchemy_models": 7
   },
   "semantic_nodes": [
     "Constitution",
@@ -34,8 +34,11 @@
     "Export Package",
     "Gw2ApiGateway",
     "GW2ApiClient Skeleton",
-    "Request Queue",
-    "InMemoryApiKeyStore",
+    "Durable Refresh Queue",
+    "RefreshWorker",
+    "EncryptedApiKeyStore",
+    "Account Snapshot Sync",
+    "Public Item Refresh",
     "Account Snapshot Deletion",
     "FastAPI Routes",
     "Pytest Smoke Harness"
@@ -44,7 +47,9 @@
     ["Constitution", "API Governance", "governs"],
     ["API Governance", "Gw2ApiGateway", "requires"],
     ["Gw2ApiGateway", "GW2ApiClient Skeleton", "wraps"],
-    ["Gw2ApiGateway", "Request Queue", "uses"],
+    ["Gw2ApiGateway", "Durable Refresh Queue", "uses"],
+    ["Durable Refresh Queue", "RefreshWorker", "feeds"],
+    ["RefreshWorker", "Gw2ApiGateway", "calls"],
     ["Mock Fixtures", "GraphData", "builds"],
     ["GraphData", "GraphRepository", "persists_through"],
     ["GraphRepository", "SQLite Models", "maps_to"],
@@ -54,8 +59,12 @@
     ["Evidence Quality", "Action Generator", "downgrades"],
     ["Action Generator", "Markdown Report", "renders"],
     ["Action Generator", "Export Package", "exports"],
-    ["InMemoryApiKeyStore", "FastAPI Routes", "serves"],
+    ["EncryptedApiKeyStore", "FastAPI Routes", "serves"],
     ["Account Snapshot Deletion", "GraphRepository", "deletes_private_and_personal_layers"],
+    ["Gw2ApiGateway", "Account Snapshot Sync", "bounds"],
+    ["Gw2ApiGateway", "Public Item Refresh", "bounds"],
+    ["Account Snapshot Sync", "GraphData", "writes_private_player_state"],
+    ["Public Item Refresh", "GraphData", "writes_public_game_entities"],
     ["Pytest Smoke Harness", "FastAPI Routes", "verifies"]
   ],
   "maturity_scores": {
@@ -67,14 +76,15 @@
     "action_generation": 3.8,
     "evidence_governance": 3.7,
     "graph_layer_separation": 3.7,
-    "sqlite_persistence": 3.7,
+    "sqlite_persistence": 3.8,
     "fastapi_surface": 3.5,
     "export_package": 3.8,
-    "gw2_api_gateway_client": 3.2,
-    "durable_refresh_queue": 1.5,
-    "production_key_storage": 1.5,
-    "real_account_ingestion": 1.0
+    "gw2_api_gateway_client": 3.6,
+    "durable_refresh_queue": 3.4,
+    "production_key_storage": 3.0,
+    "real_account_ingestion": 3.0,
+    "public_static_data_refresh": 3.2
   },
-  "overall_maturity": 3.55,
-  "next_priority": "Durable Refresh Queue"
+  "overall_maturity": 3.85,
+  "next_priority": "Release Readiness Hardening"
 }

@@ -33,3 +33,14 @@ class RequestQueue:
 
     def delayed(self) -> list[QueuedRequest]:
         return list(self._items)
+
+
+class DurableRequestQueue(RequestQueue):
+    def __init__(self, repository) -> None:
+        super().__init__()
+        self.repository = repository
+
+    def enqueue(self, request: QueuedRequest) -> QueuedRequest:
+        super().enqueue(request)
+        self.repository.enqueue(request)
+        return request

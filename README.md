@@ -32,6 +32,7 @@ Runtime configuration:
 
 ```bash
 set GW2RADAR_DATABASE_URL=sqlite:///./gw2radar.db
+set GW2RADAR_API_KEY_ENCRYPTION_SECRET=replace-with-local-secret
 ```
 
 `/mock/load` writes the deterministic mock graph into SQLite. API reads can rebuild
@@ -53,9 +54,9 @@ GW2 API access remains behind `Gw2ApiGateway`. MVP gateway contracts include enu
 
 Evidence confidence and freshness affect recommendations. Low-confidence or stale evidence downgrades action urgency and priority, and reports label evidence quality.
 
-The GW2 API client skeleton supports safe HTTP request construction behind the gateway. Tests use fake transport; production key storage and full account sync are not implemented.
+The GW2 API client skeleton supports safe HTTP request construction behind the gateway. Tests use fake transport, while sync services use the same gateway contract for account snapshots and public item refreshes.
 
-API key lifecycle endpoints use process memory only:
+API key lifecycle endpoints store a masked status and Fernet-encrypted key in local SQLite:
 
 ```http
 GET /account/api-key/status
@@ -63,3 +64,5 @@ PUT /account/api-key
 DELETE /account/api-key
 DELETE /account/snapshot
 ```
+
+Refresh requests can be persisted through `RefreshQueueRepository` and processed one at a time by `RefreshWorker`. Retry metadata survives process restarts through the `refresh_queue` table.
