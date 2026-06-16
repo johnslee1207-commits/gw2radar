@@ -9,4 +9,6 @@ def test_markdown_report_contains_required_sections() -> None:
     assert "## Active Goal" in report
     assert "## Missing Requirements" in report
     assert "## Recommended Actions Today" in report
+    assert "## Evidence Notes" in report
+    assert "Evidence confidence: high" in report
     assert "Aurora" in report

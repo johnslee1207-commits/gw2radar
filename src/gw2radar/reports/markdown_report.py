@@ -1,5 +1,6 @@
 from gw2radar.graph.graph_query import GraphData
 from gw2radar.inference.action_generator import generate_actions
+from gw2radar.inference.evidence_quality import evaluate_evidence_quality
 from gw2radar.inference.goal_gap import calculate_goal_gap
 from gw2radar.ontology.action_types import ActionType
 from gw2radar.ontology.schemas import Action, GoalGapItem
@@ -42,7 +43,7 @@ def generate_markdown_report(graph: GraphData, goal_id: str) -> str:
         *_format_actions(week),
         "",
         "## Evidence Notes",
-        "- Data source: mock fixtures for MVP 0.1.",
+        *_format_evidence_notes(graph),
         "- Recommendations are informational only and require manual player action.",
     ]
     return "\n".join(lines) + "\n"
@@ -66,7 +67,26 @@ def _format_actions(actions: list[Action]) -> list[str]:
     return [
         (
             f"- {action.title} (priority {action.priority_score:.2f})\n"
-            f"  - Reason: {action.explanation}"
+            f"  - Reason: {action.explanation}\n"
+            f"  - Evidence quality: {action.properties.get('evidence_quality', {}).get('confidence_label', 'unknown')}"
         )
         for action in actions
     ]
+
+
+def _format_evidence_notes(graph: GraphData) -> list[str]:
+    evidence_refs = list(graph.evidence.keys())
+    summary = evaluate_evidence_quality(graph, evidence_refs)
+    notes = [
+        f"- Evidence confidence: {summary.confidence_label}",
+        f"- Minimum confidence: {summary.min_confidence:.2f}",
+        f"- Stale evidence present: {str(summary.has_stale).lower()}",
+    ]
+    if graph.evidence:
+        for evidence in graph.evidence.values():
+            notes.append(
+                f"- Source {evidence.id}: type={evidence.source_type}, confidence={evidence.confidence:.2f}"
+            )
+    else:
+        notes.append("- No evidence records available; recommendations should be treated as low confidence.")
+    return notes

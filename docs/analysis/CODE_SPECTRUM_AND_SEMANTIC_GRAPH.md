@@ -161,10 +161,10 @@ Scores use a 0-5 scale:
 | SQLite persistence | 3.5 | Graph round-trip works; repository is coarse-grained replace/load. |
 | FastAPI surface | 3.0 | MVP routes work; no API versioning/auth/error envelope yet. |
 | GW2 API access governance | 3.0 | Gateway/cache/limiter/429 skeleton exists with enum statuses, batch helper, TTL tests, and retry metadata. Real client and durable queue are not implemented. |
-| Evidence governance | 3.0 | Evidence schema and masking exist; confidence/staleness rules are not yet enforced by inference. |
+| Evidence governance | 3.5 | Evidence schema, masking, freshness/confidence evaluation, action downgrades, and report labels exist. |
 | Public/private graph separation | 3.0 | `graph_layer` exists on semantic and persistence objects; repository validates private/personal constraints. |
-| Test harness | 3.5 | 21 tests plus smoke; coverage is good for MVP but lacks mutation/contract/golden export checks. |
-| Delivery export package | 1.0 | Markdown report exists, but package manifest/CSV export is not implemented for GW2Radar. |
+| Test harness | 3.5 | 31+ tests plus smoke; coverage is good for MVP but lacks mutation and full golden export checks. |
+| Delivery export package | 3.5 | Markdown, gap CSV, actions CSV, and package manifest are implemented and tested. |
 
 Overall maturity: **3.2 / 5.0**
 
@@ -189,19 +189,15 @@ Interpretation: GW2Radar is a solid governed MVP prototype with reliable mock in
 - API Gateway: safe skeleton, not a real GW2 API integration.
 - Cache and limiter: correct shape, in-memory only.
 - Request queue: stores delayed requests, no worker/processor.
-- Evidence: fields and sanitization exist, but no staleness/validity enforcement.
+- Evidence: fields, sanitization, freshness/confidence evaluation, report labels, and action downgrades exist.
 - Action schema: rich fields exist, but many enum action types are not generated yet.
 - FastAPI: functional MVP routes, no OpenAPI governance tags, API versioning, or auth.
 
 ### Immature / Missing
 
-- Report export package with CSV/manifest.
 - Durable refresh queue.
 - Real GW2 API client with conservative HTTP implementation.
 - API key lifecycle: add/delete key endpoints and encrypted storage.
-- Public/private graph physical separation.
-- Source freshness and low-confidence propagation.
-- Batch endpoint abstraction for real item/price/achievement calls.
 
 ## Priority Recommendations
 
@@ -251,6 +247,8 @@ Deliverables:
 - stale evidence check.
 - minimum confidence threshold for strong recommendations.
 - report labels for mock/stale/low-confidence evidence.
+
+Status: implemented in MVP 0.1.5.
 
 ### P4: Real GW2 API Client Skeleton Upgrade
 

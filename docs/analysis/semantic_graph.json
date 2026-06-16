@@ -68,14 +68,13 @@
     "sqlite_persistence": 3.5,
     "fastapi_surface": 3.0,
     "gw2_api_access_governance": 3.0,
-    "evidence_governance": 3.0,
+    "evidence_governance": 3.5,
     "public_private_graph_separation": 3.0,
     "test_harness": 3.5,
     "delivery_export_package": 1.0
   },
   "recommended_priorities": [
     "P0 Report Export Package",
-    "P3 Evidence Freshness and Confidence Rules",
     "P4 Real GW2 API Client Skeleton Upgrade"
   ]
 }

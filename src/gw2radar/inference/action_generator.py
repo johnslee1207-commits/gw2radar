@@ -1,5 +1,6 @@
 from gw2radar.graph.graph_query import GraphData
 from gw2radar.inference.action_ranker import rank_action
+from gw2radar.inference.evidence_quality import apply_evidence_quality_to_action
 from gw2radar.inference.goal_gap import calculate_goal_gap
 from gw2radar.inference.material_policy import generate_material_policy_actions
 from gw2radar.ontology.action_types import ActionType
@@ -21,7 +22,8 @@ def generate_actions(graph: GraphData, goal_id: str) -> list[Action]:
         elif missing.entity_type == EntityType.ACHIEVEMENT:
             actions.append(_achievement_action(graph, goal_id, missing.entity_id, missing.name))
 
-    actions = sorted(_dedupe_actions(actions), key=lambda action: action.priority_score, reverse=True)
+    actions = [apply_evidence_quality_to_action(graph, action) for action in _dedupe_actions(actions)]
+    actions = sorted(actions, key=lambda action: action.priority_score, reverse=True)
     graph.replace_actions_for_goal(goal_id, actions)
     _add_advances_goal_relations(graph, goal_id, actions)
     return actions

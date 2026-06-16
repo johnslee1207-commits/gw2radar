@@ -41,3 +41,9 @@ MVP 0.1.3 graph layer separation:
 - Player-owned account facts use `private_player_state`.
 - Derived gaps and recommendations use `personal_intelligence`.
 - Repository validation prevents private player state from being persisted as public graph data.
+
+MVP 0.1.5 evidence quality:
+
+- Low-confidence evidence downgrades action urgency and priority.
+- Stale evidence is marked in reports.
+- Reports include evidence confidence, stale status, and source notes.

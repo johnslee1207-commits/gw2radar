@@ -30,3 +30,5 @@ def test_all_actions_have_governance_fields() -> None:
     assert all(action.reason_codes for action in actions)
     assert all(action.evidence_refs for action in actions)
     assert all(action.constraints.get("recommendation_only") is True for action in actions)
+    assert all("evidence_confidence" in action.constraints for action in actions)
+    assert all("evidence_quality" in action.properties for action in actions)
