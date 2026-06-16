@@ -53,3 +53,9 @@ MVP 0.1.6 GW2 API client skeleton:
 - Safe HTTP request construction exists behind `Gw2ApiGateway`.
 - API keys are passed through Authorization headers, not URLs.
 - Tests use fake transport; no real API calls are required for MVP acceptance.
+
+MVP 0.1.7 lifecycle:
+
+- API keys can be stored in process memory and deleted.
+- API key API responses only return masked keys.
+- Account snapshots can be deleted while public game graph data remains.

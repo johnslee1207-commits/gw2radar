@@ -58,7 +58,7 @@
     {"from": "tests", "to": "constitution", "type": "verifies"}
   ],
   "maturity_scores": {
-    "constitution_and_governance": 4.0,
+    "constitution_and_governance": 4.2,
     "ontology_baseline": 4.0,
     "mock_graph_construction": 4.0,
     "goal_gap_inference": 4.0,
@@ -75,6 +75,6 @@
   },
   "recommended_priorities": [
     "P0 Report Export Package",
-    "Next: API Key Lifecycle and Account Snapshot Deletion"
+    "Next: Durable Refresh Queue"
   ]
 }

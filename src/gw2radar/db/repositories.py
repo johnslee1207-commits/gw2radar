@@ -62,6 +62,29 @@ class GraphRepository:
         graph.actions.extend(_model_to_action(model) for model in action_models)
         return graph
 
+    def delete_account_snapshot(self) -> dict[str, int]:
+        deleted_actions = self.session.query(ActionModel).filter(
+            ActionModel.graph_layer == GraphLayer.PERSONAL_INTELLIGENCE.value
+        ).delete(synchronize_session=False)
+        deleted_player_state = self.session.query(PlayerStateModel).filter(
+            PlayerStateModel.graph_layer == GraphLayer.PRIVATE_PLAYER_STATE.value
+        ).delete(synchronize_session=False)
+        deleted_private_relations = self.session.query(RelationModel).filter(
+            RelationModel.graph_layer.in_(
+                [GraphLayer.PRIVATE_PLAYER_STATE.value, GraphLayer.PERSONAL_INTELLIGENCE.value]
+            )
+        ).delete(synchronize_session=False)
+        deleted_private_entities = self.session.query(EntityModel).filter(
+            EntityModel.graph_layer == GraphLayer.PRIVATE_PLAYER_STATE.value
+        ).delete(synchronize_session=False)
+        self.session.commit()
+        return {
+            "actions": deleted_actions,
+            "player_state": deleted_player_state,
+            "relations": deleted_private_relations,
+            "entities": deleted_private_entities,
+        }
+
 
 def validate_graph_layers(graph: GraphData) -> None:
     for state in graph.player_state:

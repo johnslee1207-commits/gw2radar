@@ -36,6 +36,12 @@ def load_graph_from_db() -> GraphData | None:
         return GraphRepository(session).load_graph()
 
 
+def delete_account_snapshot() -> dict[str, int]:
+    init_db()
+    with db_session.SessionLocal() as session:
+        return GraphRepository(session).delete_account_snapshot()
+
+
 def reset_cached_graph() -> None:
     global _graph
     _graph = None

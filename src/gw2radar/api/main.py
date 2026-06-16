@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from gw2radar.api.routes.account import router as account_router
 from gw2radar.api.routes.actions import router as actions_router
 from gw2radar.api.routes.goals import router as goals_router
 from gw2radar.api.routes.reports import router as reports_router
@@ -38,3 +39,4 @@ def load_mock_data() -> dict[str, int | str]:
 app.include_router(goals_router)
 app.include_router(actions_router)
 app.include_router(reports_router)
+app.include_router(account_router)

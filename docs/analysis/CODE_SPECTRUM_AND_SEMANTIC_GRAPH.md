@@ -151,7 +151,7 @@ Scores use a 0-5 scale:
 
 | Capability | Score | Assessment |
 |---|---:|---|
-| Constitution and safety governance | 4.0 | Strong baseline docs and tests; production enforcement hooks still limited. |
+| Constitution and safety governance | 4.2 | Strong baseline docs/tests plus API key deletion and account snapshot deletion. Production encrypted key storage remains future work. |
 | Ontology baseline | 4.0 | Core enums and schemas are explicit and tested. |
 | Mock graph construction | 4.0 | Deterministic Aurora graph works and has evidence. |
 | Goal gap inference | 4.0 | Rule is simple, deterministic, and tested. |
@@ -196,8 +196,7 @@ Interpretation: GW2Radar is a solid governed MVP prototype with reliable mock in
 ### Immature / Missing
 
 - Durable refresh queue.
-- Production account sync and durable refresh processing.
-- API key lifecycle: add/delete key endpoints and encrypted storage.
+- Production account sync, encrypted key storage, and durable refresh processing.
 
 ## Priority Recommendations
 

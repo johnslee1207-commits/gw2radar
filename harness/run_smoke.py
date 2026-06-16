@@ -35,6 +35,8 @@ def main() -> int:
         actions = client.post("/goals/gw2:goal:aurora/actions/generate")
         report = client.get("/reports/gw2:goal:aurora/markdown")
         export_package = client.post("/reports/gw2:goal:aurora/export-package")
+        key_put = client.put("/account/api-key", json={"api_key": "12345678-abcdef-secret-key"})
+        key_delete = client.delete("/account/api-key")
     finally:
         close_database()
         state.reset_cached_graph()
@@ -76,6 +78,11 @@ def main() -> int:
         manifest.get("schema_version") == "gw2radar.export_package.v1",
         {file["name"] for file in manifest.get("files", [])}
         == {"goal_report.md", "goal_gap.csv", "recommended_actions.csv", "package_manifest.json"},
+        key_put.status_code == 200,
+        key_put.json().get("masked_key") == "1234...-key",
+        "12345678-abcdef-secret-key" not in str(key_put.json()),
+        key_delete.status_code == 200,
+        key_delete.json().get("is_configured") is False,
     ]
     shutil.rmtree(ROOT / "outputs", ignore_errors=True)
     if not all(checks):

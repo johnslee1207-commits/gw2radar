@@ -54,3 +54,12 @@ GW2 API access remains behind `Gw2ApiGateway`. MVP gateway contracts include enu
 Evidence confidence and freshness affect recommendations. Low-confidence or stale evidence downgrades action urgency and priority, and reports label evidence quality.
 
 The GW2 API client skeleton supports safe HTTP request construction behind the gateway. Tests use fake transport; production key storage and full account sync are not implemented.
+
+API key lifecycle endpoints use process memory only:
+
+```http
+GET /account/api-key/status
+PUT /account/api-key
+DELETE /account/api-key
+DELETE /account/snapshot
+```
