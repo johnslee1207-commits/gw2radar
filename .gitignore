@@ -5,6 +5,8 @@ __pycache__/
 .test_tmp/
 .mypy_cache/
 .ruff_cache/
+.gitnexus/
+.claude/
 .venv/
 venv/
 env/
