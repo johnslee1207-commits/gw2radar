@@ -11,11 +11,15 @@ npx gitnexus analyze
 Index result:
 
 ```text
-Previous indexed commit: 185533e
-Current implementation status: pending post-commit GitNexus re-run
+1,625 nodes
+2,805 edges
+50 clusters
+77 flows
+Indexed commit: current up-to-date graph-analysis commit
+Status after analysis: up-to-date
 ```
 
-This report combines prior GitNexus graph findings, local AST extraction, and the current MVP acceptance tests after the durable queue and sync-worker implementation.
+This report combines GitNexus graph findings, local AST extraction, and the current MVP acceptance tests after the detailed durable queue contract implementation.
 
 ## Code Spectrum
 
@@ -23,11 +27,11 @@ Current source spectrum under `src/gw2radar`:
 
 | Metric | Count |
 |---|---:|
-| Python source files | 56 |
-| Classes | 51 |
-| Functions / methods | 148 |
-| Enums | 6 |
-| Pydantic models | 10 |
+| Python source files | 57 |
+| Classes | 55 |
+| Functions / methods | 158 |
+| Enums | 8 |
+| Pydantic models | 12 |
 | SQLAlchemy models | 7 |
 
 Domain spectrum:
@@ -36,11 +40,11 @@ Domain spectrum:
 |---|---|---|
 | `api` | FastAPI route surface with account lifecycle | Functional MVP surface with lifecycle, goal, action, report, export routes. |
 | `config` | settings model and loader | Includes database URL, GW2 API key, and local API key encryption secret config. |
-| `db` | 7 SQLAlchemy models, graph repository, refresh queue repository | Mature enough for MVP persistence, deletion flows, durable queue, and encrypted key metadata. |
+| `db` | 7 SQLAlchemy models, graph repository, detailed refresh queue repository | Mature enough for MVP persistence, deletion flows, durable queue, leases, retry metadata, and encrypted key metadata. |
 | `exports` | export package builder | Deterministic package generation implemented. |
 | `graph` | in-memory graph and mock builder | Stable deterministic mock graph. |
 | `inference` | gap, policy, action, evidence quality | Core intelligence path is implemented and tested. |
-| `ingest` | gateway, client, cache, limiter, durable queue, sync services, refresh worker | Governance-first access boundary with fake-tested real sync services. |
+| `ingest` | gateway, client, cache, limiter, detailed durable queue schemas, sync services, refresh worker | Governance-first access boundary with fake-tested real sync services and queue contract schemas. |
 | `ontology` | enums and Pydantic schemas | Strong semantic contract baseline. |
 | `reports` | Markdown renderer | Functional, evidence-aware, still simple. |
 | `security` | encrypted local key lifecycle | Fernet-encrypted SQLite key persistence with masked API responses. |
@@ -57,9 +61,9 @@ Prior GitNexus analysis surfaced these important flows:
 | `post_export_package -> load_fixture` | Export package route depends on existing graph/report/gap/action pipeline. |
 | `_format_evidence_notes -> evaluate_evidence_quality` | Evidence quality is visible in report output. |
 
-New flow anchors added in this milestone:
+Important post-MVP flow anchors now present:
 
-- `RefreshQueueRepository.enqueue/mark_retry/next_due`;
+- `RefreshQueueRepository.enqueue/lease_next/mark_retry/mark_done/mark_failed/delete_completed_older_than`;
 - `RefreshWorker.process_next`;
 - `EncryptedApiKeyStore.set/get/delete/status`;
 - `sync_account_snapshot`;
@@ -77,6 +81,7 @@ flowchart TD
   Gateway --> Client["GW2ApiClient Skeleton"]
   Gateway --> EvidenceWriter["EvidenceWriter"]
   Queue --> RefreshWorker["RefreshWorker"]
+  Queue --> QueueContract["Refresh Queue Detailed Contract"]
   RefreshWorker --> Gateway
 
   Fixtures["Mock Fixtures"] --> GraphBuilder["build_mock_graph"]

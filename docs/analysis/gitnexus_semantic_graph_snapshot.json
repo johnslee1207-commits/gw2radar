@@ -1,20 +1,20 @@
 {
   "source": "gitnexus+ast",
   "snapshot_date": "2026-06-16",
-  "indexed_commit": "post-implementation-working-tree",
+  "indexed_commit": "current-up-to-date-graph-analysis-commit",
   "gitnexus": {
-    "nodes": 1242,
-    "edges": 2132,
-    "clusters": 38,
-    "flows": 62,
-    "status": "pending-post-commit-rerun"
+    "nodes": 1625,
+    "edges": 2805,
+    "clusters": 50,
+    "flows": 77,
+    "status": "up-to-date"
   },
   "code_spectrum": {
-    "python_files": 56,
-    "classes": 51,
-    "functions": 148,
-    "enums": 6,
-    "pydantic_models": 10,
+    "python_files": 57,
+    "classes": 55,
+    "functions": 158,
+    "enums": 8,
+    "pydantic_models": 12,
     "sqlalchemy_models": 7
   },
   "semantic_nodes": [
@@ -35,6 +35,7 @@
     "Gw2ApiGateway",
     "GW2ApiClient Skeleton",
     "Durable Refresh Queue",
+    "Refresh Queue Detailed Contract",
     "RefreshWorker",
     "EncryptedApiKeyStore",
     "Account Snapshot Sync",
@@ -48,6 +49,7 @@
     ["API Governance", "Gw2ApiGateway", "requires"],
     ["Gw2ApiGateway", "GW2ApiClient Skeleton", "wraps"],
     ["Gw2ApiGateway", "Durable Refresh Queue", "uses"],
+    ["Durable Refresh Queue", "Refresh Queue Detailed Contract", "implements"],
     ["Durable Refresh Queue", "RefreshWorker", "feeds"],
     ["RefreshWorker", "Gw2ApiGateway", "calls"],
     ["Mock Fixtures", "GraphData", "builds"],

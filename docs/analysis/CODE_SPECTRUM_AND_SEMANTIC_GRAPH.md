@@ -2,7 +2,7 @@
 
 Date: 2026-06-16
 
-Scope: implemented code through MVP 0.1.8 plus Constitution/API Governance baseline.
+Scope: implemented code through MVP 0.1.9 plus Constitution/API Governance baseline.
 
 ## Executive Summary
 
@@ -36,23 +36,23 @@ Source scan summary:
 | ontology | enums and Pydantic semantic contracts | 11 | 1 | High |
 | graph | in-memory graph and mock graph builder | 1 | 17 | Medium-High |
 | inference | gap, material policy, action generation/ranking | 0 | 12 | Medium-High |
-| ingest | gateway, cache, limiter, durable queue, sync services, evidence writer, safe client | 18 | 39 | Medium-High |
-| db | SQLAlchemy models, graph repository, refresh queue repository, migration support | 9 | 31 | Medium-High |
-| api | FastAPI routes and app state | 0 | 12 | Medium |
-| reports | Markdown report rendering | 0 | 3 | Medium |
+| ingest | gateway, cache, limiter, detailed durable queue schemas, sync services, evidence writer, safe client | 23 | 40 | Medium-High |
+| db | SQLAlchemy models, graph repository, refresh queue repository, migration support | 11 | 42 | Medium-High |
+| api | FastAPI routes and app state | 1 | 19 | Medium |
+| reports | Markdown report rendering | 0 | 4 | Medium |
 | config | runtime database and encryption settings | 1 | 1 | Medium |
 | fixtures | deterministic mock account/goal/items/tasks | 0 | 0 | High for MVP |
 | tests | unit, integration, governance, smoke | n/a | n/a | Medium-High |
 
 Current code volume signal:
 
-- 56 Python source files under `src/gw2radar`.
-- 51 extracted classes.
-- 148 extracted functions/methods.
-- 6 core enum classes.
-- 10 Pydantic model classes.
+- 57 Python source files under `src/gw2radar`.
+- 55 extracted classes.
+- 158 extracted functions/methods.
+- 8 core enum classes.
+- 12 Pydantic model classes.
 - 7 SQLAlchemy persistence tables.
-- 45 pytest tests.
+- 54 pytest tests.
 
 ## Semantic Graph
 
@@ -66,6 +66,7 @@ flowchart TD
   Gateway --> Client["GW2ApiClient Skeleton"]
   Gateway --> EvidenceWriter["Evidence Writer"]
   Queue --> RefreshWorker["RefreshWorker"]
+  Queue --> QueueContract["Detailed Queue Contract"]
   RefreshWorker --> Gateway
 
   Fixtures["Mock Fixtures"] --> GraphBuilder["Graph Builder"]
