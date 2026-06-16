@@ -162,7 +162,7 @@ Scores use a 0-5 scale:
 | FastAPI surface | 3.0 | MVP routes work; no API versioning/auth/error envelope yet. |
 | GW2 API access governance | 2.5 | Gateway/cache/limiter/429 skeleton exists; real client and durable queue are not implemented. |
 | Evidence governance | 3.0 | Evidence schema and masking exist; confidence/staleness rules are not yet enforced by inference. |
-| Public/private graph separation | 2.0 | Documented but not enforced by storage namespaces or policy checks. |
+| Public/private graph separation | 3.0 | `graph_layer` exists on semantic and persistence objects; repository validates private/personal constraints. |
 | Test harness | 3.5 | 21 tests plus smoke; coverage is good for MVP but lacks mutation/contract/golden export checks. |
 | Delivery export package | 1.0 | Markdown report exists, but package manifest/CSV export is not implemented for GW2Radar. |
 
@@ -226,6 +226,8 @@ Deliverables:
 - `GraphLayer` enum.
 - layer field on entities/relations/player state or repository namespaces.
 - tests preventing private player state from being saved as public game graph data.
+
+Status: implemented in MVP 0.1.3.
 
 ### P2: Gateway Contract Hardening
 

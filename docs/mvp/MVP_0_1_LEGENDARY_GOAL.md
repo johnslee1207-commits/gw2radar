@@ -34,3 +34,10 @@ MVP 0.1.2 export package:
 - `goal_gap.csv`
 - `recommended_actions.csv`
 - `package_manifest.json`
+
+MVP 0.1.3 graph layer separation:
+
+- Public game facts use `public_game`.
+- Player-owned account facts use `private_player_state`.
+- Derived gaps and recommendations use `personal_intelligence`.
+- Repository validation prevents private player state from being persisted as public graph data.

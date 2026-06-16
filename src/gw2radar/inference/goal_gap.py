@@ -1,5 +1,6 @@
 from gw2radar.graph.graph_query import GraphData
 from gw2radar.ontology.entity_types import EntityType
+from gw2radar.ontology.graph_layers import GraphLayer
 from gw2radar.ontology.relation_types import RelationType
 from gw2radar.ontology.schemas import GoalGapItem, GoalGapResult, Relation
 
@@ -55,6 +56,7 @@ def _add_missing_relation(graph: GraphData, goal_id: str, item: GoalGapItem) -> 
             subject_id=item.entity_id,
             predicate=RelationType.MISSING_FOR_GOAL,
             object_id=goal_id,
+            graph_layer=GraphLayer.PERSONAL_INTELLIGENCE,
             properties={"missing_quantity": item.missing_quantity},
             evidence_id=next(iter(graph.evidence.keys()), None),
         )

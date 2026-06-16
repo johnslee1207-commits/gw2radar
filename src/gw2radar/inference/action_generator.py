@@ -4,6 +4,7 @@ from gw2radar.inference.goal_gap import calculate_goal_gap
 from gw2radar.inference.material_policy import generate_material_policy_actions
 from gw2radar.ontology.action_types import ActionType
 from gw2radar.ontology.entity_types import EntityType
+from gw2radar.ontology.graph_layers import GraphLayer
 from gw2radar.ontology.relation_types import RelationType
 from gw2radar.ontology.schemas import Action, Relation
 
@@ -162,6 +163,7 @@ def _add_advances_goal_relations(graph: GraphData, goal_id: str, actions: list[A
                 subject_id=action.id,
                 predicate=RelationType.ADVANCES_GOAL,
                 object_id=goal_id,
+                graph_layer=GraphLayer.PERSONAL_INTELLIGENCE,
                 properties={"priority_score": action.priority_score},
                 evidence_id=evidence_id,
             )

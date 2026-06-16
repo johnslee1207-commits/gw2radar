@@ -42,3 +42,9 @@ Generate a local report package:
 ```http
 POST /reports/gw2:goal:aurora/export-package
 ```
+
+Graph data is separated with `graph_layer` values:
+
+- `public_game`
+- `private_player_state`
+- `personal_intelligence`

@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 from gw2radar.ontology.action_types import ActionType
 from gw2radar.ontology.entity_types import EntityType
+from gw2radar.ontology.graph_layers import GraphLayer
 from gw2radar.ontology.relation_types import RelationType
 
 
@@ -15,6 +16,7 @@ def utc_now() -> datetime:
 class Evidence(BaseModel):
     id: str
     source: str
+    graph_layer: GraphLayer = GraphLayer.PUBLIC_GAME
     source_type: str = "mock"
     source_url: str | None = None
     fetched_at: datetime = Field(default_factory=utc_now)
@@ -29,6 +31,7 @@ class Entity(BaseModel):
     id: str
     type: EntityType
     canonical_name: str
+    graph_layer: GraphLayer = GraphLayer.PUBLIC_GAME
     external_id: str | None = None
     properties: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=utc_now)
@@ -40,6 +43,7 @@ class Relation(BaseModel):
     subject_id: str
     predicate: RelationType
     object_id: str
+    graph_layer: GraphLayer = GraphLayer.PUBLIC_GAME
     properties: dict[str, Any] = Field(default_factory=dict)
     evidence_id: str | None = None
     confidence: float = 1.0
@@ -52,6 +56,7 @@ class PlayerState(BaseModel):
     id: str
     account_id: str
     entity_id: str
+    graph_layer: GraphLayer = GraphLayer.PRIVATE_PLAYER_STATE
     quantity: float
     location: str | None = None
     observed_at: datetime = Field(default_factory=utc_now)
@@ -61,6 +66,7 @@ class Action(BaseModel):
     id: str
     action_type: ActionType
     title: str
+    graph_layer: GraphLayer = GraphLayer.PERSONAL_INTELLIGENCE
     description: str | None = None
     target_entity_id: str | None = None
     target_goal_id: str | None = None

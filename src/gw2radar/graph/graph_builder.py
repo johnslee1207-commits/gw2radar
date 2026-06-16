@@ -2,6 +2,7 @@ from gw2radar.graph.graph_query import GraphData
 from gw2radar.ingest.mock_loader import load_mock_bundle
 from gw2radar.ontology.action_types import ActionType
 from gw2radar.ontology.entity_types import EntityType
+from gw2radar.ontology.graph_layers import GraphLayer
 from gw2radar.ontology.relation_types import RelationType
 from gw2radar.ontology.schemas import Entity, Evidence, PlayerState, Relation
 
@@ -12,6 +13,7 @@ def build_mock_graph() -> GraphData:
     evidence = Evidence(
         id="mock:evidence:mvp_0_1",
         source="mock_fixture",
+        graph_layer=GraphLayer.PUBLIC_GAME,
         source_type="mock",
         raw_payload=bundle,
         payload_ref="src/gw2radar/fixtures",
@@ -26,6 +28,7 @@ def build_mock_graph() -> GraphData:
             id=account["account_id"],
             type=EntityType.ACCOUNT,
             canonical_name="Mock Account Lee",
+            graph_layer=GraphLayer.PRIVATE_PLAYER_STATE,
             properties={"wallet_gold": account["wallet_gold"]},
         )
     )
@@ -45,6 +48,7 @@ def _add_items(graph: GraphData, items: list[dict],) -> None:
                 id=item["entity_id"],
                 type=entity_type,
                 canonical_name=item["name"],
+                graph_layer=GraphLayer.PUBLIC_GAME,
                 properties={
                     "tradable": item.get("tradable", False),
                     "legendary_related": item.get("legendary_related", False),
@@ -59,6 +63,7 @@ def _add_goal(graph: GraphData, goal: dict, evidence_id: str) -> None:
             id=goal["goal_id"],
             type=EntityType.GOAL,
             canonical_name=goal["name"],
+            graph_layer=GraphLayer.PUBLIC_GAME,
             properties={
                 "goal_type": goal["goal_type"],
                 "requirements": goal["requirements"],
@@ -72,6 +77,7 @@ def _add_goal(graph: GraphData, goal: dict, evidence_id: str) -> None:
                 subject_id=goal["goal_id"],
                 predicate=RelationType.REQUIRES,
                 object_id=req["entity_id"],
+                graph_layer=GraphLayer.PUBLIC_GAME,
                 properties={
                     "required_quantity": req["required_quantity"],
                     "requirement_type": req["type"],
@@ -93,6 +99,7 @@ def _add_account_state(graph: GraphData, account: dict, evidence_id: str) -> Non
                     id=f"state:{account['account_id']}:{entity_id}",
                     account_id=account["account_id"],
                     entity_id=entity_id,
+                    graph_layer=GraphLayer.PRIVATE_PLAYER_STATE,
                     quantity=float(quantity),
                     location=location,
                 )
@@ -103,6 +110,7 @@ def _add_account_state(graph: GraphData, account: dict, evidence_id: str) -> Non
                     subject_id=account["account_id"],
                     predicate=RelationType.OWNED_BY,
                     object_id=entity_id,
+                    graph_layer=GraphLayer.PRIVATE_PLAYER_STATE,
                     properties={"quantity": quantity, "location": location},
                     evidence_id=evidence_id,
                 )
@@ -116,6 +124,7 @@ def _add_tasks(graph: GraphData, tasks: list[dict], evidence_id: str) -> None:
                 id=task["task_id"],
                 type=EntityType.TASK,
                 canonical_name=task["name"],
+                graph_layer=GraphLayer.PUBLIC_GAME,
                 properties={
                     "action_type": ActionType(task["action_type"]).value,
                     "estimated_minutes": task["estimated_minutes"],
@@ -132,6 +141,7 @@ def _add_tasks(graph: GraphData, tasks: list[dict], evidence_id: str) -> None:
                     subject_id=task["task_id"],
                     predicate=RelationType.PRODUCES,
                     object_id=produced["entity_id"],
+                    graph_layer=GraphLayer.PUBLIC_GAME,
                     properties={"estimated_quantity": produced["estimated_quantity"]},
                     evidence_id=evidence_id,
                 )

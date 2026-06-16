@@ -4,6 +4,7 @@ Entity and relation attributes are stored as JSON dictionaries for MVP 0.1.
 
 Important attributes:
 
+- graph_layer: public_game, private_player_state, or personal_intelligence.
 - goal.requirements: required entity ids and quantities.
 - item.tradable: whether an item can be traded.
 - item.legendary_related: whether default policy should avoid SELL_SURPLUS.

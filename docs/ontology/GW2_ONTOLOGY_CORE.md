@@ -9,3 +9,5 @@ MVP 0.1 models personal Legendary goal intelligence with five object families:
 - Evidence: source metadata for mock fixtures or future API reads.
 
 All MVP recommendations are informational. The system must not automate gameplay, trading, client control, or order placement.
+
+All core graph objects carry a `graph_layer` value so public game facts, private player state, and derived personal intelligence remain separated.

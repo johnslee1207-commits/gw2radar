@@ -69,13 +69,12 @@
     "fastapi_surface": 3.0,
     "gw2_api_access_governance": 2.5,
     "evidence_governance": 3.0,
-    "public_private_graph_separation": 2.0,
+    "public_private_graph_separation": 3.0,
     "test_harness": 3.5,
     "delivery_export_package": 1.0
   },
   "recommended_priorities": [
     "P0 Report Export Package",
-    "P1 Graph Layer Separation",
     "P2 Gateway Contract Hardening",
     "P3 Evidence Freshness and Confidence Rules",
     "P4 Real GW2 API Client Skeleton Upgrade"
