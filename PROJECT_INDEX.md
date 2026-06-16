@@ -74,6 +74,7 @@ The Knowledge Base explains recommendations, while the Knowledge Graph reasons o
 - [MVP 0.4.3 KB Report Quality And Source Gaps](docs/mvp/MVP_0_4_3_KB_REPORT_QUALITY_AND_SOURCE_GAPS.md)
 - [MVP 0.4.4 Patch Note Structured Summaries](docs/mvp/MVP_0_4_4_PATCH_NOTE_STRUCTURED_SUMMARIES.md)
 - [MVP 0.4.5 Official News Source Processing](docs/mvp/MVP_0_4_5_OFFICIAL_NEWS_SOURCE_PROCESSING.md)
+- [MVP 0.4.6 Patch Impact Review Assistant](docs/mvp/MVP_0_4_6_PATCH_IMPACT_REVIEW_ASSISTANT.md)
 
 ## Analysis And Maturity
 

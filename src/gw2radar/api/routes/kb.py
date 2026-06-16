@@ -25,6 +25,13 @@ from gw2radar.kb.kb_repository import (
     search_articles,
 )
 from gw2radar.kb.kb_rule_distiller import distill_rule_from_article
+from gw2radar.kb.patch_impact_review import (
+    PatchImpactReviewInput,
+    build_patch_rule_candidates,
+    list_patch_impact_drafts,
+    list_pending_patch_impact_drafts,
+    save_patch_impact_review,
+)
 from gw2radar.inference.action_generator import generate_actions
 
 router = APIRouter(prefix="/api/v1/kb", tags=["kb"])
@@ -158,6 +165,44 @@ def get_kb_search(q: str, domain: KnowledgeDomain | None = None) -> ApiDataEnvel
     with db_session.SessionLocal() as session:
         articles = [article.model_dump(mode="json") for article in search_articles(session, q, domain)]
     return ApiDataEnvelope(data={"articles": articles})
+
+
+@router.get("/patch-impact/drafts", response_model=ApiDataEnvelope)
+def get_patch_impact_drafts(year: int | None = None, pending_only: bool = False) -> ApiDataEnvelope:
+    drafts = (
+        list_pending_patch_impact_drafts(year=year)
+        if pending_only
+        else list_patch_impact_drafts(year=year)
+    )
+    return ApiDataEnvelope(
+        data={
+            "count": len(drafts),
+            "drafts": [draft.model_dump(mode="json") for draft in drafts],
+        }
+    )
+
+
+@router.post("/patch-impact/reviews", response_model=ApiDataEnvelope)
+def post_patch_impact_review(request: PatchImpactReviewInput) -> ApiDataEnvelope:
+    try:
+        review = save_patch_impact_review(request)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return ApiDataEnvelope(data={"review": review.model_dump(mode="json")})
+
+
+@router.get("/patch-impact/{patch_id}/rule-candidates", response_model=ApiDataEnvelope)
+def get_patch_impact_rule_candidates(patch_id: str) -> ApiDataEnvelope:
+    try:
+        candidate = build_patch_rule_candidates(patch_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return ApiDataEnvelope(
+        data={
+            "patch_id": candidate.patch_id,
+            "rules": [rule.model_dump(mode="json") for rule in candidate.rules],
+        }
+    )
 
 
 @router.get("/goals/{goal_id}/action-explanations", response_model=ApiDataEnvelope)
