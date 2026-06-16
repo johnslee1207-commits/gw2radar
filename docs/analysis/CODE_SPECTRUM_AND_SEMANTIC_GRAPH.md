@@ -46,13 +46,13 @@ Source scan summary:
 
 Current code volume signal:
 
-- 81 Python source files under `src/gw2radar`.
-- 118 extracted classes.
-- 276 extracted functions/methods.
-- 16 core enum classes.
-- 48 Pydantic model classes.
-- 14 SQLAlchemy persistence tables.
-- 67 pytest test files.
+- 83 Python source files under `src/gw2radar`.
+- 130 extracted classes.
+- 296 extracted functions/methods.
+- 17 core enum classes.
+- 57 Pydantic model classes.
+- 16 SQLAlchemy persistence tables.
+- 75 pytest test files.
 
 ## Semantic Graph
 
@@ -100,6 +100,10 @@ flowchart TD
   BuildFit --> GearMatcher["Account Gear Matcher"]
   BuildFit --> FitScore["Build Fit Score"]
   BuildFit --> TransitionPlan["Gear Transition Plan"]
+  PaidReportEngine --> MarketRadar["Market Radar Pro"]
+  MarketRadar --> PriceTrends["Price Trends"]
+  MarketRadar --> GoalCostIndex["Goal Cost Index"]
+  MarketRadar --> MarketSignals["Hold/Sell Signals"]
 
   API["FastAPI Routes"] --> GraphState["API State"]
   GraphState --> Repository
@@ -187,8 +191,9 @@ Scores use a 0-5 scale:
 | Paid report engine | 3.6 | P6 implements products, entitlements, preview/full report modes, export jobs, artifacts, manifests, and versioned commercial report routes. |
 | Legendary Planner Pro | 3.6 | P7 implements portfolios, shared requirements, conflicts, time gates, cheap/fast paths, do-not-sell, routes, API, and paid report generation. |
 | Build Fit Advisor | 3.6 | P8 implements build import, gear requirements, account gear matching, fit score, transition plan, budget alternative, routes, and paid report generation. |
+| Market Radar Pro | 3.6 | P9 implements price snapshots, trends, goal cost index, watchlist, hold/sell-surplus signals, language policy, routes, and paid report generation. |
 
-Overall maturity: **4.58 / 5.0**
+Overall maturity: **4.63 / 5.0**
 
 Interpretation: GW2Radar is a solid governed MVP prototype with reliable mock intelligence, deterministic exports, durable refresh state, and gateway-bounded sync services. It is not yet a production ingestion service.
 
@@ -224,19 +229,19 @@ Interpretation: GW2Radar is a solid governed MVP prototype with reliable mock in
 
 ## Priority Recommendations
 
-### P0: Market Radar Pro
+### P0: Growth Website + CMS + Payment Abstraction
 
-Reason: P6-P8 now cover paid reports, legendary planning, and build fit. P9 adds senior-player subscription value through price observation and goal-aware material retention, while staying recommendation-only.
+Reason: P6-P9 now cover the individual-player commercial product surface. The next commercial bottleneck is acquisition, pricing, checkout abstraction, entitlement integration, and trust pages.
 
 Deliverables:
 
-- Price snapshots.
-- Price trend calculator.
-- Goal cost index.
-- Material watchlist.
-- Hold/sell candidate inference.
-- Market language policy.
-- Market Radar paid report.
+- Landing page models.
+- CMS content model.
+- Pricing model.
+- Payment provider interface.
+- Mock checkout session.
+- Entitlement integration.
+- Privacy and API key safety pages.
 
 ### Completed Priority Trail
 

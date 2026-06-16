@@ -223,3 +223,27 @@ class BuildModel(Base):
     estimated_transition_cost_gold: Mapped[float] = mapped_column(Float, default=0.0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class MarketSnapshotModel(Base):
+    __tablename__ = "market_snapshots"
+
+    snapshot_id: Mapped[str] = mapped_column(String, primary_key=True)
+    item_id: Mapped[str] = mapped_column(String, nullable=False)
+    item_name: Mapped[str] = mapped_column(String, nullable=False)
+    buy_price_copper: Mapped[int] = mapped_column(Integer, nullable=False)
+    sell_price_copper: Mapped[int] = mapped_column(Integer, nullable=False)
+    volume: Mapped[int] = mapped_column(Integer, default=0)
+    source: Mapped[str] = mapped_column(String, default="manual_snapshot")
+    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class MarketWatchlistModel(Base):
+    __tablename__ = "market_watchlist"
+
+    watch_id: Mapped[str] = mapped_column(String, primary_key=True)
+    user_id: Mapped[str] = mapped_column(String, nullable=False)
+    item_id: Mapped[str] = mapped_column(String, nullable=False)
+    item_name: Mapped[str] = mapped_column(String, nullable=False)
+    reason: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)

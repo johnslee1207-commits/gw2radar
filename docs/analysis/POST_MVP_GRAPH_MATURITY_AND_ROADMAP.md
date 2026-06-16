@@ -26,13 +26,13 @@ Local AST spectrum:
 
 | Metric | Count |
 |---|---:|
-| Python source files | 81 |
-| Classes | 118 |
-| Functions / methods | 276 |
-| Enums | 16 |
-| Pydantic models | 48 |
-| SQLAlchemy models | 14 |
-| Pytest test files | 67 |
+| Python source files | 83 |
+| Classes | 130 |
+| Functions / methods | 296 |
+| Enums | 17 |
+| Pydantic models | 57 |
+| SQLAlchemy models | 16 |
+| Pytest test files | 75 |
 
 ## Semantic Graph Summary
 
@@ -68,6 +68,10 @@ flowchart TD
   PaidReports --> BuildFit["Build Fit Advisor"]
   BuildFit --> GearMatcher["Account Gear Matcher"]
   BuildFit --> TransitionPlan["Gear Transition Plan"]
+  PaidReports --> MarketRadar["Market Radar Pro"]
+  MarketRadar --> Trends["Price Trends"]
+  MarketRadar --> CostIndex["Goal Cost Index"]
+  MarketRadar --> Signals["Hold/Sell Signals"]
 
   KeyStore["EncryptedApiKeyStore"] --> SQLite
   Tests["54 Pytest Tests + Smoke"] --> Gateway
@@ -98,8 +102,9 @@ flowchart TD
 | Paid report engine | 3.6 | Product catalog, entitlement gate, preview/full rendering, export jobs, Markdown/HTML artifacts, manifest, and versioned report API are implemented. Real payment integration is deferred. |
 | Legendary Planner Pro | 3.6 | Portfolio persistence, shared requirements, conflicts, time gates, cheap/fast path planning, do-not-sell, daily/weekly routes, API, and P6-backed paid report are implemented. |
 | Build Fit Advisor | 3.6 | Structured build import, gear requirements, account gear matcher, weighted fit score, transition plan, budget alternative, API, and P6-backed paid report are implemented. |
+| Market Radar Pro | 3.6 | Price snapshots, trends, goal cost index, watchlist, hold/sell-surplus signals, language policy, API, and P6-backed paid report are implemented. |
 
-Overall maturity: **4.58 / 5.0**.
+Overall maturity: **4.63 / 5.0**.
 
 ## Priority Roadmap
 
@@ -221,6 +226,8 @@ Deliverables:
 
 ### P9: Market Radar Pro
 
+Status: complete for MVP 0.3.3.
+
 Reason: with personal planning and build fit in place, market intelligence can add senior-player subscription value while preserving the no-automation and no-guaranteed-profit boundaries.
 
 Deliverables:
@@ -232,3 +239,17 @@ Deliverables:
 - hold/sell candidate inference;
 - market language policy;
 - Market Radar paid report.
+
+### P12: Growth Website + CMS + Payment Abstraction
+
+Reason: P6-P9 now cover the core individual-player commercial product surface. The next bottleneck is acquisition, pricing, entitlement purchase flow, and mandatory trust pages.
+
+Deliverables:
+
+- public landing page models;
+- CMS content model;
+- pricing model;
+- payment provider interface;
+- mock checkout session;
+- entitlement integration;
+- privacy and API key safety pages.
