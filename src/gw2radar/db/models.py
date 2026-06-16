@@ -91,16 +91,27 @@ class RefreshQueueModel(Base):
     __tablename__ = "refresh_queue"
 
     request_id: Mapped[str] = mapped_column(String, primary_key=True)
+    task_type: Mapped[str] = mapped_column(String, default="public_static_refresh")
     endpoint: Mapped[str] = mapped_column(String, nullable=False)
+    method: Mapped[str] = mapped_column(String, default="GET")
+    params_hash: Mapped[str | None] = mapped_column(String, nullable=True)
     params_json: Mapped[dict] = mapped_column(JSON, default=dict)
-    priority: Mapped[str] = mapped_column(String, default="P3")
+    priority: Mapped[str] = mapped_column(String, default="P3_PUBLIC_STATIC")
     status: Mapped[str] = mapped_column(String, default="queued")
     attempts: Mapped[int] = mapped_column(Integer, default=0)
+    max_attempts: Mapped[int] = mapped_column(Integer, default=3)
+    account_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    feature_scope: Mapped[str | None] = mapped_column(String, nullable=True)
     retry_after_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
     next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    leased_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    worker_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    last_status_code: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    last_error_code: Mapped[str | None] = mapped_column(String, nullable=True)
     last_error: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class ApiKeySecretModel(Base):

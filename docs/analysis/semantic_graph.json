@@ -92,13 +92,13 @@
     "public_private_graph_separation": 3.7,
     "test_harness": 3.7,
     "delivery_export_package": 3.8,
-    "durable_refresh_queue": 3.4,
+    "durable_refresh_queue": 3.9,
     "encrypted_local_key_storage": 3.0,
     "account_public_sync_services": 3.0
   },
-  "overall_maturity": 3.85,
+  "overall_maturity": 3.95,
   "recommended_priorities": [
-    "P0 Release Readiness Hardening",
-    "Next: API error envelope and fake-gateway sync smoke"
+    "P0 Official GW2 API Compatibility Hardening",
+    "Next: tokeninfo, permission validator, endpoint schema, structured errors"
   ]
 }

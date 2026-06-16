@@ -65,4 +65,4 @@ DELETE /account/api-key
 DELETE /account/snapshot
 ```
 
-Refresh requests can be persisted through `RefreshQueueRepository` and processed one at a time by `RefreshWorker`. Retry metadata survives process restarts through the `refresh_queue` table.
+Refresh requests can be persisted through `RefreshQueueRepository` and processed one at a time by `RefreshWorker`. Retry metadata, 429 status metadata, params hashes, leases, worker ids, task types, and sanitized request metadata survive process restarts through the `refresh_queue` table.

@@ -167,11 +167,11 @@ Scores use a 0-5 scale:
 | Public/private graph separation | 3.7 | `graph_layer` exists on semantic and persistence objects; repository validates private/personal constraints. |
 | Test harness | 3.7 | 45 tests plus smoke; coverage is good for MVP but lacks mutation and production sync smoke. |
 | Delivery export package | 3.8 | Markdown, gap CSV, actions CSV, and package manifest are implemented and tested. |
-| Durable refresh queue | 3.4 | SQLite queue with retry metadata and worker state transitions. |
+| Durable refresh queue | 3.9 | SQLite queue with retry metadata, 429 persistence, sanitized params hash, lease fields, and worker state transitions. |
 | Encrypted local key storage | 3.0 | Fernet-encrypted SQLite key storage; external vault remains future hardening. |
 | Account/public sync services | 3.0 | Gateway-bounded services with fake gateway tests; scheduling and monitoring remain future work. |
 
-Overall maturity: **3.85 / 5.0**
+Overall maturity: **3.95 / 5.0**
 
 Interpretation: GW2Radar is a solid governed MVP prototype with reliable mock intelligence, deterministic exports, durable refresh state, and gateway-bounded sync services. It is not yet a production ingestion service.
 
@@ -207,16 +207,17 @@ Interpretation: GW2Radar is a solid governed MVP prototype with reliable mock in
 
 ## Priority Recommendations
 
-### P0: Release Readiness Hardening
+### P0: Official GW2 API Compatibility Hardening
 
-Reason: the previous maturity gaps have been closed for MVP. The next bottleneck is release readiness without expanding product scope.
+Reason: the detailed durable refresh queue contract is now implemented. The next bottleneck is official API compatibility before broader real sync.
 
 Deliverables:
 
-- Uniform API error envelope.
-- Route-level OpenAPI response schemas.
-- Fake-gateway smoke command for queue, account sync, and public item refresh.
-- Partial repository update methods for sync services.
+- Tokeninfo client method.
+- Permission validator.
+- Endpoint schema for private and batch public endpoints.
+- Structured official client errors.
+- Safety tests proving API keys stay out of URLs, queue payloads, evidence, and logs.
 
 ### Completed Priority Trail
 

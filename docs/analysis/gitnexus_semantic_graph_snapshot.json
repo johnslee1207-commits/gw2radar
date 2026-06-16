@@ -80,11 +80,11 @@
     "fastapi_surface": 3.5,
     "export_package": 3.8,
     "gw2_api_gateway_client": 3.6,
-    "durable_refresh_queue": 3.4,
+    "durable_refresh_queue": 3.9,
     "production_key_storage": 3.0,
     "real_account_ingestion": 3.0,
     "public_static_data_refresh": 3.2
   },
-  "overall_maturity": 3.85,
-  "next_priority": "Release Readiness Hardening"
+  "overall_maturity": 3.95,
+  "next_priority": "Official GW2 API Compatibility Hardening"
 }

@@ -1,9 +1,3 @@
-from enum import Enum
+from gw2radar.ingest.refresh_queue import RefreshQueueStatus
 
-
-class RefreshQueueStatus(str, Enum):
-    QUEUED = "queued"
-    DELAYED = "delayed"
-    PROCESSING = "processing"
-    SUCCEEDED = "succeeded"
-    FAILED = "failed"
+__all__ = ["RefreshQueueStatus"]
