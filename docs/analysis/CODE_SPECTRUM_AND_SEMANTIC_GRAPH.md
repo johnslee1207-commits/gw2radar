@@ -110,10 +110,10 @@ State-like concepts are encoded as enums and status strings:
 | `EntityType` | account, character, goal, item, material, currency, recipe, achievement, collection, task, action, trading_post_price, source, evidence | `ontology/entity_types.py` |
 | `RelationType` | requires, consumes, produces, used_in, unlocks, part_of, owned_by, has_price, missing_for_goal, advances_goal, blocks_goal, reserves_for_goal, reserved_for_goal, acquired_by | `ontology/relation_types.py` |
 | `ActionType` | buy, farm, craft, hold, reserve_for_goal, sell_surplus, do_daily, do_weekly, exchange, complete_achievement, complete_collection_step, watch_price, generate_daily_plan, generate_weekly_plan | `ontology/action_types.py` |
-| `GatewayResult.status` | ok, cache_hit, refresh_pending, rate_limited_retrying | `ingest/gw2_api_gateway.py` |
+| `GatewayStatus` | ok, cache_hit, refresh_pending, rate_limited_retrying | `ingest/gateway_status.py` |
 | `QueuedRequest.priority` | P0-P4 policy documented; code default P3 | `ingest/request_queue.py`, `refresh_scheduler.py` |
 
-Maturity: medium-high. Core values exist and are tested, but status values are still free strings rather than enums.
+Maturity: high for MVP. Core values exist, gateway status is an enum, and batch/TTL contracts are tested.
 
 ### Entity Axis
 
@@ -160,7 +160,7 @@ Scores use a 0-5 scale:
 | Markdown report | 3.0 | Required sections exist; report is not yet export-packaged or styled. |
 | SQLite persistence | 3.5 | Graph round-trip works; repository is coarse-grained replace/load. |
 | FastAPI surface | 3.0 | MVP routes work; no API versioning/auth/error envelope yet. |
-| GW2 API access governance | 2.5 | Gateway/cache/limiter/429 skeleton exists; real client and durable queue are not implemented. |
+| GW2 API access governance | 3.0 | Gateway/cache/limiter/429 skeleton exists with enum statuses, batch helper, TTL tests, and retry metadata. Real client and durable queue are not implemented. |
 | Evidence governance | 3.0 | Evidence schema and masking exist; confidence/staleness rules are not yet enforced by inference. |
 | Public/private graph separation | 3.0 | `graph_layer` exists on semantic and persistence objects; repository validates private/personal constraints. |
 | Test harness | 3.5 | 21 tests plus smoke; coverage is good for MVP but lacks mutation/contract/golden export checks. |
@@ -239,6 +239,8 @@ Deliverables:
 - batch request helper for supported endpoints.
 - durable request queue interface.
 - endpoint TTL tests.
+
+Status: implemented in MVP 0.1.4.
 
 ### P3: Evidence Freshness and Confidence Rules
 

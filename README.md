@@ -48,3 +48,5 @@ Graph data is separated with `graph_layer` values:
 - `public_game`
 - `private_player_state`
 - `personal_intelligence`
+
+GW2 API access remains behind `Gw2ApiGateway`. MVP gateway contracts include enum statuses, endpoint TTL resolution, batch helper support, and retry metadata, but no real network client is enabled by default.

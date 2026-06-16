@@ -3,16 +3,28 @@ from hashlib import sha256
 import json
 from typing import Any
 
-from gw2radar.ingest.cache_store import ENDPOINT_TTL_SECONDS, InMemoryCacheStore
+from gw2radar.ingest.cache_store import InMemoryCacheStore, endpoint_ttl_seconds
 from gw2radar.ingest.evidence_writer import EvidenceWriter
+from gw2radar.ingest.gateway_status import GatewayStatus
 from gw2radar.ingest.gw2_api_client import GW2ApiClient, Gw2ApiRateLimitError, Gw2ApiResponse
 from gw2radar.ingest.rate_limiter import TokenBucketRateLimiter
 from gw2radar.ingest.request_queue import QueuedRequest, RequestQueue
 
+BATCH_ENDPOINTS = {
+    "/v2/items",
+    "/v2/recipes",
+    "/v2/achievements",
+    "/v2/commerce/prices",
+    "/v2/commerce/listings",
+    "/v2/skins",
+    "/v2/traits",
+    "/v2/skills",
+}
+
 
 @dataclass
 class GatewayResult:
-    status: str
+    status: GatewayStatus
     endpoint: str
     request_id: str
     payload: Any | None = None
@@ -51,7 +63,7 @@ class Gw2ApiGateway:
         cached = self.cache.get(cache_key)
         if cached is not None:
             return GatewayResult(
-                status="cache_hit",
+                status=GatewayStatus.CACHE_HIT,
                 endpoint=endpoint,
                 request_id=request.request_id,
                 payload=cached["payload"],
@@ -59,9 +71,10 @@ class Gw2ApiGateway:
             )
 
         if not self.limiter.allow_request():
+            request.mark_retry(retry_after_seconds=15, error=GatewayStatus.REFRESH_PENDING.value)
             self.queue.enqueue(request)
             return GatewayResult(
-                status="refresh_pending",
+                status=GatewayStatus.REFRESH_PENDING,
                 endpoint=endpoint,
                 request_id=request.request_id,
                 retry_after_seconds=15,
@@ -76,9 +89,10 @@ class Gw2ApiGateway:
             )
         except Gw2ApiRateLimitError:
             self.limiter.apply_429_penalty()
+            request.mark_retry(retry_after_seconds=30, error=GatewayStatus.RATE_LIMITED_RETRYING.value)
             self.queue.enqueue(request)
             return GatewayResult(
-                status="rate_limited_retrying",
+                status=GatewayStatus.RATE_LIMITED_RETRYING,
                 endpoint=endpoint,
                 request_id=request.request_id,
                 retry_after_seconds=30,
@@ -87,9 +101,10 @@ class Gw2ApiGateway:
 
         if response.status_code == 429:
             self.limiter.apply_429_penalty()
+            request.mark_retry(retry_after_seconds=30, error=GatewayStatus.RATE_LIMITED_RETRYING.value)
             self.queue.enqueue(request)
             return GatewayResult(
-                status="rate_limited_retrying",
+                status=GatewayStatus.RATE_LIMITED_RETRYING,
                 endpoint=endpoint,
                 request_id=request.request_id,
                 retry_after_seconds=30,
@@ -101,19 +116,33 @@ class Gw2ApiGateway:
             endpoint=endpoint,
             payload={"endpoint": endpoint, "params": params, "payload": response.payload},
         )
-        ttl = self._ttl_seconds(endpoint)
+        ttl = endpoint_ttl_seconds(endpoint)
         self.cache.set(cache_key, {"payload": response.payload, "evidence_id": evidence.id}, ttl)
         return GatewayResult(
-            status="ok",
+            status=GatewayStatus.OK,
             endpoint=endpoint,
             request_id=request.request_id,
             payload=response.payload,
             evidence_id=evidence.id,
         )
 
-    def _ttl_seconds(self, endpoint: str) -> int:
-        normalized = endpoint.strip("/").replace("/", "_")
-        return ENDPOINT_TTL_SECONDS.get(normalized, 30 * 60)
+    def get_batch(
+        self,
+        endpoint: str,
+        *,
+        ids: list[int | str],
+        params: dict[str, Any] | None = None,
+        api_key: str | None = None,
+        priority: str = "P3",
+    ) -> GatewayResult:
+        if endpoint not in BATCH_ENDPOINTS:
+            raise ValueError(f"Endpoint {endpoint} does not support MVP batch helper.")
+        if not ids:
+            raise ValueError("Batch ids must not be empty.")
+        batch_params = dict(params or {})
+        batch_params["ids"] = ",".join(str(item_id) for item_id in ids)
+        batch_params["batch_count"] = len(ids)
+        return self.get(endpoint, params=batch_params, api_key=api_key, priority=priority)
 
     def _cache_key(self, endpoint: str, params: dict[str, Any]) -> str:
         return f"{endpoint}:{self._params_hash(params)}"

@@ -19,6 +19,16 @@ ENDPOINT_TTL_SECONDS: dict[str, int] = {
 }
 
 
+def endpoint_ttl_seconds(endpoint: str) -> int:
+    normalized = endpoint.strip("/")
+    if normalized.startswith("v2/"):
+        normalized = normalized.removeprefix("v2/")
+    normalized = normalized.replace("/", "_")
+    if normalized == "commerce_prices":
+        normalized = "commerce_prices_goal_items"
+    return ENDPOINT_TTL_SECONDS.get(normalized, 30 * 60)
+
+
 @dataclass
 class CacheEntry:
     payload: Any

@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Any
 
+from gw2radar.ingest.gateway_status import GatewayStatus
 from gw2radar.ingest.evidence_writer import EvidenceWriter
 from gw2radar.ingest.gw2_api_client import Gw2ApiRateLimitError, Gw2ApiResponse
 from gw2radar.ingest.gw2_api_gateway import Gw2ApiGateway
@@ -68,8 +69,8 @@ def test_gateway_uses_cache_and_deduplicates_client_calls() -> None:
     first = gateway.get("/v2/items", params={"ids": [1, 2, 3]}, api_key="12345678-abcdef-secret-key")
     second = gateway.get("/v2/items", params={"ids": [1, 2, 3]}, api_key="12345678-abcdef-secret-key")
 
-    assert first.status == "ok"
-    assert second.status == "cache_hit"
+    assert first.status == GatewayStatus.OK
+    assert second.status == GatewayStatus.CACHE_HIT
     assert client.calls == 1
     assert first.evidence_id == second.evidence_id
 
@@ -79,9 +80,12 @@ def test_gateway_429_returns_retrying_without_proxy_or_ip_switch() -> None:
 
     result = gateway.get("/v2/account", api_key="12345678-abcdef-secret-key", priority="P1")
 
-    assert result.status == "rate_limited_retrying"
+    assert result.status == GatewayStatus.RATE_LIMITED_RETRYING
     assert result.retry_after_seconds == 30
-    assert gateway.queue.delayed()
+    delayed = gateway.queue.delayed()
+    assert delayed
+    assert delayed[0].attempts == 1
+    assert delayed[0].next_attempt_at is not None
     assert "params_hash" in result.diagnostics
 
 

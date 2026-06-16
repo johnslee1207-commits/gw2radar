@@ -67,7 +67,7 @@
     "markdown_report": 3.0,
     "sqlite_persistence": 3.5,
     "fastapi_surface": 3.0,
-    "gw2_api_access_governance": 2.5,
+    "gw2_api_access_governance": 3.0,
     "evidence_governance": 3.0,
     "public_private_graph_separation": 3.0,
     "test_harness": 3.5,
@@ -75,7 +75,6 @@
   },
   "recommended_priorities": [
     "P0 Report Export Package",
-    "P2 Gateway Contract Hardening",
     "P3 Evidence Freshness and Confidence Rules",
     "P4 Real GW2 API Client Skeleton Upgrade"
   ]
