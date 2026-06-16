@@ -34,6 +34,8 @@
     "Export Package",
     "Gw2ApiGateway",
     "GW2ApiClient Skeleton",
+    "Endpoint Schema",
+    "Permission Validator",
     "Durable Refresh Queue",
     "Refresh Queue Detailed Contract",
     "RefreshWorker",
@@ -48,6 +50,8 @@
     ["Constitution", "API Governance", "governs"],
     ["API Governance", "Gw2ApiGateway", "requires"],
     ["Gw2ApiGateway", "GW2ApiClient Skeleton", "wraps"],
+    ["Gw2ApiGateway", "Endpoint Schema", "uses"],
+    ["Gw2ApiGateway", "Permission Validator", "uses"],
     ["Gw2ApiGateway", "Durable Refresh Queue", "uses"],
     ["Durable Refresh Queue", "Refresh Queue Detailed Contract", "implements"],
     ["Durable Refresh Queue", "RefreshWorker", "feeds"],
@@ -81,12 +85,12 @@
     "sqlite_persistence": 3.8,
     "fastapi_surface": 3.5,
     "export_package": 3.8,
-    "gw2_api_gateway_client": 3.6,
+    "gw2_api_gateway_client": 4.0,
     "durable_refresh_queue": 3.9,
     "production_key_storage": 3.0,
     "real_account_ingestion": 3.0,
     "public_static_data_refresh": 3.2
   },
-  "overall_maturity": 3.95,
-  "next_priority": "Official GW2 API Compatibility Hardening"
+  "overall_maturity": 4.05,
+  "next_priority": "Account Sync API Productization"
 }

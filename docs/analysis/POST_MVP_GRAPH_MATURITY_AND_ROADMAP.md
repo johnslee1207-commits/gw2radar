@@ -82,16 +82,18 @@ flowchart TD
 | SQLite persistence | 3.8 | Strong MVP persistence; partial sync updates remain next-level work. |
 | FastAPI surface | 3.5 | Functional but lacks versioned sync routes and response schemas. |
 | Export package | 3.8 | Deterministic Markdown/CSV/manifest. |
-| GW2 API gateway/client | 3.6 | Safe fake-tested client/gateway; tokeninfo and permission validator still missing. |
+| GW2 API gateway/client | 4.0 | Safe fake-tested client/gateway with tokeninfo, permission validator, endpoint schema, structured errors, and Authorization-only private access. |
 | Durable refresh queue | 3.9 | Detailed queue contract, leases, retry metadata, 429 persistence, sanitization. |
 | Local encrypted key storage | 3.0 | Fernet SQLite storage; external vault remains future. |
 | Account/public sync services | 3.0 | Service-layer fake transport exists; route integration and official permissions pending. |
 
-Overall maturity: **3.95 / 5.0**.
+Overall maturity: **4.05 / 5.0**.
 
 ## Priority Roadmap
 
 ### P1: Official GW2 API Compatibility Hardening
+
+Status: complete for MVP 0.2.0.
 
 Reason: this unlocks safe real sync. The queue is now mature enough; the next risk is official endpoint compatibility and key-scope validation.
 

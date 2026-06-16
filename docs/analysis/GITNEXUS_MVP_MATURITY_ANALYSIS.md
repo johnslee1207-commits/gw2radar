@@ -193,13 +193,13 @@ Scoring: 0 = absent, 5 = production-grade.
 | SQLite persistence | 3.8 | Replace/load/delete flows, queue, key metadata, migrations. Repository still coarse-grained. |
 | FastAPI MVP surface | 3.5 | Health, mock load, goals, gap, actions, reports, export, lifecycle. |
 | Export package | 3.8 | Markdown/CSV/manifest package, deterministic and tested. |
-| GW2 API gateway/client | 3.6 | Safe fake-tested skeleton with sync services and worker contracts behind the gateway. |
+| GW2 API gateway/client | 4.0 | Safe fake-tested skeleton with tokeninfo, permission validation, endpoint schema, structured errors, sync services, and worker contracts behind the gateway. |
 | Refresh queue durability | 3.9 | SQLite queue, retry metadata, 429 persistence, sanitized params hash, lease/worker fields, status transitions, and one-step worker compatibility. |
 | Production key storage | 3.0 | Local Fernet-encrypted SQLite storage; KMS or OS vault remains future production hardening. |
 | Real account ingestion | 3.0 | Account snapshot sync service writes private player state using gateway fake transport tests. |
 | Public static data refresh | 3.2 | Public item batch refresh writes public-game entities through gateway contract. |
 
-Overall MVP maturity: **3.95 / 5.0**.
+Overall MVP maturity: **4.05 / 5.0**.
 
 Interpretation: GW2Radar is now a governed, test-backed MVP substrate with durable refresh state, encrypted local key storage, and gateway-bounded sync services. It is still not a production account-ingestion service until scheduling, monitoring, and external secret management are added.
 
@@ -229,18 +229,18 @@ Interpretation: GW2Radar is now a governed, test-backed MVP substrate with durab
 
 ## Recommended Next Priority
 
-### P0: Official GW2 API Compatibility Hardening
+### P0: Account Sync API Productization
 
-Reason: the detailed durable refresh queue contract is now implemented. The next highest-risk blocker for real account sync is official API compatibility: tokeninfo, permission validation, endpoint schema, structured errors, and Authorization-only private access.
+Reason: the detailed queue contract and official API compatibility layer are now implemented. The next highest-risk blocker is productizing account sync through queue-backed API routes while preserving private-layer boundaries.
 
 Minimum deliverables:
 
-- tokeninfo client method;
-- permission validator for account, wallet, characters, inventories, unlocks, and progression scopes;
-- official endpoint schema for private and batch public endpoints;
-- structured client error type;
-- tests proving API keys never enter URLs, queue payloads, evidence, or logs;
-- tests proving 429 uses delayed retry metadata, not IP switching.
+- `POST /api/v1/account/sync`;
+- `GET /api/v1/account/sync/status`;
+- developer `POST /api/v1/account/sync/drain-one`;
+- queue-backed account snapshot task orchestration;
+- tokeninfo validation before private sync;
+- private evidence metadata and private-layer-only writes.
 
 ## Constitution Compliance Summary
 

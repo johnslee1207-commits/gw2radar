@@ -25,6 +25,8 @@
     {"id": "api", "type": "interface", "label": "FastAPI Routes"},
     {"id": "api_state", "type": "orchestration", "label": "API State"},
     {"id": "gateway", "type": "external_access_boundary", "label": "Gw2ApiGateway"},
+    {"id": "endpoint_schema", "type": "semantic_contract", "label": "Endpoint Schema"},
+    {"id": "permission_validator", "type": "constraint", "label": "Permission Validator"},
     {"id": "cache", "type": "governance_component", "label": "TTL Cache"},
     {"id": "limiter", "type": "governance_component", "label": "Token Bucket Rate Limiter"},
     {"id": "client", "type": "external_client_skeleton", "label": "GW2ApiClient"},
@@ -34,6 +36,8 @@
   "edges": [
     {"from": "constitution", "to": "api_governance", "type": "governs"},
     {"from": "api_governance", "to": "gateway", "type": "requires"},
+    {"from": "gateway", "to": "endpoint_schema", "type": "uses"},
+    {"from": "gateway", "to": "permission_validator", "type": "uses"},
     {"from": "gateway", "to": "cache", "type": "uses"},
     {"from": "gateway", "to": "limiter", "type": "uses"},
     {"from": "gateway", "to": "refresh_queue", "type": "uses"},
@@ -89,7 +93,7 @@
     "markdown_report": 3.5,
     "sqlite_persistence": 3.8,
     "fastapi_surface": 3.5,
-    "gw2_api_access_governance": 3.6,
+    "gw2_api_access_governance": 4.0,
     "evidence_governance": 3.7,
     "public_private_graph_separation": 3.7,
     "test_harness": 3.7,
@@ -98,9 +102,9 @@
     "encrypted_local_key_storage": 3.0,
     "account_public_sync_services": 3.0
   },
-  "overall_maturity": 3.95,
+  "overall_maturity": 4.05,
   "recommended_priorities": [
-    "P0 Official GW2 API Compatibility Hardening",
-    "Next: tokeninfo, permission validator, endpoint schema, structured errors"
+    "P0 Account Sync API Productization",
+    "Next: account sync routes, status endpoint, drain-one, private-layer verification"
   ]
 }

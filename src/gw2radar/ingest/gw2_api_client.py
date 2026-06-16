@@ -22,6 +22,16 @@ class Gw2ApiClientError(Exception):
         self.endpoint = endpoint
         self.status_code = status_code
         self.request_id = request_id
+        self.error_code = "gw2_api_request_failed"
+
+
+@dataclass(frozen=True)
+class Gw2ApiError:
+    endpoint: str
+    status_code: int
+    error_code: str
+    request_id: str | None = None
+    retryable: bool = False
 
 
 @dataclass(frozen=True)
@@ -99,6 +109,10 @@ class GW2ApiClient:
 
     def fetch_account(self, api_key: str) -> dict:
         response = self.get("/v2/account", api_key=api_key)
+        return response.payload
+
+    def fetch_tokeninfo(self, api_key: str, *, request_id: str | None = None) -> dict:
+        response = self.get("/v2/tokeninfo", api_key=api_key, request_id=request_id)
         return response.payload
 
     def _build_url(self, endpoint: str, params: dict[str, Any]) -> str:

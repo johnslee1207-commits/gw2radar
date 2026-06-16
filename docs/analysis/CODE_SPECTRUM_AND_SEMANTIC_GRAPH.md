@@ -163,7 +163,7 @@ Scores use a 0-5 scale:
 | Markdown report | 3.5 | Required sections exist and are export-packaged. Styling remains simple. |
 | SQLite persistence | 3.8 | Graph round-trip works; queue and encrypted key metadata persist. Repository is still coarse-grained replace/load. |
 | FastAPI surface | 3.0 | MVP routes work; no API versioning/auth/error envelope yet. |
-| GW2 API access governance | 3.6 | Gateway/cache/limiter/429 skeleton exists with enum statuses, batch helper, TTL tests, durable retry metadata, sync services, and a safe HTTP client skeleton tested with fake transport. |
+| GW2 API access governance | 4.0 | Gateway/cache/limiter/429 skeleton exists with enum statuses, endpoint schema, tokeninfo, permission validator, batch helper, TTL tests, durable retry metadata, sync services, and a safe HTTP client skeleton tested with fake transport. |
 | Evidence governance | 3.5 | Evidence schema, masking, freshness/confidence evaluation, action downgrades, and report labels exist. |
 | Public/private graph separation | 3.7 | `graph_layer` exists on semantic and persistence objects; repository validates private/personal constraints. |
 | Test harness | 3.7 | 45 tests plus smoke; coverage is good for MVP but lacks mutation and production sync smoke. |
@@ -172,7 +172,7 @@ Scores use a 0-5 scale:
 | Encrypted local key storage | 3.0 | Fernet-encrypted SQLite key storage; external vault remains future hardening. |
 | Account/public sync services | 3.0 | Gateway-bounded services with fake gateway tests; scheduling and monitoring remain future work. |
 
-Overall maturity: **3.95 / 5.0**
+Overall maturity: **4.05 / 5.0**
 
 Interpretation: GW2Radar is a solid governed MVP prototype with reliable mock intelligence, deterministic exports, durable refresh state, and gateway-bounded sync services. It is not yet a production ingestion service.
 
@@ -208,17 +208,17 @@ Interpretation: GW2Radar is a solid governed MVP prototype with reliable mock in
 
 ## Priority Recommendations
 
-### P0: Official GW2 API Compatibility Hardening
+### P0: Account Sync API Productization
 
-Reason: the detailed durable refresh queue contract is now implemented. The next bottleneck is official API compatibility before broader real sync.
+Reason: the detailed queue contract and official API compatibility layer are implemented. The next bottleneck is queue-backed account sync API productization.
 
 Deliverables:
 
-- Tokeninfo client method.
-- Permission validator.
-- Endpoint schema for private and batch public endpoints.
-- Structured official client errors.
-- Safety tests proving API keys stay out of URLs, queue payloads, evidence, and logs.
+- Account sync enqueue route.
+- Sync status endpoint.
+- Developer drain-one route.
+- Private-layer-only account snapshot writes.
+- Tokeninfo validation before private sync.
 
 ### Completed Priority Trail
 

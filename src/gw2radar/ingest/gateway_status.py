@@ -6,3 +6,5 @@ class GatewayStatus(str, Enum):
     CACHE_HIT = "cache_hit"
     REFRESH_PENDING = "refresh_pending"
     RATE_LIMITED_RETRYING = "rate_limited_retrying"
+    PERMISSION_DENIED = "permission_denied"
+    ERROR = "error"
