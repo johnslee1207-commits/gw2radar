@@ -108,6 +108,8 @@ def build_pdf_id(file_name: str, category: str) -> str:
     if category == "official_api_endpoint":
         endpoint = file_name.removeprefix("API_2_").split(" - ", 1)[0].lower()
         return f"pdf:api_endpoint:{_slug(endpoint)}"
+    if category == "official_news":
+        return f"pdf:official_news:{_slug(Path(file_name).stem)}"
     if file_name.startswith("API_2 -"):
         return "pdf:api:v2"
     if file_name.startswith("API_Main"):

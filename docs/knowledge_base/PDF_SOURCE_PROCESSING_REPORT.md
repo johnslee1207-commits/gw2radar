@@ -18,16 +18,18 @@ Processed the locally downloaded PDF source artifacts under:
 
 ```text
 docs/knowledge_base/official
+docs/knowledge_base/_sources/pdf/news
 ```
 
 The PDFs were treated as source artifacts, not as final Knowledge Base articles.
 
 ## Results
 
-- PDF source artifacts processed: 216
-- Total PDF size: 92,761,034 bytes
-- Inventory records generated: 216
-- Evidence records generated: 216
+- PDF source artifacts processed: 260
+- Original official/API/patch PDF size: 92,761,034 bytes
+- Added official news PDF size: 59,770,204 bytes
+- Inventory records generated: 260
+- Evidence records generated: 260
 - Tier 0 / Tier 1 extracted text files: 23
 - Initial KnowledgeArticle markdown summaries: 18
 
@@ -49,6 +51,7 @@ arenanet_policy: 6
 low_priority: 3
 official_api: 2
 official_api_endpoint: 12
+official_news: 44
 patch_note: 182
 wiki_meta: 8
 ```
@@ -58,9 +61,15 @@ Priority distribution:
 ```text
 P0: 11
 P1: 12
-P2: 45
+P2: 89
 P3: 145
 P4: 3
+```
+
+Official news summaries:
+
+```text
+docs/knowledge_base/news/official/*.md
 ```
 
 ## Generated Indexes
@@ -102,4 +111,4 @@ docs/knowledge_base/official/api_endpoints/*.md
 - Extracted full text is not committed.
 - KB markdown summaries intentionally avoid full-text copying.
 - Generated summaries are marked `review_status: draft` until reviewed.
-- Patch notes were inventoried and grouped, but not converted into final KnowledgeArticle summaries in this stage.
+- Patch notes and official news items are generated as draft source summaries until manually reviewed.

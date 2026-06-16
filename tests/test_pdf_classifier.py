@@ -8,6 +8,7 @@ def test_pdf_classifier_matches_plan_categories() -> None:
     assert classify_pdf("API_2_tokeninfo - Guild Wars 2 Wiki (GW2W).pdf").category == "api_permission"
     assert classify_pdf("API_API key - Guild Wars 2 Wiki (GW2W).pdf").category == "api_key"
     assert classify_pdf("ArenaNet-security.pdf").category == "arenanet_policy"
+    assert classify_pdf("The Future of the Guild Wars Franchise_ Our Commitment to Tyria – GuildWars2.com.pdf").category == "official_news"
     assert classify_pdf("Game Update Notes_ June 2, 2026 - Game Update Notes - Guild Wars 2 Forums.pdf").category == "patch_note"
     assert classify_pdf("Guild Wars 2 Wiki.pdf").category == "wiki_meta"
     assert classify_pdf("Gallant Longbow Skin - Guild Wars 2 Wiki (GW2W).pdf").category == "low_priority"

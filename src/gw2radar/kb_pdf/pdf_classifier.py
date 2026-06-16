@@ -28,6 +28,8 @@ def classify_pdf(file_name: str) -> PdfClassification:
         return PdfClassification("official_api_endpoint", year, "P1", "pending", "official_api/endpoints")
     if "api_main" in lower or re.match(r"api_2\s+-", lower):
         return PdfClassification("official_api", year, "P0", "pending", "official_api")
+    if "guildwars2.com" in lower or "guild wars 2" in lower and "guildwars2" in lower:
+        return PdfClassification("official_news", year, "P2", "pending", "news")
     if "arenanet" in lower:
         return PdfClassification("arenanet_policy", year, "P0", "pending", "arenanet")
     if "game update notes" in lower or "game release notes" in lower or "release notes" in lower:

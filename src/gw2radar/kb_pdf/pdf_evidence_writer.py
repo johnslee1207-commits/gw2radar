@@ -45,6 +45,8 @@ def write_evidence_jsonl(records: list[PdfEvidenceRecord], output_path: Path) ->
 def _confidence_for_category(category: str) -> float:
     if category in {"official_api", "official_api_endpoint", "api_governance", "api_permission", "api_key"}:
         return 0.95
+    if category == "official_news":
+        return 0.9
     if category == "arenanet_policy":
         return 0.9
     if category == "patch_note":

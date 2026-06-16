@@ -20,6 +20,8 @@ Overall maturity:
 | Downloaded PDF inventory and evidence | 216/216 PDFs | high |
 | Tier 0 official API summaries | 6 core files | medium-high |
 | Tier 1 endpoint summaries | 17 implemented / 17 requested | high |
+| Official news inventory | 44 official news PDFs inventoried | high |
+| Official news structured summaries | 44 generated | medium |
 | Recent patch note inventory | 45 P2 patch PDFs inventoried | high |
 | Patch note structured summaries | 45 generated for 2024-2026 | medium |
 | Source registry documents | 6 registry files plus official coverage analysis | medium-high |
@@ -58,6 +60,7 @@ Generated KB summaries:
 - `docs/knowledge_base/official/api_key_safety.md`
 - `docs/knowledge_base/official/arenanet_content_terms_summary.md`
 - `docs/knowledge_base/official/api_endpoints/*.md`
+- `docs/knowledge_base/news/official/*.md`
 
 ## Source Gaps To Fill
 
@@ -123,10 +126,10 @@ These support product positioning, trust-page wording, and creator intelligence.
 ## Recommended Next Work
 
 1. Manually review 2026 patch summaries and promote changed systems from `needs_manual_review`.
-2. Add wiki/license policy summaries before marking wiki-derived KB as reviewed.
-3. Add build-source metadata templates and Snow Crows attribution policy.
-4. Add source freshness and attribution fields to report quality scoring.
-5. Promote reviewed official source notes into persisted KnowledgeArticle records.
+2. Manually review official news summaries and promote product context fields.
+3. Add wiki/license policy summaries before marking wiki-derived KB as reviewed.
+4. Add build-source metadata templates and Snow Crows attribution policy.
+5. Add source freshness and attribution fields to report quality scoring.
 
 ## Governance Boundary
 

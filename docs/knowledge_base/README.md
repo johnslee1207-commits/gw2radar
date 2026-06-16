@@ -181,6 +181,10 @@ Recent patch-note structured drafts:
 - [2025 Patch Notes](patch_notes/2025/)
 - [2024 Patch Notes](patch_notes/2024/)
 
+Official news structured drafts:
+
+- [Official News](news/official/)
+
 ## Collection Pipeline
 
 KB collection is:
