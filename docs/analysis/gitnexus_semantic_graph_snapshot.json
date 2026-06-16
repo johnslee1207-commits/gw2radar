@@ -3,10 +3,10 @@
   "snapshot_date": "2026-06-16",
   "indexed_commit": "current-up-to-date-graph-analysis-commit",
   "gitnexus": {
-    "nodes": 1625,
-    "edges": 2805,
-    "clusters": 50,
-    "flows": 77,
+    "nodes": 4297,
+    "edges": 8498,
+    "clusters": 176,
+    "flows": 300,
     "status": "up-to-date"
   },
   "code_spectrum": {
