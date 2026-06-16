@@ -4,8 +4,10 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from gw2radar.api.envelope import ApiDataEnvelope
+from gw2radar.api.state import get_graph
 from gw2radar.db import session as db_session
 from gw2radar.db.init_db import init_db
+from gw2radar.kb.kb_entity_linker import validate_article_links
 from gw2radar.kb.kb_markdown_loader import load_markdown_directory
 from gw2radar.kb.kb_models import KnowledgeArticleInput, KnowledgeDomain, SourceRegistryInput, SourceType
 from gw2radar.kb.kb_repository import (
@@ -19,6 +21,7 @@ from gw2radar.kb.kb_repository import (
     review_article,
     search_articles,
 )
+from gw2radar.kb.kb_rule_distiller import distill_rule_from_article
 
 router = APIRouter(prefix="/api/v1/kb", tags=["kb"])
 
@@ -117,6 +120,32 @@ def post_kb_article_deprecate(kb_id: str) -> ApiDataEnvelope:
         except ValueError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
     return ApiDataEnvelope(data={"article": article.model_dump(mode="json")})
+
+
+@router.post("/articles/{kb_id}/validate-links", response_model=ApiDataEnvelope)
+def post_kb_article_validate_links(kb_id: str) -> ApiDataEnvelope:
+    graph = get_graph()
+    init_db()
+    with db_session.SessionLocal() as session:
+        article = get_article(session, kb_id)
+    if article is None:
+        raise HTTPException(status_code=404, detail="Knowledge article not found.")
+    result = validate_article_links(article, graph)
+    return ApiDataEnvelope(data={"validation": result.model_dump(mode="json")})
+
+
+@router.post("/articles/{kb_id}/distill-rule", response_model=ApiDataEnvelope)
+def post_kb_article_distill_rule(kb_id: str) -> ApiDataEnvelope:
+    init_db()
+    with db_session.SessionLocal() as session:
+        article = get_article(session, kb_id)
+        if article is None:
+            raise HTTPException(status_code=404, detail="Knowledge article not found.")
+        try:
+            rule = distill_rule_from_article(session, article)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return ApiDataEnvelope(data={"rule": rule.model_dump(mode="json")})
 
 
 @router.get("/search", response_model=ApiDataEnvelope)

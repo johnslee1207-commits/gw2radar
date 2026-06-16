@@ -65,6 +65,7 @@ The Knowledge Base explains recommendations, while the Knowledge Graph reasons o
 - [MVP 0.3.7 KB Core Schema Source Registry](docs/mvp/MVP_0_3_7_KB_CORE_SCHEMA_SOURCE_REGISTRY.md)
 - [MVP 0.3.8 KB Repository Markdown API](docs/mvp/MVP_0_3_8_KB_REPOSITORY_MARKDOWN_API.md)
 - [MVP 0.3.9 KB Source Registry Domain Seeds](docs/mvp/MVP_0_3_9_KB_SOURCE_REGISTRY_DOMAIN_SEEDS.md)
+- [MVP 0.4.0 KB Entity Linker Rule Distiller](docs/mvp/MVP_0_4_0_KB_ENTITY_LINKER_RULE_DISTILLER.md)
 
 ## Analysis And Maturity
 
