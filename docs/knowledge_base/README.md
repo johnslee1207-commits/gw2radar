@@ -146,9 +146,9 @@ Power Reaper is a low-friction open-world recovery build for your current accoun
 
 Forbidden monetization inputs:
 
-- API keys;
-- raw private inventory data;
-- private account identifiers;
+- credentials and secrets;
+- raw authorized account-state data;
+- account identifiers;
 - copied third-party full text;
 - aggressive scraped content;
 - gameplay automation.
@@ -260,5 +260,5 @@ The KB must support existing product lanes instead of becoming a separate projec
 - Mark community-derived claims as low-confidence unless reviewed.
 - Do not let draft KB drive high-priority actions.
 - Do not store private player data in public KB.
-- Do not store API keys or secrets.
+- Do not store credentials or secrets.
 - Do not implement proxy pools or IP rotation.

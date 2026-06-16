@@ -2,11 +2,11 @@ from pathlib import Path
 
 from sqlalchemy.orm import Session
 
-from gw2radar.kb.kb_models import KnowledgeArticleInput
+from gw2radar.kb.kb_models import KnowledgeArticle, KnowledgeArticleInput
 from gw2radar.kb.kb_repository import create_article
 
 
-def load_markdown_article(session: Session, path: Path) -> object:
+def load_markdown_article(session: Session, path: Path) -> KnowledgeArticle:
     resolved = path.resolve()
     if resolved.suffix.lower() != ".md":
         raise ValueError("Knowledge Base loader only accepts Markdown files.")
@@ -28,6 +28,20 @@ def load_markdown_article(session: Session, path: Path) -> object:
         review_status=metadata.get("review_status", "draft"),
     )
     return create_article(session, article)
+
+
+def load_markdown_directory(session: Session, directory: Path) -> list[KnowledgeArticle]:
+    resolved = directory.resolve()
+    if not resolved.exists() or not resolved.is_dir():
+        raise ValueError("Knowledge Base Markdown directory not found.")
+    loaded: list[KnowledgeArticle] = []
+    for path in sorted(resolved.rglob("*.md")):
+        if path.name.upper() == "README.MD":
+            continue
+        if "source_registry" in path.relative_to(resolved).parts:
+            continue
+        loaded.append(load_markdown_article(session, path))
+    return loaded
 
 
 def _parse_front_matter(text: str) -> tuple[dict[str, str], str]:

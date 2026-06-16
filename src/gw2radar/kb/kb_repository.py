@@ -47,8 +47,11 @@ def get_source(session: Session, source_id: str) -> SourceRegistry | None:
     return _source_from_model(row) if row else None
 
 
-def list_sources(session: Session) -> list[SourceRegistry]:
-    rows = session.query(KnowledgeSourceModel).order_by(KnowledgeSourceModel.name).all()
+def list_sources(session: Session, source_type: str | None = None) -> list[SourceRegistry]:
+    query = session.query(KnowledgeSourceModel)
+    if source_type:
+        query = query.filter(KnowledgeSourceModel.source_type == source_type)
+    rows = query.order_by(KnowledgeSourceModel.name).all()
     return [_source_from_model(row) for row in rows]
 
 
