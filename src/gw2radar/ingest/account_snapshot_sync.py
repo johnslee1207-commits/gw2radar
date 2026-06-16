@@ -9,10 +9,12 @@ from gw2radar.ontology.schemas import Entity, PlayerState, Relation
 
 def sync_account_snapshot(graph: GraphData, gateway: Gw2ApiGateway, *, api_key: str) -> dict:
     account = gateway.get("/v2/account", api_key=api_key, priority="P1")
+    characters = gateway.get("/v2/characters", api_key=api_key, priority="P1")
     wallet = gateway.get("/v2/account/wallet", api_key=api_key, priority="P1")
     materials = gateway.get("/v2/account/materials", api_key=api_key, priority="P1")
+    bank = gateway.get("/v2/account/bank", api_key=api_key, priority="P1")
     achievements = gateway.get("/v2/account/achievements", api_key=api_key, priority="P1")
-    results = [account, wallet, materials, achievements]
+    results = [account, characters, wallet, materials, bank, achievements]
     if any(result.status != GatewayStatus.OK for result in results):
         return {"status": "refresh_pending", "updated_player_state": 0}
 
@@ -29,6 +31,11 @@ def sync_account_snapshot(graph: GraphData, gateway: Gw2ApiGateway, *, api_key: 
     )
 
     count = 0
+    for name in characters.payload:
+        entity_id = f"gw2:character:{name}"
+        _ensure_entity(graph, entity_id, EntityType.CHARACTER, str(name), GraphLayer.PRIVATE_PLAYER_STATE)
+        _add_private_state(graph, account_id, entity_id, 1.0, "characters")
+        count += 1
     for entry in wallet.payload:
         entity_id = f"gw2:currency:{entry['id']}"
         _ensure_entity(graph, entity_id, EntityType.CURRENCY, f"Currency {entry['id']}")
@@ -38,6 +45,13 @@ def sync_account_snapshot(graph: GraphData, gateway: Gw2ApiGateway, *, api_key: 
         entity_id = f"gw2:item:{entry['id']}"
         _ensure_entity(graph, entity_id, EntityType.ITEM, f"Item {entry['id']}")
         _add_private_state(graph, account_id, entity_id, float(entry.get("count", 0)), "materials")
+        count += 1
+    for entry in bank.payload:
+        if entry is None:
+            continue
+        entity_id = f"gw2:item:{entry['id']}"
+        _ensure_entity(graph, entity_id, EntityType.ITEM, f"Item {entry['id']}")
+        _add_private_state(graph, account_id, entity_id, float(entry.get("count", 0)), "bank")
         count += 1
     for entry in achievements.payload:
         entity_id = f"gw2:achievement:{entry['id']}"
@@ -49,14 +63,20 @@ def sync_account_snapshot(graph: GraphData, gateway: Gw2ApiGateway, *, api_key: 
     return {"status": "synced", "account_id": account_id, "updated_player_state": count}
 
 
-def _ensure_entity(graph: GraphData, entity_id: str, entity_type: EntityType, name: str) -> None:
+def _ensure_entity(
+    graph: GraphData,
+    entity_id: str,
+    entity_type: EntityType,
+    name: str,
+    graph_layer: GraphLayer = GraphLayer.PUBLIC_GAME,
+) -> None:
     if entity_id not in graph.entities:
         graph.add_entity(
             Entity(
                 id=entity_id,
                 type=entity_type,
                 canonical_name=name,
-                graph_layer=GraphLayer.PUBLIC_GAME,
+                graph_layer=graph_layer,
             )
         )
 

@@ -41,6 +41,7 @@
     "RefreshWorker",
     "EncryptedApiKeyStore",
     "Account Snapshot Sync",
+    "Account Sync API",
     "Public Item Refresh",
     "Account Snapshot Deletion",
     "FastAPI Routes",
@@ -68,6 +69,9 @@
     ["EncryptedApiKeyStore", "FastAPI Routes", "serves"],
     ["Account Snapshot Deletion", "GraphRepository", "deletes_private_and_personal_layers"],
     ["Gw2ApiGateway", "Account Snapshot Sync", "bounds"],
+    ["FastAPI Routes", "Account Sync API", "exposes"],
+    ["Account Sync API", "Durable Refresh Queue", "enqueues"],
+    ["Account Sync API", "Account Snapshot Sync", "drains"],
     ["Gw2ApiGateway", "Public Item Refresh", "bounds"],
     ["Account Snapshot Sync", "GraphData", "writes_private_player_state"],
     ["Public Item Refresh", "GraphData", "writes_public_game_entities"],
@@ -83,14 +87,14 @@
     "evidence_governance": 3.7,
     "graph_layer_separation": 3.7,
     "sqlite_persistence": 3.8,
-    "fastapi_surface": 3.5,
+    "fastapi_surface": 3.8,
     "export_package": 3.8,
     "gw2_api_gateway_client": 4.0,
     "durable_refresh_queue": 3.9,
     "production_key_storage": 3.0,
-    "real_account_ingestion": 3.0,
+    "real_account_ingestion": 3.6,
     "public_static_data_refresh": 3.2
   },
-  "overall_maturity": 4.05,
-  "next_priority": "Account Sync API Productization"
+  "overall_maturity": 4.15,
+  "next_priority": "Public Static Refresh Planner"
 }

@@ -15,6 +15,7 @@
     {"id": "refresh_worker", "type": "orchestration", "label": "RefreshWorker"},
     {"id": "key_store", "type": "security", "label": "EncryptedApiKeyStore"},
     {"id": "account_sync", "type": "ingest_service", "label": "Account Snapshot Sync"},
+    {"id": "account_sync_api", "type": "interface", "label": "Account Sync API"},
     {"id": "public_refresh", "type": "ingest_service", "label": "Public Item Refresh"},
     {"id": "goal_gap", "type": "inference", "label": "Goal Gap"},
     {"id": "material_policy", "type": "inference", "label": "Material Policy"},
@@ -47,6 +48,9 @@
     {"from": "gateway", "to": "client", "type": "wraps"},
     {"from": "gateway", "to": "evidence_writer", "type": "uses"},
     {"from": "gateway", "to": "account_sync", "type": "bounds"},
+    {"from": "api", "to": "account_sync_api", "type": "exposes"},
+    {"from": "account_sync_api", "to": "refresh_queue", "type": "enqueues"},
+    {"from": "account_sync_api", "to": "account_sync", "type": "drains"},
     {"from": "gateway", "to": "public_refresh", "type": "bounds"},
     {"from": "account_sync", "to": "graph_data", "type": "writes_private_player_state"},
     {"from": "public_refresh", "to": "graph_data", "type": "writes_public_game_entities"},
@@ -92,7 +96,7 @@
     "action_generation": 3.8,
     "markdown_report": 3.5,
     "sqlite_persistence": 3.8,
-    "fastapi_surface": 3.5,
+    "fastapi_surface": 3.8,
     "gw2_api_access_governance": 4.0,
     "evidence_governance": 3.7,
     "public_private_graph_separation": 3.7,
@@ -100,11 +104,11 @@
     "delivery_export_package": 3.8,
     "durable_refresh_queue": 3.9,
     "encrypted_local_key_storage": 3.0,
-    "account_public_sync_services": 3.0
+    "account_public_sync_services": 3.5
   },
-  "overall_maturity": 4.05,
+  "overall_maturity": 4.15,
   "recommended_priorities": [
-    "P0 Account Sync API Productization",
-    "Next: account sync routes, status endpoint, drain-one, private-layer verification"
+    "P0 Public Static Refresh Planner",
+    "Next: enqueue planner, batching, evidence metadata, public-game-only writes"
   ]
 }

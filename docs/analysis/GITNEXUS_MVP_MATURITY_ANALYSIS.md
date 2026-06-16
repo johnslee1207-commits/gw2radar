@@ -191,15 +191,15 @@ Scoring: 0 = absent, 5 = production-grade.
 | Evidence governance | 3.7 | Masking, freshness/confidence, report labels, action effects. |
 | Graph layer separation | 3.7 | Schema + DB fields + repository validation. |
 | SQLite persistence | 3.8 | Replace/load/delete flows, queue, key metadata, migrations. Repository still coarse-grained. |
-| FastAPI MVP surface | 3.5 | Health, mock load, goals, gap, actions, reports, export, lifecycle. |
+| FastAPI MVP surface | 3.8 | Health, mock load, goals, gap, actions, reports, export, lifecycle, and account sync routes. |
 | Export package | 3.8 | Markdown/CSV/manifest package, deterministic and tested. |
 | GW2 API gateway/client | 4.0 | Safe fake-tested skeleton with tokeninfo, permission validation, endpoint schema, structured errors, sync services, and worker contracts behind the gateway. |
 | Refresh queue durability | 3.9 | SQLite queue, retry metadata, 429 persistence, sanitized params hash, lease/worker fields, status transitions, and one-step worker compatibility. |
 | Production key storage | 3.0 | Local Fernet-encrypted SQLite storage; KMS or OS vault remains future production hardening. |
-| Real account ingestion | 3.0 | Account snapshot sync service writes private player state using gateway fake transport tests. |
+| Real account ingestion | 3.6 | Queue-backed account sync API routes, status, drain-one, tokeninfo validation, fake transport tests, and private-layer persistence. |
 | Public static data refresh | 3.2 | Public item batch refresh writes public-game entities through gateway contract. |
 
-Overall MVP maturity: **4.05 / 5.0**.
+Overall MVP maturity: **4.15 / 5.0**.
 
 Interpretation: GW2Radar is now a governed, test-backed MVP substrate with durable refresh state, encrypted local key storage, and gateway-bounded sync services. It is still not a production account-ingestion service until scheduling, monitoring, and external secret management are added.
 
@@ -229,18 +229,18 @@ Interpretation: GW2Radar is now a governed, test-backed MVP substrate with durab
 
 ## Recommended Next Priority
 
-### P0: Account Sync API Productization
+### P0: Public Static Refresh Planner
 
-Reason: the detailed queue contract and official API compatibility layer are now implemented. The next highest-risk blocker is productizing account sync through queue-backed API routes while preserving private-layer boundaries.
+Reason: account sync API productization is now complete for MVP. The next highest-value task is productizing public static refresh as a queue-backed planner with batching, cache verification, evidence metadata, and public-game-only writes.
 
 Minimum deliverables:
 
-- `POST /api/v1/account/sync`;
-- `GET /api/v1/account/sync/status`;
-- developer `POST /api/v1/account/sync/drain-one`;
-- queue-backed account snapshot task orchestration;
-- tokeninfo validation before private sync;
-- private evidence metadata and private-layer-only writes.
+- public static refresh enqueue planner;
+- dedupe/sort/chunk ids;
+- batch official endpoint calls;
+- sanitized evidence metadata per official response;
+- public-game-only entity writes;
+- cache tests proving no N+1 path.
 
 ## Constitution Compliance Summary
 

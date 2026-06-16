@@ -34,8 +34,10 @@ def test_account_snapshot_sync_writes_private_player_state() -> None:
     gateway = PayloadGateway(
         {
             "/v2/account": {"name": "Test.1234", "world": 1001},
+            "/v2/characters": ["Hero One"],
             "/v2/account/wallet": [{"id": 1, "value": 42}],
             "/v2/account/materials": [{"id": 19721, "count": 7}],
+            "/v2/account/bank": [{"id": 19722, "count": 2}],
             "/v2/account/achievements": [{"id": 999, "current": 1, "max": 1}],
         }
     )
@@ -43,8 +45,9 @@ def test_account_snapshot_sync_writes_private_player_state() -> None:
     result = sync_account_snapshot(graph, gateway, api_key="12345678-abcdef-secret-key")
 
     assert result["status"] == "synced"
-    assert result["updated_player_state"] == 3
+    assert result["updated_player_state"] == 5
     assert graph.entities["gw2:account:Test.1234"].graph_layer == GraphLayer.PRIVATE_PLAYER_STATE
+    assert graph.entities["gw2:character:Hero One"].graph_layer == GraphLayer.PRIVATE_PLAYER_STATE
     assert all(state.graph_layer == GraphLayer.PRIVATE_PLAYER_STATE for state in graph.player_state)
     assert all(
         relation.graph_layer == GraphLayer.PRIVATE_PLAYER_STATE for relation in graph.relations

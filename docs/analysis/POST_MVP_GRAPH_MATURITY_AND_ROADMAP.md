@@ -80,14 +80,14 @@ flowchart TD
 | Evidence governance | 3.7 | Masking, confidence, freshness, and report labels. |
 | Graph layer separation | 3.7 | Enforced in repository validation. |
 | SQLite persistence | 3.8 | Strong MVP persistence; partial sync updates remain next-level work. |
-| FastAPI surface | 3.5 | Functional but lacks versioned sync routes and response schemas. |
+| FastAPI surface | 3.8 | Functional with versioned account sync enqueue/status/drain-one routes; response schemas still simple. |
 | Export package | 3.8 | Deterministic Markdown/CSV/manifest. |
 | GW2 API gateway/client | 4.0 | Safe fake-tested client/gateway with tokeninfo, permission validator, endpoint schema, structured errors, and Authorization-only private access. |
 | Durable refresh queue | 3.9 | Detailed queue contract, leases, retry metadata, 429 persistence, sanitization. |
 | Local encrypted key storage | 3.0 | Fernet SQLite storage; external vault remains future. |
-| Account/public sync services | 3.0 | Service-layer fake transport exists; route integration and official permissions pending. |
+| Account/public sync services | 3.5 | Account sync has queue-backed API productization and private-layer tests; public refresh planner remains pending. |
 
-Overall maturity: **4.05 / 5.0**.
+Overall maturity: **4.15 / 5.0**.
 
 ## Priority Roadmap
 
@@ -107,6 +107,8 @@ Deliverables:
 - tests proving failed official responses do not write graph facts.
 
 ### P2: Account Sync API Productization
+
+Status: complete for MVP 0.2.1.
 
 Reason: service-layer sync exists, but product routes and durable queue orchestration are not complete.
 
