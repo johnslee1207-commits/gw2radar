@@ -46,13 +46,13 @@ Source scan summary:
 
 Current code volume signal:
 
-- 79 Python source files under `src/gw2radar`.
-- 103 extracted classes.
-- 258 extracted functions/methods.
-- 15 core enum classes.
-- 37 Pydantic model classes.
-- 13 SQLAlchemy persistence tables.
-- 58 pytest test files.
+- 81 Python source files under `src/gw2radar`.
+- 118 extracted classes.
+- 276 extracted functions/methods.
+- 16 core enum classes.
+- 48 Pydantic model classes.
+- 14 SQLAlchemy persistence tables.
+- 67 pytest test files.
 
 ## Semantic Graph
 
@@ -96,6 +96,10 @@ flowchart TD
   LegendaryPlanner --> Portfolio["Goal Portfolio"]
   LegendaryPlanner --> SharedReq["Shared Requirements"]
   LegendaryPlanner --> MultiGoalDNS["Multi-Goal Do-Not-Sell"]
+  PaidReportEngine --> BuildFit["Build Fit Advisor"]
+  BuildFit --> GearMatcher["Account Gear Matcher"]
+  BuildFit --> FitScore["Build Fit Score"]
+  BuildFit --> TransitionPlan["Gear Transition Plan"]
 
   API["FastAPI Routes"] --> GraphState["API State"]
   GraphState --> Repository
@@ -182,8 +186,9 @@ Scores use a 0-5 scale:
 | Account/public sync services | 3.8 | Account sync and public static refresh have queue-backed routes, planner rules, layer tests, and fake gateway coverage. |
 | Paid report engine | 3.6 | P6 implements products, entitlements, preview/full report modes, export jobs, artifacts, manifests, and versioned commercial report routes. |
 | Legendary Planner Pro | 3.6 | P7 implements portfolios, shared requirements, conflicts, time gates, cheap/fast paths, do-not-sell, routes, API, and paid report generation. |
+| Build Fit Advisor | 3.6 | P8 implements build import, gear requirements, account gear matching, fit score, transition plan, budget alternative, routes, and paid report generation. |
 
-Overall maturity: **4.53 / 5.0**
+Overall maturity: **4.58 / 5.0**
 
 Interpretation: GW2Radar is a solid governed MVP prototype with reliable mock intelligence, deterministic exports, durable refresh state, and gateway-bounded sync services. It is not yet a production ingestion service.
 
@@ -219,19 +224,19 @@ Interpretation: GW2Radar is a solid governed MVP prototype with reliable mock in
 
 ## Priority Recommendations
 
-### P0: Build Fit & Gear Transition Advisor
+### P0: Market Radar Pro
 
-Reason: P6 Paid Report Engine and P7 Legendary Planner Pro are implemented. P8 is the next strongest product differentiator because it answers whether a user's account can play a build now and what transition is required.
+Reason: P6-P8 now cover paid reports, legendary planning, and build fit. P9 adds senior-player subscription value through price observation and goal-aware material retention, while staying recommendation-only.
 
 Deliverables:
 
-- Build import schema.
-- Gear requirement model.
-- Account gear matcher.
-- Build fit score.
-- Gear transition plan.
-- Budget alternative recommendation.
-- Build Fit paid report.
+- Price snapshots.
+- Price trend calculator.
+- Goal cost index.
+- Material watchlist.
+- Hold/sell candidate inference.
+- Market language policy.
+- Market Radar paid report.
 
 ### Completed Priority Trail
 

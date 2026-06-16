@@ -10,12 +10,12 @@
     "status": "up-to-date"
   },
   "code_spectrum": {
-    "python_files": 79,
-    "classes": 103,
-    "functions": 258,
-    "enums": 15,
-    "pydantic_models": 37,
-    "sqlalchemy_models": 13
+    "python_files": 81,
+    "classes": 118,
+    "functions": 276,
+    "enums": 16,
+    "pydantic_models": 48,
+    "sqlalchemy_models": 14
   },
   "semantic_nodes": [
     "Constitution",
@@ -40,6 +40,10 @@
     "Goal Portfolio",
     "Shared Requirements",
     "Multi-Goal Do-Not-Sell",
+    "Build Fit Advisor",
+    "Account Gear Matcher",
+    "Build Fit Score",
+    "Gear Transition Plan",
     "Export Package",
     "Gw2ApiGateway",
     "GW2ApiClient Skeleton",
@@ -90,6 +94,11 @@
     ["Legendary Planner Pro", "Shared Requirements", "infers"],
     ["Legendary Planner Pro", "Multi-Goal Do-Not-Sell", "creates"],
     ["FastAPI Routes", "Legendary Planner Pro", "exposes"],
+    ["Paid Report Engine", "Build Fit Advisor", "monetizes"],
+    ["Build Fit Advisor", "Account Gear Matcher", "uses"],
+    ["Build Fit Advisor", "Build Fit Score", "calculates"],
+    ["Build Fit Advisor", "Gear Transition Plan", "creates"],
+    ["FastAPI Routes", "Build Fit Advisor", "exposes"],
     ["FastAPI Routes", "Paid Report Engine", "exposes"],
     ["Action Generator", "Export Package", "exports"],
     ["EncryptedApiKeyStore", "FastAPI Routes", "serves"],
@@ -129,8 +138,9 @@
     "real_account_ingestion": 3.6,
     "public_static_data_refresh": 3.8,
     "paid_report_engine": 3.6,
-    "legendary_planner_pro": 3.6
+    "legendary_planner_pro": 3.6,
+    "build_fit_advisor": 3.6
   },
-  "overall_maturity": 4.53,
-  "next_priority": "Build Fit & Gear Transition Advisor"
+  "overall_maturity": 4.58,
+  "next_priority": "Market Radar Pro"
 }

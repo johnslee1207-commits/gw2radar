@@ -1,0 +1,25 @@
+from pathlib import Path
+from uuid import uuid4
+
+from gw2radar.commercial.build_fit import evaluate_build_fit, import_build
+from gw2radar.db import session as db_session
+from gw2radar.db.init_db import init_db
+from gw2radar.db.session import close_database, configure_database
+from build_fit_helpers import partial_account_gear, sample_build_import
+
+
+def test_budget_alternative_is_conservative_recommendation() -> None:
+    temp_dir = Path(".test_tmp") / f"build-budget-{uuid4().hex}"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        configure_database(f"sqlite:///{temp_dir / 'builds.db'}")
+        init_db()
+        with db_session.SessionLocal() as session:
+            build = import_build(session, sample_build_import())
+
+        result = evaluate_build_fit(build, partial_account_gear())
+
+        assert result.budget_alternative.estimated_savings_gold > 0
+        assert "not a claim of optimal meta performance" in result.budget_alternative.explanation
+    finally:
+        close_database()

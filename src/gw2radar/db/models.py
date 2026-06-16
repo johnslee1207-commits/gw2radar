@@ -201,3 +201,25 @@ class LegendaryGoalModel(Base):
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class BuildModel(Base):
+    __tablename__ = "builds"
+
+    build_id: Mapped[str] = mapped_column(String, primary_key=True)
+    user_id: Mapped[str] = mapped_column(String, nullable=False)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    source_name: Mapped[str] = mapped_column(String, nullable=False)
+    source_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    source_attribution: Mapped[str] = mapped_column(String, nullable=False)
+    profession: Mapped[str] = mapped_column(String, nullable=False)
+    specialization: Mapped[str] = mapped_column(String, nullable=False)
+    role: Mapped[str] = mapped_column(String, nullable=False)
+    game_mode: Mapped[str] = mapped_column(String, nullable=False)
+    patch_version: Mapped[str | None] = mapped_column(String, nullable=True)
+    patch_freshness_days: Mapped[int] = mapped_column(Integer, default=0)
+    difficulty: Mapped[str] = mapped_column(String, default="medium")
+    requirements_json: Mapped[list] = mapped_column(JSON, default=list)
+    estimated_transition_cost_gold: Mapped[float] = mapped_column(Float, default=0.0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)

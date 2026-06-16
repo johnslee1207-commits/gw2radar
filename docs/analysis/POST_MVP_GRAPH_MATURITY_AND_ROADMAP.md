@@ -26,13 +26,13 @@ Local AST spectrum:
 
 | Metric | Count |
 |---|---:|
-| Python source files | 79 |
-| Classes | 103 |
-| Functions / methods | 258 |
-| Enums | 15 |
-| Pydantic models | 37 |
-| SQLAlchemy models | 13 |
-| Pytest test files | 58 |
+| Python source files | 81 |
+| Classes | 118 |
+| Functions / methods | 276 |
+| Enums | 16 |
+| Pydantic models | 48 |
+| SQLAlchemy models | 14 |
+| Pytest test files | 67 |
 
 ## Semantic Graph Summary
 
@@ -65,6 +65,9 @@ flowchart TD
   PaidReports --> LegendaryPro["Legendary Planner Pro"]
   LegendaryPro --> Portfolio["Goal Portfolio"]
   LegendaryPro --> DoNotSell["Multi-Goal Do-Not-Sell"]
+  PaidReports --> BuildFit["Build Fit Advisor"]
+  BuildFit --> GearMatcher["Account Gear Matcher"]
+  BuildFit --> TransitionPlan["Gear Transition Plan"]
 
   KeyStore["EncryptedApiKeyStore"] --> SQLite
   Tests["54 Pytest Tests + Smoke"] --> Gateway
@@ -94,8 +97,9 @@ flowchart TD
 | Account/public sync services | 3.8 | Account sync and public static refresh now have queue-backed API productization, fake gateway tests, layer constraints, and planner rules. |
 | Paid report engine | 3.6 | Product catalog, entitlement gate, preview/full rendering, export jobs, Markdown/HTML artifacts, manifest, and versioned report API are implemented. Real payment integration is deferred. |
 | Legendary Planner Pro | 3.6 | Portfolio persistence, shared requirements, conflicts, time gates, cheap/fast path planning, do-not-sell, daily/weekly routes, API, and P6-backed paid report are implemented. |
+| Build Fit Advisor | 3.6 | Structured build import, gear requirements, account gear matcher, weighted fit score, transition plan, budget alternative, API, and P6-backed paid report are implemented. |
 
-Overall maturity: **4.53 / 5.0**.
+Overall maturity: **4.58 / 5.0**.
 
 ## Priority Roadmap
 
@@ -201,6 +205,8 @@ Deliverables:
 
 ### P8: Build Fit & Gear Transition Advisor
 
+Status: complete for MVP 0.3.2.
+
 Reason: the next commercial differentiator is account-specific build readiness, gear reuse, and transition cost. This builds on P6 paid reports and the same private-data safety boundaries.
 
 Deliverables:
@@ -212,3 +218,17 @@ Deliverables:
 - gear transition plan;
 - budget alternative recommendation;
 - Build Fit paid report.
+
+### P9: Market Radar Pro
+
+Reason: with personal planning and build fit in place, market intelligence can add senior-player subscription value while preserving the no-automation and no-guaranteed-profit boundaries.
+
+Deliverables:
+
+- price snapshots;
+- price trend calculator;
+- goal cost index;
+- material watchlist;
+- hold/sell candidate inference;
+- market language policy;
+- Market Radar paid report.

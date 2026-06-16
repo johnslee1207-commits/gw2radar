@@ -35,6 +35,10 @@
     {"id": "goal_portfolio", "type": "commercial_model", "label": "Goal Portfolio"},
     {"id": "shared_requirements", "type": "inference", "label": "Shared Requirements"},
     {"id": "multi_goal_do_not_sell", "type": "policy", "label": "Multi-Goal Do-Not-Sell"},
+    {"id": "build_fit_advisor", "type": "commercial_advisor", "label": "Build Fit Advisor"},
+    {"id": "account_gear_matcher", "type": "inference", "label": "Account Gear Matcher"},
+    {"id": "build_fit_score", "type": "inference", "label": "Build Fit Score"},
+    {"id": "gear_transition_plan", "type": "recommendation", "label": "Gear Transition Plan"},
     {"id": "export_package", "type": "export", "label": "Export Package"},
     {"id": "api", "type": "interface", "label": "FastAPI Routes"},
     {"id": "api_error_envelope", "type": "interface_contract", "label": "API Error Envelope"},
@@ -100,6 +104,11 @@
     {"from": "legendary_planner_pro", "to": "shared_requirements", "type": "infers"},
     {"from": "legendary_planner_pro", "to": "multi_goal_do_not_sell", "type": "creates"},
     {"from": "api", "to": "legendary_planner_pro", "type": "exposes"},
+    {"from": "paid_report_engine", "to": "build_fit_advisor", "type": "monetizes"},
+    {"from": "build_fit_advisor", "to": "account_gear_matcher", "type": "uses"},
+    {"from": "build_fit_advisor", "to": "build_fit_score", "type": "calculates"},
+    {"from": "build_fit_advisor", "to": "gear_transition_plan", "type": "creates"},
+    {"from": "api", "to": "build_fit_advisor", "type": "exposes"},
     {"from": "api", "to": "paid_report_engine", "type": "exposes"},
     {"from": "actions", "to": "export_package", "type": "packaged_in"},
     {"from": "api", "to": "api_state", "type": "uses"},
@@ -139,11 +148,12 @@
     "encrypted_local_key_storage": 3.8,
     "account_public_sync_services": 3.8,
     "paid_report_engine": 3.6,
-    "legendary_planner_pro": 3.6
+    "legendary_planner_pro": 3.6,
+    "build_fit_advisor": 3.6
   },
-  "overall_maturity": 4.53,
+  "overall_maturity": 4.58,
   "recommended_priorities": [
-    "P0 Build Fit & Gear Transition Advisor",
-    "Next: build import, gear matcher, fit score, transition plan"
+    "P0 Market Radar Pro",
+    "Next: price snapshots, trends, goal cost index, watchlist"
   ]
 }

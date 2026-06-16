@@ -27,12 +27,12 @@ Current source spectrum under `src/gw2radar`:
 
 | Metric | Count |
 |---|---:|
-| Python source files | 79 |
-| Classes | 103 |
-| Functions / methods | 258 |
-| Enums | 15 |
-| Pydantic models | 37 |
-| SQLAlchemy models | 13 |
+| Python source files | 81 |
+| Classes | 118 |
+| Functions / methods | 276 |
+| Enums | 16 |
+| Pydantic models | 48 |
+| SQLAlchemy models | 14 |
 
 Domain spectrum:
 
@@ -49,6 +49,7 @@ Domain spectrum:
 | `reports` | Markdown renderer | Functional, evidence-aware, still simple. |
 | `commercial` | paid report engine | Product catalog, entitlement gate, preview/full rendering, jobs, artifacts, and manifests. |
 | `commercial.legendary_planner` | Legendary Planner Pro | Portfolio, shared requirements, conflicts, time gates, cheap/fast paths, do-not-sell, routes, and paid report. |
+| `commercial.build_fit` | Build Fit Advisor | Structured build import, gear matcher, weighted score, transition plan, budget alternative, and paid report. |
 | `security` | encrypted local key lifecycle | Fernet-encrypted SQLite key persistence with masked API responses. |
 
 ## GitNexus Flow Findings
@@ -202,8 +203,9 @@ Scoring: 0 = absent, 5 = production-grade.
 | Public static data refresh | 3.8 | Queue-backed planner, versioned API routes, stable dedupe/sort/chunk batching, evidence metadata, public-game-only writes, and cache/no-N+1 tests. |
 | Paid report engine | 3.6 | Product catalog, entitlements, preview/full rendering modes, export jobs, Markdown/HTML artifacts, manifest, and versioned routes. |
 | Legendary Planner Pro | 3.6 | Goal portfolio, shared requirements, conflicts, time gates, cheap/fast paths, do-not-sell policy, routes, and P6-backed paid report. |
+| Build Fit Advisor | 3.6 | Structured build import, gear requirements, account gear matcher, fit score, transition plan, budget alternative, routes, and P6-backed paid report. |
 
-Overall MVP maturity: **4.53 / 5.0**.
+Overall MVP maturity: **4.58 / 5.0**.
 
 Interpretation: GW2Radar is now a governed, test-backed MVP substrate with durable refresh state, encrypted local key storage, and gateway-bounded sync services. It is still not a production account-ingestion service until scheduling, monitoring, and external secret management are added.
 
@@ -232,22 +234,23 @@ Interpretation: GW2Radar is now a governed, test-backed MVP substrate with durab
 | Real public data refresh worker | Complete for MVP service layer with fake transport tests |
 | Paid report engine | Complete for MVP; real payment provider deferred to P12 |
 | Legendary Planner Pro | Complete for MVP; richer price-aware pathing deferred to P9 |
+| Build Fit Advisor | Complete for MVP; live build-source integration deferred |
 
 ## Recommended Next Priority
 
-### P0: Build Fit & Gear Transition Advisor
+### P0: Market Radar Pro
 
-Reason: P6 and P7 now cover paid reports and deeper legendary planning. The next highest-value commercial feature is account-specific build fit and gear transition planning.
+Reason: P6-P8 now cover paid reports, legendary planning, and build fit. The next highest-value commercial feature is market-aware material planning without automated trading or guaranteed-profit language.
 
 Minimum deliverables:
 
-- build import schema;
-- gear requirement model;
-- account gear matcher;
-- build fit score;
-- gear transition plan;
-- budget alternative recommendation;
-- Build Fit paid report.
+- price snapshots;
+- price trend calculator;
+- goal cost index;
+- material watchlist;
+- hold/sell candidate inference;
+- market language policy;
+- Market Radar paid report.
 
 ## Constitution Compliance Summary
 
