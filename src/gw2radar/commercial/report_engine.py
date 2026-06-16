@@ -11,7 +11,8 @@ from gw2radar.db.models import ReportEntitlementModel, ReportExportJobModel, Rep
 from gw2radar.graph.graph_query import GraphData
 from gw2radar.inference.action_generator import generate_actions
 from gw2radar.inference.goal_gap import calculate_goal_gap
-from gw2radar.reports.markdown_report import generate_markdown_report
+from gw2radar.kb.kb_models import KnowledgeReviewStatus, KnowledgeRule
+from gw2radar.reports.markdown_report import generate_kb_backed_markdown_report, generate_markdown_report
 from gw2radar.security.log_sanitizer import sanitize_log_payload
 
 
@@ -208,6 +209,8 @@ def generate_report_job(
     export_format: ReportExportFormat = ReportExportFormat.MARKDOWN,
     output_root: Path = Path("outputs") / "reports",
     markdown_override: str | None = None,
+    knowledge_backed: bool = False,
+    knowledge_rules: list[KnowledgeRule] | None = None,
 ) -> ReportExportJob:
     ensure_default_report_products(session)
     product = session.get(ReportProductModel, product_id)
@@ -233,7 +236,13 @@ def generate_report_job(
         job.status = ReportJobStatus.PROCESSING.value
         job.updated_at = utc_now()
         session.commit()
-        markdown = markdown_override or _render_full_markdown(graph, goal_id, product.name)
+        markdown = markdown_override or _render_full_markdown(
+            graph,
+            goal_id,
+            product.name,
+            knowledge_backed=knowledge_backed,
+            knowledge_rules=knowledge_rules or [],
+        )
         content = _render_export_content(markdown, export_format)
         artifact_path, manifest_path = _write_artifact(
             content,
@@ -242,6 +251,8 @@ def generate_report_job(
             report_type=product.report_type,
             render_mode="full",
             export_format=export_format,
+            knowledge_backed=knowledge_backed,
+            knowledge_rule_count=_count_reviewed_enabled_rules(knowledge_rules or []),
         )
         job.status = ReportJobStatus.SUCCEEDED.value
         job.artifact_path = artifact_path.as_posix()
@@ -300,12 +311,22 @@ def _render_preview_markdown(graph: GraphData, goal_id: str, report_type: str) -
     return "\n".join(lines) + "\n"
 
 
-def _render_full_markdown(graph: GraphData, goal_id: str, product_name: str) -> str:
-    base_report = generate_markdown_report(graph, goal_id)
+def _render_full_markdown(
+    graph: GraphData,
+    goal_id: str,
+    product_name: str,
+    knowledge_backed: bool = False,
+    knowledge_rules: list[KnowledgeRule] | None = None,
+) -> str:
+    if knowledge_backed:
+        base_report = generate_kb_backed_markdown_report(graph, goal_id, knowledge_rules or [])
+    else:
+        base_report = generate_markdown_report(graph, goal_id)
     header = [
         f"# {product_name}",
         "",
         "Commercial report mode: full",
+        f"Knowledge-backed explanations: {str(knowledge_backed).lower()}",
         "",
         "Privacy boundary: no API keys, no unredacted private payloads, and recommendations require manual player action.",
         "",
@@ -333,6 +354,8 @@ def _write_artifact(
     report_type: str,
     render_mode: str,
     export_format: ReportExportFormat,
+    knowledge_backed: bool = False,
+    knowledge_rule_count: int = 0,
 ) -> tuple[Path, Path]:
     safe_user = _safe_slug(user_id)
     safe_report = _safe_slug(report_type)
@@ -361,6 +384,11 @@ def _write_artifact(
             "generated_at": datetime(2026, 6, 16, tzinfo=timezone.utc).isoformat(),
             "privacy_boundary": "no secrets and no unredacted private payloads",
             "recommendation_boundary": "informational_manual_actions_only",
+            "knowledge_base": {
+                "enabled": knowledge_backed,
+                "reviewed_rule_count": knowledge_rule_count if knowledge_backed else 0,
+                "boundary": "reviewed_enabled_rules_only",
+            },
         }
     )
     manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
@@ -406,3 +434,7 @@ def _job_from_model(row: ReportExportJobModel) -> ReportExportJob:
 
 def _safe_slug(value: str) -> str:
     return "".join(ch if ch.isalnum() else "_" for ch in value).strip("_").lower() or "unknown"
+
+
+def _count_reviewed_enabled_rules(rules: list[KnowledgeRule]) -> int:
+    return sum(1 for rule in rules if rule.enabled and rule.review_status == KnowledgeReviewStatus.REVIEWED)

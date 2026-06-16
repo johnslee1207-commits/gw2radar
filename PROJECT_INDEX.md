@@ -67,6 +67,7 @@ The Knowledge Base explains recommendations, while the Knowledge Graph reasons o
 - [MVP 0.3.9 KB Source Registry Domain Seeds](docs/mvp/MVP_0_3_9_KB_SOURCE_REGISTRY_DOMAIN_SEEDS.md)
 - [MVP 0.4.0 KB Entity Linker Rule Distiller](docs/mvp/MVP_0_4_0_KB_ENTITY_LINKER_RULE_DISTILLER.md)
 - [MVP 0.4.1 KB-backed Recommendation Explanations](docs/mvp/MVP_0_4_1_KB_BACKED_RECOMMENDATION_EXPLANATIONS.md)
+- [MVP 0.4.2 KB-backed Paid Report Artifacts](docs/mvp/MVP_0_4_2_KB_BACKED_PAID_REPORT_ARTIFACTS.md)
 
 ## Analysis And Maturity
 

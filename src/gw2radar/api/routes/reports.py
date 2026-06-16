@@ -32,6 +32,7 @@ class ReportGenerateRequest(BaseModel):
     product_id: str
     goal_id: str = "gw2:goal:aurora"
     format: ReportExportFormat = ReportExportFormat.MARKDOWN
+    knowledge_backed: bool = False
 
 
 @router.get("/reports/{goal_id}/markdown")
@@ -97,6 +98,7 @@ def post_report_generate(request: ReportGenerateRequest) -> ApiDataEnvelope:
         raise HTTPException(status_code=404, detail="Goal not found")
     init_db()
     with db_session.SessionLocal() as session:
+        rules = list_rules(session) if request.knowledge_backed else []
         try:
             job = generate_report_job(
                 session,
@@ -105,6 +107,8 @@ def post_report_generate(request: ReportGenerateRequest) -> ApiDataEnvelope:
                 product_id=request.product_id,
                 goal_id=request.goal_id,
                 export_format=request.format,
+                knowledge_backed=request.knowledge_backed,
+                knowledge_rules=rules,
             )
         except PermissionError as exc:
             raise HTTPException(status_code=403, detail=str(exc)) from exc
