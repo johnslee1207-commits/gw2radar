@@ -34,6 +34,11 @@ from gw2radar.kb.patch_impact_review import (
     persist_patch_rule_candidates,
     save_patch_impact_review,
 )
+from gw2radar.kb.patch_rule_audit import (
+    PatchRuleAuditAction,
+    list_patch_rule_audit_events,
+    record_patch_rule_audit_event,
+)
 from gw2radar.inference.action_generator import generate_actions
 
 router = APIRouter(prefix="/api/v1/kb", tags=["kb"])
@@ -49,6 +54,7 @@ class ConfirmPatchRulePersistenceRequest(BaseModel):
 
 class EnableKnowledgeRuleRequest(BaseModel):
     confirmed_reviewed: bool = False
+    reviewer: str = "manual_reviewer"
 
 
 @router.post("/sources", response_model=ApiDataEnvelope)
@@ -246,7 +252,28 @@ def post_kb_rule_enable(rule_id: str, request: EnableKnowledgeRuleRequest) -> Ap
             rule = enable_rule(session, rule_id)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+    patch_id = _patch_id_from_rule(rule.condition)
+    if patch_id is not None:
+        record_patch_rule_audit_event(
+            PatchRuleAuditAction.ENABLE,
+            patch_id=patch_id,
+            rule_id=rule.rule_id,
+            reviewer=request.reviewer,
+            evidence_refs=rule.evidence_refs,
+            details={"enabled": rule.enabled, "action_type": rule.action_type},
+        )
     return ApiDataEnvelope(data={"rule": rule.model_dump(mode="json")})
+
+
+@router.get("/patch-impact/audit", response_model=ApiDataEnvelope)
+def get_patch_impact_audit(patch_id: str | None = None, rule_id: str | None = None) -> ApiDataEnvelope:
+    events = list_patch_rule_audit_events(patch_id=patch_id, rule_id=rule_id)
+    return ApiDataEnvelope(
+        data={
+            "count": len(events),
+            "events": [event.model_dump(mode="json") for event in events],
+        }
+    )
 
 
 @router.get("/goals/{goal_id}/action-explanations", response_model=ApiDataEnvelope)
@@ -282,3 +309,12 @@ def get_kb_report_quality(goal_id: str) -> ApiDataEnvelope:
     explanations = explain_actions_with_kb(actions, rules)
     quality = score_kb_report_quality(actions, rules, explanations)
     return ApiDataEnvelope(data={"goal_id": goal_id, "quality": quality.model_dump(mode="json")})
+
+
+def _patch_id_from_rule(condition: str) -> str | None:
+    if not condition.startswith("patch_review:"):
+        return None
+    parts = condition.split(":")
+    if len(parts) < 3:
+        return None
+    return f"{parts[1]}:{parts[2]}"

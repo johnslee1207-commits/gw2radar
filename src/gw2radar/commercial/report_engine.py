@@ -13,6 +13,7 @@ from gw2radar.inference.action_generator import generate_actions
 from gw2radar.inference.goal_gap import calculate_goal_gap
 from gw2radar.kb.kb_models import KnowledgeReviewStatus, KnowledgeRule
 from gw2radar.kb.kb_report_quality import score_kb_report_quality
+from gw2radar.kb.patch_rule_audit import build_patch_rule_audit_manifest
 from gw2radar.reports.markdown_report import generate_kb_backed_markdown_report, generate_markdown_report
 from gw2radar.security.log_sanitizer import sanitize_log_payload
 
@@ -246,6 +247,7 @@ def generate_report_job(
         )
         content = _render_export_content(markdown, export_format)
         kb_quality = _build_kb_quality_manifest(graph, goal_id, knowledge_rules or []) if knowledge_backed else None
+        kb_audit = build_patch_rule_audit_manifest(knowledge_rules or []) if knowledge_backed else []
         artifact_path, manifest_path = _write_artifact(
             content,
             output_root=output_root,
@@ -256,6 +258,7 @@ def generate_report_job(
             knowledge_backed=knowledge_backed,
             knowledge_rule_count=_count_reviewed_enabled_rules(knowledge_rules or []),
             kb_quality=kb_quality,
+            kb_audit=kb_audit,
         )
         job.status = ReportJobStatus.SUCCEEDED.value
         job.artifact_path = artifact_path.as_posix()
@@ -360,6 +363,7 @@ def _write_artifact(
     knowledge_backed: bool = False,
     knowledge_rule_count: int = 0,
     kb_quality: dict | None = None,
+    kb_audit: list[dict] | None = None,
 ) -> tuple[Path, Path]:
     safe_user = _safe_slug(user_id)
     safe_report = _safe_slug(report_type)
@@ -393,6 +397,7 @@ def _write_artifact(
                 "reviewed_rule_count": knowledge_rule_count if knowledge_backed else 0,
                 "boundary": "reviewed_enabled_rules_only",
                 "quality": kb_quality,
+                "patch_rule_audit": kb_audit or [],
             },
         }
     )

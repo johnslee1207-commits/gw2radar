@@ -14,6 +14,7 @@ from gw2radar.kb.patch_impact_review import (
     persist_patch_rule_candidates,
     save_patch_impact_review,
 )
+from gw2radar.kb.patch_rule_audit import list_patch_rule_audit_events
 from gw2radar.kb_pdf.patch_note_summarizer import build_recent_patch_summaries, write_patch_note_summaries
 from gw2radar.kb_pdf.pdf_inventory import PdfSourceRecord
 from gw2radar.db import session as db_session
@@ -48,9 +49,10 @@ def test_patch_impact_review_lists_drafts_by_year_and_pending_status() -> None:
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
-def test_patch_impact_review_saves_manual_impacts_and_builds_disabled_rule_candidates() -> None:
+def test_patch_impact_review_saves_manual_impacts_and_builds_disabled_rule_candidates(monkeypatch) -> None:
     temp_dir = Path(".test_tmp") / f"patch-review-rule-{uuid4().hex}"
     try:
+        monkeypatch.setenv("GW2RADAR_PATCH_RULE_AUDIT_STORE", str(temp_dir / "audit.jsonl"))
         summary_root = temp_dir / "patch_notes"
         review_store = temp_dir / "reviews.jsonl"
         write_patch_note_summaries(
@@ -88,9 +90,10 @@ def test_patch_impact_review_saves_manual_impacts_and_builds_disabled_rule_candi
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
-def test_patch_impact_review_persists_candidates_disabled_until_enable_gate() -> None:
+def test_patch_impact_review_persists_candidates_disabled_until_enable_gate(monkeypatch) -> None:
     temp_dir = Path(".test_tmp") / f"patch-review-persist-{uuid4().hex}"
     try:
+        monkeypatch.setenv("GW2RADAR_PATCH_RULE_AUDIT_STORE", str(temp_dir / "audit.jsonl"))
         summary_root = temp_dir / "patch_notes"
         review_store = temp_dir / "reviews.jsonl"
         write_patch_note_summaries(
@@ -122,6 +125,7 @@ def test_patch_impact_review_persists_candidates_disabled_until_enable_gate() ->
             duplicate = persist_patch_rule_candidates(session, "patch:2026-06-02", True, summary_root, review_store)
             enabled = enable_rule(session, persisted.rules[0].rule_id)
             rules = list_rules(session)
+        audit_events = list_patch_rule_audit_events(audit_store=temp_dir / "audit.jsonl")
 
         assert persisted.created_count == 2
         assert persisted.skipped_existing_count == 0
@@ -130,6 +134,8 @@ def test_patch_impact_review_persists_candidates_disabled_until_enable_gate() ->
         assert duplicate.skipped_existing_count == 2
         assert enabled.enabled is True
         assert len(rules) == 2
+        assert [event.action.value for event in audit_events] == ["review", "persist", "persist"]
+        assert audit_events[1].rule_id == persisted.rules[0].rule_id
     finally:
         close_database()
         shutil.rmtree(temp_dir, ignore_errors=True)

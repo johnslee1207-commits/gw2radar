@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from gw2radar.kb.kb_models import KnowledgeDomain, KnowledgeReviewStatus, KnowledgeRule, KnowledgeRuleInput
 from gw2radar.kb.kb_repository import create_rule, list_rules
+from gw2radar.kb.patch_rule_audit import PatchRuleAuditAction, record_patch_rule_audit_event
 from gw2radar.ontology.action_types import ActionType
 
 
@@ -146,6 +147,19 @@ def save_patch_impact_review(
     reviews = load_patch_reviews(review_store)
     reviews[review.patch_id] = review
     _write_reviews(reviews, review_store)
+    draft = drafts_by_id[review.patch_id]
+    record_patch_rule_audit_event(
+        PatchRuleAuditAction.REVIEW,
+        patch_id=review.patch_id,
+        reviewer=review.reviewer,
+        evidence_refs=[draft.evidence_id, draft.source_pdf],
+        details={
+            "review_status": review.review_status.value,
+            "affected_system_count": len(review.affected_systems),
+            "build_impact_count": len(review.build_impact),
+            "market_impact_count": len(review.market_impact),
+        },
+    )
     return review
 
 
@@ -208,7 +222,16 @@ def persist_patch_rule_candidates(
         if signature in existing_signatures:
             skipped_count += 1
             continue
-        persisted.append(create_rule(session, safe_candidate))
+        rule = create_rule(session, safe_candidate)
+        persisted.append(rule)
+        record_patch_rule_audit_event(
+            PatchRuleAuditAction.PERSIST,
+            patch_id=patch_id,
+            rule_id=rule.rule_id,
+            reviewer=_reviewer_for_patch(patch_id, review_store),
+            evidence_refs=rule.evidence_refs,
+            details={"enabled": rule.enabled, "action_type": rule.action_type},
+        )
         existing_signatures.add(signature)
         created_count += 1
     return PersistedPatchRuleCandidate(
@@ -287,6 +310,11 @@ def _write_reviews(reviews: dict[str, PatchImpactReview], review_store: Path) ->
         for patch_id in sorted(reviews)
     ]
     review_store.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
+
+
+def _reviewer_for_patch(patch_id: str, review_store: Path | None) -> str:
+    review = load_patch_reviews(review_store).get(patch_id)
+    return review.reviewer if review else "manual_reviewer"
 
 
 def _resolve_summary_root(summary_root: Path | None) -> Path:

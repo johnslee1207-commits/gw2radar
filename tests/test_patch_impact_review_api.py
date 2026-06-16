@@ -13,6 +13,7 @@ def test_patch_impact_review_api_lists_and_reviews_existing_patch(monkeypatch) -
     temp_dir.mkdir(parents=True, exist_ok=True)
     try:
         monkeypatch.setenv("GW2RADAR_PATCH_REVIEW_STORE", str(temp_dir / "reviews.jsonl"))
+        monkeypatch.setenv("GW2RADAR_PATCH_RULE_AUDIT_STORE", str(temp_dir / "audit.jsonl"))
         configure_database(f"sqlite:///{temp_dir / 'kb.db'}")
         init_db()
         client = TestClient(app)
@@ -41,7 +42,11 @@ def test_patch_impact_review_api_lists_and_reviews_existing_patch(monkeypatch) -
         )
         rule_id = persisted.json()["data"]["rules"][0]["rule_id"]
         blocked_enable = client.post(f"/api/v1/kb/rules/{rule_id}/enable", json={"confirmed_reviewed": False})
-        enabled = client.post(f"/api/v1/kb/rules/{rule_id}/enable", json={"confirmed_reviewed": True})
+        enabled = client.post(
+            f"/api/v1/kb/rules/{rule_id}/enable",
+            json={"confirmed_reviewed": True, "reviewer": "enable-test"},
+        )
+        audit = client.get(f"/api/v1/kb/patch-impact/audit?patch_id={patch_id}")
 
         assert listed.status_code == 200
         assert listed.json()["data"]["count"] >= 1
@@ -56,5 +61,8 @@ def test_patch_impact_review_api_lists_and_reviews_existing_patch(monkeypatch) -
         assert blocked_enable.status_code == 400
         assert enabled.status_code == 200
         assert enabled.json()["data"]["rule"]["enabled"] is True
+        assert audit.status_code == 200
+        assert [event["action"] for event in audit.json()["data"]["events"]] == ["review", "persist", "persist", "enable"]
+        assert audit.json()["data"]["events"][-1]["reviewer"] == "enable-test"
     finally:
         close_database()
