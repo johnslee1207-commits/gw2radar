@@ -160,7 +160,7 @@ Scores use a 0-5 scale:
 | Markdown report | 3.0 | Required sections exist; report is not yet export-packaged or styled. |
 | SQLite persistence | 3.5 | Graph round-trip works; repository is coarse-grained replace/load. |
 | FastAPI surface | 3.0 | MVP routes work; no API versioning/auth/error envelope yet. |
-| GW2 API access governance | 3.0 | Gateway/cache/limiter/429 skeleton exists with enum statuses, batch helper, TTL tests, and retry metadata. Real client and durable queue are not implemented. |
+| GW2 API access governance | 3.5 | Gateway/cache/limiter/429 skeleton exists with enum statuses, batch helper, TTL tests, retry metadata, and a safe HTTP client skeleton tested with fake transport. Durable queue is not implemented. |
 | Evidence governance | 3.5 | Evidence schema, masking, freshness/confidence evaluation, action downgrades, and report labels exist. |
 | Public/private graph separation | 3.0 | `graph_layer` exists on semantic and persistence objects; repository validates private/personal constraints. |
 | Test harness | 3.5 | 31+ tests plus smoke; coverage is good for MVP but lacks mutation and full golden export checks. |
@@ -196,7 +196,7 @@ Interpretation: GW2Radar is a solid governed MVP prototype with reliable mock in
 ### Immature / Missing
 
 - Durable refresh queue.
-- Real GW2 API client with conservative HTTP implementation.
+- Production account sync and durable refresh processing.
 - API key lifecycle: add/delete key endpoints and encrypted storage.
 
 ## Priority Recommendations
@@ -260,6 +260,8 @@ Deliverables:
 - no key logging.
 - no proxy/IP rotation.
 - batch-only public endpoint helpers where supported.
+
+Status: implemented in MVP 0.1.6.
 
 ## Constitution Compliance Assessment
 

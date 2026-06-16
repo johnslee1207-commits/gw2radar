@@ -67,7 +67,7 @@
     "markdown_report": 3.0,
     "sqlite_persistence": 3.5,
     "fastapi_surface": 3.0,
-    "gw2_api_access_governance": 3.0,
+    "gw2_api_access_governance": 3.5,
     "evidence_governance": 3.5,
     "public_private_graph_separation": 3.0,
     "test_harness": 3.5,
@@ -75,6 +75,6 @@
   },
   "recommended_priorities": [
     "P0 Report Export Package",
-    "P4 Real GW2 API Client Skeleton Upgrade"
+    "Next: API Key Lifecycle and Account Snapshot Deletion"
   ]
 }

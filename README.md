@@ -52,3 +52,5 @@ Graph data is separated with `graph_layer` values:
 GW2 API access remains behind `Gw2ApiGateway`. MVP gateway contracts include enum statuses, endpoint TTL resolution, batch helper support, and retry metadata, but no real network client is enabled by default.
 
 Evidence confidence and freshness affect recommendations. Low-confidence or stale evidence downgrades action urgency and priority, and reports label evidence quality.
+
+The GW2 API client skeleton supports safe HTTP request construction behind the gateway. Tests use fake transport; production key storage and full account sync are not implemented.

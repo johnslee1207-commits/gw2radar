@@ -47,3 +47,9 @@ MVP 0.1.5 evidence quality:
 - Low-confidence evidence downgrades action urgency and priority.
 - Stale evidence is marked in reports.
 - Reports include evidence confidence, stale status, and source notes.
+
+MVP 0.1.6 GW2 API client skeleton:
+
+- Safe HTTP request construction exists behind `Gw2ApiGateway`.
+- API keys are passed through Authorization headers, not URLs.
+- Tests use fake transport; no real API calls are required for MVP acceptance.
