@@ -47,6 +47,7 @@ def test_patch_impact_review_api_lists_and_reviews_existing_patch(monkeypatch) -
             json={"confirmed_reviewed": True, "reviewer": "enable-test"},
         )
         audit = client.get(f"/api/v1/kb/patch-impact/audit?patch_id={patch_id}")
+        dashboard = client.get("/api/v1/kb/patch-impact/dashboard?year=2026")
 
         assert listed.status_code == 200
         assert listed.json()["data"]["count"] >= 1
@@ -64,5 +65,12 @@ def test_patch_impact_review_api_lists_and_reviews_existing_patch(monkeypatch) -
         assert audit.status_code == 200
         assert [event["action"] for event in audit.json()["data"]["events"]] == ["review", "persist", "persist", "enable"]
         assert audit.json()["data"]["events"][-1]["reviewer"] == "enable-test"
+        assert dashboard.status_code == 200
+        item = next(item for item in dashboard.json()["data"]["items"] if item["patch_id"] == patch_id)
+        assert item["lifecycle_status"] == "enabled"
+        assert item["persisted_rule_count"] == 2
+        assert item["enabled_rule_count"] == 1
+        assert item["audit_action_counts"] == {"review": 1, "persist": 2, "enable": 1}
+        assert dashboard.json()["data"]["lifecycle_counts"]["enabled"] >= 1
     finally:
         close_database()

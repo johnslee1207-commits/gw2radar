@@ -28,6 +28,7 @@ from gw2radar.kb.kb_repository import (
 from gw2radar.kb.kb_rule_distiller import distill_rule_from_article
 from gw2radar.kb.patch_impact_review import (
     PatchImpactReviewInput,
+    build_patch_review_dashboard,
     build_patch_rule_candidates,
     list_patch_impact_drafts,
     list_pending_patch_impact_drafts,
@@ -194,6 +195,24 @@ def get_patch_impact_drafts(year: int | None = None, pending_only: bool = False)
         data={
             "count": len(drafts),
             "drafts": [draft.model_dump(mode="json") for draft in drafts],
+        }
+    )
+
+
+@router.get("/patch-impact/dashboard", response_model=ApiDataEnvelope)
+def get_patch_impact_dashboard(year: int | None = None) -> ApiDataEnvelope:
+    init_db()
+    with db_session.SessionLocal() as session:
+        rules = list_rules(session)
+    items = build_patch_review_dashboard(rules, year=year)
+    lifecycle_counts: dict[str, int] = {}
+    for item in items:
+        lifecycle_counts[item.lifecycle_status] = lifecycle_counts.get(item.lifecycle_status, 0) + 1
+    return ApiDataEnvelope(
+        data={
+            "count": len(items),
+            "lifecycle_counts": lifecycle_counts,
+            "items": [item.model_dump(mode="json") for item in items],
         }
     )
 

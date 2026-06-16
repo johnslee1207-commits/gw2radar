@@ -8,6 +8,7 @@ from gw2radar.kb.kb_models import KnowledgeReviewStatus
 from gw2radar.kb.kb_repository import enable_rule, list_rules
 from gw2radar.kb.patch_impact_review import (
     PatchImpactReviewInput,
+    build_patch_review_dashboard,
     build_patch_rule_candidates,
     list_patch_impact_drafts,
     list_pending_patch_impact_drafts,
@@ -136,6 +137,58 @@ def test_patch_impact_review_persists_candidates_disabled_until_enable_gate(monk
         assert len(rules) == 2
         assert [event.action.value for event in audit_events] == ["review", "persist", "persist"]
         assert audit_events[1].rule_id == persisted.rules[0].rule_id
+    finally:
+        close_database()
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def test_patch_review_dashboard_aggregates_lifecycle_status(monkeypatch) -> None:
+    temp_dir = Path(".test_tmp") / f"patch-dashboard-{uuid4().hex}"
+    try:
+        monkeypatch.setenv("GW2RADAR_PATCH_RULE_AUDIT_STORE", str(temp_dir / "audit.jsonl"))
+        summary_root = temp_dir / "patch_notes"
+        review_store = temp_dir / "reviews.jsonl"
+        write_patch_note_summaries(
+            [
+                build_recent_patch_summaries(
+                    [_patch_record("Game Update Notes_ June 2, 2026 - Game Update Notes - Guild Wars 2 Forums.pdf")]
+                )[0],
+                build_recent_patch_summaries(
+                    [_patch_record("Game Update Notes_ May 21, 2024 - Game Update Notes - Guild Wars 2 Forums.pdf", 2024)]
+                )[0],
+            ],
+            summary_root,
+        )
+        configure_database(f"sqlite:///{temp_dir / 'kb.db'}")
+        init_db()
+        with db_session.SessionLocal() as session:
+            draft_dashboard = build_patch_review_dashboard([], summary_root, review_store)
+            save_patch_impact_review(
+                PatchImpactReviewInput(
+                    patch_id="patch:2026-06-02",
+                    affected_systems=["build", "market"],
+                    build_impact=["Review build assumptions."],
+                    market_impact=["Watch prices."],
+                    reviewer="dashboard-reviewer",
+                ),
+                summary_root,
+                review_store,
+            )
+            reviewed_dashboard = build_patch_review_dashboard([], summary_root, review_store)
+            persisted = persist_patch_rule_candidates(session, "patch:2026-06-02", True, summary_root, review_store)
+            persisted_dashboard = build_patch_review_dashboard(list_rules(session), summary_root, review_store)
+            enable_rule(session, persisted.rules[0].rule_id)
+            enabled_dashboard = build_patch_review_dashboard(list_rules(session), summary_root, review_store)
+
+        assert draft_dashboard[0].lifecycle_status == "draft"
+        assert reviewed_dashboard[0].lifecycle_status == "reviewed"
+        assert reviewed_dashboard[0].candidate_rule_count == 2
+        assert persisted_dashboard[0].lifecycle_status == "persisted"
+        assert persisted_dashboard[0].persisted_rule_count == 2
+        assert persisted_dashboard[0].audit_action_counts == {"review": 1, "persist": 2}
+        assert enabled_dashboard[0].lifecycle_status == "enabled"
+        assert enabled_dashboard[0].enabled_rule_count == 1
+        assert enabled_dashboard[0].latest_reviewer == "dashboard-reviewer"
     finally:
         close_database()
         shutil.rmtree(temp_dir, ignore_errors=True)

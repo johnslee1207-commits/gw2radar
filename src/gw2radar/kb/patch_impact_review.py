@@ -8,7 +8,12 @@ from sqlalchemy.orm import Session
 
 from gw2radar.kb.kb_models import KnowledgeDomain, KnowledgeReviewStatus, KnowledgeRule, KnowledgeRuleInput
 from gw2radar.kb.kb_repository import create_rule, list_rules
-from gw2radar.kb.patch_rule_audit import PatchRuleAuditAction, record_patch_rule_audit_event
+from gw2radar.kb.patch_rule_audit import (
+    PatchRuleAuditAction,
+    PatchRuleAuditEvent,
+    list_patch_rule_audit_events,
+    record_patch_rule_audit_event,
+)
 from gw2radar.ontology.action_types import ActionType
 
 
@@ -86,6 +91,28 @@ class PersistedPatchRuleCandidate(BaseModel):
     created_count: int
     skipped_existing_count: int
     rules: list[KnowledgeRule]
+
+
+class PatchReviewDashboardItem(BaseModel):
+    patch_id: str
+    date: str
+    year: int
+    title: str
+    source_pdf: str
+    evidence_id: str
+    review_status: KnowledgeReviewStatus
+    lifecycle_status: str
+    affected_systems: list[str] = Field(default_factory=list)
+    possible_build_impact: list[str] = Field(default_factory=list)
+    possible_market_impact: list[str] = Field(default_factory=list)
+    candidate_rule_count: int = 0
+    persisted_rule_count: int = 0
+    enabled_rule_count: int = 0
+    audit_event_count: int = 0
+    audit_action_counts: dict[str, int] = Field(default_factory=dict)
+    latest_reviewer: str | None = None
+    latest_audit_at: datetime | None = None
+    rule_ids: list[str] = Field(default_factory=list)
 
 
 def list_patch_impact_drafts(
@@ -242,6 +269,57 @@ def persist_patch_rule_candidates(
     )
 
 
+def build_patch_review_dashboard(
+    rules: list[KnowledgeRule],
+    summary_root: Path | None = None,
+    review_store: Path | None = None,
+    audit_store: Path | None = None,
+    year: int | None = None,
+) -> list[PatchReviewDashboardItem]:
+    drafts = list_patch_impact_drafts(summary_root, review_store, year)
+    audit_events = list_patch_rule_audit_events(audit_store=audit_store)
+    rules_by_patch: dict[str, list[KnowledgeRule]] = {}
+    events_by_patch: dict[str, list[PatchRuleAuditEvent]] = {}
+    for rule in rules:
+        patch_id = _patch_id_from_rule_condition(rule.condition)
+        if patch_id is not None:
+            rules_by_patch.setdefault(patch_id, []).append(rule)
+    for event in audit_events:
+        events_by_patch.setdefault(event.patch_id, []).append(event)
+
+    items: list[PatchReviewDashboardItem] = []
+    for draft in drafts:
+        patch_rules = rules_by_patch.get(draft.patch_id, [])
+        patch_events = events_by_patch.get(draft.patch_id, [])
+        action_counts = _audit_action_counts(patch_events)
+        candidate_count = _candidate_count_for_review(draft)
+        latest_event = patch_events[-1] if patch_events else None
+        items.append(
+            PatchReviewDashboardItem(
+                patch_id=draft.patch_id,
+                date=draft.date,
+                year=draft.year,
+                title=draft.title,
+                source_pdf=draft.source_pdf,
+                evidence_id=draft.evidence_id,
+                review_status=draft.review_status,
+                lifecycle_status=_dashboard_lifecycle_status(draft, patch_rules),
+                affected_systems=draft.affected_systems,
+                possible_build_impact=draft.possible_build_impact,
+                possible_market_impact=draft.possible_market_impact,
+                candidate_rule_count=candidate_count,
+                persisted_rule_count=len(patch_rules),
+                enabled_rule_count=sum(1 for rule in patch_rules if rule.enabled),
+                audit_event_count=len(patch_events),
+                audit_action_counts=action_counts,
+                latest_reviewer=latest_event.reviewer if latest_event else None,
+                latest_audit_at=latest_event.occurred_at if latest_event else None,
+                rule_ids=[rule.rule_id for rule in patch_rules],
+            )
+        )
+    return sorted(items, key=lambda item: item.date, reverse=True)
+
+
 def _build_rule_for_impact(
     draft: PatchImpactDraft,
     review: PatchImpactReview,
@@ -315,6 +393,43 @@ def _write_reviews(reviews: dict[str, PatchImpactReview], review_store: Path) ->
 def _reviewer_for_patch(patch_id: str, review_store: Path | None) -> str:
     review = load_patch_reviews(review_store).get(patch_id)
     return review.reviewer if review else "manual_reviewer"
+
+
+def _candidate_count_for_review(draft: PatchImpactDraft) -> int:
+    count = 0
+    if draft.review_status == KnowledgeReviewStatus.REVIEWED and draft.possible_build_impact:
+        count += 1
+    if draft.review_status == KnowledgeReviewStatus.REVIEWED and draft.possible_market_impact:
+        count += 1
+    return count
+
+
+def _dashboard_lifecycle_status(draft: PatchImpactDraft, rules: list[KnowledgeRule]) -> str:
+    if any(rule.enabled for rule in rules):
+        return "enabled"
+    if rules:
+        return "persisted"
+    if draft.review_status == KnowledgeReviewStatus.REVIEWED:
+        return "reviewed"
+    if draft.review_status == KnowledgeReviewStatus.NEEDS_UPDATE:
+        return "needs_update"
+    return "draft"
+
+
+def _audit_action_counts(events: list[PatchRuleAuditEvent]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for event in events:
+        counts[event.action.value] = counts.get(event.action.value, 0) + 1
+    return counts
+
+
+def _patch_id_from_rule_condition(condition: str) -> str | None:
+    if not condition.startswith("patch_review:"):
+        return None
+    parts = condition.split(":")
+    if len(parts) < 3:
+        return None
+    return f"{parts[1]}:{parts[2]}"
 
 
 def _resolve_summary_root(summary_root: Path | None) -> Path:
