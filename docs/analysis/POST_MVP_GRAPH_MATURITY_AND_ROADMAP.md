@@ -26,13 +26,13 @@ Local AST spectrum:
 
 | Metric | Count |
 |---|---:|
-| Python source files | 85 |
-| Classes | 148 |
-| Functions / methods | 316 |
-| Enums | 21 |
-| Pydantic models | 64 |
-| SQLAlchemy models | 21 |
-| Pytest test files | 82 |
+| Python source files | 87 |
+| Classes | 163 |
+| Functions / methods | 337 |
+| Enums | 22 |
+| Pydantic models | 74 |
+| SQLAlchemy models | 25 |
+| Pytest test files | 89 |
 
 ## Semantic Graph Summary
 
@@ -77,6 +77,10 @@ flowchart TD
   Growth --> Pricing["Pricing Plans"]
   Growth --> Checkout["Mock Checkout"]
   Checkout --> Entitlements["Report Entitlements"]
+  Growth --> GuildConsole["Guild Readiness Console"]
+  GuildConsole --> Consent["Consent Records"]
+  GuildConsole --> RoleCoverage["Role Coverage"]
+  GuildConsole --> TeamReadiness["Team Readiness Score"]
 
   KeyStore["EncryptedApiKeyStore"] --> SQLite
   Tests["54 Pytest Tests + Smoke"] --> Gateway
@@ -109,8 +113,9 @@ flowchart TD
 | Build Fit Advisor | 3.6 | Structured build import, gear requirements, account gear matcher, weighted fit score, transition plan, budget alternative, API, and P6-backed paid report are implemented. |
 | Market Radar Pro | 3.6 | Price snapshots, trends, goal cost index, watchlist, hold/sell-surplus signals, language policy, API, and P6-backed paid report are implemented. |
 | Growth CMS + Payment | 3.6 | Landing/CMS pages, SEO metadata, pricing plans, payment provider protocol, mock checkout, webhook events, subscriptions, and entitlement integration are implemented. |
+| Guild Readiness Console | 3.6 | Guild/team/member/consent models, role coverage, readiness scoring, consent revocation, privacy-safe summary, report, and API are implemented. |
 
-Overall maturity: **4.68 / 5.0**.
+Overall maturity: **4.72 / 5.0**.
 
 ## Priority Roadmap
 
@@ -264,6 +269,8 @@ Deliverables:
 
 ### P10: Guild / Static Readiness Console
 
+Status: complete for MVP 0.3.5.
+
 Reason: after individual monetization and checkout abstraction, the next revenue path is team/guild subscriptions with strict consent and privacy-safe summaries.
 
 Deliverables:
@@ -275,3 +282,18 @@ Deliverables:
 - team readiness score;
 - privacy-safe member summary;
 - guild readiness report.
+
+### P11: Creator & Community Intelligence Console
+
+Reason: after personal and guild commercial loops, the next lane is creator/community intelligence with strict source attribution and no mass copying.
+
+Deliverables:
+
+- community signal import;
+- topic trends;
+- question clusters;
+- guide gap analysis;
+- content opportunities;
+- source attribution;
+- no mass-copy policy;
+- creator report.

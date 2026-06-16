@@ -312,3 +312,49 @@ class WebhookEventModel(Base):
     payload_json: Mapped[dict] = mapped_column(JSON, default=dict)
     processed: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class GuildModel(Base):
+    __tablename__ = "guilds"
+
+    guild_id: Mapped[str] = mapped_column(String, primary_key=True)
+    owner_user_id: Mapped[str] = mapped_column(String, nullable=False)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class TeamModel(Base):
+    __tablename__ = "teams"
+
+    team_id: Mapped[str] = mapped_column(String, primary_key=True)
+    guild_id: Mapped[str] = mapped_column(String, nullable=False)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    game_mode: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class TeamMemberModel(Base):
+    __tablename__ = "team_members"
+
+    member_id: Mapped[str] = mapped_column(String, primary_key=True)
+    team_id: Mapped[str] = mapped_column(String, nullable=False)
+    user_id: Mapped[str] = mapped_column(String, nullable=False)
+    display_name: Mapped[str] = mapped_column(String, nullable=False)
+    preferred_roles_json: Mapped[list] = mapped_column(JSON, default=list)
+    readiness_score: Mapped[float] = mapped_column(Float, default=0.0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class ConsentRecordModel(Base):
+    __tablename__ = "consent_records"
+
+    consent_id: Mapped[str] = mapped_column(String, primary_key=True)
+    team_id: Mapped[str] = mapped_column(String, nullable=False)
+    member_id: Mapped[str] = mapped_column(String, nullable=False)
+    consent_scope: Mapped[str] = mapped_column(String, nullable=False)
+    granted: Mapped[bool] = mapped_column(Boolean, default=True)
+    granted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

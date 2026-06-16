@@ -27,12 +27,12 @@ Current source spectrum under `src/gw2radar`:
 
 | Metric | Count |
 |---|---:|
-| Python source files | 85 |
-| Classes | 148 |
-| Functions / methods | 316 |
-| Enums | 21 |
-| Pydantic models | 64 |
-| SQLAlchemy models | 21 |
+| Python source files | 87 |
+| Classes | 163 |
+| Functions / methods | 337 |
+| Enums | 22 |
+| Pydantic models | 74 |
+| SQLAlchemy models | 25 |
 
 Domain spectrum:
 
@@ -52,6 +52,7 @@ Domain spectrum:
 | `commercial.build_fit` | Build Fit Advisor | Structured build import, gear matcher, weighted score, transition plan, budget alternative, and paid report. |
 | `commercial.market_radar` | Market Radar Pro | Price snapshots, trends, goal cost index, watchlist, hold/sell-surplus signals, language policy, and paid report. |
 | `commercial.growth` | Growth CMS + Payment | CMS pages, pricing plans, payment provider protocol, mock checkout, webhooks, subscriptions, and entitlement integration. |
+| `commercial.guild_readiness` | Guild Readiness Console | Guild/team/member/consent models, role coverage, readiness score, privacy-safe summaries, and report. |
 | `security` | encrypted local key lifecycle | Fernet-encrypted SQLite key persistence with masked API responses. |
 
 ## GitNexus Flow Findings
@@ -208,8 +209,9 @@ Scoring: 0 = absent, 5 = production-grade.
 | Build Fit Advisor | 3.6 | Structured build import, gear requirements, account gear matcher, fit score, transition plan, budget alternative, routes, and P6-backed paid report. |
 | Market Radar Pro | 3.6 | Price snapshots, trends, goal cost index, watchlist, hold/sell-surplus signals, market language policy, routes, and P6-backed paid report. |
 | Growth CMS + Payment | 3.6 | CMS pages, SEO metadata, pricing plans, provider abstraction, mock checkout, webhook events, subscriptions, trust pages, and entitlement integration. |
+| Guild Readiness Console | 3.6 | Guild/team/member/consent models, role coverage, readiness score, consent revocation, privacy-safe summaries, report, and routes. |
 
-Overall MVP maturity: **4.68 / 5.0**.
+Overall MVP maturity: **4.72 / 5.0**.
 
 Interpretation: GW2Radar is now a governed, test-backed MVP substrate with durable refresh state, encrypted local key storage, and gateway-bounded sync services. It is still not a production account-ingestion service until scheduling, monitoring, and external secret management are added.
 
@@ -241,22 +243,24 @@ Interpretation: GW2Radar is now a governed, test-backed MVP substrate with durab
 | Build Fit Advisor | Complete for MVP; live build-source integration deferred |
 | Market Radar Pro | Complete for MVP; real TP polling and richer market history deferred |
 | Growth CMS + Payment | Complete for MVP; real payment provider deferred |
+| Guild Readiness Console | Complete for MVP; richer member workflows deferred |
 
 ## Recommended Next Priority
 
-### P0: Guild / Static Readiness Console
+### P0: Creator & Community Intelligence Console
 
-Reason: P6-P9 and P12 now cover individual reports, planning, market intelligence, and monetization. The next highest-value commercial step is team/guild readiness with consent-safe aggregation.
+Reason: P6-P10 and P12 now cover individual reports, market intelligence, monetization, and guild readiness. The next highest-value commercial lane is creator/community intelligence with strict source attribution and no mass copying.
 
 Minimum deliverables:
 
-- guild model;
-- team model;
-- consent record;
-- role coverage inference;
-- team readiness score;
-- privacy-safe member summary;
-- guild readiness report.
+- community signal import;
+- topic trends;
+- question clusters;
+- guide gap analysis;
+- content opportunities;
+- source attribution;
+- no mass-copy policy;
+- creator report.
 
 ## Constitution Compliance Summary
 

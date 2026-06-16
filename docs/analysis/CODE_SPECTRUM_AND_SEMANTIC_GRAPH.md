@@ -46,13 +46,13 @@ Source scan summary:
 
 Current code volume signal:
 
-- 85 Python source files under `src/gw2radar`.
-- 148 extracted classes.
-- 316 extracted functions/methods.
-- 21 core enum classes.
-- 64 Pydantic model classes.
-- 21 SQLAlchemy persistence tables.
-- 82 pytest test files.
+- 87 Python source files under `src/gw2radar`.
+- 163 extracted classes.
+- 337 extracted functions/methods.
+- 22 core enum classes.
+- 74 Pydantic model classes.
+- 25 SQLAlchemy persistence tables.
+- 89 pytest test files.
 
 ## Semantic Graph
 
@@ -108,6 +108,9 @@ flowchart TD
   Growth --> CMS["CMS Pages"]
   Growth --> Pricing["Pricing Plans"]
   Growth --> Checkout["Mock Checkout"]
+  Growth --> GuildConsole["Guild Readiness Console"]
+  GuildConsole --> Consent["Consent Records"]
+  GuildConsole --> TeamReadiness["Team Readiness"]
 
   API["FastAPI Routes"] --> GraphState["API State"]
   GraphState --> Repository
@@ -197,8 +200,9 @@ Scores use a 0-5 scale:
 | Build Fit Advisor | 3.6 | P8 implements build import, gear requirements, account gear matching, fit score, transition plan, budget alternative, routes, and paid report generation. |
 | Market Radar Pro | 3.6 | P9 implements price snapshots, trends, goal cost index, watchlist, hold/sell-surplus signals, language policy, routes, and paid report generation. |
 | Growth CMS + Payment | 3.6 | P12 implements CMS pages, pricing, mock payment provider, checkout sessions, webhooks, subscriptions, entitlement integration, and trust pages. |
+| Guild Readiness Console | 3.6 | P10 implements guild/team/member/consent models, role coverage, readiness scoring, consent revocation, privacy-safe summaries, report, and routes. |
 
-Overall maturity: **4.68 / 5.0**
+Overall maturity: **4.72 / 5.0**
 
 Interpretation: GW2Radar is a solid governed MVP prototype with reliable mock intelligence, deterministic exports, durable refresh state, and gateway-bounded sync services. It is not yet a production ingestion service.
 
@@ -234,19 +238,20 @@ Interpretation: GW2Radar is a solid governed MVP prototype with reliable mock in
 
 ## Priority Recommendations
 
-### P0: Guild / Static Readiness Console
+### P0: Creator & Community Intelligence Console
 
-Reason: P6-P9 and P12 now cover individual-player productization and monetization. The next commercial lane is team/guild subscriptions with explicit consent and privacy-safe summaries.
+Reason: P6-P10 and P12 now cover individual, market, payment, and guild product lanes. The remaining commercial lane is creator/community intelligence with careful source attribution.
 
 Deliverables:
 
-- Guild model.
-- Team model.
-- Consent record.
-- Role coverage inference.
-- Team readiness score.
-- Privacy-safe member summary.
-- Guild readiness report.
+- Community signal import.
+- Topic trends.
+- Question clusters.
+- Guide gap analysis.
+- Content opportunities.
+- Source attribution.
+- No mass-copy policy.
+- Creator report.
 
 ### Completed Priority Trail
 
