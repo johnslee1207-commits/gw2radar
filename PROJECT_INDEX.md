@@ -20,6 +20,8 @@ This index is the navigation entry point for the GW2Radar repository.
 
 - [Knowledge Base Overview](docs/knowledge_base/README.md)
 - [PDF Source Processing Report](docs/knowledge_base/PDF_SOURCE_PROCESSING_REPORT.md)
+- [Knowledge Source Coverage Analysis](docs/knowledge_base/source_registry/SOURCE_COVERAGE_ANALYSIS.md)
+- [Official Source Registry](docs/knowledge_base/source_registry/official_sources.md)
 
 The Knowledge Base explains recommendations, while the Knowledge Graph reasons over entities, relations, evidence, and player state.
 

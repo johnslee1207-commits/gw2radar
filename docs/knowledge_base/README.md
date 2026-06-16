@@ -163,6 +163,18 @@ Forbidden monetization inputs:
 | 3 | Community discussions | Low-confidence topic trends, FAQ discovery, guide gaps, creator opportunities. |
 | 4 | Expert / internal knowledge | Expert rules, action ranking, paid report logic, product differentiation. |
 
+## Source Registry
+
+Current source registry and coverage analysis:
+
+- [Official Source Registry](source_registry/official_sources.md)
+- [Wiki Source Registry](source_registry/wiki_sources.md)
+- [License Reference Registry](source_registry/license_reference.md)
+- [Build And Guide Source Registry](source_registry/build_sources.md)
+- [Competitor And Ecosystem Tool Registry](source_registry/competitor_tools.md)
+- [Community Source Registry](source_registry/community_sources.md)
+- [Knowledge Source Coverage Analysis](source_registry/SOURCE_COVERAGE_ANALYSIS.md)
+
 ## Collection Pipeline
 
 KB collection is:
