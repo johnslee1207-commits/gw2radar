@@ -26,13 +26,13 @@ Local AST spectrum:
 
 | Metric | Count |
 |---|---:|
-| Python source files | 57 |
-| Classes | 55 |
-| Functions / methods | 158 |
-| Enums | 8 |
-| Pydantic models | 12 |
-| SQLAlchemy models | 7 |
-| Pytest tests | 54 |
+| Python source files | 77 |
+| Classes | 89 |
+| Functions / methods | 240 |
+| Enums | 14 |
+| Pydantic models | 26 |
+| SQLAlchemy models | 11 |
+| Pytest test files | 49 |
 
 ## Semantic Graph Summary
 
@@ -59,6 +59,9 @@ flowchart TD
   Policy --> Actions["Action Generator"]
   Actions --> Report["Markdown Report"]
   Actions --> Package["Export Package"]
+  Report --> PaidReports["Paid Report Engine"]
+  PaidReports --> Entitlements["Report Entitlements"]
+  PaidReports --> Artifacts["Report Artifacts"]
 
   KeyStore["EncryptedApiKeyStore"] --> SQLite
   Tests["54 Pytest Tests + Smoke"] --> Gateway
@@ -86,8 +89,9 @@ flowchart TD
 | Durable refresh queue | 3.9 | Detailed queue contract, leases, retry metadata, 429 persistence, sanitization. |
 | Local encrypted key storage | 3.8 | Deployment modes, SecretStore interface, encrypted local/database stores, fingerprints, security routes, and log sanitizer. External vault/auth remain future. |
 | Account/public sync services | 3.8 | Account sync and public static refresh now have queue-backed API productization, fake gateway tests, layer constraints, and planner rules. |
+| Paid report engine | 3.6 | Product catalog, entitlement gate, preview/full rendering, export jobs, Markdown/HTML artifacts, manifest, and versioned report API are implemented. Real payment integration is deferred. |
 
-Overall maturity: **4.42 / 5.0**.
+Overall maturity: **4.48 / 5.0**.
 
 ## Priority Roadmap
 
@@ -161,13 +165,30 @@ Deliverables:
 - security API routes;
 - private-data delete endpoint.
 
-### P6: Returner Diagnosis
+### P6: Paid Report Engine
 
-Reason: this should build on stable account snapshots rather than mock-only assumptions.
+Status: complete for MVP 0.3.0.
+
+Reason: the commercial roadmap requires productized reports before Legendary Planner Pro, Build Fit, Market Radar, and subscription analytics can monetize.
 
 Deliverables:
 
-- returner readiness score;
-- missing unlock inference;
-- 7-day and 30-day plans;
-- evidence-labeled returner report.
+- report product catalog;
+- report entitlement;
+- report export jobs;
+- free preview rendering;
+- paid full report rendering;
+- artifact manifest and versioned API routes.
+
+### P7: Legendary Planner Pro
+
+Reason: P6 now provides the paid report substrate. The next commercial value step is deeper legendary planning, because it is the strongest individual-player subscription path.
+
+Deliverables:
+
+- goal portfolio;
+- shared requirement inference;
+- time-gated requirement detection;
+- cheap and fast path planning;
+- multi-goal do-not-sell policy;
+- legendary planner pro report.

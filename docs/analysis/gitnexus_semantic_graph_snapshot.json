@@ -10,12 +10,12 @@
     "status": "up-to-date"
   },
   "code_spectrum": {
-    "python_files": 57,
-    "classes": 55,
-    "functions": 158,
-    "enums": 8,
-    "pydantic_models": 12,
-    "sqlalchemy_models": 7
+    "python_files": 77,
+    "classes": 89,
+    "functions": 240,
+    "enums": 14,
+    "pydantic_models": 26,
+    "sqlalchemy_models": 11
   },
   "semantic_nodes": [
     "Constitution",
@@ -31,6 +31,11 @@
     "Action Generator",
     "Evidence Quality",
     "Markdown Report",
+    "Paid Report Engine",
+    "Report Products",
+    "Report Entitlements",
+    "Report Export Jobs",
+    "Report Artifacts",
     "Export Package",
     "Gw2ApiGateway",
     "GW2ApiClient Skeleton",
@@ -71,6 +76,12 @@
     ["Goal Gap", "Action Generator", "feeds"],
     ["Evidence Quality", "Action Generator", "downgrades"],
     ["Action Generator", "Markdown Report", "renders"],
+    ["Markdown Report", "Paid Report Engine", "productizes"],
+    ["Paid Report Engine", "Report Products", "catalogs"],
+    ["Paid Report Engine", "Report Entitlements", "requires_for_full"],
+    ["Paid Report Engine", "Report Export Jobs", "tracks"],
+    ["Paid Report Engine", "Report Artifacts", "writes"],
+    ["FastAPI Routes", "Paid Report Engine", "exposes"],
     ["Action Generator", "Export Package", "exports"],
     ["EncryptedApiKeyStore", "FastAPI Routes", "serves"],
     ["SecretStore", "Security API", "serves"],
@@ -107,8 +118,9 @@
     "durable_refresh_queue": 3.9,
     "production_key_storage": 3.8,
     "real_account_ingestion": 3.6,
-    "public_static_data_refresh": 3.8
+    "public_static_data_refresh": 3.8,
+    "paid_report_engine": 3.6
   },
-  "overall_maturity": 4.42,
-  "next_priority": "Returner Account Diagnosis"
+  "overall_maturity": 4.48,
+  "next_priority": "Legendary Planner Pro"
 }

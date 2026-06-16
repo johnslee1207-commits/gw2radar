@@ -39,20 +39,20 @@ Source scan summary:
 | ingest | gateway, cache, limiter, detailed durable queue schemas, sync services, evidence writer, safe client | 23 | 40 | Medium-High |
 | db | SQLAlchemy models, graph repository, refresh queue repository, migration support | 11 | 42 | Medium-High |
 | api | FastAPI routes and app state | 1 | 19 | Medium |
-| reports | Markdown report rendering | 0 | 4 | Medium |
+| reports/commercial | Markdown report rendering plus paid report productization | 12 | 38 | Medium |
 | config | runtime database and encryption settings | 1 | 1 | Medium |
 | fixtures | deterministic mock account/goal/items/tasks | 0 | 0 | High for MVP |
 | tests | unit, integration, governance, smoke | n/a | n/a | Medium-High |
 
 Current code volume signal:
 
-- 57 Python source files under `src/gw2radar`.
-- 55 extracted classes.
-- 158 extracted functions/methods.
-- 8 core enum classes.
-- 12 Pydantic model classes.
-- 7 SQLAlchemy persistence tables.
-- 54 pytest tests.
+- 77 Python source files under `src/gw2radar`.
+- 89 extracted classes.
+- 240 extracted functions/methods.
+- 14 core enum classes.
+- 26 Pydantic model classes.
+- 11 SQLAlchemy persistence tables.
+- 49 pytest test files.
 
 ## Semantic Graph
 
@@ -87,6 +87,11 @@ flowchart TD
   ActionGen --> Actions["Recommendation Actions"]
   Actions --> AdvancesRelations["ADVANCES_GOAL Relations"]
   Actions --> Report["Markdown Report"]
+  Report --> PaidReportEngine["Paid Report Engine"]
+  PaidReportEngine --> Products["Report Products"]
+  PaidReportEngine --> Entitlements["Report Entitlements"]
+  PaidReportEngine --> Jobs["Report Export Jobs"]
+  PaidReportEngine --> Artifacts["Report Artifacts"]
 
   API["FastAPI Routes"] --> GraphState["API State"]
   GraphState --> Repository
@@ -171,8 +176,9 @@ Scores use a 0-5 scale:
 | Durable refresh queue | 3.9 | SQLite queue with retry metadata, 429 persistence, sanitized params hash, lease fields, and worker state transitions. |
 | Encrypted local key storage | 3.8 | Deployment modes, SecretStore interface, encrypted local/database stores, fingerprints, security routes, and log sanitizer. External vault/auth remain future. |
 | Account/public sync services | 3.8 | Account sync and public static refresh have queue-backed routes, planner rules, layer tests, and fake gateway coverage. |
+| Paid report engine | 3.6 | P6 implements products, entitlements, preview/full report modes, export jobs, artifacts, manifests, and versioned commercial report routes. |
 
-Overall maturity: **4.42 / 5.0**
+Overall maturity: **4.48 / 5.0**
 
 Interpretation: GW2Radar is a solid governed MVP prototype with reliable mock intelligence, deterministic exports, durable refresh state, and gateway-bounded sync services. It is not yet a production ingestion service.
 
@@ -208,17 +214,18 @@ Interpretation: GW2Radar is a solid governed MVP prototype with reliable mock in
 
 ## Priority Recommendations
 
-### P0: Returner Account Diagnosis
+### P0: Legendary Planner Pro
 
-Reason: production-safe secret and private-data lifecycle foundations are now in place. The next bottleneck is player-facing returner intelligence.
+Reason: the commercial roadmap's first monetization substrate, P6 Paid Report Engine, is now implemented. P7 is the next strongest individual-player subscription path and can reuse the paid report engine.
 
 Deliverables:
 
-- Readiness score.
-- Missing unlock inference.
-- 7-day and 30-day plans.
-- Returner report.
-- Evidence-labeled recommendations.
+- Goal portfolio.
+- Shared requirement inference.
+- Time-gated requirement detection.
+- Cheap and fast path planning.
+- Multi-goal do-not-sell policy.
+- Legendary Planner Pro report.
 
 ### Completed Priority Trail
 

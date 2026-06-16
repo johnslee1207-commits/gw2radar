@@ -26,6 +26,11 @@
     {"id": "action_generator", "type": "inference", "label": "Action Generator"},
     {"id": "actions", "type": "recommendation", "label": "Recommendation Actions"},
     {"id": "markdown_report", "type": "report", "label": "Markdown Report"},
+    {"id": "paid_report_engine", "type": "commercial_report", "label": "Paid Report Engine"},
+    {"id": "report_products", "type": "commercial_model", "label": "Report Products"},
+    {"id": "report_entitlements", "type": "commercial_model", "label": "Report Entitlements"},
+    {"id": "report_export_jobs", "type": "commercial_model", "label": "Report Export Jobs"},
+    {"id": "report_artifacts", "type": "export", "label": "Report Artifacts"},
     {"id": "export_package", "type": "export", "label": "Export Package"},
     {"id": "api", "type": "interface", "label": "FastAPI Routes"},
     {"id": "api_error_envelope", "type": "interface_contract", "label": "API Error Envelope"},
@@ -81,6 +86,12 @@
     {"from": "material_policy", "to": "action_generator", "type": "input"},
     {"from": "action_generator", "to": "actions", "type": "creates"},
     {"from": "actions", "to": "markdown_report", "type": "rendered_in"},
+    {"from": "markdown_report", "to": "paid_report_engine", "type": "productized_by"},
+    {"from": "paid_report_engine", "to": "report_products", "type": "catalogs"},
+    {"from": "paid_report_engine", "to": "report_entitlements", "type": "requires_for_full"},
+    {"from": "paid_report_engine", "to": "report_export_jobs", "type": "tracks"},
+    {"from": "paid_report_engine", "to": "report_artifacts", "type": "writes"},
+    {"from": "api", "to": "paid_report_engine", "type": "exposes"},
     {"from": "actions", "to": "export_package", "type": "packaged_in"},
     {"from": "api", "to": "api_state", "type": "uses"},
     {"from": "api", "to": "api_error_envelope", "type": "uses"},
@@ -117,11 +128,12 @@
     "delivery_export_package": 3.8,
     "durable_refresh_queue": 3.9,
     "encrypted_local_key_storage": 3.8,
-    "account_public_sync_services": 3.8
+    "account_public_sync_services": 3.8,
+    "paid_report_engine": 3.6
   },
-  "overall_maturity": 4.42,
+  "overall_maturity": 4.48,
   "recommended_priorities": [
-    "P0 Returner Account Diagnosis",
-    "Next: readiness score, missing unlocks, 7-day and 30-day plans"
+    "P0 Legendary Planner Pro",
+    "Next: goal portfolio, shared requirements, cheap and fast paths"
   ]
 }

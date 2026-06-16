@@ -27,12 +27,12 @@ Current source spectrum under `src/gw2radar`:
 
 | Metric | Count |
 |---|---:|
-| Python source files | 57 |
-| Classes | 55 |
-| Functions / methods | 158 |
-| Enums | 8 |
-| Pydantic models | 12 |
-| SQLAlchemy models | 7 |
+| Python source files | 77 |
+| Classes | 89 |
+| Functions / methods | 240 |
+| Enums | 14 |
+| Pydantic models | 26 |
+| SQLAlchemy models | 11 |
 
 Domain spectrum:
 
@@ -47,6 +47,7 @@ Domain spectrum:
 | `ingest` | gateway, client, cache, limiter, detailed durable queue schemas, sync services, refresh worker | Governance-first access boundary with fake-tested real sync services and queue contract schemas. |
 | `ontology` | enums and Pydantic schemas | Strong semantic contract baseline. |
 | `reports` | Markdown renderer | Functional, evidence-aware, still simple. |
+| `commercial` | paid report engine | Product catalog, entitlement gate, preview/full rendering, jobs, artifacts, and manifests. |
 | `security` | encrypted local key lifecycle | Fernet-encrypted SQLite key persistence with masked API responses. |
 
 ## GitNexus Flow Findings
@@ -198,8 +199,9 @@ Scoring: 0 = absent, 5 = production-grade.
 | Production key storage | 3.8 | Deployment modes, SecretStore interface, encrypted local/database stores, fingerprints, security routes, and log sanitizer. External KMS/auth remain future hardening. |
 | Real account ingestion | 3.6 | Queue-backed account sync API routes, status, drain-one, tokeninfo validation, fake transport tests, and private-layer persistence. |
 | Public static data refresh | 3.8 | Queue-backed planner, versioned API routes, stable dedupe/sort/chunk batching, evidence metadata, public-game-only writes, and cache/no-N+1 tests. |
+| Paid report engine | 3.6 | Product catalog, entitlements, preview/full rendering modes, export jobs, Markdown/HTML artifacts, manifest, and versioned routes. |
 
-Overall MVP maturity: **4.42 / 5.0**.
+Overall MVP maturity: **4.48 / 5.0**.
 
 Interpretation: GW2Radar is now a governed, test-backed MVP substrate with durable refresh state, encrypted local key storage, and gateway-bounded sync services. It is still not a production account-ingestion service until scheduling, monitoring, and external secret management are added.
 
@@ -226,20 +228,22 @@ Interpretation: GW2Radar is now a governed, test-backed MVP substrate with durab
 | Production encrypted key storage | Complete for local MVP; external vault deferred |
 | Real GW2 account sync | Complete for MVP service layer with fake transport tests |
 | Real public data refresh worker | Complete for MVP service layer with fake transport tests |
+| Paid report engine | Complete for MVP; real payment provider deferred to P12 |
 
 ## Recommended Next Priority
 
-### P0: Returner Account Diagnosis
+### P0: Legendary Planner Pro
 
-Reason: release readiness and production security foundations are now complete for MVP. The next highest-value product capability is returner account diagnosis on top of the synced/private account state.
+Reason: the commercial roadmap's first monetization substrate, P6 Paid Report Engine, is now implemented. The next highest-value commercial feature is deeper legendary planning on top of existing goal-gap, material-policy, and report artifacts.
 
 Minimum deliverables:
 
-- readiness score;
-- missing unlock inference;
-- 7-day and 30-day plans;
-- returner Markdown report;
-- evidence-labeled recommendation actions.
+- goal portfolio;
+- shared requirement inference;
+- time-gated requirement detection;
+- cheap and fast path planning;
+- multi-goal do-not-sell policy;
+- Legendary Planner Pro report.
 
 ## Constitution Compliance Summary
 
