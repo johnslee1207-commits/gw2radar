@@ -43,6 +43,7 @@
     "Account Snapshot Sync",
     "Account Sync API",
     "Public Item Refresh",
+    "Public Refresh API",
     "Account Snapshot Deletion",
     "FastAPI Routes",
     "Pytest Smoke Harness"
@@ -73,6 +74,9 @@
     ["Account Sync API", "Durable Refresh Queue", "enqueues"],
     ["Account Sync API", "Account Snapshot Sync", "drains"],
     ["Gw2ApiGateway", "Public Item Refresh", "bounds"],
+    ["FastAPI Routes", "Public Refresh API", "exposes"],
+    ["Public Refresh API", "Durable Refresh Queue", "enqueues"],
+    ["Public Refresh API", "Public Item Refresh", "drains"],
     ["Account Snapshot Sync", "GraphData", "writes_private_player_state"],
     ["Public Item Refresh", "GraphData", "writes_public_game_entities"],
     ["Pytest Smoke Harness", "FastAPI Routes", "verifies"]
@@ -93,8 +97,8 @@
     "durable_refresh_queue": 3.9,
     "production_key_storage": 3.0,
     "real_account_ingestion": 3.6,
-    "public_static_data_refresh": 3.2
+    "public_static_data_refresh": 3.8
   },
-  "overall_maturity": 4.15,
-  "next_priority": "Public Static Refresh Planner"
+  "overall_maturity": 4.25,
+  "next_priority": "Release Readiness Hardening"
 }

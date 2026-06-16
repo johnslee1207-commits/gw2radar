@@ -170,9 +170,9 @@ Scores use a 0-5 scale:
 | Delivery export package | 3.8 | Markdown, gap CSV, actions CSV, and package manifest are implemented and tested. |
 | Durable refresh queue | 3.9 | SQLite queue with retry metadata, 429 persistence, sanitized params hash, lease fields, and worker state transitions. |
 | Encrypted local key storage | 3.0 | Fernet-encrypted SQLite key storage; external vault remains future hardening. |
-| Account/public sync services | 3.5 | Account sync has queue-backed routes and private-layer tests; public static refresh planner remains future work. |
+| Account/public sync services | 3.8 | Account sync and public static refresh have queue-backed routes, planner rules, layer tests, and fake gateway coverage. |
 
-Overall maturity: **4.15 / 5.0**
+Overall maturity: **4.25 / 5.0**
 
 Interpretation: GW2Radar is a solid governed MVP prototype with reliable mock intelligence, deterministic exports, durable refresh state, and gateway-bounded sync services. It is not yet a production ingestion service.
 
@@ -208,17 +208,16 @@ Interpretation: GW2Radar is a solid governed MVP prototype with reliable mock in
 
 ## Priority Recommendations
 
-### P0: Public Static Refresh Planner
+### P0: Release Readiness Hardening
 
-Reason: account sync API productization is complete for MVP. The next bottleneck is queue-backed public static refresh planning.
+Reason: account sync and public static refresh are productized for MVP. The next bottleneck is release-ready API consistency and operational visibility.
 
 Deliverables:
 
-- Public refresh enqueue planner.
-- Stable dedupe/sort/chunk behavior.
-- Batch endpoint calls.
-- Sanitized evidence metadata.
-- Public-game-only writes.
+- Uniform API error envelope.
+- Route-level response schemas.
+- Fake-gateway sync smoke harness.
+- Operational status summary endpoint.
 
 ### Completed Priority Trail
 

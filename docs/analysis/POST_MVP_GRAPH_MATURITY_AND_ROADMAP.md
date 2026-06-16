@@ -85,9 +85,9 @@ flowchart TD
 | GW2 API gateway/client | 4.0 | Safe fake-tested client/gateway with tokeninfo, permission validator, endpoint schema, structured errors, and Authorization-only private access. |
 | Durable refresh queue | 3.9 | Detailed queue contract, leases, retry metadata, 429 persistence, sanitization. |
 | Local encrypted key storage | 3.0 | Fernet SQLite storage; external vault remains future. |
-| Account/public sync services | 3.5 | Account sync has queue-backed API productization and private-layer tests; public refresh planner remains pending. |
+| Account/public sync services | 3.8 | Account sync and public static refresh now have queue-backed API productization, fake gateway tests, layer constraints, and planner rules. |
 
-Overall maturity: **4.15 / 5.0**.
+Overall maturity: **4.25 / 5.0**.
 
 ## Priority Roadmap
 
@@ -121,6 +121,8 @@ Deliverables:
 - private evidence metadata and private-only graph writes.
 
 ### P3: Public Static Refresh Planner
+
+Status: complete for MVP 0.2.2.
 
 Reason: public item refresh exists as a service helper, but not as a planner/queue workflow.
 

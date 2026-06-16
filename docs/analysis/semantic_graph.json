@@ -17,6 +17,7 @@
     {"id": "account_sync", "type": "ingest_service", "label": "Account Snapshot Sync"},
     {"id": "account_sync_api", "type": "interface", "label": "Account Sync API"},
     {"id": "public_refresh", "type": "ingest_service", "label": "Public Item Refresh"},
+    {"id": "public_refresh_api", "type": "interface", "label": "Public Refresh API"},
     {"id": "goal_gap", "type": "inference", "label": "Goal Gap"},
     {"id": "material_policy", "type": "inference", "label": "Material Policy"},
     {"id": "action_generator", "type": "inference", "label": "Action Generator"},
@@ -52,6 +53,9 @@
     {"from": "account_sync_api", "to": "refresh_queue", "type": "enqueues"},
     {"from": "account_sync_api", "to": "account_sync", "type": "drains"},
     {"from": "gateway", "to": "public_refresh", "type": "bounds"},
+    {"from": "api", "to": "public_refresh_api", "type": "exposes"},
+    {"from": "public_refresh_api", "to": "refresh_queue", "type": "enqueues"},
+    {"from": "public_refresh_api", "to": "public_refresh", "type": "drains"},
     {"from": "account_sync", "to": "graph_data", "type": "writes_private_player_state"},
     {"from": "public_refresh", "to": "graph_data", "type": "writes_public_game_entities"},
     {"from": "fixtures", "to": "graph_builder", "type": "feeds"},
@@ -104,11 +108,11 @@
     "delivery_export_package": 3.8,
     "durable_refresh_queue": 3.9,
     "encrypted_local_key_storage": 3.0,
-    "account_public_sync_services": 3.5
+    "account_public_sync_services": 3.8
   },
-  "overall_maturity": 4.15,
+  "overall_maturity": 4.25,
   "recommended_priorities": [
-    "P0 Public Static Refresh Planner",
-    "Next: enqueue planner, batching, evidence metadata, public-game-only writes"
+    "P0 Release Readiness Hardening",
+    "Next: API error envelope, response schemas, sync smoke, operational status"
   ]
 }

@@ -60,6 +60,7 @@ def test_public_static_refresh_writes_public_items_only() -> None:
 
     result = refresh_public_items(graph, gateway, item_ids=[1, 2])
 
-    assert result == {"status": "synced", "updated_entities": 2}
+    assert result["status"] == "synced"
+    assert result["updated_entities"] == 2
     assert graph.entities["gw2:item:1"].canonical_name == "Item 1"
     assert all(entity.graph_layer == GraphLayer.PUBLIC_GAME for entity in graph.entities.values())

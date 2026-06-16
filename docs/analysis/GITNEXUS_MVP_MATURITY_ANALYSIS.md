@@ -197,9 +197,9 @@ Scoring: 0 = absent, 5 = production-grade.
 | Refresh queue durability | 3.9 | SQLite queue, retry metadata, 429 persistence, sanitized params hash, lease/worker fields, status transitions, and one-step worker compatibility. |
 | Production key storage | 3.0 | Local Fernet-encrypted SQLite storage; KMS or OS vault remains future production hardening. |
 | Real account ingestion | 3.6 | Queue-backed account sync API routes, status, drain-one, tokeninfo validation, fake transport tests, and private-layer persistence. |
-| Public static data refresh | 3.2 | Public item batch refresh writes public-game entities through gateway contract. |
+| Public static data refresh | 3.8 | Queue-backed planner, versioned API routes, stable dedupe/sort/chunk batching, evidence metadata, public-game-only writes, and cache/no-N+1 tests. |
 
-Overall MVP maturity: **4.15 / 5.0**.
+Overall MVP maturity: **4.25 / 5.0**.
 
 Interpretation: GW2Radar is now a governed, test-backed MVP substrate with durable refresh state, encrypted local key storage, and gateway-bounded sync services. It is still not a production account-ingestion service until scheduling, monitoring, and external secret management are added.
 
@@ -229,18 +229,17 @@ Interpretation: GW2Radar is now a governed, test-backed MVP substrate with durab
 
 ## Recommended Next Priority
 
-### P0: Public Static Refresh Planner
+### P0: Release Readiness Hardening
 
-Reason: account sync API productization is now complete for MVP. The next highest-value task is productizing public static refresh as a queue-backed planner with batching, cache verification, evidence metadata, and public-game-only writes.
+Reason: account sync and public static refresh are now productized for MVP. The next highest-value task is making the API and operational surface consistent for release.
 
 Minimum deliverables:
 
-- public static refresh enqueue planner;
-- dedupe/sort/chunk ids;
-- batch official endpoint calls;
-- sanitized evidence metadata per official response;
-- public-game-only entity writes;
-- cache tests proving no N+1 path.
+- uniform API error envelope;
+- route-level response schemas;
+- sync smoke harness using fake gateway;
+- operational status summary endpoint;
+- documented local operation flow.
 
 ## Constitution Compliance Summary
 
