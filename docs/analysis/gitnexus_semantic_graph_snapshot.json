@@ -1,11 +1,11 @@
 {
   "source": "gitnexus+ast",
   "snapshot_date": "2026-06-16",
-  "indexed_commit": "current-up-to-date-graph-analysis-commit",
+  "indexed_commit": "188ca5c",
   "gitnexus": {
-    "nodes": 4297,
+    "nodes": 4300,
     "edges": 8498,
-    "clusters": 176,
+    "clusters": 179,
     "flows": 300,
     "status": "up-to-date"
   },

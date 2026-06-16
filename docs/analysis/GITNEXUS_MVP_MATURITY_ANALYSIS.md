@@ -11,11 +11,11 @@ npx gitnexus analyze
 Index result:
 
 ```text
-4,297 nodes
+4,300 nodes
 8,498 edges
-176 clusters
+179 clusters
 300 flows
-Indexed commit: da463d4 P11 implementation commit
+Indexed commit: 188ca5c P11 graph analysis snapshot commit
 Status after analysis: up-to-date
 ```
 
