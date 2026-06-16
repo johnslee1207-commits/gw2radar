@@ -14,6 +14,11 @@ env/
 *.sqlite
 *.log
 outputs/
+data/extracted/
+docs/knowledge_base/_sources/pdf/
+docs/knowledge_base/official/*.pdf
+docs/knowledge_base/official/*.html
+docs/knowledge_base/official/pdflist.txt
 .env
 dist/
 build/

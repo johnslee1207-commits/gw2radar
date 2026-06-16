@@ -1,19 +1,19 @@
 ---
-title: GW2 API governed access summary
+title: GW2 API credential safety summary
 domain: official
 content_type: source_note
-summary: Source-linked summary derived from API_Main - Guild Wars 2 Wiki (GW2W).pdf; use the PDF evidence for verification and avoid copying full source text into KB articles.
+summary: Source-linked summary derived from the official API credential safety PDF; use the PDF evidence for verification and avoid copying full source text into KB articles.
 linked_entities: gw2:system:official_api
-linked_actions: REFRESH_PUBLIC_STATIC_DATA, SYNC_ACCOUNT_SNAPSHOT
+linked_actions: VALIDATE_API_SCOPE
 source_refs:
 confidence: 0.95
 review_status: draft
 ---
 
-# GW2 API governed access summary
+# GW2 API credential safety summary
 
-- Evidence ID: `evidence:pdf:api:main`
+- Evidence ID: `evidence:pdf:api:key`
 - Source artifact: recorded in `data/kb/pdf_inventory.csv` and `data/kb/pdf_evidence.jsonl`.
-- SHA256: `c5311121b912a5d4986472af16b8380801a70069a19331b01ff0d39d6783118a`
+- SHA256: `913f45aeaa3300ec4e01b0a7cd68926284136a2d79387acd4cdabd76c480b9e5`
 - Processing note: this article is a concise source summary, not a full-text copy of the PDF.
 - Governance boundary: no credentials, private player payloads, or unsupported claims are included.
