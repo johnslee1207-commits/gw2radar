@@ -10,12 +10,12 @@
     "status": "up-to-date"
   },
   "code_spectrum": {
-    "python_files": 83,
-    "classes": 130,
-    "functions": 296,
-    "enums": 17,
-    "pydantic_models": 57,
-    "sqlalchemy_models": 16
+    "python_files": 85,
+    "classes": 148,
+    "functions": 316,
+    "enums": 21,
+    "pydantic_models": 64,
+    "sqlalchemy_models": 21
   },
   "semantic_nodes": [
     "Constitution",
@@ -48,6 +48,10 @@
     "Price Trends",
     "Goal Cost Index",
     "Hold/Sell Signals",
+    "Growth CMS + Payment",
+    "CMS Pages",
+    "Pricing Plans",
+    "Mock Checkout",
     "Export Package",
     "Gw2ApiGateway",
     "GW2ApiClient Skeleton",
@@ -108,6 +112,12 @@
     ["Market Radar Pro", "Goal Cost Index", "calculates"],
     ["Market Radar Pro", "Hold/Sell Signals", "creates"],
     ["FastAPI Routes", "Market Radar Pro", "exposes"],
+    ["Paid Report Engine", "Growth CMS + Payment", "monetized_by"],
+    ["Growth CMS + Payment", "CMS Pages", "publishes"],
+    ["Growth CMS + Payment", "Pricing Plans", "defines"],
+    ["Growth CMS + Payment", "Mock Checkout", "creates"],
+    ["Mock Checkout", "Report Entitlements", "grants"],
+    ["FastAPI Routes", "Growth CMS + Payment", "exposes"],
     ["FastAPI Routes", "Paid Report Engine", "exposes"],
     ["Action Generator", "Export Package", "exports"],
     ["EncryptedApiKeyStore", "FastAPI Routes", "serves"],
@@ -149,8 +159,9 @@
     "paid_report_engine": 3.6,
     "legendary_planner_pro": 3.6,
     "build_fit_advisor": 3.6,
-    "market_radar_pro": 3.6
+    "market_radar_pro": 3.6,
+    "growth_cms_payment": 3.6
   },
-  "overall_maturity": 4.63,
-  "next_priority": "Growth Website + CMS + Payment Abstraction"
+  "overall_maturity": 4.68,
+  "next_priority": "Guild / Static Readiness Console"
 }

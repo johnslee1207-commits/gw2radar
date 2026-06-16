@@ -43,6 +43,10 @@
     {"id": "price_trends", "type": "inference", "label": "Price Trends"},
     {"id": "goal_cost_index", "type": "inference", "label": "Goal Cost Index"},
     {"id": "market_signals", "type": "recommendation", "label": "Hold/Sell Signals"},
+    {"id": "growth_cms_payment", "type": "commercial_platform", "label": "Growth CMS + Payment"},
+    {"id": "cms_pages", "type": "content", "label": "CMS Pages"},
+    {"id": "pricing_plans", "type": "commercial_model", "label": "Pricing Plans"},
+    {"id": "mock_checkout", "type": "payment_abstraction", "label": "Mock Checkout"},
     {"id": "export_package", "type": "export", "label": "Export Package"},
     {"id": "api", "type": "interface", "label": "FastAPI Routes"},
     {"id": "api_error_envelope", "type": "interface_contract", "label": "API Error Envelope"},
@@ -118,6 +122,12 @@
     {"from": "market_radar_pro", "to": "goal_cost_index", "type": "calculates"},
     {"from": "market_radar_pro", "to": "market_signals", "type": "creates"},
     {"from": "api", "to": "market_radar_pro", "type": "exposes"},
+    {"from": "paid_report_engine", "to": "growth_cms_payment", "type": "monetized_by"},
+    {"from": "growth_cms_payment", "to": "cms_pages", "type": "publishes"},
+    {"from": "growth_cms_payment", "to": "pricing_plans", "type": "defines"},
+    {"from": "growth_cms_payment", "to": "mock_checkout", "type": "creates"},
+    {"from": "mock_checkout", "to": "report_entitlements", "type": "grants"},
+    {"from": "api", "to": "growth_cms_payment", "type": "exposes"},
     {"from": "api", "to": "paid_report_engine", "type": "exposes"},
     {"from": "actions", "to": "export_package", "type": "packaged_in"},
     {"from": "api", "to": "api_state", "type": "uses"},
@@ -159,11 +169,12 @@
     "paid_report_engine": 3.6,
     "legendary_planner_pro": 3.6,
     "build_fit_advisor": 3.6,
-    "market_radar_pro": 3.6
+    "market_radar_pro": 3.6,
+    "growth_cms_payment": 3.6
   },
-  "overall_maturity": 4.63,
+  "overall_maturity": 4.68,
   "recommended_priorities": [
-    "P0 Growth Website + CMS + Payment Abstraction",
-    "Next: landing pages, CMS, pricing, mock payment, entitlements"
+    "P0 Guild / Static Readiness Console",
+    "Next: guild/team models, consent, role coverage, readiness report"
   ]
 }

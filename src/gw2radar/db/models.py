@@ -247,3 +247,68 @@ class MarketWatchlistModel(Base):
     item_name: Mapped[str] = mapped_column(String, nullable=False)
     reason: Mapped[str] = mapped_column(String, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class CmsPageModel(Base):
+    __tablename__ = "cms_pages"
+
+    page_id: Mapped[str] = mapped_column(String, primary_key=True)
+    slug: Mapped[str] = mapped_column(String, nullable=False)
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    page_type: Mapped[str] = mapped_column(String, nullable=False)
+    body_markdown: Mapped[str] = mapped_column(Text, nullable=False)
+    seo_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    published: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class PricingPlanModel(Base):
+    __tablename__ = "pricing_plans"
+
+    plan_id: Mapped[str] = mapped_column(String, primary_key=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    product_id: Mapped[str] = mapped_column(String, nullable=False)
+    price_cents: Mapped[int] = mapped_column(Integer, nullable=False)
+    billing_interval: Mapped[str] = mapped_column(String, nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    features_json: Mapped[list] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class CheckoutSessionModel(Base):
+    __tablename__ = "checkout_sessions"
+
+    checkout_session_id: Mapped[str] = mapped_column(String, primary_key=True)
+    user_id: Mapped[str] = mapped_column(String, nullable=False)
+    plan_id: Mapped[str] = mapped_column(String, nullable=False)
+    product_id: Mapped[str] = mapped_column(String, nullable=False)
+    provider: Mapped[str] = mapped_column(String, nullable=False)
+    status: Mapped[str] = mapped_column(String, nullable=False)
+    checkout_url: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class SubscriptionModel(Base):
+    __tablename__ = "subscriptions"
+
+    subscription_id: Mapped[str] = mapped_column(String, primary_key=True)
+    user_id: Mapped[str] = mapped_column(String, nullable=False)
+    plan_id: Mapped[str] = mapped_column(String, nullable=False)
+    product_id: Mapped[str] = mapped_column(String, nullable=False)
+    status: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    current_period_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class WebhookEventModel(Base):
+    __tablename__ = "webhook_events"
+
+    webhook_event_id: Mapped[str] = mapped_column(String, primary_key=True)
+    provider: Mapped[str] = mapped_column(String, nullable=False)
+    event_type: Mapped[str] = mapped_column(String, nullable=False)
+    payload_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    processed: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)

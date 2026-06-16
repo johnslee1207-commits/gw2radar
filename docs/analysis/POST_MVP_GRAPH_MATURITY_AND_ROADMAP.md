@@ -26,13 +26,13 @@ Local AST spectrum:
 
 | Metric | Count |
 |---|---:|
-| Python source files | 83 |
-| Classes | 130 |
-| Functions / methods | 296 |
-| Enums | 17 |
-| Pydantic models | 57 |
-| SQLAlchemy models | 16 |
-| Pytest test files | 75 |
+| Python source files | 85 |
+| Classes | 148 |
+| Functions / methods | 316 |
+| Enums | 21 |
+| Pydantic models | 64 |
+| SQLAlchemy models | 21 |
+| Pytest test files | 82 |
 
 ## Semantic Graph Summary
 
@@ -72,6 +72,11 @@ flowchart TD
   MarketRadar --> Trends["Price Trends"]
   MarketRadar --> CostIndex["Goal Cost Index"]
   MarketRadar --> Signals["Hold/Sell Signals"]
+  PaidReports --> Growth["Growth CMS + Payment"]
+  Growth --> CMS["CMS Pages"]
+  Growth --> Pricing["Pricing Plans"]
+  Growth --> Checkout["Mock Checkout"]
+  Checkout --> Entitlements["Report Entitlements"]
 
   KeyStore["EncryptedApiKeyStore"] --> SQLite
   Tests["54 Pytest Tests + Smoke"] --> Gateway
@@ -103,8 +108,9 @@ flowchart TD
 | Legendary Planner Pro | 3.6 | Portfolio persistence, shared requirements, conflicts, time gates, cheap/fast path planning, do-not-sell, daily/weekly routes, API, and P6-backed paid report are implemented. |
 | Build Fit Advisor | 3.6 | Structured build import, gear requirements, account gear matcher, weighted fit score, transition plan, budget alternative, API, and P6-backed paid report are implemented. |
 | Market Radar Pro | 3.6 | Price snapshots, trends, goal cost index, watchlist, hold/sell-surplus signals, language policy, API, and P6-backed paid report are implemented. |
+| Growth CMS + Payment | 3.6 | Landing/CMS pages, SEO metadata, pricing plans, payment provider protocol, mock checkout, webhook events, subscriptions, and entitlement integration are implemented. |
 
-Overall maturity: **4.63 / 5.0**.
+Overall maturity: **4.68 / 5.0**.
 
 ## Priority Roadmap
 
@@ -242,6 +248,8 @@ Deliverables:
 
 ### P12: Growth Website + CMS + Payment Abstraction
 
+Status: complete for MVP 0.3.4.
+
 Reason: P6-P9 now cover the core individual-player commercial product surface. The next bottleneck is acquisition, pricing, entitlement purchase flow, and mandatory trust pages.
 
 Deliverables:
@@ -253,3 +261,17 @@ Deliverables:
 - mock checkout session;
 - entitlement integration;
 - privacy and API key safety pages.
+
+### P10: Guild / Static Readiness Console
+
+Reason: after individual monetization and checkout abstraction, the next revenue path is team/guild subscriptions with strict consent and privacy-safe summaries.
+
+Deliverables:
+
+- guild model;
+- team model;
+- team member consent;
+- role coverage inference;
+- team readiness score;
+- privacy-safe member summary;
+- guild readiness report.
