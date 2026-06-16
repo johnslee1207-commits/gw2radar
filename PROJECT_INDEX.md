@@ -71,6 +71,7 @@ The Knowledge Base explains recommendations, while the Knowledge Graph reasons o
 - [MVP 0.4.0 KB Entity Linker Rule Distiller](docs/mvp/MVP_0_4_0_KB_ENTITY_LINKER_RULE_DISTILLER.md)
 - [MVP 0.4.1 KB-backed Recommendation Explanations](docs/mvp/MVP_0_4_1_KB_BACKED_RECOMMENDATION_EXPLANATIONS.md)
 - [MVP 0.4.2 KB-backed Paid Report Artifacts](docs/mvp/MVP_0_4_2_KB_BACKED_PAID_REPORT_ARTIFACTS.md)
+- [MVP 0.4.3 KB Report Quality And Source Gaps](docs/mvp/MVP_0_4_3_KB_REPORT_QUALITY_AND_SOURCE_GAPS.md)
 
 ## Analysis And Maturity
 

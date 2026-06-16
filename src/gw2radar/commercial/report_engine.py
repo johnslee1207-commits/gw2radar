@@ -12,6 +12,7 @@ from gw2radar.graph.graph_query import GraphData
 from gw2radar.inference.action_generator import generate_actions
 from gw2radar.inference.goal_gap import calculate_goal_gap
 from gw2radar.kb.kb_models import KnowledgeReviewStatus, KnowledgeRule
+from gw2radar.kb.kb_report_quality import score_kb_report_quality
 from gw2radar.reports.markdown_report import generate_kb_backed_markdown_report, generate_markdown_report
 from gw2radar.security.log_sanitizer import sanitize_log_payload
 
@@ -244,6 +245,7 @@ def generate_report_job(
             knowledge_rules=knowledge_rules or [],
         )
         content = _render_export_content(markdown, export_format)
+        kb_quality = _build_kb_quality_manifest(graph, goal_id, knowledge_rules or []) if knowledge_backed else None
         artifact_path, manifest_path = _write_artifact(
             content,
             output_root=output_root,
@@ -253,6 +255,7 @@ def generate_report_job(
             export_format=export_format,
             knowledge_backed=knowledge_backed,
             knowledge_rule_count=_count_reviewed_enabled_rules(knowledge_rules or []),
+            kb_quality=kb_quality,
         )
         job.status = ReportJobStatus.SUCCEEDED.value
         job.artifact_path = artifact_path.as_posix()
@@ -356,6 +359,7 @@ def _write_artifact(
     export_format: ReportExportFormat,
     knowledge_backed: bool = False,
     knowledge_rule_count: int = 0,
+    kb_quality: dict | None = None,
 ) -> tuple[Path, Path]:
     safe_user = _safe_slug(user_id)
     safe_report = _safe_slug(report_type)
@@ -388,6 +392,7 @@ def _write_artifact(
                 "enabled": knowledge_backed,
                 "reviewed_rule_count": knowledge_rule_count if knowledge_backed else 0,
                 "boundary": "reviewed_enabled_rules_only",
+                "quality": kb_quality,
             },
         }
     )
@@ -438,3 +443,17 @@ def _safe_slug(value: str) -> str:
 
 def _count_reviewed_enabled_rules(rules: list[KnowledgeRule]) -> int:
     return sum(1 for rule in rules if rule.enabled and rule.review_status == KnowledgeReviewStatus.REVIEWED)
+
+
+def _build_kb_quality_manifest(graph: GraphData, goal_id: str, rules: list[KnowledgeRule]) -> dict:
+    actions = graph.actions_for_goal(goal_id) or generate_actions(graph, goal_id)
+    quality = score_kb_report_quality(actions, rules)
+    return {
+        "explanation_coverage_percent": quality.explanation_coverage_percent,
+        "explained_actions": quality.explained_actions,
+        "matched_rule_count": quality.matched_rule_count,
+        "total_actions": quality.total_actions,
+        "quality_label": quality.quality_label,
+        "low_confidence_explanation_count": quality.low_confidence_explanation_count,
+        "warning_count": len(quality.warnings),
+    }

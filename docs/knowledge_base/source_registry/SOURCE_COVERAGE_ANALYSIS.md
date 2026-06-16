@@ -19,10 +19,10 @@ Overall maturity:
 |---|---:|---|
 | Downloaded PDF inventory and evidence | 216/216 PDFs | high |
 | Tier 0 official API summaries | 6 core files | medium-high |
-| Tier 1 endpoint summaries | 12 implemented / 17 requested | medium |
+| Tier 1 endpoint summaries | 17 implemented / 17 requested | high |
 | Recent patch note inventory | 45 P2 patch PDFs inventoried | medium |
 | Patch note structured summaries | 0 generated | low |
-| Source registry documents | 6 registry files | medium |
+| Source registry documents | 6 registry files plus official coverage analysis | medium-high |
 | Wiki license/copyright policy summaries | registry only | low |
 | Build / guide source policy | registry only plus `build_fit_rules.md` | low |
 | Competitor and ecosystem references | registry only | low |
@@ -67,9 +67,9 @@ These sources directly support API governance, privacy, and source attribution.
 
 | Needed File | Source ID | Reference Link | Why It Matters |
 |---|---|---|---|
-| `docs/knowledge_base/official/official_news_sources.md` | `source:official:guildwars2_home` | https://www.guildwars2.com/ | Official product/news context |
-| `docs/knowledge_base/official/patch_note_sources.md` | `source:official:game_update_notes` | https://en-forum.guildwars2.com/forum/6-game-update-notes/ | Patch Impact Radar source policy |
-| `docs/knowledge_base/official/authenticated_endpoints_index.md` | `source:gw2wiki:authenticated_endpoints` | https://wiki.guildwars2.com/wiki/Category:Authenticated_endpoint | Private endpoint boundary and scope validation |
+| `docs/knowledge_base/official/official_news_sources.md` | `source:official:guildwars2_home` | https://www.guildwars2.com/ | implemented |
+| `docs/knowledge_base/official/patch_note_sources.md` | `source:official:game_update_notes` | https://en-forum.guildwars2.com/forum/6-game-update-notes/ | implemented |
+| `docs/knowledge_base/official/authenticated_endpoints_index.md` | `source:gw2wiki:authenticated_endpoints` | https://wiki.guildwars2.com/wiki/Category:Authenticated_endpoint | implemented |
 | `docs/knowledge_base/source_registry/citation_and_attribution_policy.md` | multiple | https://wiki.guildwars2.com/wiki/Guild_Wars_2_Wiki:Copyrights | Attribution policy before broad KB publication |
 | `docs/knowledge_base/source_registry/third_party_content_policy.md` | `source:official:arenanet_content_terms` | https://www.arena.net/legal/content-terms-of-use | Fan/content-use boundary |
 
@@ -79,11 +79,11 @@ These complete the endpoint list from the authoritative source plan.
 
 | Needed File | Source ID | Reference Link | Graph Layer |
 |---|---|---|---|
-| `docs/knowledge_base/official/api_endpoints/character_equipmenttabs.md` | `source:gw2api:character_equipmenttabs` | https://wiki.guildwars2.com/wiki/API:2/characters/:id/equipmenttabs | private_player_state |
-| `docs/knowledge_base/official/api_endpoints/itemstats.md` | `source:gw2api:itemstats` | https://wiki.guildwars2.com/wiki/API:2/itemstats | public_game_data |
-| `docs/knowledge_base/official/api_endpoints/render_service.md` | `source:gw2api:render_service` | https://wiki.guildwars2.com/wiki/API:Render_service | public_game_data |
-| `docs/knowledge_base/official/api_endpoints/commerce_transactions.md` | `source:gw2api:commerce_transactions` | https://wiki.guildwars2.com/wiki/API:2/commerce/transactions | private_player_state |
-| `docs/knowledge_base/official/api_endpoints/commerce_delivery.md` | `source:gw2api:commerce_delivery` | https://wiki.guildwars2.com/wiki/API:2/commerce/delivery | private_player_state |
+| `docs/knowledge_base/official/api_endpoints/character_equipmenttabs.md` | `source:gw2api:character_equipmenttabs` | https://wiki.guildwars2.com/wiki/API:2/characters/:id/equipmenttabs | implemented |
+| `docs/knowledge_base/official/api_endpoints/itemstats.md` | `source:gw2api:itemstats` | https://wiki.guildwars2.com/wiki/API:2/itemstats | implemented |
+| `docs/knowledge_base/official/api_endpoints/render_service.md` | `source:gw2api:render_service` | https://wiki.guildwars2.com/wiki/API:Render_service | implemented |
+| `docs/knowledge_base/official/api_endpoints/commerce_transactions.md` | `source:gw2api:commerce_transactions` | https://wiki.guildwars2.com/wiki/API:2/commerce/transactions | implemented |
+| `docs/knowledge_base/official/api_endpoints/commerce_delivery.md` | `source:gw2api:commerce_delivery` | https://wiki.guildwars2.com/wiki/API:2/commerce/delivery | implemented |
 
 ### P2 — Wiki License And Copyright Handling
 
@@ -122,11 +122,11 @@ These support product positioning, trust-page wording, and creator intelligence.
 
 ## Recommended Next Work
 
-1. Complete P0/P1 official source gap files first.
-2. Generate patch-note structured summaries for 2026/2025/2024 only.
-3. Add wiki/license policy summaries before marking wiki-derived KB as reviewed.
-4. Add build-source metadata templates and Snow Crows attribution policy.
-5. Add source freshness and attribution fields to report quality scoring.
+1. Generate patch-note structured summaries for 2026/2025/2024 only.
+2. Add wiki/license policy summaries before marking wiki-derived KB as reviewed.
+3. Add build-source metadata templates and Snow Crows attribution policy.
+4. Add source freshness and attribution fields to report quality scoring.
+5. Promote reviewed official source notes into persisted KnowledgeArticle records.
 
 ## Governance Boundary
 

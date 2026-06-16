@@ -11,6 +11,7 @@ from gw2radar.kb.kb_entity_linker import validate_article_links
 from gw2radar.kb.kb_explanation import explain_actions_with_kb
 from gw2radar.kb.kb_markdown_loader import load_markdown_directory
 from gw2radar.kb.kb_models import KnowledgeArticleInput, KnowledgeDomain, SourceRegistryInput, SourceType
+from gw2radar.kb.kb_report_quality import score_kb_report_quality
 from gw2radar.kb.kb_repository import (
     create_article,
     deprecate_article,
@@ -178,3 +179,17 @@ def get_kb_action_explanations(goal_id: str) -> ApiDataEnvelope:
             },
         }
     )
+
+
+@router.get("/goals/{goal_id}/report-quality", response_model=ApiDataEnvelope)
+def get_kb_report_quality(goal_id: str) -> ApiDataEnvelope:
+    graph = get_graph()
+    if goal_id not in graph.entities:
+        raise HTTPException(status_code=404, detail="Goal not found")
+    actions = graph.actions_for_goal(goal_id) or generate_actions(graph, goal_id)
+    init_db()
+    with db_session.SessionLocal() as session:
+        rules = list_rules(session)
+    explanations = explain_actions_with_kb(actions, rules)
+    quality = score_kb_report_quality(actions, rules, explanations)
+    return ApiDataEnvelope(data={"goal_id": goal_id, "quality": quality.model_dump(mode="json")})

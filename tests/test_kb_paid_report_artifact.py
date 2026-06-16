@@ -51,11 +51,11 @@ def test_kb_backed_paid_report_artifact_manifest_marks_reviewed_rules() -> None:
         assert "Knowledge-backed explanations: true" in artifact
         assert "## Knowledge Base Explanations" in artifact
         assert "Reserve active legendary materials" in artifact
-        assert manifest["knowledge_base"] == {
-            "boundary": "reviewed_enabled_rules_only",
-            "enabled": True,
-            "reviewed_rule_count": 1,
-        }
+        assert manifest["knowledge_base"]["boundary"] == "reviewed_enabled_rules_only"
+        assert manifest["knowledge_base"]["enabled"] is True
+        assert manifest["knowledge_base"]["reviewed_rule_count"] == 1
+        assert manifest["knowledge_base"]["quality"]["explained_actions"] == 1
+        assert manifest["knowledge_base"]["quality"]["matched_rule_count"] == 1
     finally:
         close_database()
         shutil.rmtree(temp_dir, ignore_errors=True)
