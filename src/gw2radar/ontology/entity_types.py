@@ -8,6 +8,7 @@ class EntityType(str, Enum):
     ITEM = "item"
     MATERIAL = "material"
     CURRENCY = "currency"
+    RECIPE = "recipe"
     ACHIEVEMENT = "achievement"
     COLLECTION = "collection"
     TASK = "task"

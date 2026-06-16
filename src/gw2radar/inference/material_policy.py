@@ -14,6 +14,7 @@ def generate_material_policy_actions(graph: GraphData, goal_id: str) -> list[Act
     required_entity_ids = {
         item.entity_id for item in gap.completed_requirements + gap.missing_requirements
     }
+    evidence_refs = list(graph.evidence.keys())
     for entity_id in required_entity_ids:
         entity = graph.entities[entity_id]
         if entity.type not in {EntityType.ITEM, EntityType.MATERIAL, EntityType.CURRENCY}:
@@ -34,7 +35,12 @@ def generate_material_policy_actions(graph: GraphData, goal_id: str) -> list[Act
                     advances_goal=True,
                     protects_required_material=True,
                 ),
-                urgency="normal",
+                urgency="medium",
+                preconditions=["player manually reviews material storage"],
+                expected_outputs=[f"{entity.canonical_name} remains reserved for {goal_name}"],
+                constraints={"recommendation_only": True, "no_automated_trading": True},
+                reason_codes=["required_by_active_goal", "protect_required_material"],
+                evidence_refs=evidence_refs,
                 properties={"owned_quantity": owned_quantity},
                 explanation=(
                     f"{entity.canonical_name} is required by {goal_name}; reserve it and do not sell it."
@@ -56,7 +62,12 @@ def generate_material_policy_actions(graph: GraphData, goal_id: str) -> list[Act
                     advances_goal=True,
                     protects_required_material=True,
                 ),
-                urgency="normal",
+                urgency="medium",
+                preconditions=["player owns Mystic Coin"],
+                expected_outputs=["Mystic Coin remains available for Aurora"],
+                constraints={"recommendation_only": True, "no_automated_trading": True},
+                reason_codes=["required_by_active_goal", "hold_legendary_material"],
+                evidence_refs=evidence_refs,
                 properties={"owned_quantity": graph.quantity_owned("gw2:item:mystic_coin")},
                 explanation="Mystic Coin is required by Aurora and should be reserved for the active goal.",
             )

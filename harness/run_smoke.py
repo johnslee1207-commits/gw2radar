@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 from gw2radar.api import state
 from gw2radar.api.main import app
 from gw2radar.db.session import close_database, configure_database
+from gw2radar.ingest.gw2_api_gateway import Gw2ApiGateway
 
 
 def main() -> int:
@@ -40,6 +41,9 @@ def main() -> int:
     gap_json = gap.json() if gap.status_code == 200 else {}
     actions_json = actions.json() if actions.status_code == 200 else []
     checks = [
+        (ROOT / "GW2RADAR_PROJECT_CONSTITUTION.md").exists(),
+        (ROOT / "GW2RADAR_API_ACCESS_GOVERNANCE.md").exists(),
+        Gw2ApiGateway is not None,
         health.status_code == 200 and health.json() == {"status": "ok"},
         first_load.status_code == 200,
         second_load.status_code == 200,

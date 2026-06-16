@@ -2,6 +2,12 @@
 
 Legendary Goal Intelligence Edition.
 
+Before development, read:
+
+- `GW2RADAR_PROJECT_CONSTITUTION.md`
+- `GW2RADAR_API_ACCESS_GOVERNANCE.md`
+- `docs/mvp/MVP_0_1_CODEX_DEVELOPMENT_SPEC.md`
+
 This MVP validates one deterministic mock loop:
 
 ```text

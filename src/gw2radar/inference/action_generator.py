@@ -14,11 +14,11 @@ def generate_actions(graph: GraphData, goal_id: str) -> list[Action]:
 
     for missing in gap.missing_requirements:
         if missing.entity_id == "gw2:item:mystic_clover":
-            actions.append(_missing_mystic_clover_action(goal_id, missing.entity_id))
+            actions.append(_missing_mystic_clover_action(graph, goal_id, missing.entity_id))
         elif missing.entity_id == "gw2:currency:unbound_magic":
             actions.extend(_unbound_magic_actions(graph, goal_id, missing.entity_id))
         elif missing.entity_type == EntityType.ACHIEVEMENT:
-            actions.append(_achievement_action(goal_id, missing.entity_id, missing.name))
+            actions.append(_achievement_action(graph, goal_id, missing.entity_id, missing.name))
 
     actions = sorted(_dedupe_actions(actions), key=lambda action: action.priority_score, reverse=True)
     graph.replace_actions_for_goal(goal_id, actions)
@@ -26,7 +26,11 @@ def generate_actions(graph: GraphData, goal_id: str) -> list[Action]:
     return actions
 
 
-def _missing_mystic_clover_action(goal_id: str, entity_id: str) -> Action:
+def _evidence_refs(graph: GraphData) -> list[str]:
+    return list(graph.evidence.keys())
+
+
+def _missing_mystic_clover_action(graph: GraphData, goal_id: str, entity_id: str) -> Action:
     return Action(
         id=f"action:watch_price:{goal_id}:{entity_id}",
         action_type=ActionType.WATCH_PRICE,
@@ -39,7 +43,13 @@ def _missing_mystic_clover_action(goal_id: str, entity_id: str) -> Action:
             advances_goal=True,
             resolves_missing_requirement=True,
         ),
-        urgency="normal",
+        urgency="medium",
+        preconditions=["player manually chooses an acquisition route"],
+        expected_outputs=["Mystic Clover gap is reduced by manual acquisition"],
+        costs={"currency_or_material_spend": "player_review_required"},
+        constraints={"recommendation_only": True, "no_auto_buy": True, "no_auto_craft": True},
+        reason_codes=["missing_requirement", "review_acquisition_options"],
+        evidence_refs=_evidence_refs(graph),
         properties={"candidate_for": ["buy", "craft"]},
         explanation="Mystic Clover is below the Aurora requirement; review acquisition options before committing resources.",
     )
@@ -67,7 +77,13 @@ def _unbound_magic_actions(graph: GraphData, goal_id: str, entity_id: str) -> li
                     is_time_gated=True,
                     estimated_minutes=estimated_minutes,
                 ),
-                urgency="today",
+                urgency="high",
+                preconditions=["player manually completes the route in game"],
+                expected_outputs=["Unbound Magic progress toward Aurora"],
+                costs={"estimated_minutes": estimated_minutes},
+                constraints={"recommendation_only": True, "no_gameplay_automation": True},
+                reason_codes=["missing_requirement", "daily_task", "advances_active_goal"],
+                evidence_refs=_evidence_refs(graph),
                 properties={
                     "produces_entity_id": entity_id,
                     "estimated_quantity": relation.properties.get("estimated_quantity"),
@@ -91,14 +107,19 @@ def _unbound_magic_actions(graph: GraphData, goal_id: str, entity_id: str) -> li
                     advances_goal=True,
                     resolves_missing_requirement=True,
                 ),
-                urgency="this_week",
+                urgency="medium",
+                preconditions=["player manually farms in game"],
+                expected_outputs=["Unbound Magic gap is reduced"],
+                constraints={"recommendation_only": True, "no_gameplay_automation": True},
+                reason_codes=["missing_requirement", "farm_candidate"],
+                evidence_refs=_evidence_refs(graph),
                 explanation="Unbound Magic is below the Aurora requirement; farm it through manual in-game activities.",
             )
         )
     return actions
 
 
-def _achievement_action(goal_id: str, entity_id: str, name: str) -> Action:
+def _achievement_action(graph: GraphData, goal_id: str, entity_id: str, name: str) -> Action:
     return Action(
         id=f"action:achievement:{goal_id}:{entity_id}",
         action_type=ActionType.COMPLETE_ACHIEVEMENT,
@@ -111,7 +132,12 @@ def _achievement_action(goal_id: str, entity_id: str, name: str) -> Action:
             advances_goal=True,
             resolves_missing_requirement=True,
         ),
-        urgency="this_week",
+        urgency="medium",
+        preconditions=["player manually completes the achievement in game"],
+        expected_outputs=[f"{name} no longer blocks Aurora"],
+        constraints={"recommendation_only": True, "no_gameplay_automation": True},
+        reason_codes=["missing_requirement", "blocks_active_goal", "achievement_progress"],
+        evidence_refs=_evidence_refs(graph),
         properties={"blocks_goal": True},
         explanation=f"{name} is missing and blocks Aurora progress.",
     )

@@ -20,3 +20,13 @@ def test_all_actions_have_explanation() -> None:
     actions = generate_actions(graph, "gw2:goal:aurora")
     assert actions
     assert all(action.explanation for action in actions)
+
+
+def test_all_actions_have_governance_fields() -> None:
+    graph = build_mock_graph()
+    actions = generate_actions(graph, "gw2:goal:aurora")
+
+    assert all(action.urgency in {"low", "medium", "high"} for action in actions)
+    assert all(action.reason_codes for action in actions)
+    assert all(action.evidence_refs for action in actions)
+    assert all(action.constraints.get("recommendation_only") is True for action in actions)

@@ -8,7 +8,7 @@ from gw2radar.ontology.schemas import Action, GoalGapItem
 def generate_markdown_report(graph: GraphData, goal_id: str) -> str:
     gap = calculate_goal_gap(graph, goal_id)
     actions = graph.actions_for_goal(goal_id) or generate_actions(graph, goal_id)
-    today = [a for a in actions if a.urgency == "today" or a.action_type == ActionType.DO_DAILY]
+    today = [a for a in actions if a.urgency == "high" or a.action_type == ActionType.DO_DAILY]
     week = [a for a in actions if a not in today]
     reserved = [
         a for a in actions if a.action_type in {ActionType.HOLD, ActionType.RESERVE_FOR_GOAL}

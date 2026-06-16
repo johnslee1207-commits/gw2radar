@@ -115,11 +115,14 @@ def _evidence_to_model(evidence: Evidence) -> EvidenceModel:
     return EvidenceModel(
         id=evidence.id,
         source=evidence.source,
+        source_type=evidence.source_type,
         source_url=evidence.source_url,
         fetched_at=evidence.fetched_at,
         raw_hash=evidence.raw_hash,
         raw_payload=evidence.raw_payload,
+        payload_ref=evidence.payload_ref,
         confidence=evidence.confidence,
+        license_note=evidence.license_note,
     )
 
 
@@ -127,11 +130,14 @@ def _model_to_evidence(model: EvidenceModel) -> Evidence:
     return Evidence(
         id=model.id,
         source=model.source,
+        source_type=model.source_type,
         source_url=model.source_url,
         fetched_at=model.fetched_at,
         raw_hash=model.raw_hash,
         raw_payload=model.raw_payload,
+        payload_ref=model.payload_ref,
         confidence=model.confidence,
+        license_note=model.license_note,
     )
 
 
@@ -158,6 +164,13 @@ def _model_to_player_state(model: PlayerStateModel) -> PlayerState:
 
 
 def _action_to_model(action: Action) -> ActionModel:
+    properties = dict(action.properties)
+    properties["_preconditions"] = action.preconditions
+    properties["_expected_outputs"] = action.expected_outputs
+    properties["_costs"] = action.costs
+    properties["_constraints"] = action.constraints
+    properties["_reason_codes"] = action.reason_codes
+    properties["_evidence_refs"] = action.evidence_refs
     return ActionModel(
         id=action.id,
         action_type=action.action_type.value,
@@ -167,7 +180,7 @@ def _action_to_model(action: Action) -> ActionModel:
         target_goal_id=action.target_goal_id,
         priority_score=action.priority_score,
         urgency=action.urgency,
-        properties_json=action.properties,
+        properties_json=properties,
         explanation=action.explanation,
         created_at=action.created_at,
     )
@@ -183,6 +196,12 @@ def _model_to_action(model: ActionModel) -> Action:
         target_goal_id=model.target_goal_id,
         priority_score=model.priority_score,
         urgency=model.urgency,
+        preconditions=(model.properties_json or {}).get("_preconditions", []),
+        expected_outputs=(model.properties_json or {}).get("_expected_outputs", []),
+        costs=(model.properties_json or {}).get("_costs", {}),
+        constraints=(model.properties_json or {}).get("_constraints", {}),
+        reason_codes=(model.properties_json or {}).get("_reason_codes", []),
+        evidence_refs=(model.properties_json or {}).get("_evidence_refs", []),
         properties=model.properties_json or {},
         explanation=model.explanation,
         created_at=model.created_at,

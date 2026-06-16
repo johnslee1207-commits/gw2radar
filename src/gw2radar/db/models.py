@@ -45,11 +45,14 @@ class EvidenceModel(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
     source: Mapped[str] = mapped_column(String, nullable=False)
+    source_type: Mapped[str] = mapped_column(String, default="mock")
     source_url: Mapped[str | None] = mapped_column(String, nullable=True)
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     raw_hash: Mapped[str | None] = mapped_column(String, nullable=True)
     raw_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    payload_ref: Mapped[str | None] = mapped_column(String, nullable=True)
     confidence: Mapped[float] = mapped_column(Float, default=1.0)
+    license_note: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
 class PlayerStateModel(Base):

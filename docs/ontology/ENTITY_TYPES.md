@@ -8,6 +8,7 @@ Required MVP types:
 - item
 - material
 - currency
+- recipe
 - achievement
 - collection
 - task

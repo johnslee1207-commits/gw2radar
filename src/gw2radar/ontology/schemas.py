@@ -15,11 +15,14 @@ def utc_now() -> datetime:
 class Evidence(BaseModel):
     id: str
     source: str
+    source_type: str = "mock"
     source_url: str | None = None
     fetched_at: datetime = Field(default_factory=utc_now)
     raw_hash: str | None = None
     raw_payload: dict[str, Any] | None = None
+    payload_ref: str | None = None
     confidence: float = 1.0
+    license_note: str | None = None
 
 
 class Entity(BaseModel):
@@ -61,8 +64,14 @@ class Action(BaseModel):
     description: str | None = None
     target_entity_id: str | None = None
     target_goal_id: str | None = None
+    preconditions: list[str] = Field(default_factory=list)
+    expected_outputs: list[str] = Field(default_factory=list)
+    costs: dict[str, Any] = Field(default_factory=dict)
+    constraints: dict[str, Any] = Field(default_factory=dict)
     priority_score: float
     urgency: str
+    reason_codes: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
     properties: dict[str, Any] = Field(default_factory=dict)
     explanation: str
     created_at: datetime = Field(default_factory=utc_now)

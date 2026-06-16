@@ -12,8 +12,11 @@ def build_mock_graph() -> GraphData:
     evidence = Evidence(
         id="mock:evidence:mvp_0_1",
         source="mock_fixture",
+        source_type="mock",
         raw_payload=bundle,
+        payload_ref="src/gw2radar/fixtures",
         confidence=1.0,
+        license_note="Mock fixture data for deterministic MVP tests.",
     )
     graph.add_evidence(evidence)
 
