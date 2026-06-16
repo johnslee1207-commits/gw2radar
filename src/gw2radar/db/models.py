@@ -375,3 +375,75 @@ class CommunitySignalModel(Base):
     verified: Mapped[bool] = mapped_column(Boolean, default=False)
     authorized_source: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class KnowledgeSourceModel(Base):
+    __tablename__ = "knowledge_sources"
+
+    source_id: Mapped[str] = mapped_column(String, primary_key=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    source_type: Mapped[str] = mapped_column(String, nullable=False)
+    base_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    allowed_use: Mapped[str] = mapped_column(String, nullable=False)
+    crawl_policy: Mapped[str] = mapped_column(String, nullable=False)
+    rate_limit_policy: Mapped[str] = mapped_column(String, nullable=False)
+    license_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    default_confidence: Mapped[float] = mapped_column(Float, default=0.7)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class KnowledgeArticleModel(Base):
+    __tablename__ = "knowledge_articles"
+
+    kb_id: Mapped[str] = mapped_column(String, primary_key=True)
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    domain: Mapped[str] = mapped_column(String, nullable=False)
+    content_type: Mapped[str] = mapped_column(String, nullable=False)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    body_markdown: Mapped[str] = mapped_column(Text, nullable=False)
+    source_refs_json: Mapped[list] = mapped_column(JSON, default=list)
+    linked_entities_json: Mapped[list] = mapped_column(JSON, default=list)
+    linked_relations_json: Mapped[list] = mapped_column(JSON, default=list)
+    linked_actions_json: Mapped[list] = mapped_column(JSON, default=list)
+    confidence: Mapped[float] = mapped_column(Float, default=0.6)
+    review_status: Mapped[str] = mapped_column(String, default="draft")
+    last_reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    valid_from: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    valid_to: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class KnowledgeChunkModel(Base):
+    __tablename__ = "knowledge_chunks"
+
+    chunk_id: Mapped[str] = mapped_column(String, primary_key=True)
+    kb_id: Mapped[str] = mapped_column(String, nullable=False)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    token_count: Mapped[int] = mapped_column(Integer, default=0)
+    embedding_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    linked_entities_json: Mapped[list] = mapped_column(JSON, default=list)
+    linked_actions_json: Mapped[list] = mapped_column(JSON, default=list)
+    source_refs_json: Mapped[list] = mapped_column(JSON, default=list)
+    confidence: Mapped[float] = mapped_column(Float, default=0.6)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class KnowledgeRuleModel(Base):
+    __tablename__ = "knowledge_rules"
+
+    rule_id: Mapped[str] = mapped_column(String, primary_key=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    domain: Mapped[str] = mapped_column(String, nullable=False)
+    condition: Mapped[str] = mapped_column(Text, nullable=False)
+    recommendation: Mapped[str] = mapped_column(Text, nullable=False)
+    action_type: Mapped[str] = mapped_column(String, nullable=False)
+    priority_delta: Mapped[float] = mapped_column(Float, default=0.0)
+    explanation_template: Mapped[str] = mapped_column(Text, nullable=False)
+    evidence_refs_json: Mapped[list] = mapped_column(JSON, default=list)
+    confidence: Mapped[float] = mapped_column(Float, default=0.6)
+    review_status: Mapped[str] = mapped_column(String, default="draft")
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)

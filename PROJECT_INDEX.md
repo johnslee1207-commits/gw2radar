@@ -62,6 +62,7 @@ The Knowledge Base explains recommendations, while the Knowledge Graph reasons o
 - [MVP 0.3.4 Growth CMS Payment](docs/mvp/MVP_0_3_4_GROWTH_CMS_PAYMENT.md)
 - [MVP 0.3.5 Guild Readiness Console](docs/mvp/MVP_0_3_5_GUILD_READINESS_CONSOLE.md)
 - [MVP 0.3.6 Creator Intelligence Console](docs/mvp/MVP_0_3_6_CREATOR_INTELLIGENCE_CONSOLE.md)
+- [MVP 0.3.7 KB Core Schema Source Registry](docs/mvp/MVP_0_3_7_KB_CORE_SCHEMA_SOURCE_REGISTRY.md)
 
 ## Analysis And Maturity
 
