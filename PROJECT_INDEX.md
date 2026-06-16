@@ -78,6 +78,7 @@ The Knowledge Base explains recommendations, while the Knowledge Graph reasons o
 - [MVP 0.4.7 Patch Rule Confirmation Gate](docs/mvp/MVP_0_4_7_PATCH_RULE_CONFIRMATION_GATE.md)
 - [MVP 0.4.8 Patch Rule Audit Trail](docs/mvp/MVP_0_4_8_PATCH_RULE_AUDIT_TRAIL.md)
 - [MVP 0.4.9 Patch Review Dashboard API](docs/mvp/MVP_0_4_9_PATCH_REVIEW_DASHBOARD_API.md)
+- [MVP 0.4.10 Patch Dashboard Export](docs/mvp/MVP_0_4_10_PATCH_DASHBOARD_EXPORT.md)
 
 ## Analysis And Maturity
 

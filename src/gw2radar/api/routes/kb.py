@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel
 
 from gw2radar.api.envelope import ApiDataEnvelope
@@ -26,6 +26,7 @@ from gw2radar.kb.kb_repository import (
     search_articles,
 )
 from gw2radar.kb.kb_rule_distiller import distill_rule_from_article
+from gw2radar.kb.patch_dashboard_export import render_patch_dashboard_csv, render_patch_dashboard_markdown
 from gw2radar.kb.patch_impact_review import (
     PatchImpactReviewInput,
     build_patch_review_dashboard,
@@ -215,6 +216,25 @@ def get_patch_impact_dashboard(year: int | None = None) -> ApiDataEnvelope:
             "items": [item.model_dump(mode="json") for item in items],
         }
     )
+
+
+@router.get("/patch-impact/dashboard/export")
+def get_patch_impact_dashboard_export(year: int | None = None, format: str = "markdown") -> Response:
+    init_db()
+    with db_session.SessionLocal() as session:
+        rules = list_rules(session)
+    items = build_patch_review_dashboard(rules, year=year)
+    if format == "markdown":
+        return Response(
+            content=render_patch_dashboard_markdown(items),
+            media_type="text/markdown; charset=utf-8",
+        )
+    if format == "csv":
+        return Response(
+            content=render_patch_dashboard_csv(items),
+            media_type="text/csv; charset=utf-8",
+        )
+    raise HTTPException(status_code=400, detail="Unsupported dashboard export format.")
 
 
 @router.post("/patch-impact/reviews", response_model=ApiDataEnvelope)

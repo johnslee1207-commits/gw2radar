@@ -48,6 +48,9 @@ def test_patch_impact_review_api_lists_and_reviews_existing_patch(monkeypatch) -
         )
         audit = client.get(f"/api/v1/kb/patch-impact/audit?patch_id={patch_id}")
         dashboard = client.get("/api/v1/kb/patch-impact/dashboard?year=2026")
+        dashboard_md = client.get("/api/v1/kb/patch-impact/dashboard/export?year=2026&format=markdown")
+        dashboard_csv = client.get("/api/v1/kb/patch-impact/dashboard/export?year=2026&format=csv")
+        dashboard_bad = client.get("/api/v1/kb/patch-impact/dashboard/export?format=json")
 
         assert listed.status_code == 200
         assert listed.json()["data"]["count"] >= 1
@@ -72,5 +75,12 @@ def test_patch_impact_review_api_lists_and_reviews_existing_patch(monkeypatch) -
         assert item["enabled_rule_count"] == 1
         assert item["audit_action_counts"] == {"review": 1, "persist": 2, "enable": 1}
         assert dashboard.json()["data"]["lifecycle_counts"]["enabled"] >= 1
+        assert dashboard_md.status_code == 200
+        assert dashboard_md.headers["content-type"].startswith("text/markdown")
+        assert "# Patch Review Dashboard" in dashboard_md.text
+        assert dashboard_csv.status_code == 200
+        assert dashboard_csv.headers["content-type"].startswith("text/csv")
+        assert "patch_id,date,year,lifecycle_status" in dashboard_csv.text
+        assert dashboard_bad.status_code == 400
     finally:
         close_database()
