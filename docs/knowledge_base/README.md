@@ -175,6 +175,12 @@ Current source registry and coverage analysis:
 - [Community Source Registry](source_registry/community_sources.md)
 - [Knowledge Source Coverage Analysis](source_registry/SOURCE_COVERAGE_ANALYSIS.md)
 
+Recent patch-note structured drafts:
+
+- [2026 Patch Notes](patch_notes/2026/)
+- [2025 Patch Notes](patch_notes/2025/)
+- [2024 Patch Notes](patch_notes/2024/)
+
 ## Collection Pipeline
 
 KB collection is:
