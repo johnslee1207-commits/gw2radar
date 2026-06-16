@@ -8,6 +8,7 @@ from gw2radar.api.state import get_graph
 from gw2radar.db import session as db_session
 from gw2radar.db.init_db import init_db
 from gw2radar.kb.kb_entity_linker import validate_article_links
+from gw2radar.kb.kb_explanation import explain_actions_with_kb
 from gw2radar.kb.kb_markdown_loader import load_markdown_directory
 from gw2radar.kb.kb_models import KnowledgeArticleInput, KnowledgeDomain, SourceRegistryInput, SourceType
 from gw2radar.kb.kb_repository import (
@@ -17,11 +18,13 @@ from gw2radar.kb.kb_repository import (
     get_source,
     list_articles,
     list_sources,
+    list_rules,
     register_source,
     review_article,
     search_articles,
 )
 from gw2radar.kb.kb_rule_distiller import distill_rule_from_article
+from gw2radar.inference.action_generator import generate_actions
 
 router = APIRouter(prefix="/api/v1/kb", tags=["kb"])
 
@@ -154,3 +157,24 @@ def get_kb_search(q: str, domain: KnowledgeDomain | None = None) -> ApiDataEnvel
     with db_session.SessionLocal() as session:
         articles = [article.model_dump(mode="json") for article in search_articles(session, q, domain)]
     return ApiDataEnvelope(data={"articles": articles})
+
+
+@router.get("/goals/{goal_id}/action-explanations", response_model=ApiDataEnvelope)
+def get_kb_action_explanations(goal_id: str) -> ApiDataEnvelope:
+    graph = get_graph()
+    if goal_id not in graph.entities:
+        raise HTTPException(status_code=404, detail="Goal not found")
+    actions = graph.actions_for_goal(goal_id) or generate_actions(graph, goal_id)
+    init_db()
+    with db_session.SessionLocal() as session:
+        rules = list_rules(session)
+    explanations = explain_actions_with_kb(actions, rules)
+    return ApiDataEnvelope(
+        data={
+            "goal_id": goal_id,
+            "explanations": {
+                action_id: [item.model_dump(mode="json") for item in items]
+                for action_id, items in explanations.items()
+            },
+        }
+    )

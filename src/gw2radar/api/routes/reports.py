@@ -15,7 +15,8 @@ from gw2radar.commercial.report_engine import (
 from gw2radar.db import session as db_session
 from gw2radar.db.init_db import init_db
 from gw2radar.exports.package_builder import build_export_package
-from gw2radar.reports.markdown_report import generate_markdown_report
+from gw2radar.kb.kb_repository import list_rules
+from gw2radar.reports.markdown_report import generate_kb_backed_markdown_report, generate_markdown_report
 
 router = APIRouter()
 
@@ -40,6 +41,20 @@ def get_markdown_report(goal_id: str) -> Response:
         raise HTTPException(status_code=404, detail="Goal not found")
     return Response(
         content=generate_markdown_report(graph, goal_id),
+        media_type="text/markdown; charset=utf-8",
+    )
+
+
+@router.get("/reports/{goal_id}/markdown/kb")
+def get_kb_markdown_report(goal_id: str) -> Response:
+    graph = get_graph()
+    if goal_id not in graph.entities:
+        raise HTTPException(status_code=404, detail="Goal not found")
+    init_db()
+    with db_session.SessionLocal() as session:
+        rules = list_rules(session)
+    return Response(
+        content=generate_kb_backed_markdown_report(graph, goal_id, rules),
         media_type="text/markdown; charset=utf-8",
     )
 

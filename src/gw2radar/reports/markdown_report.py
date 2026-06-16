@@ -2,6 +2,8 @@ from gw2radar.graph.graph_query import GraphData
 from gw2radar.inference.action_generator import generate_actions
 from gw2radar.inference.evidence_quality import evaluate_evidence_quality
 from gw2radar.inference.goal_gap import calculate_goal_gap
+from gw2radar.kb.kb_explanation import explain_actions_with_kb, render_kb_explanation_section
+from gw2radar.kb.kb_models import KnowledgeRule
 from gw2radar.ontology.action_types import ActionType
 from gw2radar.ontology.schemas import Action, GoalGapItem
 
@@ -45,6 +47,22 @@ def generate_markdown_report(graph: GraphData, goal_id: str) -> str:
         "## Evidence Notes",
         *_format_evidence_notes(graph),
         "- Recommendations are informational only and require manual player action.",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def generate_kb_backed_markdown_report(graph: GraphData, goal_id: str, rules: list[KnowledgeRule]) -> str:
+    base_report = generate_markdown_report(graph, goal_id).rstrip()
+    actions = graph.actions_for_goal(goal_id) or generate_actions(graph, goal_id)
+    explanations = explain_actions_with_kb(actions, rules)
+    lines = [
+        base_report,
+        "",
+        *render_kb_explanation_section(explanations),
+        "",
+        "## Knowledge Base Boundary",
+        "- KB explanations are applied only from reviewed and enabled rules.",
+        "- KB explanations do not automate gameplay and do not replace manual player decisions.",
     ]
     return "\n".join(lines) + "\n"
 
