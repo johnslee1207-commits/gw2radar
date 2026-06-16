@@ -1,35 +1,68 @@
 #!/usr/bin/env python3
 import sys
+import shutil
 from pathlib import Path
+from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from gw2radar.graph.graph_builder import build_mock_graph
-from gw2radar.inference.action_generator import generate_actions
-from gw2radar.inference.goal_gap import calculate_goal_gap
-from gw2radar.ontology.action_types import ActionType
-from gw2radar.reports.markdown_report import generate_markdown_report
+from fastapi.testclient import TestClient
+
+from gw2radar.api import state
+from gw2radar.api.main import app
+from gw2radar.db.session import close_database, configure_database
 
 
 def main() -> int:
-    graph = build_mock_graph()
-    gap = calculate_goal_gap(graph, "gw2:goal:aurora")
-    actions = generate_actions(graph, "gw2:goal:aurora")
-    report = generate_markdown_report(graph, "gw2:goal:aurora")
+    temp_dir = ROOT / ".test_tmp" / f"smoke-{uuid4().hex}"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        configure_database(f"sqlite:///{temp_dir / 'smoke.db'}")
+        state.reset_cached_graph()
+        client = TestClient(app)
 
+        health = client.get("/health")
+        first_load = client.post("/mock/load")
+        second_load = client.post("/mock/load")
+        state.reset_cached_graph()
+        goals = client.get("/goals")
+        gap = client.get("/goals/gw2:goal:aurora/gap")
+        actions = client.post("/goals/gw2:goal:aurora/actions/generate")
+        report = client.get("/reports/gw2:goal:aurora/markdown")
+    finally:
+        close_database()
+        state.reset_cached_graph()
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+    gap_json = gap.json() if gap.status_code == 200 else {}
+    actions_json = actions.json() if actions.status_code == 200 else []
     checks = [
-        gap.goal_name == "Aurora",
-        any(item.entity_id == "gw2:item:mystic_coin" for item in gap.completed_requirements),
-        any(item.entity_id == "gw2:item:mystic_clover" for item in gap.missing_requirements),
-        any(action.action_type == ActionType.DO_DAILY for action in actions),
-        any(action.action_type == ActionType.COMPLETE_ACHIEVEMENT for action in actions),
-        all(action.explanation for action in actions),
-        "## Active Goal" in report,
-        "## Missing Requirements" in report,
-        "## Recommended Actions Today" in report,
+        health.status_code == 200 and health.json() == {"status": "ok"},
+        first_load.status_code == 200,
+        second_load.status_code == 200,
+        first_load.json() == second_load.json(),
+        goals.status_code == 200,
+        any(goal["id"] == "gw2:goal:aurora" for goal in goals.json()),
+        gap.status_code == 200 and gap_json.get("goal_name") == "Aurora",
+        any(
+            item["entity_id"] == "gw2:item:mystic_coin"
+            for item in gap_json.get("completed_requirements", [])
+        ),
+        any(
+            item["entity_id"] == "gw2:item:mystic_clover"
+            for item in gap_json.get("missing_requirements", [])
+        ),
+        actions.status_code == 200,
+        any(action["action_type"] == "do_daily" for action in actions_json),
+        any(action["action_type"] == "complete_achievement" for action in actions_json),
+        all(action.get("explanation") for action in actions_json),
+        report.status_code == 200,
+        "## Active Goal" in report.text,
+        "## Missing Requirements" in report.text,
+        "## Recommended Actions Today" in report.text,
     ]
     if not all(checks):
         print("FAIL: GW2Radar MVP 0.1 smoke harness checks failed")
