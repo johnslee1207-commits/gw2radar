@@ -169,10 +169,10 @@ Scores use a 0-5 scale:
 | Test harness | 3.7 | 45 tests plus smoke; coverage is good for MVP but lacks mutation and production sync smoke. |
 | Delivery export package | 3.8 | Markdown, gap CSV, actions CSV, and package manifest are implemented and tested. |
 | Durable refresh queue | 3.9 | SQLite queue with retry metadata, 429 persistence, sanitized params hash, lease fields, and worker state transitions. |
-| Encrypted local key storage | 3.0 | Fernet-encrypted SQLite key storage; external vault remains future hardening. |
+| Encrypted local key storage | 3.8 | Deployment modes, SecretStore interface, encrypted local/database stores, fingerprints, security routes, and log sanitizer. External vault/auth remain future. |
 | Account/public sync services | 3.8 | Account sync and public static refresh have queue-backed routes, planner rules, layer tests, and fake gateway coverage. |
 
-Overall maturity: **4.32 / 5.0**
+Overall maturity: **4.42 / 5.0**
 
 Interpretation: GW2Radar is a solid governed MVP prototype with reliable mock intelligence, deterministic exports, durable refresh state, and gateway-bounded sync services. It is not yet a production ingestion service.
 
@@ -208,17 +208,17 @@ Interpretation: GW2Radar is a solid governed MVP prototype with reliable mock in
 
 ## Priority Recommendations
 
-### P0: Production Security Upgrade
+### P0: Returner Account Diagnosis
 
-Reason: release-ready API consistency and operational visibility are now in place. The next bottleneck is production-safe secret and private-data lifecycle.
+Reason: production-safe secret and private-data lifecycle foundations are now in place. The next bottleneck is player-facing returner intelligence.
 
 Deliverables:
 
-- Deployment mode.
-- SecretStore interface.
-- Encrypted local/database secret store contract.
-- Log sanitizer.
-- Private-data delete endpoint.
+- Readiness score.
+- Missing unlock inference.
+- 7-day and 30-day plans.
+- Returner report.
+- Evidence-labeled recommendations.
 
 ### Completed Priority Trail
 

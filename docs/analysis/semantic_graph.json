@@ -14,6 +14,9 @@
     {"id": "refresh_queue_contract", "type": "semantic_contract", "label": "Refresh Queue Detailed Contract"},
     {"id": "refresh_worker", "type": "orchestration", "label": "RefreshWorker"},
     {"id": "key_store", "type": "security", "label": "EncryptedApiKeyStore"},
+    {"id": "secret_store", "type": "security", "label": "SecretStore"},
+    {"id": "security_api", "type": "interface", "label": "Security API"},
+    {"id": "log_sanitizer", "type": "security", "label": "Log Sanitizer"},
     {"id": "account_sync", "type": "ingest_service", "label": "Account Snapshot Sync"},
     {"id": "account_sync_api", "type": "interface", "label": "Account Sync API"},
     {"id": "public_refresh", "type": "ingest_service", "label": "Public Item Refresh"},
@@ -66,6 +69,8 @@
     {"from": "repository", "to": "sqlite", "type": "writes"},
     {"from": "refresh_queue", "to": "sqlite", "type": "writes"},
     {"from": "key_store", "to": "sqlite", "type": "writes_encrypted_secret"},
+    {"from": "secret_store", "to": "security_api", "type": "serves"},
+    {"from": "log_sanitizer", "to": "security_api", "type": "protects"},
     {"from": "sqlite", "to": "repository", "type": "reads"},
     {"from": "repository", "to": "graph_data", "type": "hydrates"},
     {"from": "ontology", "to": "graph_data", "type": "types"},
@@ -111,12 +116,12 @@
     "test_harness": 3.7,
     "delivery_export_package": 3.8,
     "durable_refresh_queue": 3.9,
-    "encrypted_local_key_storage": 3.0,
+    "encrypted_local_key_storage": 3.8,
     "account_public_sync_services": 3.8
   },
-  "overall_maturity": 4.32,
+  "overall_maturity": 4.42,
   "recommended_priorities": [
-    "P0 Production Security Upgrade",
-    "Next: deployment mode, SecretStore, log sanitizer, private-data delete"
+    "P0 Returner Account Diagnosis",
+    "Next: readiness score, missing unlocks, 7-day and 30-day plans"
   ]
 }

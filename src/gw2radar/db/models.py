@@ -123,3 +123,18 @@ class ApiKeySecretModel(Base):
     storage: Mapped[str] = mapped_column(String, default="sqlite_fernet")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class SecretModel(Base):
+    __tablename__ = "secrets"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    user_id: Mapped[str] = mapped_column(String, nullable=False)
+    secret_type: Mapped[str] = mapped_column(String, nullable=False)
+    key_fingerprint: Mapped[str] = mapped_column(String, nullable=False)
+    encrypted_payload_json: Mapped[dict] = mapped_column(JSON, nullable=False)
+    storage_backend: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

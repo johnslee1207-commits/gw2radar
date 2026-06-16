@@ -195,11 +195,11 @@ Scoring: 0 = absent, 5 = production-grade.
 | Export package | 3.8 | Markdown/CSV/manifest package, deterministic and tested. |
 | GW2 API gateway/client | 4.0 | Safe fake-tested skeleton with tokeninfo, permission validation, endpoint schema, structured errors, sync services, and worker contracts behind the gateway. |
 | Refresh queue durability | 3.9 | SQLite queue, retry metadata, 429 persistence, sanitized params hash, lease/worker fields, status transitions, and one-step worker compatibility. |
-| Production key storage | 3.0 | Local Fernet-encrypted SQLite storage; KMS or OS vault remains future production hardening. |
+| Production key storage | 3.8 | Deployment modes, SecretStore interface, encrypted local/database stores, fingerprints, security routes, and log sanitizer. External KMS/auth remain future hardening. |
 | Real account ingestion | 3.6 | Queue-backed account sync API routes, status, drain-one, tokeninfo validation, fake transport tests, and private-layer persistence. |
 | Public static data refresh | 3.8 | Queue-backed planner, versioned API routes, stable dedupe/sort/chunk batching, evidence metadata, public-game-only writes, and cache/no-N+1 tests. |
 
-Overall MVP maturity: **4.32 / 5.0**.
+Overall MVP maturity: **4.42 / 5.0**.
 
 Interpretation: GW2Radar is now a governed, test-backed MVP substrate with durable refresh state, encrypted local key storage, and gateway-bounded sync services. It is still not a production account-ingestion service until scheduling, monitoring, and external secret management are added.
 
@@ -229,18 +229,17 @@ Interpretation: GW2Radar is now a governed, test-backed MVP substrate with durab
 
 ## Recommended Next Priority
 
-### P0: Production Security Upgrade
+### P0: Returner Account Diagnosis
 
-Reason: release-readiness hardening is now complete for MVP. Before real users or hosted deployment, the next highest-risk boundary is production-grade secret storage, deployment modes, log sanitization, and private data deletion.
+Reason: release readiness and production security foundations are now complete for MVP. The next highest-value product capability is returner account diagnosis on top of the synced/private account state.
 
 Minimum deliverables:
 
-- `DeploymentMode`;
-- `SecretStore` interface;
-- encrypted local/database store contract;
-- log sanitizer;
-- private data deletion endpoint;
-- production mode refuses plaintext secret storage.
+- readiness score;
+- missing unlock inference;
+- 7-day and 30-day plans;
+- returner Markdown report;
+- evidence-labeled recommendation actions.
 
 ## Constitution Compliance Summary
 

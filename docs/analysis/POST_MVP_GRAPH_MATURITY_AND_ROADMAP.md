@@ -84,10 +84,10 @@ flowchart TD
 | Export package | 3.8 | Deterministic Markdown/CSV/manifest. |
 | GW2 API gateway/client | 4.0 | Safe fake-tested client/gateway with tokeninfo, permission validator, endpoint schema, structured errors, and Authorization-only private access. |
 | Durable refresh queue | 3.9 | Detailed queue contract, leases, retry metadata, 429 persistence, sanitization. |
-| Local encrypted key storage | 3.0 | Fernet SQLite storage; external vault remains future. |
+| Local encrypted key storage | 3.8 | Deployment modes, SecretStore interface, encrypted local/database stores, fingerprints, security routes, and log sanitizer. External vault/auth remain future. |
 | Account/public sync services | 3.8 | Account sync and public static refresh now have queue-backed API productization, fake gateway tests, layer constraints, and planner rules. |
 
-Overall maturity: **4.32 / 5.0**.
+Overall maturity: **4.42 / 5.0**.
 
 ## Priority Roadmap
 
@@ -147,6 +147,8 @@ Deliverables:
 - operational status summary endpoint.
 
 ### P5: Production Security Upgrade
+
+Status: complete for MVP 0.2.4.
 
 Reason: production or hosted use requires explicit deployment modes, secret-store boundaries, log sanitization, and private-data deletion before real users trust the system with API keys.
 

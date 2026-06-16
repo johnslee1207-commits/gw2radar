@@ -40,6 +40,9 @@
     "Refresh Queue Detailed Contract",
     "RefreshWorker",
     "EncryptedApiKeyStore",
+    "SecretStore",
+    "Security API",
+    "Log Sanitizer",
     "Account Snapshot Sync",
     "Account Sync API",
     "Public Item Refresh",
@@ -70,6 +73,8 @@
     ["Action Generator", "Markdown Report", "renders"],
     ["Action Generator", "Export Package", "exports"],
     ["EncryptedApiKeyStore", "FastAPI Routes", "serves"],
+    ["SecretStore", "Security API", "serves"],
+    ["Log Sanitizer", "Security API", "protects"],
     ["Account Snapshot Deletion", "GraphRepository", "deletes_private_and_personal_layers"],
     ["Gw2ApiGateway", "Account Snapshot Sync", "bounds"],
     ["FastAPI Routes", "Account Sync API", "exposes"],
@@ -100,10 +105,10 @@
     "export_package": 3.8,
     "gw2_api_gateway_client": 4.0,
     "durable_refresh_queue": 3.9,
-    "production_key_storage": 3.0,
+    "production_key_storage": 3.8,
     "real_account_ingestion": 3.6,
     "public_static_data_refresh": 3.8
   },
-  "overall_maturity": 4.32,
-  "next_priority": "Production Security Upgrade"
+  "overall_maturity": 4.42,
+  "next_priority": "Returner Account Diagnosis"
 }
