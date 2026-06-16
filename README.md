@@ -36,3 +36,9 @@ set GW2RADAR_DATABASE_URL=sqlite:///./gw2radar.db
 
 `/mock/load` writes the deterministic mock graph into SQLite. API reads can rebuild
 the in-process graph from persisted data after the process cache is reset.
+
+Generate a local report package:
+
+```http
+POST /reports/gw2:goal:aurora/export-package
+```

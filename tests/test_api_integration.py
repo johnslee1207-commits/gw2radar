@@ -1,4 +1,5 @@
 import shutil
+import json
 from pathlib import Path
 from uuid import uuid4
 
@@ -31,6 +32,7 @@ def test_api_uses_persisted_mock_data_after_cache_reset() -> None:
         gap = client.get("/goals/gw2:goal:aurora/gap")
         actions = client.post("/goals/gw2:goal:aurora/actions/generate")
         report = client.get("/reports/gw2:goal:aurora/markdown")
+        export_package = client.post("/reports/gw2:goal:aurora/export-package")
 
         assert goals.status_code == 200
         assert goals.json()[0]["id"] == "gw2:goal:aurora"
@@ -43,7 +45,18 @@ def test_api_uses_persisted_mock_data_after_cache_reset() -> None:
         assert any(action["action_type"] == "do_daily" for action in actions.json())
         assert report.status_code == 200
         assert "## Recommended Actions Today" in report.text
+        assert export_package.status_code == 200
+        manifest_path = Path(export_package.json()["manifest_path"])
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        assert manifest["schema_version"] == "gw2radar.export_package.v1"
+        assert {file["name"] for file in manifest["files"]} == {
+            "goal_report.md",
+            "goal_gap.csv",
+            "recommended_actions.csv",
+            "package_manifest.json",
+        }
     finally:
         close_database()
         state.reset_cached_graph()
         shutil.rmtree(temp_dir, ignore_errors=True)
+        shutil.rmtree("outputs", ignore_errors=True)

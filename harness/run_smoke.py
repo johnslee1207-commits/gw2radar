@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import sys
 import shutil
+import json
 from pathlib import Path
 from uuid import uuid4
 
@@ -33,6 +34,7 @@ def main() -> int:
         gap = client.get("/goals/gw2:goal:aurora/gap")
         actions = client.post("/goals/gw2:goal:aurora/actions/generate")
         report = client.get("/reports/gw2:goal:aurora/markdown")
+        export_package = client.post("/reports/gw2:goal:aurora/export-package")
     finally:
         close_database()
         state.reset_cached_graph()
@@ -40,6 +42,9 @@ def main() -> int:
 
     gap_json = gap.json() if gap.status_code == 200 else {}
     actions_json = actions.json() if actions.status_code == 200 else []
+    export_json = export_package.json() if export_package.status_code == 200 else {}
+    manifest_path = ROOT / export_json.get("manifest_path", "__missing_manifest__")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.is_file() else {}
     checks = [
         (ROOT / "GW2RADAR_PROJECT_CONSTITUTION.md").exists(),
         (ROOT / "GW2RADAR_API_ACCESS_GOVERNANCE.md").exists(),
@@ -67,7 +72,12 @@ def main() -> int:
         "## Active Goal" in report.text,
         "## Missing Requirements" in report.text,
         "## Recommended Actions Today" in report.text,
+        export_package.status_code == 200,
+        manifest.get("schema_version") == "gw2radar.export_package.v1",
+        {file["name"] for file in manifest.get("files", [])}
+        == {"goal_report.md", "goal_gap.csv", "recommended_actions.csv", "package_manifest.json"},
     ]
+    shutil.rmtree(ROOT / "outputs", ignore_errors=True)
     if not all(checks):
         print("FAIL: GW2Radar MVP 0.1 smoke harness checks failed")
         return 1

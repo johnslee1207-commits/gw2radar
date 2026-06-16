@@ -27,3 +27,4 @@ where = ["src"]
 testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "-q -s"
+norecursedirs = [".git", ".test_tmp", "outputs", "build", "dist"]
