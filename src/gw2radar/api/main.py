@@ -2,11 +2,14 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from gw2radar.api.envelope import http_exception_handler
 from gw2radar.api.routes.account import router as account_router
 from gw2radar.api.routes.account_sync import router as account_sync_router
 from gw2radar.api.routes.actions import router as actions_router
 from gw2radar.api.routes.goals import router as goals_router
+from gw2radar.api.routes.ops import router as ops_router
 from gw2radar.api.routes.public_refresh import router as public_refresh_router
 from gw2radar.api.routes.reports import router as reports_router
 from gw2radar.api.state import load_graph
@@ -20,6 +23,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title="GW2Radar MVP 0.1", lifespan=lifespan)
+app.add_exception_handler(StarletteHTTPException, http_exception_handler)
 
 
 @app.get("/health")
@@ -44,3 +48,4 @@ app.include_router(reports_router)
 app.include_router(account_router)
 app.include_router(account_sync_router)
 app.include_router(public_refresh_router)
+app.include_router(ops_router)

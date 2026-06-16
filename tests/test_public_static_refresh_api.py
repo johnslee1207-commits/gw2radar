@@ -78,7 +78,8 @@ def test_public_static_refresh_rejects_unsupported_endpoint() -> None:
             json={"endpoint": "/v2/account", "ids": [1]},
         )
         assert response.status_code == 400
-        assert "Unsupported public static endpoint" in response.json()["detail"]
+        assert response.json()["ok"] is False
+        assert "Unsupported public static endpoint" in response.json()["error"]["message"]
     finally:
         _teardown_temp_api(temp_dir, original_factory)
 

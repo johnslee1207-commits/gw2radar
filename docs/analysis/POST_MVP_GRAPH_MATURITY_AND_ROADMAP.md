@@ -80,14 +80,14 @@ flowchart TD
 | Evidence governance | 3.7 | Masking, confidence, freshness, and report labels. |
 | Graph layer separation | 3.7 | Enforced in repository validation. |
 | SQLite persistence | 3.8 | Strong MVP persistence; partial sync updates remain next-level work. |
-| FastAPI surface | 3.8 | Functional with versioned account sync enqueue/status/drain-one routes; response schemas still simple. |
+| FastAPI surface | 4.0 | Functional with versioned sync routes, operational status, and uniform HTTP error envelope. |
 | Export package | 3.8 | Deterministic Markdown/CSV/manifest. |
 | GW2 API gateway/client | 4.0 | Safe fake-tested client/gateway with tokeninfo, permission validator, endpoint schema, structured errors, and Authorization-only private access. |
 | Durable refresh queue | 3.9 | Detailed queue contract, leases, retry metadata, 429 persistence, sanitization. |
 | Local encrypted key storage | 3.0 | Fernet SQLite storage; external vault remains future. |
 | Account/public sync services | 3.8 | Account sync and public static refresh now have queue-backed API productization, fake gateway tests, layer constraints, and planner rules. |
 
-Overall maturity: **4.25 / 5.0**.
+Overall maturity: **4.32 / 5.0**.
 
 ## Priority Roadmap
 
@@ -135,6 +135,8 @@ Deliverables:
 
 ### P4: Release Readiness Hardening
 
+Status: complete for MVP 0.2.3.
+
 Reason: after P1-P3, the API needs predictable external behavior.
 
 Deliverables:
@@ -144,7 +146,20 @@ Deliverables:
 - sync smoke harness with fake gateway;
 - operational status summary endpoint.
 
-### P5: Returner Diagnosis
+### P5: Production Security Upgrade
+
+Reason: production or hosted use requires explicit deployment modes, secret-store boundaries, log sanitization, and private-data deletion before real users trust the system with API keys.
+
+Deliverables:
+
+- deployment mode;
+- SecretStore interface;
+- encrypted local/database secret store contract;
+- log sanitizer;
+- security API routes;
+- private-data delete endpoint.
+
+### P6: Returner Diagnosis
 
 Reason: this should build on stable account snapshots rather than mock-only assumptions.
 

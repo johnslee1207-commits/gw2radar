@@ -46,6 +46,8 @@
     "Public Refresh API",
     "Account Snapshot Deletion",
     "FastAPI Routes",
+    "API Error Envelope",
+    "Operational Status",
     "Pytest Smoke Harness"
   ],
   "semantic_edges": [
@@ -80,6 +82,9 @@
     ["Account Snapshot Sync", "GraphData", "writes_private_player_state"],
     ["Public Item Refresh", "GraphData", "writes_public_game_entities"],
     ["Pytest Smoke Harness", "FastAPI Routes", "verifies"]
+    ,
+    ["FastAPI Routes", "API Error Envelope", "uses"],
+    ["FastAPI Routes", "Operational Status", "exposes"]
   ],
   "maturity_scores": {
     "constitution_governance": 4.2,
@@ -91,7 +96,7 @@
     "evidence_governance": 3.7,
     "graph_layer_separation": 3.7,
     "sqlite_persistence": 3.8,
-    "fastapi_surface": 3.8,
+    "fastapi_surface": 4.0,
     "export_package": 3.8,
     "gw2_api_gateway_client": 4.0,
     "durable_refresh_queue": 3.9,
@@ -99,6 +104,6 @@
     "real_account_ingestion": 3.6,
     "public_static_data_refresh": 3.8
   },
-  "overall_maturity": 4.25,
-  "next_priority": "Release Readiness Hardening"
+  "overall_maturity": 4.32,
+  "next_priority": "Production Security Upgrade"
 }

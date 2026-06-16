@@ -162,7 +162,7 @@ Scores use a 0-5 scale:
 | Action generation | 3.5 | Required recommendations exist with explanations, evidence refs, constraints, ranking. More action types are enum-only. |
 | Markdown report | 3.5 | Required sections exist and are export-packaged. Styling remains simple. |
 | SQLite persistence | 3.8 | Graph round-trip works; queue and encrypted key metadata persist. Repository is still coarse-grained replace/load. |
-| FastAPI surface | 3.8 | MVP routes work and account sync has versioned enqueue/status/drain-one routes; API response schemas remain simple. |
+| FastAPI surface | 4.0 | MVP routes work with versioned sync routes, operational status, and uniform HTTP error envelope. |
 | GW2 API access governance | 4.0 | Gateway/cache/limiter/429 skeleton exists with enum statuses, endpoint schema, tokeninfo, permission validator, batch helper, TTL tests, durable retry metadata, sync services, and a safe HTTP client skeleton tested with fake transport. |
 | Evidence governance | 3.5 | Evidence schema, masking, freshness/confidence evaluation, action downgrades, and report labels exist. |
 | Public/private graph separation | 3.7 | `graph_layer` exists on semantic and persistence objects; repository validates private/personal constraints. |
@@ -172,7 +172,7 @@ Scores use a 0-5 scale:
 | Encrypted local key storage | 3.0 | Fernet-encrypted SQLite key storage; external vault remains future hardening. |
 | Account/public sync services | 3.8 | Account sync and public static refresh have queue-backed routes, planner rules, layer tests, and fake gateway coverage. |
 
-Overall maturity: **4.25 / 5.0**
+Overall maturity: **4.32 / 5.0**
 
 Interpretation: GW2Radar is a solid governed MVP prototype with reliable mock intelligence, deterministic exports, durable refresh state, and gateway-bounded sync services. It is not yet a production ingestion service.
 
@@ -208,16 +208,17 @@ Interpretation: GW2Radar is a solid governed MVP prototype with reliable mock in
 
 ## Priority Recommendations
 
-### P0: Release Readiness Hardening
+### P0: Production Security Upgrade
 
-Reason: account sync and public static refresh are productized for MVP. The next bottleneck is release-ready API consistency and operational visibility.
+Reason: release-ready API consistency and operational visibility are now in place. The next bottleneck is production-safe secret and private-data lifecycle.
 
 Deliverables:
 
-- Uniform API error envelope.
-- Route-level response schemas.
-- Fake-gateway sync smoke harness.
-- Operational status summary endpoint.
+- Deployment mode.
+- SecretStore interface.
+- Encrypted local/database secret store contract.
+- Log sanitizer.
+- Private-data delete endpoint.
 
 ### Completed Priority Trail
 

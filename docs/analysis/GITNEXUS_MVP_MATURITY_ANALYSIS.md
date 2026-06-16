@@ -191,7 +191,7 @@ Scoring: 0 = absent, 5 = production-grade.
 | Evidence governance | 3.7 | Masking, freshness/confidence, report labels, action effects. |
 | Graph layer separation | 3.7 | Schema + DB fields + repository validation. |
 | SQLite persistence | 3.8 | Replace/load/delete flows, queue, key metadata, migrations. Repository still coarse-grained. |
-| FastAPI MVP surface | 3.8 | Health, mock load, goals, gap, actions, reports, export, lifecycle, and account sync routes. |
+| FastAPI MVP surface | 4.0 | Health, mock load, goals, gap, actions, reports, export, lifecycle, sync routes, operational status, and uniform HTTP error envelope. |
 | Export package | 3.8 | Markdown/CSV/manifest package, deterministic and tested. |
 | GW2 API gateway/client | 4.0 | Safe fake-tested skeleton with tokeninfo, permission validation, endpoint schema, structured errors, sync services, and worker contracts behind the gateway. |
 | Refresh queue durability | 3.9 | SQLite queue, retry metadata, 429 persistence, sanitized params hash, lease/worker fields, status transitions, and one-step worker compatibility. |
@@ -199,7 +199,7 @@ Scoring: 0 = absent, 5 = production-grade.
 | Real account ingestion | 3.6 | Queue-backed account sync API routes, status, drain-one, tokeninfo validation, fake transport tests, and private-layer persistence. |
 | Public static data refresh | 3.8 | Queue-backed planner, versioned API routes, stable dedupe/sort/chunk batching, evidence metadata, public-game-only writes, and cache/no-N+1 tests. |
 
-Overall MVP maturity: **4.25 / 5.0**.
+Overall MVP maturity: **4.32 / 5.0**.
 
 Interpretation: GW2Radar is now a governed, test-backed MVP substrate with durable refresh state, encrypted local key storage, and gateway-bounded sync services. It is still not a production account-ingestion service until scheduling, monitoring, and external secret management are added.
 
@@ -229,17 +229,18 @@ Interpretation: GW2Radar is now a governed, test-backed MVP substrate with durab
 
 ## Recommended Next Priority
 
-### P0: Release Readiness Hardening
+### P0: Production Security Upgrade
 
-Reason: account sync and public static refresh are now productized for MVP. The next highest-value task is making the API and operational surface consistent for release.
+Reason: release-readiness hardening is now complete for MVP. Before real users or hosted deployment, the next highest-risk boundary is production-grade secret storage, deployment modes, log sanitization, and private data deletion.
 
 Minimum deliverables:
 
-- uniform API error envelope;
-- route-level response schemas;
-- sync smoke harness using fake gateway;
-- operational status summary endpoint;
-- documented local operation flow.
+- `DeploymentMode`;
+- `SecretStore` interface;
+- encrypted local/database store contract;
+- log sanitizer;
+- private data deletion endpoint;
+- production mode refuses plaintext secret storage.
 
 ## Constitution Compliance Summary
 

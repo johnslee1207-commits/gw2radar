@@ -50,7 +50,9 @@ def test_account_sync_requires_configured_key() -> None:
     try:
         response = TestClient(app).post("/api/v1/account/sync")
         assert response.status_code == 400
-        assert "API key is not configured" in response.json()["detail"]
+        assert response.json()["ok"] is False
+        assert response.json()["error"]["code"] == "bad_request"
+        assert "API key is not configured" in response.json()["error"]["message"]
     finally:
         _teardown_temp_api(temp_dir, original_factory)
 
@@ -82,7 +84,8 @@ def test_account_sync_scope_validation_blocks_enqueue() -> None:
         response = client.post("/api/v1/account/sync")
 
         assert response.status_code == 400
-        assert "wallet" in response.json()["detail"]
+        assert response.json()["ok"] is False
+        assert "wallet" in response.json()["error"]["message"]
     finally:
         _teardown_temp_api(temp_dir, original_factory)
 
