@@ -29,13 +29,13 @@ Remaining maturity gap after P12:
 
 - Returner, build, and market now have reviewed disabled rule packs.
 - Generic KB promotion now has a batch planner for validation, distillation preview, rule pack preview, and deterministic exports.
+- Official source summaries now expose summary-only semantic hints, ontology links, action hints, and evidence refs.
 - Guild and creator policy packs remain thinner than the personal commercial lanes.
 
 ## Reordered Priorities
 
-1. `P14 Official Source Semantic Extraction`
-2. `P15 Patch Impact to Build/Market Freshness Integration`
-3. `P16 Guild/Creator Policy Rule Packs`
+1. `P15 Patch Impact to Build/Market Freshness Integration`
+2. `P16 Guild/Creator Policy Rule Packs`
 
 ## Implemented In This Slice
 
@@ -90,3 +90,21 @@ Planner coverage:
 - exports deterministic Markdown and CSV.
 
 The planner is intentionally read-only. Persistence still happens through existing reviewed/confirmed distillation and rule-pack import APIs.
+
+## P14 Implemented
+
+P14 adds summary-only official source semantic extraction:
+
+- `GET /api/v1/kb/source-semantics`
+- `GET /api/v1/kb/source-semantics/export`
+
+Extractor coverage:
+
+- scans official, official news, and patch-note Markdown summaries;
+- extracts evidence refs from source stubs;
+- derives ontology links from linked entities and structured source fields;
+- derives action hints for build freshness, market watchlist review, product context review, and API operations;
+- reports blockers for missing evidence or missing ontology links;
+- exports deterministic Markdown and CSV.
+
+The extractor reads Markdown summaries only. It does not read raw PDFs, does not copy source text, and does not promote draft facts to reviewed rules.

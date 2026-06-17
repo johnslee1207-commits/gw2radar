@@ -41,6 +41,11 @@ from gw2radar.kb.kb_semantic_maturity import (
     build_kb_semantic_maturity_report,
     render_kb_semantic_maturity_markdown,
 )
+from gw2radar.kb.kb_source_semantics import (
+    build_source_semantic_report,
+    render_source_semantic_report_csv,
+    render_source_semantic_report_markdown,
+)
 from gw2radar.kb.patch_dashboard_export import render_patch_dashboard_csv, render_patch_dashboard_markdown
 from gw2radar.kb.patch_impact_review import (
     PatchImpactReviewInput,
@@ -278,6 +283,41 @@ def get_kb_promotion_plan_export(
             media_type="text/csv; charset=utf-8",
         )
     raise HTTPException(status_code=400, detail="Unsupported promotion plan export format.")
+
+
+@router.get("/source-semantics", response_model=ApiDataEnvelope)
+def get_kb_source_semantics(
+    source_root: str = "docs/knowledge_base",
+    limit: int | None = None,
+) -> ApiDataEnvelope:
+    try:
+        report = build_source_semantic_report(Path(source_root), limit=limit)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return ApiDataEnvelope(data={"report": report.model_dump(mode="json")})
+
+
+@router.get("/source-semantics/export")
+def get_kb_source_semantics_export(
+    source_root: str = "docs/knowledge_base",
+    limit: int | None = None,
+    format: str = "markdown",
+) -> Response:
+    try:
+        report = build_source_semantic_report(Path(source_root), limit=limit)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if format == "markdown":
+        return Response(
+            content=render_source_semantic_report_markdown(report),
+            media_type="text/markdown; charset=utf-8",
+        )
+    if format == "csv":
+        return Response(
+            content=render_source_semantic_report_csv(report),
+            media_type="text/csv; charset=utf-8",
+        )
+    raise HTTPException(status_code=400, detail="Unsupported source semantics export format.")
 
 
 @router.get("/rule-packs", response_model=ApiDataEnvelope)

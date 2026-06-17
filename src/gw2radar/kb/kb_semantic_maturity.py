@@ -173,6 +173,13 @@ def _graph_nodes() -> list[SemanticGraphNode]:
             anchors=["kb_promotion_planner", "kb routes /promotion-plan"],
         ),
         SemanticGraphNode(
+            node_id="source_semantics",
+            label="Official Source Semantics",
+            node_type="source_semantic_extraction",
+            maturity=MaturityLevel.HIGH,
+            anchors=["kb_source_semantics", "kb routes /source-semantics"],
+        ),
+        SemanticGraphNode(
             node_id="patch_review",
             label="Patch Review Workflow",
             node_type="review_workflow",
@@ -194,12 +201,14 @@ def _graph_edges() -> list[SemanticGraphEdge]:
         SemanticGraphEdge(source="source_registry", target="kb_article", relation="authorizes_source_refs"),
         SemanticGraphEdge(source="kb_article", target="entity_linker", relation="validates_links"),
         SemanticGraphEdge(source="promotion_planner", target="entity_linker", relation="batch_validates_article_links"),
+        SemanticGraphEdge(source="source_semantics", target="entity_linker", relation="extracts_ontology_hints"),
         SemanticGraphEdge(source="kb_article", target="knowledge_rule", relation="distills_reviewed_rule"),
         SemanticGraphEdge(source="promotion_planner", target="knowledge_rule", relation="previews_distillable_rules"),
         SemanticGraphEdge(source="domain_rule_pack", target="knowledge_rule", relation="imports_reviewed_disabled_rules"),
         SemanticGraphEdge(source="promotion_planner", target="domain_rule_pack", relation="previews_rule_pack_imports"),
         SemanticGraphEdge(source="knowledge_rule", target="report_artifact", relation="explains_recommendation"),
         SemanticGraphEdge(source="patch_review", target="knowledge_rule", relation="promotes_patch_candidate"),
+        SemanticGraphEdge(source="source_semantics", target="patch_review", relation="adds_patch_source_hints"),
         SemanticGraphEdge(source="patch_review", target="report_artifact", relation="adds_patch_audit_provenance"),
     ]
 
@@ -274,10 +283,18 @@ def _components() -> list[MaturityComponent]:
             component_id="official_pdf_sources",
             name="Official PDF source processing",
             maturity=MaturityLevel.HIGH,
-            score=0.88,
-            implemented=["inventory", "evidence", "API docs", "patch summaries", "official news summaries"],
-            remaining_gaps=["deeper article-level semantic extraction"],
-            next_priority="P14 official source semantic extraction",
+            score=0.92,
+            implemented=[
+                "inventory",
+                "evidence",
+                "API docs",
+                "patch summaries",
+                "official news summaries",
+                "summary-only semantic hint extraction",
+                "source semantics Markdown/CSV exports",
+            ],
+            remaining_gaps=["entity-specific extraction beyond structured stubs"],
+            next_priority="P15 patch impact to build/market freshness integration",
         ),
         MaturityComponent(
             component_id="patch_review_operations",
@@ -309,20 +326,9 @@ def _components() -> list[MaturityComponent]:
 def _priorities() -> list[PriorityRecommendation]:
     return [
         PriorityRecommendation(
-            priority_id="P14",
-            title="Official Source Semantic Extraction",
-            rationale="Promotion planning and rule packs are in place; official PDF/news/source summaries need deeper semantic hints without copying source text.",
-            acceptance=[
-                "extract source-level semantic hints",
-                "link to ontology IDs",
-                "stay summary-only",
-                "preserve evidence refs",
-            ],
-        ),
-        PriorityRecommendation(
             priority_id="P15",
             title="Patch Impact to Build/Market Freshness Integration",
-            rationale="Patch review rules and domain packs should now inform stale build warnings and market watchlist freshness.",
+            rationale="Official source semantics, patch review rules, and domain packs should now inform stale build warnings and market watchlist freshness.",
             acceptance=[
                 "flag build reports affected by enabled patch rules",
                 "surface market watchlist items affected by patch impact reviews",

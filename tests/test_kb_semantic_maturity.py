@@ -4,15 +4,16 @@ from gw2radar.api.main import app
 from gw2radar.kb.kb_semantic_maturity import build_kb_semantic_maturity_report, render_kb_semantic_maturity_markdown
 
 
-def test_kb_semantic_maturity_report_prioritizes_official_semantic_extraction_after_promotion_planner() -> None:
+def test_kb_semantic_maturity_report_prioritizes_patch_freshness_after_source_semantics() -> None:
     report = build_kb_semantic_maturity_report()
     markdown = render_kb_semantic_maturity_markdown(report)
 
     assert report.schema_version == "gw2radar.kb_semantic_maturity.v1"
     assert report.overall_score >= 0.8
     assert report.maturity_label == "mature_mvp_semantic_spine"
-    assert report.recommended_priorities[0].priority_id == "P14"
-    assert "Official Source Semantic Extraction" in markdown
+    assert report.recommended_priorities[0].priority_id == "P15"
+    assert "Patch Impact to Build/Market Freshness Integration" in markdown
+    assert "summary-only semantic hint extraction" in markdown
     assert "batch promotion planner" in markdown
     assert "reviewed disabled returner/build/market rule packs" in markdown
     assert any(component.component_id == "patch_review_operations" for component in report.components)
@@ -27,7 +28,7 @@ def test_kb_semantic_maturity_api_exports_markdown() -> None:
     bad = client.get("/api/v1/kb/semantic-maturity/export?format=json")
 
     assert response.status_code == 200
-    assert response.json()["data"]["report"]["recommended_priorities"][0]["priority_id"] == "P14"
+    assert response.json()["data"]["report"]["recommended_priorities"][0]["priority_id"] == "P15"
     assert markdown.status_code == 200
     assert markdown.headers["content-type"].startswith("text/markdown")
     assert "# KB Semantic Maturity Analysis" in markdown.text
