@@ -2,6 +2,12 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from gw2radar.acquisition.local_pdf_adapter import ingest_pdf_inventory_as_acquisition_sources
+from gw2radar.acquisition.manual_adapter import (
+    ManualNoteImportInput,
+    WebSummaryImportInput,
+    ingest_manual_note,
+    ingest_web_summary,
+)
 from gw2radar.acquisition.models import (
     AcquisitionJobInput,
     AcquisitionJobStatus,
@@ -211,3 +217,19 @@ def post_local_pdf_import(request: LocalPdfImportRequest) -> ApiDataEnvelope:
             }
         }
     )
+
+
+@router.post("/api/v1/acquisition/manual-note/import", response_model=ApiDataEnvelope)
+def post_manual_note_import(request: ManualNoteImportInput) -> ApiDataEnvelope:
+    init_db()
+    with db_session.SessionLocal() as session:
+        result = ingest_manual_note(session, request)
+    return ApiDataEnvelope(data={"result": result.__dict__})
+
+
+@router.post("/api/v1/acquisition/web-summary/import", response_model=ApiDataEnvelope)
+def post_web_summary_import(request: WebSummaryImportInput) -> ApiDataEnvelope:
+    init_db()
+    with db_session.SessionLocal() as session:
+        result = ingest_web_summary(session, request)
+    return ApiDataEnvelope(data={"result": result.__dict__})
