@@ -182,6 +182,9 @@ class AcquisitionJob(AcquisitionJobInput):
     status: AcquisitionJobStatus
     attempts: int = 0
     max_attempts: int = 3
+    worker_id: str | None = None
+    leased_until: datetime | None = None
+    next_attempt_at: datetime | None = None
     last_error_code: str | None = None
     last_error: str | None = None
     created_at: datetime

@@ -1,5 +1,7 @@
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from gw2radar.acquisition.freshness import build_source_health
@@ -152,6 +154,9 @@ def create_job(session: Session, job: AcquisitionJobInput) -> AcquisitionJob:
         status=AcquisitionJobStatus.QUEUED.value,
         attempts=0,
         max_attempts=3,
+        worker_id=None,
+        leased_until=None,
+        next_attempt_at=None,
         created_at=now,
         updated_at=now,
     )
@@ -179,11 +184,65 @@ def get_job(session: Session, job_id: str) -> AcquisitionJob | None:
     return _job_from_model(row) if row else None
 
 
+def lease_next_job(
+    session: Session,
+    worker_id: str,
+    now: datetime | None = None,
+    lease_seconds: int = 60,
+) -> AcquisitionJob | None:
+    now = _ensure_aware(now or utc_now())
+    rows = (
+        session.scalars(
+            select(AcquisitionJobModel)
+            .where(
+                AcquisitionJobModel.status.in_(
+                    [
+                        AcquisitionJobStatus.QUEUED.value,
+                        AcquisitionJobStatus.DELAYED.value,
+                        AcquisitionJobStatus.PROCESSING.value,
+                    ]
+                )
+            )
+            .order_by(AcquisitionJobModel.priority, AcquisitionJobModel.created_at)
+        )
+        .all()
+    )
+    for row in rows:
+        next_attempt_at = _ensure_aware(row.next_attempt_at)
+        leased_until = _ensure_aware(row.leased_until)
+        if row.status == AcquisitionJobStatus.DELAYED.value and next_attempt_at and next_attempt_at > now:
+            continue
+        if row.status == AcquisitionJobStatus.PROCESSING.value and leased_until and leased_until > now:
+            continue
+        if row.attempts >= row.max_attempts:
+            row.status = AcquisitionJobStatus.FAILED.value
+            row.worker_id = None
+            row.leased_until = None
+            row.last_error_code = "max_attempts_exceeded"
+            row.last_error = "Acquisition job exceeded max attempts before lease."
+            row.updated_at = now
+            row.completed_at = now
+            session.commit()
+            continue
+        row.status = AcquisitionJobStatus.PROCESSING.value
+        row.worker_id = worker_id
+        row.leased_until = now + timedelta(seconds=lease_seconds)
+        row.attempts += 1
+        row.updated_at = now
+        session.commit()
+        return _job_from_model(row)
+    session.commit()
+    return None
+
+
 def mark_job_succeeded(session: Session, job_id: str) -> AcquisitionJob:
     row = session.get(AcquisitionJobModel, job_id)
     if row is None:
         raise ValueError("Acquisition job not found.")
     row.status = AcquisitionJobStatus.SUCCEEDED.value
+    row.worker_id = None
+    row.leased_until = None
+    row.next_attempt_at = None
     row.updated_at = utc_now()
     row.completed_at = row.updated_at
     session.commit()
@@ -195,6 +254,9 @@ def mark_job_skipped(session: Session, job_id: str, error_code: str, error: str)
     if row is None:
         raise ValueError("Acquisition job not found.")
     row.status = AcquisitionJobStatus.SKIPPED.value
+    row.worker_id = None
+    row.leased_until = None
+    row.next_attempt_at = None
     row.last_error_code = error_code
     row.last_error = error
     row.updated_at = utc_now()
@@ -203,11 +265,20 @@ def mark_job_skipped(session: Session, job_id: str, error_code: str, error: str)
     return _job_from_model(row)
 
 
-def mark_job_delayed(session: Session, job_id: str, error_code: str, error: str) -> AcquisitionJob:
+def mark_job_delayed(
+    session: Session,
+    job_id: str,
+    error_code: str,
+    error: str,
+    retry_after_seconds: int | None = None,
+) -> AcquisitionJob:
     row = session.get(AcquisitionJobModel, job_id)
     if row is None:
         raise ValueError("Acquisition job not found.")
     row.status = AcquisitionJobStatus.DELAYED.value
+    row.worker_id = None
+    row.leased_until = None
+    row.next_attempt_at = utc_now() + timedelta(seconds=retry_after_seconds) if retry_after_seconds else None
     row.last_error_code = error_code
     row.last_error = error
     row.updated_at = utc_now()
@@ -220,6 +291,9 @@ def mark_job_failed(session: Session, job_id: str, error_code: str, error: str) 
     if row is None:
         raise ValueError("Acquisition job not found.")
     row.status = AcquisitionJobStatus.FAILED.value
+    row.worker_id = None
+    row.leased_until = None
+    row.next_attempt_at = None
     row.last_error_code = error_code
     row.last_error = error
     row.updated_at = utc_now()
@@ -327,12 +401,23 @@ def _job_from_model(row: AcquisitionJobModel) -> AcquisitionJob:
         status=row.status,
         attempts=row.attempts,
         max_attempts=row.max_attempts,
+        worker_id=row.worker_id,
+        leased_until=row.leased_until,
+        next_attempt_at=row.next_attempt_at,
         last_error_code=row.last_error_code,
         last_error=row.last_error,
         created_at=row.created_at,
         updated_at=row.updated_at,
         completed_at=row.completed_at,
     )
+
+
+def _ensure_aware(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value
 
 
 def _evidence_from_model(row: RawEvidenceModel) -> RawEvidence:

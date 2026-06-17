@@ -93,6 +93,7 @@ def run_official_api_acquisition_job(
             job.job_id,
             result.status.value,
             f"Official GW2 API acquisition delayed for {endpoint}.",
+            retry_after_seconds=result.retry_after_seconds,
         )
         return OfficialApiAcquisitionResult(job=delayed, gateway_status=result.status.value, evidence_created=False)
 

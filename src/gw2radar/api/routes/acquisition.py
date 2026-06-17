@@ -31,10 +31,12 @@ from gw2radar.acquisition.repository import (
     register_source,
     upsert_policy,
 )
+from gw2radar.acquisition.worker import AcquisitionWorker
 from gw2radar.api.envelope import ApiDataEnvelope
 from gw2radar.db import session as db_session
 from gw2radar.db.init_db import init_db
 from gw2radar.kb_pdf.pdf_inventory import build_inventory
+from gw2radar.security.api_key_store import EncryptedApiKeyStore
 
 router = APIRouter(tags=["acquisition"])
 
@@ -47,6 +49,11 @@ class LocalPdfImportRequest(BaseModel):
 
 class RunOfficialApiJobRequest(BaseModel):
     api_key: str | None = None
+
+
+class DrainAcquisitionJobRequest(BaseModel):
+    worker_id: str = "acquisition-drain-one"
+    use_stored_api_key: bool = True
 
 
 @router.post("/api/v1/sources", response_model=ApiDataEnvelope)
@@ -159,6 +166,19 @@ def get_acquisition_job(job_id: str) -> ApiDataEnvelope:
     if job is None:
         raise HTTPException(status_code=404, detail="Acquisition job not found.")
     return ApiDataEnvelope(data={"job": job.model_dump(mode="json")})
+
+
+@router.post("/api/v1/acquisition/jobs/drain-one", response_model=ApiDataEnvelope)
+def post_acquisition_jobs_drain_one(request: DrainAcquisitionJobRequest) -> ApiDataEnvelope:
+    init_db()
+    with db_session.SessionLocal() as session:
+        api_key_provider = (
+            (lambda: EncryptedApiKeyStore(session).get())
+            if request.use_stored_api_key
+            else (lambda: None)
+        )
+        result = AcquisitionWorker(session, api_key_provider=api_key_provider).drain_one(worker_id=request.worker_id)
+    return ApiDataEnvelope(data=result)
 
 
 @router.post("/api/v1/acquisition/jobs/{job_id}/run-once", response_model=ApiDataEnvelope)
