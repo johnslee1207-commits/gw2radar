@@ -8,6 +8,7 @@ from gw2radar.acquisition.manual_adapter import (
     ingest_manual_note,
     ingest_web_summary,
 )
+from gw2radar.acquisition.maturity import build_acquisition_maturity_report, render_acquisition_maturity_markdown
 from gw2radar.acquisition.models import (
     AcquisitionJobInput,
     AcquisitionJobStatus,
@@ -388,3 +389,24 @@ def get_acquisition_readiness_export(format: str = "markdown") -> Response:
             media_type="text/markdown; charset=utf-8",
         )
     raise HTTPException(status_code=400, detail="Unsupported acquisition readiness export format.")
+
+
+@router.get("/api/v1/acquisition/maturity", response_model=ApiDataEnvelope)
+def get_acquisition_maturity() -> ApiDataEnvelope:
+    init_db()
+    with db_session.SessionLocal() as session:
+        report = build_acquisition_maturity_report(session)
+    return ApiDataEnvelope(data={"report": report.model_dump(mode="json")})
+
+
+@router.get("/api/v1/acquisition/maturity/export")
+def get_acquisition_maturity_export(format: str = "markdown") -> Response:
+    init_db()
+    with db_session.SessionLocal() as session:
+        report = build_acquisition_maturity_report(session)
+    if format == "markdown":
+        return Response(
+            content=render_acquisition_maturity_markdown(report),
+            media_type="text/markdown; charset=utf-8",
+        )
+    raise HTTPException(status_code=400, detail="Unsupported acquisition maturity export format.")
