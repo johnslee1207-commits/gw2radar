@@ -31,6 +31,10 @@ from gw2radar.acquisition.promotion_readiness import (
     build_acquisition_promotion_readiness_report,
     render_acquisition_promotion_readiness_markdown,
 )
+from gw2radar.acquisition.promotion_release_manifest import (
+    build_acquisition_promotion_release_manifest,
+    render_acquisition_promotion_release_manifest_markdown,
+)
 from gw2radar.acquisition.promotion_workflow import (
     build_acquisition_promotion_workflow,
     render_acquisition_promotion_workflow_markdown,
@@ -558,3 +562,24 @@ def get_acquisition_promotion_action_plans_export(
             media_type="text/markdown; charset=utf-8",
         )
     raise HTTPException(status_code=400, detail="Unsupported acquisition promotion action plans export format.")
+
+
+@router.get("/api/v1/acquisition/promotion-release-manifest", response_model=ApiDataEnvelope)
+def get_acquisition_promotion_release_manifest() -> ApiDataEnvelope:
+    init_db()
+    with db_session.SessionLocal() as session:
+        manifest = build_acquisition_promotion_release_manifest(session)
+    return ApiDataEnvelope(data={"manifest": manifest.model_dump(mode="json")})
+
+
+@router.get("/api/v1/acquisition/promotion-release-manifest/export")
+def get_acquisition_promotion_release_manifest_export(format: str = "markdown") -> Response:
+    init_db()
+    with db_session.SessionLocal() as session:
+        manifest = build_acquisition_promotion_release_manifest(session)
+    if format == "markdown":
+        return Response(
+            content=render_acquisition_promotion_release_manifest_markdown(manifest),
+            media_type="text/markdown; charset=utf-8",
+        )
+    raise HTTPException(status_code=400, detail="Unsupported acquisition promotion release manifest export format.")
