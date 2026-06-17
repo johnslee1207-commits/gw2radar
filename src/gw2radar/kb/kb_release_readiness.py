@@ -4,6 +4,7 @@ from io import StringIO
 
 from pydantic import BaseModel, Field
 
+from gw2radar.acquisition.readiness import AcquisitionReadinessReport
 from gw2radar.kb.kb_domain_rule_packs import DomainRulePack
 from gw2radar.kb.kb_promotion_planner import KbPromotionPlan
 from gw2radar.kb.kb_semantic_maturity import KbSemanticMaturityReport
@@ -42,6 +43,7 @@ def build_kb_release_readiness_report(
     patch_dashboard_items: list[PatchReviewDashboardItem],
     audit_events: list[PatchRuleAuditEvent],
     rule_packs: list[DomainRulePack],
+    acquisition_readiness: AcquisitionReadinessReport | None = None,
 ) -> KbReleaseReadinessReport:
     checklist = [
         _semantic_check(semantic_report),
@@ -51,6 +53,8 @@ def build_kb_release_readiness_report(
         _patch_workflow_check(patch_dashboard_items, audit_events),
         _operating_boundary_check(),
     ]
+    if acquisition_readiness is not None:
+        checklist.insert(4, _acquisition_readiness_check(acquisition_readiness))
     status_counts: dict[ReadinessStatus, int] = {status: 0 for status in ReadinessStatus}
     for item in checklist:
         status_counts[item.status] += 1
@@ -211,6 +215,32 @@ def _patch_workflow_check(
         operator_steps=["Review pending patch items and export dashboard/audit before release."]
         if status != ReadinessStatus.PASS
         else ["Export patch dashboard and audit trail for the release record."],
+    )
+
+
+def _acquisition_readiness_check(report: AcquisitionReadinessReport) -> ReleaseReadinessChecklistItem:
+    if not report.ready:
+        status = ReadinessStatus.FAIL
+    elif report.source_count == 0 or report.paid_report_source_count == 0:
+        status = ReadinessStatus.WARN
+    else:
+        status = ReadinessStatus.PASS
+    blocker_summary = f"{len(report.blockers)} blockers" if report.blockers else "no blockers"
+    return ReleaseReadinessChecklistItem(
+        check_id="acquisition_readiness",
+        title="Acquisition source and job readiness",
+        status=status,
+        summary=(
+            f"{report.source_count} acquisition sources, {report.enabled_source_count} enabled, "
+            f"{report.paid_report_source_count} paid-report eligible, {blocker_summary}."
+        ),
+        evidence_refs=[
+            "/api/v1/acquisition/readiness",
+            "/api/v1/acquisition/readiness/export",
+        ],
+        operator_steps=report.recommendations
+        if status != ReadinessStatus.PASS
+        else ["Export acquisition readiness and include it in the release record."],
     )
 
 

@@ -64,11 +64,14 @@ def test_kb_release_readiness_api_exports_json_markdown_and_csv() -> None:
         payload = response.json()["data"]["report"]
         assert payload["schema_version"] == "gw2radar.kb_release_readiness.v1"
         assert len(payload["checklist"]) >= 6
+        assert any(item["check_id"] == "acquisition_readiness" for item in payload["checklist"])
         assert markdown.status_code == 200
         assert markdown.headers["content-type"].startswith("text/markdown")
         assert "KB Release Readiness" in markdown.text
+        assert "Acquisition source and job readiness" in markdown.text
         assert csv_response.status_code == 200
         assert csv_response.headers["content-type"].startswith("text/csv")
+        assert "acquisition_readiness" in csv_response.text
         assert bad.status_code == 400
     finally:
         close_database()

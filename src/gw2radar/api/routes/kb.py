@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 from gw2radar.api.envelope import ApiDataEnvelope
 from gw2radar.api.state import get_graph
+from gw2radar.acquisition.readiness import build_acquisition_readiness_report
 from gw2radar.db import session as db_session
 from gw2radar.db.init_db import init_db
 from gw2radar.kb.kb_entity_linker import validate_article_links
@@ -642,6 +643,7 @@ def _build_release_readiness_report():
     with db_session.SessionLocal() as session:
         articles = list_articles(session)
         rules = list_rules(session)
+        acquisition_readiness = build_acquisition_readiness_report(session)
     promotion_plan = build_kb_promotion_plan(articles, graph, include_rule_packs=True)
     patch_dashboard = build_patch_review_dashboard(rules)
     audit_events = list_patch_rule_audit_events()
@@ -653,4 +655,5 @@ def _build_release_readiness_report():
         patch_dashboard,
         audit_events,
         rule_packs,
+        acquisition_readiness,
     )
