@@ -23,6 +23,10 @@ from gw2radar.acquisition.promotion_queue import (
     build_acquisition_promotion_queue,
     render_acquisition_promotion_queue_markdown,
 )
+from gw2radar.acquisition.promotion_readiness import (
+    build_acquisition_promotion_readiness_report,
+    render_acquisition_promotion_readiness_markdown,
+)
 from gw2radar.acquisition.readiness import build_acquisition_readiness_report, render_acquisition_readiness_markdown
 from gw2radar.acquisition.repository import (
     create_job,
@@ -457,3 +461,24 @@ def get_acquisition_promotion_queue_export(format: str = "markdown") -> Response
             media_type="text/markdown; charset=utf-8",
         )
     raise HTTPException(status_code=400, detail="Unsupported acquisition promotion queue export format.")
+
+
+@router.get("/api/v1/acquisition/promotion-readiness", response_model=ApiDataEnvelope)
+def get_acquisition_promotion_readiness() -> ApiDataEnvelope:
+    init_db()
+    with db_session.SessionLocal() as session:
+        report = build_acquisition_promotion_readiness_report(session)
+    return ApiDataEnvelope(data={"report": report.model_dump(mode="json")})
+
+
+@router.get("/api/v1/acquisition/promotion-readiness/export")
+def get_acquisition_promotion_readiness_export(format: str = "markdown") -> Response:
+    init_db()
+    with db_session.SessionLocal() as session:
+        report = build_acquisition_promotion_readiness_report(session)
+    if format == "markdown":
+        return Response(
+            content=render_acquisition_promotion_readiness_markdown(report),
+            media_type="text/markdown; charset=utf-8",
+        )
+    raise HTTPException(status_code=400, detail="Unsupported acquisition promotion readiness export format.")
