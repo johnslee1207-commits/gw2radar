@@ -447,3 +447,77 @@ class KnowledgeRuleModel(Base):
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class AcquisitionSourceModel(Base):
+    __tablename__ = "acquisition_sources"
+
+    source_id: Mapped[str] = mapped_column(String, primary_key=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    source_type: Mapped[str] = mapped_column(String, nullable=False)
+    acquisition_mode: Mapped[str] = mapped_column(String, nullable=False)
+    base_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    local_path: Mapped[str | None] = mapped_column(String, nullable=True)
+    allowed_use: Mapped[str] = mapped_column(String, nullable=False)
+    graph_target: Mapped[str] = mapped_column(String, nullable=False)
+    kb_target: Mapped[str] = mapped_column(String, nullable=False)
+    trust_level: Mapped[float] = mapped_column(Float, default=0.7)
+    review_required: Mapped[bool] = mapped_column(Boolean, default=True)
+    review_status: Mapped[str] = mapped_column(String, default="draft")
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class SourcePolicyModel(Base):
+    __tablename__ = "source_policies"
+
+    policy_id: Mapped[str] = mapped_column(String, primary_key=True)
+    source_id: Mapped[str] = mapped_column(String, nullable=False)
+    allowed_use: Mapped[str] = mapped_column(String, nullable=False)
+    refresh_mode: Mapped[str] = mapped_column(String, nullable=False)
+    refresh_interval_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    freshness_required_for_strong_action: Mapped[bool] = mapped_column(Boolean, default=True)
+    can_drive_paid_report: Mapped[bool] = mapped_column(Boolean, default=False)
+    can_drive_strong_recommendation: Mapped[bool] = mapped_column(Boolean, default=False)
+    retain_raw_evidence: Mapped[bool] = mapped_column(Boolean, default=False)
+    forbidden_use_json: Mapped[list] = mapped_column(JSON, default=list)
+    attribution_required: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class AcquisitionJobModel(Base):
+    __tablename__ = "acquisition_jobs"
+
+    job_id: Mapped[str] = mapped_column(String, primary_key=True)
+    source_id: Mapped[str] = mapped_column(String, nullable=False)
+    job_type: Mapped[str] = mapped_column(String, nullable=False)
+    priority: Mapped[str] = mapped_column(String, nullable=False)
+    params_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    requested_by: Mapped[str] = mapped_column(String, nullable=False)
+    status: Mapped[str] = mapped_column(String, nullable=False)
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    max_attempts: Mapped[int] = mapped_column(Integer, default=3)
+    last_error_code: Mapped[str | None] = mapped_column(String, nullable=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class RawEvidenceModel(Base):
+    __tablename__ = "raw_evidence"
+
+    evidence_id: Mapped[str] = mapped_column(String, primary_key=True)
+    source_id: Mapped[str] = mapped_column(String, nullable=False)
+    job_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    content_type: Mapped[str] = mapped_column(String, nullable=False)
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    source_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    payload_ref: Mapped[str | None] = mapped_column(String, nullable=True)
+    payload_hash: Mapped[str | None] = mapped_column(String, nullable=True)
+    summary: Mapped[str] = mapped_column(Text, default="")
+    metadata_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)

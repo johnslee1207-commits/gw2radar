@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from gw2radar.api.envelope import http_exception_handler
+from gw2radar.api.routes.acquisition import router as acquisition_router
 from gw2radar.api.routes.account import router as account_router
 from gw2radar.api.routes.account_sync import router as account_sync_router
 from gw2radar.api.routes.actions import router as actions_router
@@ -66,3 +67,4 @@ app.include_router(account_sync_router)
 app.include_router(public_refresh_router)
 app.include_router(ops_router)
 app.include_router(security_router)
+app.include_router(acquisition_router)

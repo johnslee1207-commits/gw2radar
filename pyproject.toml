@@ -26,6 +26,6 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+pythonpath = [".", "src"]
 addopts = "-q -s"
 norecursedirs = [".git", ".test_tmp", "outputs", "build", "dist"]
