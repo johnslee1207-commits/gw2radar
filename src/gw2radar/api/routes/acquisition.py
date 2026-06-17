@@ -56,6 +56,20 @@ class DrainAcquisitionJobRequest(BaseModel):
     use_stored_api_key: bool = True
 
 
+class AcquisitionAdminWorkflowRequest(BaseModel):
+    source: AcquisitionSourceInput | None = None
+    source_id: str | None = None
+    policy: SourcePolicyInput | None = None
+    mark_reviewed: bool = False
+    mark_deprecated: bool = False
+    job: AcquisitionJobInput | None = None
+    drain_one: bool = False
+    worker_id: str = "acquisition-admin-workflow"
+    use_stored_api_key: bool = True
+    include_readiness: bool = True
+    include_markdown_export: bool = False
+
+
 @router.post("/api/v1/sources", response_model=ApiDataEnvelope)
 def post_source(request: AcquisitionSourceInput) -> ApiDataEnvelope:
     init_db()
@@ -179,6 +193,64 @@ def post_acquisition_jobs_drain_one(request: DrainAcquisitionJobRequest) -> ApiD
         )
         result = AcquisitionWorker(session, api_key_provider=api_key_provider).drain_one(worker_id=request.worker_id)
     return ApiDataEnvelope(data=result)
+
+
+@router.post("/api/v1/acquisition/admin/workflow", response_model=ApiDataEnvelope)
+def post_acquisition_admin_workflow(request: AcquisitionAdminWorkflowRequest) -> ApiDataEnvelope:
+    if request.mark_reviewed and request.mark_deprecated:
+        raise HTTPException(status_code=400, detail="Cannot mark a source reviewed and deprecated in the same workflow.")
+    init_db()
+    with db_session.SessionLocal() as session:
+        steps: list[dict] = []
+        source_id = request.source_id
+        if request.source is not None:
+            source = register_source(session, request.source)
+            source_id = source.source_id
+            steps.append({"step": "source_created", "source": source.model_dump(mode="json")})
+        if source_id is None and any([request.policy, request.mark_reviewed, request.mark_deprecated, request.job]):
+            raise HTTPException(status_code=400, detail="source_id or source is required for source-scoped workflow steps.")
+        if request.policy is not None and source_id is not None:
+            try:
+                policy = upsert_policy(session, source_id, request.policy)
+            except ValueError as exc:
+                raise HTTPException(status_code=404, detail=str(exc)) from exc
+            steps.append({"step": "policy_upserted", "policy": policy.model_dump(mode="json")})
+        if request.mark_reviewed and source_id is not None:
+            try:
+                source = mark_source_reviewed(session, source_id)
+            except ValueError as exc:
+                raise HTTPException(status_code=404, detail=str(exc)) from exc
+            steps.append({"step": "source_reviewed", "source": source.model_dump(mode="json")})
+        if request.mark_deprecated and source_id is not None:
+            try:
+                source = mark_source_deprecated(session, source_id)
+            except ValueError as exc:
+                raise HTTPException(status_code=404, detail=str(exc)) from exc
+            steps.append({"step": "source_deprecated", "source": source.model_dump(mode="json")})
+        if request.job is not None:
+            if source_id is not None and request.job.source_id != source_id:
+                raise HTTPException(status_code=400, detail="Workflow job.source_id must match the workflow source_id.")
+            try:
+                job = create_job(session, request.job)
+            except ValueError as exc:
+                raise HTTPException(status_code=404, detail=str(exc)) from exc
+            steps.append({"step": "job_created", "job": job.model_dump(mode="json")})
+        if request.drain_one:
+            api_key_provider = (
+                (lambda: EncryptedApiKeyStore(session).get())
+                if request.use_stored_api_key
+                else (lambda: None)
+            )
+            drained = AcquisitionWorker(session, api_key_provider=api_key_provider).drain_one(worker_id=request.worker_id)
+            steps.append({"step": "drain_one", "result": drained})
+
+        data: dict = {"steps": steps}
+        if request.include_readiness:
+            report = build_acquisition_readiness_report(session)
+            data["readiness"] = report.model_dump(mode="json")
+            if request.include_markdown_export:
+                data["readiness_markdown"] = render_acquisition_readiness_markdown(report)
+    return ApiDataEnvelope(data=data)
 
 
 @router.post("/api/v1/acquisition/jobs/{job_id}/run-once", response_model=ApiDataEnvelope)
