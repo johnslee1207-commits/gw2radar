@@ -59,6 +59,18 @@ class EnableKnowledgeRuleRequest(BaseModel):
     reviewer: str = "manual_reviewer"
 
 
+class PatchReviewAdminWorkflowRequest(BaseModel):
+    year: int | None = None
+    patch_id: str | None = None
+    review: PatchImpactReviewInput | None = None
+    persist_confirmed: bool = False
+    enable_rule_ids: list[str] = []
+    enable_confirmed: bool = False
+    reviewer: str = "manual_reviewer"
+    include_markdown_export: bool = False
+    include_csv_export: bool = False
+
+
 @router.post("/sources", response_model=ApiDataEnvelope)
 def post_kb_source(request: SourceRegistryInput) -> ApiDataEnvelope:
     init_db()
@@ -235,6 +247,88 @@ def get_patch_impact_dashboard_export(year: int | None = None, format: str = "ma
             media_type="text/csv; charset=utf-8",
         )
     raise HTTPException(status_code=400, detail="Unsupported dashboard export format.")
+
+
+@router.post("/patch-impact/admin/workflow", response_model=ApiDataEnvelope)
+def post_patch_impact_admin_workflow(request: PatchReviewAdminWorkflowRequest) -> ApiDataEnvelope:
+    action_results: dict[str, object] = {}
+    patch_id = request.patch_id or (request.review.patch_id if request.review else None)
+
+    if request.review is not None:
+        try:
+            review = save_patch_impact_review(request.review)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        patch_id = review.patch_id
+        action_results["review"] = review.model_dump(mode="json")
+
+    init_db()
+    with db_session.SessionLocal() as session:
+        if request.persist_confirmed:
+            if patch_id is None:
+                raise HTTPException(status_code=400, detail="patch_id is required to persist patch rule candidates.")
+            try:
+                persisted = persist_patch_rule_candidates(session, patch_id, confirmed=True)
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+            action_results["persist"] = {
+                "created_count": persisted.created_count,
+                "skipped_existing_count": persisted.skipped_existing_count,
+                "rules": [rule.model_dump(mode="json") for rule in persisted.rules],
+            }
+
+        enabled_rules = []
+        if request.enable_rule_ids:
+            if not request.enable_confirmed:
+                raise HTTPException(status_code=400, detail="Enabling KnowledgeRule records requires confirmation.")
+            for rule_id in request.enable_rule_ids:
+                try:
+                    rule = enable_rule(session, rule_id)
+                except ValueError as exc:
+                    raise HTTPException(status_code=400, detail=str(exc)) from exc
+                rule_patch_id = _patch_id_from_rule(rule.condition)
+                if rule_patch_id is not None:
+                    patch_id = patch_id or rule_patch_id
+                    record_patch_rule_audit_event(
+                        PatchRuleAuditAction.ENABLE,
+                        patch_id=rule_patch_id,
+                        rule_id=rule.rule_id,
+                        reviewer=request.reviewer,
+                        evidence_refs=rule.evidence_refs,
+                        details={"enabled": rule.enabled, "action_type": rule.action_type},
+                    )
+                enabled_rules.append(rule.model_dump(mode="json"))
+            action_results["enable"] = {"rules": enabled_rules}
+
+        rules = list_rules(session)
+
+    dashboard_items = build_patch_review_dashboard(rules, year=request.year)
+    lifecycle_counts: dict[str, int] = {}
+    for item in dashboard_items:
+        lifecycle_counts[item.lifecycle_status] = lifecycle_counts.get(item.lifecycle_status, 0) + 1
+    audit_events = list_patch_rule_audit_events(patch_id=patch_id) if patch_id else list_patch_rule_audit_events()
+    exports: dict[str, str] = {}
+    if request.include_markdown_export:
+        exports["markdown"] = render_patch_dashboard_markdown(dashboard_items)
+    if request.include_csv_export:
+        exports["csv"] = render_patch_dashboard_csv(dashboard_items)
+
+    return ApiDataEnvelope(
+        data={
+            "patch_id": patch_id,
+            "actions": action_results,
+            "dashboard": {
+                "count": len(dashboard_items),
+                "lifecycle_counts": lifecycle_counts,
+                "items": [item.model_dump(mode="json") for item in dashboard_items],
+            },
+            "audit": {
+                "count": len(audit_events),
+                "events": [event.model_dump(mode="json") for event in audit_events],
+            },
+            "exports": exports,
+        }
+    )
 
 
 @router.post("/patch-impact/reviews", response_model=ApiDataEnvelope)
