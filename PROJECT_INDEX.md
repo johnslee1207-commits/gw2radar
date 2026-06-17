@@ -80,6 +80,7 @@ The Knowledge Base explains recommendations, while the Knowledge Graph reasons o
 - [MVP 0.4.9 Patch Review Dashboard API](docs/mvp/MVP_0_4_9_PATCH_REVIEW_DASHBOARD_API.md)
 - [MVP 0.4.10 Patch Dashboard Export](docs/mvp/MVP_0_4_10_PATCH_DASHBOARD_EXPORT.md)
 - [MVP 0.4.11 Patch Admin Workflow Bundle](docs/mvp/MVP_0_4_11_PATCH_ADMIN_WORKFLOW_BUNDLE.md)
+- [KB Semantic Maturity And Priorities](docs/analysis/KB_SEMANTIC_MATURITY_AND_PRIORITIES.md)
 
 ## Analysis And Maturity
 

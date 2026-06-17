@@ -26,6 +26,10 @@ from gw2radar.kb.kb_repository import (
     search_articles,
 )
 from gw2radar.kb.kb_rule_distiller import distill_rule_from_article
+from gw2radar.kb.kb_semantic_maturity import (
+    build_kb_semantic_maturity_report,
+    render_kb_semantic_maturity_markdown,
+)
 from gw2radar.kb.patch_dashboard_export import render_patch_dashboard_csv, render_patch_dashboard_markdown
 from gw2radar.kb.patch_impact_review import (
     PatchImpactReviewInput,
@@ -195,6 +199,23 @@ def get_kb_search(q: str, domain: KnowledgeDomain | None = None) -> ApiDataEnvel
     with db_session.SessionLocal() as session:
         articles = [article.model_dump(mode="json") for article in search_articles(session, q, domain)]
     return ApiDataEnvelope(data={"articles": articles})
+
+
+@router.get("/semantic-maturity", response_model=ApiDataEnvelope)
+def get_kb_semantic_maturity() -> ApiDataEnvelope:
+    report = build_kb_semantic_maturity_report()
+    return ApiDataEnvelope(data={"report": report.model_dump(mode="json")})
+
+
+@router.get("/semantic-maturity/export")
+def get_kb_semantic_maturity_export(format: str = "markdown") -> Response:
+    report = build_kb_semantic_maturity_report()
+    if format == "markdown":
+        return Response(
+            content=render_kb_semantic_maturity_markdown(report),
+            media_type="text/markdown; charset=utf-8",
+        )
+    raise HTTPException(status_code=400, detail="Unsupported semantic maturity export format.")
 
 
 @router.get("/patch-impact/drafts", response_model=ApiDataEnvelope)
