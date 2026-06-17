@@ -203,6 +203,31 @@ def mark_job_skipped(session: Session, job_id: str, error_code: str, error: str)
     return _job_from_model(row)
 
 
+def mark_job_delayed(session: Session, job_id: str, error_code: str, error: str) -> AcquisitionJob:
+    row = session.get(AcquisitionJobModel, job_id)
+    if row is None:
+        raise ValueError("Acquisition job not found.")
+    row.status = AcquisitionJobStatus.DELAYED.value
+    row.last_error_code = error_code
+    row.last_error = error
+    row.updated_at = utc_now()
+    session.commit()
+    return _job_from_model(row)
+
+
+def mark_job_failed(session: Session, job_id: str, error_code: str, error: str) -> AcquisitionJob:
+    row = session.get(AcquisitionJobModel, job_id)
+    if row is None:
+        raise ValueError("Acquisition job not found.")
+    row.status = AcquisitionJobStatus.FAILED.value
+    row.last_error_code = error_code
+    row.last_error = error
+    row.updated_at = utc_now()
+    row.completed_at = row.updated_at
+    session.commit()
+    return _job_from_model(row)
+
+
 def latest_job_for_source(session: Session, source_id: str) -> AcquisitionJob | None:
     row = (
         session.query(AcquisitionJobModel)

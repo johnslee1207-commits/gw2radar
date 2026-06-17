@@ -10,6 +10,7 @@ from gw2radar.acquisition.models import (
     KbTarget,
     SourcePolicyInput,
 )
+from gw2radar.acquisition.official_api_adapter import run_official_api_acquisition_job
 from gw2radar.acquisition.repository import (
     create_job,
     get_job,
@@ -35,6 +36,10 @@ class LocalPdfImportRequest(BaseModel):
     repo_root: str = "."
     source_root: str = "docs/knowledge_base/_sources/pdf"
     requested_by: str = "admin"
+
+
+class RunOfficialApiJobRequest(BaseModel):
+    api_key: str | None = None
 
 
 @router.post("/api/v1/sources", response_model=ApiDataEnvelope)
@@ -163,6 +168,24 @@ def post_acquisition_job_run_once(job_id: str) -> ApiDataEnvelope:
         except ValueError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
     return ApiDataEnvelope(data={"job": job.model_dump(mode="json")})
+
+
+@router.post("/api/v1/acquisition/jobs/{job_id}/run-official-api", response_model=ApiDataEnvelope)
+def post_acquisition_job_run_official_api(job_id: str, request: RunOfficialApiJobRequest) -> ApiDataEnvelope:
+    init_db()
+    with db_session.SessionLocal() as session:
+        try:
+            result = run_official_api_acquisition_job(session, job_id, api_key=request.api_key)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return ApiDataEnvelope(
+        data={
+            "job": result.job.model_dump(mode="json"),
+            "gateway_status": result.gateway_status,
+            "evidence_created": result.evidence_created,
+            "gateway_evidence_id": result.gateway_evidence_id,
+        }
+    )
 
 
 @router.post("/api/v1/acquisition/local-pdf/import", response_model=ApiDataEnvelope)
