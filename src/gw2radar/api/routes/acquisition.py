@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel
 
 from gw2radar.acquisition.local_pdf_adapter import ingest_pdf_inventory_as_acquisition_sources
@@ -17,6 +17,7 @@ from gw2radar.acquisition.models import (
     SourcePolicyInput,
 )
 from gw2radar.acquisition.official_api_adapter import run_official_api_acquisition_job
+from gw2radar.acquisition.readiness import build_acquisition_readiness_report, render_acquisition_readiness_markdown
 from gw2radar.acquisition.repository import (
     create_job,
     get_job,
@@ -233,3 +234,24 @@ def post_web_summary_import(request: WebSummaryImportInput) -> ApiDataEnvelope:
     with db_session.SessionLocal() as session:
         result = ingest_web_summary(session, request)
     return ApiDataEnvelope(data={"result": result.__dict__})
+
+
+@router.get("/api/v1/acquisition/readiness", response_model=ApiDataEnvelope)
+def get_acquisition_readiness() -> ApiDataEnvelope:
+    init_db()
+    with db_session.SessionLocal() as session:
+        report = build_acquisition_readiness_report(session)
+    return ApiDataEnvelope(data={"report": report.model_dump(mode="json")})
+
+
+@router.get("/api/v1/acquisition/readiness/export")
+def get_acquisition_readiness_export(format: str = "markdown") -> Response:
+    init_db()
+    with db_session.SessionLocal() as session:
+        report = build_acquisition_readiness_report(session)
+    if format == "markdown":
+        return Response(
+            content=render_acquisition_readiness_markdown(report),
+            media_type="text/markdown; charset=utf-8",
+        )
+    raise HTTPException(status_code=400, detail="Unsupported acquisition readiness export format.")
