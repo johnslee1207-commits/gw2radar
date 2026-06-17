@@ -1,5 +1,7 @@
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
+from gw2radar.acquisition.local_pdf_adapter import ingest_pdf_inventory_as_acquisition_sources
 from gw2radar.acquisition.models import (
     AcquisitionJobInput,
     AcquisitionJobStatus,
@@ -24,8 +26,15 @@ from gw2radar.acquisition.repository import (
 from gw2radar.api.envelope import ApiDataEnvelope
 from gw2radar.db import session as db_session
 from gw2radar.db.init_db import init_db
+from gw2radar.kb_pdf.pdf_inventory import build_inventory
 
 router = APIRouter(tags=["acquisition"])
+
+
+class LocalPdfImportRequest(BaseModel):
+    repo_root: str = "."
+    source_root: str = "docs/knowledge_base/_sources/pdf"
+    requested_by: str = "admin"
 
 
 @router.post("/api/v1/sources", response_model=ApiDataEnvelope)
@@ -154,3 +163,28 @@ def post_acquisition_job_run_once(job_id: str) -> ApiDataEnvelope:
         except ValueError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
     return ApiDataEnvelope(data={"job": job.model_dump(mode="json")})
+
+
+@router.post("/api/v1/acquisition/local-pdf/import", response_model=ApiDataEnvelope)
+def post_local_pdf_import(request: LocalPdfImportRequest) -> ApiDataEnvelope:
+    from pathlib import Path
+
+    repo_root = Path(request.repo_root).resolve()
+    source_root = (repo_root / request.source_root).resolve()
+    if not source_root.exists():
+        raise HTTPException(status_code=400, detail="Local PDF source root does not exist.")
+    records = build_inventory(repo_root, source_root)
+    init_db()
+    with db_session.SessionLocal() as session:
+        result = ingest_pdf_inventory_as_acquisition_sources(session, records, requested_by=request.requested_by)
+    return ApiDataEnvelope(
+        data={
+            "result": {
+                "source_count": result.source_count,
+                "new_source_count": result.new_source_count,
+                "raw_evidence_count": result.evidence_count,
+                "new_raw_evidence_count": result.new_evidence_count,
+                "acquisition_job_count": result.job_count,
+            }
+        }
+    )

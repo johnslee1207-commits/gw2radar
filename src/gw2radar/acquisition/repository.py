@@ -65,6 +65,16 @@ def get_source(session: Session, source_id: str) -> AcquisitionSource | None:
     return _source_from_model(row) if row else None
 
 
+def get_source_by_local_path(session: Session, local_path: str) -> AcquisitionSource | None:
+    row = (
+        session.query(AcquisitionSourceModel)
+        .filter(AcquisitionSourceModel.local_path == local_path)
+        .order_by(AcquisitionSourceModel.created_at.desc())
+        .first()
+    )
+    return _source_from_model(row) if row else None
+
+
 def mark_source_reviewed(session: Session, source_id: str) -> AcquisitionSource:
     row = session.get(AcquisitionSourceModel, source_id)
     if row is None:
@@ -230,6 +240,16 @@ def create_raw_evidence(session: Session, evidence: RawEvidenceInput) -> RawEvid
     session.add(row)
     session.commit()
     return _evidence_from_model(row)
+
+
+def get_raw_evidence_by_hash(session: Session, source_id: str, payload_hash: str) -> RawEvidence | None:
+    row = (
+        session.query(RawEvidenceModel)
+        .filter(RawEvidenceModel.source_id == source_id, RawEvidenceModel.payload_hash == payload_hash)
+        .order_by(RawEvidenceModel.created_at.desc())
+        .first()
+    )
+    return _evidence_from_model(row) if row else None
 
 
 def _source_from_model(row: AcquisitionSourceModel) -> AcquisitionSource:
