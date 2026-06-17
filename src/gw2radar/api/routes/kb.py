@@ -9,6 +9,12 @@ from gw2radar.db import session as db_session
 from gw2radar.db.init_db import init_db
 from gw2radar.kb.kb_entity_linker import validate_article_links
 from gw2radar.kb.kb_explanation import explain_actions_with_kb
+from gw2radar.kb.kb_domain_rule_packs import (
+    DomainRulePackId,
+    get_domain_rule_pack,
+    import_domain_rule_pack,
+    list_domain_rule_packs,
+)
 from gw2radar.kb.kb_markdown_loader import load_markdown_directory
 from gw2radar.kb.kb_models import KnowledgeArticleInput, KnowledgeDomain, SourceRegistryInput, SourceType
 from gw2radar.kb.kb_report_quality import score_kb_report_quality
@@ -61,6 +67,10 @@ class ConfirmPatchRulePersistenceRequest(BaseModel):
 class EnableKnowledgeRuleRequest(BaseModel):
     confirmed_reviewed: bool = False
     reviewer: str = "manual_reviewer"
+
+
+class ImportDomainRulePackRequest(BaseModel):
+    confirmed: bool = False
 
 
 class PatchReviewAdminWorkflowRequest(BaseModel):
@@ -216,6 +226,37 @@ def get_kb_semantic_maturity_export(format: str = "markdown") -> Response:
             media_type="text/markdown; charset=utf-8",
         )
     raise HTTPException(status_code=400, detail="Unsupported semantic maturity export format.")
+
+
+@router.get("/rule-packs", response_model=ApiDataEnvelope)
+def get_kb_rule_packs() -> ApiDataEnvelope:
+    packs = list_domain_rule_packs()
+    return ApiDataEnvelope(
+        data={
+            "count": len(packs),
+            "packs": [pack.model_dump(mode="json") for pack in packs],
+        }
+    )
+
+
+@router.get("/rule-packs/{pack_id}", response_model=ApiDataEnvelope)
+def get_kb_rule_pack(pack_id: DomainRulePackId) -> ApiDataEnvelope:
+    pack = get_domain_rule_pack(pack_id)
+    return ApiDataEnvelope(data={"pack": pack.model_dump(mode="json")})
+
+
+@router.post("/rule-packs/{pack_id}/import", response_model=ApiDataEnvelope)
+def post_kb_rule_pack_import(
+    pack_id: DomainRulePackId,
+    request: ImportDomainRulePackRequest,
+) -> ApiDataEnvelope:
+    init_db()
+    with db_session.SessionLocal() as session:
+        try:
+            result = import_domain_rule_pack(session, pack_id, confirmed=request.confirmed)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return ApiDataEnvelope(data={"result": result.model_dump(mode="json")})
 
 
 @router.get("/patch-impact/drafts", response_model=ApiDataEnvelope)

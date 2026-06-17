@@ -101,10 +101,18 @@ def render_kb_semantic_maturity_markdown(report: KbSemanticMaturityReport) -> st
     lines.extend(["", "## Triple-Axis Extraction", "", "| Axis | Name | Maturity | Notes |", "|---|---|---|---|"])
     for entry in report.axes:
         lines.append(f"| {entry.axis.value} | {entry.name} | {entry.maturity.value} | {entry.notes} |")
-    lines.extend(["", "## Component Maturity", "", "| Component | Score | Maturity | Remaining Gaps |", "|---|---:|---|---|"])
+    lines.extend(
+        [
+            "",
+            "## Component Maturity",
+            "",
+            "| Component | Score | Maturity | Implemented | Remaining Gaps |",
+            "|---|---:|---|---|---|",
+        ]
+    )
     for component in report.components:
         lines.append(
-            f"| {component.name} | {component.score:.2f} | {component.maturity.value} | {_join(component.remaining_gaps)} |"
+            f"| {component.name} | {component.score:.2f} | {component.maturity.value} | {_join(component.implemented)} | {_join(component.remaining_gaps)} |"
         )
     lines.extend(["", "## Recommended Priorities", ""])
     for priority in report.recommended_priorities:
@@ -151,6 +159,13 @@ def _graph_nodes() -> list[SemanticGraphNode]:
             anchors=["kb_models.KnowledgeRule", "kb_repository.enable_rule"],
         ),
         SemanticGraphNode(
+            node_id="domain_rule_pack",
+            label="Domain Rule Pack",
+            node_type="reviewed_rule_pack",
+            maturity=MaturityLevel.HIGH,
+            anchors=["kb_domain_rule_packs", "kb routes /rule-packs"],
+        ),
+        SemanticGraphNode(
             node_id="patch_review",
             label="Patch Review Workflow",
             node_type="review_workflow",
@@ -172,6 +187,7 @@ def _graph_edges() -> list[SemanticGraphEdge]:
         SemanticGraphEdge(source="source_registry", target="kb_article", relation="authorizes_source_refs"),
         SemanticGraphEdge(source="kb_article", target="entity_linker", relation="validates_links"),
         SemanticGraphEdge(source="kb_article", target="knowledge_rule", relation="distills_reviewed_rule"),
+        SemanticGraphEdge(source="domain_rule_pack", target="knowledge_rule", relation="imports_reviewed_disabled_rules"),
         SemanticGraphEdge(source="knowledge_rule", target="report_artifact", relation="explains_recommendation"),
         SemanticGraphEdge(source="patch_review", target="knowledge_rule", relation="promotes_patch_candidate"),
         SemanticGraphEdge(source="patch_review", target="report_artifact", relation="adds_patch_audit_provenance"),
@@ -204,9 +220,9 @@ def _axes() -> list[SemanticAxisEntry]:
         SemanticAxisEntry(
             axis=SemanticAxis.ENTITY,
             name="Domain KB coverage",
-            maturity=MaturityLevel.MEDIUM,
-            anchors=["docs/knowledge_base"],
-            notes="Official and patch KB are strong; returner/build/market/guild/creator rule packs need deeper reviewed content.",
+            maturity=MaturityLevel.MEDIUM_HIGH,
+            anchors=["docs/knowledge_base", "kb_domain_rule_packs"],
+            notes="Official and patch KB are strong; returner/build/market now have reviewed disabled rule packs, while guild/creator depth remains thinner.",
         ),
     ]
 
@@ -259,11 +275,16 @@ def _components() -> list[MaturityComponent]:
         MaturityComponent(
             component_id="domain_rule_packs",
             name="Domain KB rule packs",
-            maturity=MaturityLevel.MEDIUM,
-            score=0.62,
-            implemented=["seed domains", "core explanation infrastructure"],
-            remaining_gaps=["returner reviewed rules", "build freshness rules", "market retention rules", "guild/creator policy packs"],
-            next_priority="P12 reviewed returner/build/market rule packs",
+            maturity=MaturityLevel.MEDIUM_HIGH,
+            score=0.82,
+            implemented=[
+                "seed domains",
+                "core explanation infrastructure",
+                "reviewed disabled returner/build/market rule packs",
+                "confirmation-gated rule pack import API",
+            ],
+            remaining_gaps=["batch validation and promotion workflow", "guild/creator policy packs"],
+            next_priority="P13 KB batch validation and promotion planner",
         ),
     ]
 
@@ -271,23 +292,12 @@ def _components() -> list[MaturityComponent]:
 def _priorities() -> list[PriorityRecommendation]:
     return [
         PriorityRecommendation(
-            priority_id="P12",
-            title="Reviewed Returner/Build/Market Rule Packs",
-            rationale="The semantic infrastructure is mature; commercial intelligence now needs deeper reviewed domain rules.",
-            acceptance=[
-                "reviewed returner recovery rules",
-                "reviewed build freshness rules",
-                "reviewed market retention language-safe rules",
-                "rules remain disabled until explicit enable gate",
-            ],
-        ),
-        PriorityRecommendation(
             priority_id="P13",
             title="KB Batch Validation and Promotion Planner",
-            rationale="Patch workflow has review/persist/enable gates; generic KB articles need the same batch promotion ergonomics.",
+            rationale="Reviewed domain rule packs now exist; operators need batch validation, blocker summaries, and promotion plans across KB articles and rule packs.",
             acceptance=[
                 "batch validate article links",
-                "preview distillable rules",
+                "preview distillable rules and rule pack imports",
                 "summarize blockers",
                 "produce deterministic Markdown/CSV promotion plan",
             ],
@@ -301,6 +311,17 @@ def _priorities() -> list[PriorityRecommendation]:
                 "link to ontology IDs",
                 "stay summary-only",
                 "preserve evidence refs",
+            ],
+        ),
+        PriorityRecommendation(
+            priority_id="P15",
+            title="Patch Impact to Build/Market Freshness Integration",
+            rationale="Patch review rules and domain packs should now inform stale build warnings and market watchlist freshness.",
+            acceptance=[
+                "flag build reports affected by enabled patch rules",
+                "surface market watchlist items affected by patch impact reviews",
+                "keep recommendations informational and manual",
+                "include patch evidence in report manifests",
             ],
         ),
     ]

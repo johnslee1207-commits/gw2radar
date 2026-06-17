@@ -25,17 +25,18 @@ The KB implementation now has a mature MVP semantic spine:
 - Official PDF inventory/evidence and patch/news summary stubs exist.
 - Patch review has review, persist, enable, audit, dashboard, export, and admin workflow APIs.
 
-Remaining maturity gap:
+Remaining maturity gap after P12:
 
-- Domain rule depth is still shallower than the infrastructure around it.
-- Returner, build, and market domains need more reviewed rules that can safely explain paid reports.
+- Returner, build, and market now have reviewed disabled rule packs.
+- Generic KB promotion still needs a batch planner so operators can validate, preview, and promote many articles/rules safely.
+- Guild and creator policy packs remain thinner than the personal commercial lanes.
 
 ## Reordered Priorities
 
-1. `P12 Reviewed Returner/Build/Market Rule Packs`
-2. `P13 KB Batch Validation and Promotion Planner`
-3. `P14 Official Source Semantic Extraction`
-4. `P15 Patch Impact to Build/Market Freshness Integration`
+1. `P13 KB Batch Validation and Promotion Planner`
+2. `P14 Official Source Semantic Extraction`
+3. `P15 Patch Impact to Build/Market Freshness Integration`
+4. `P16 Guild/Creator Policy Rule Packs`
 
 ## Implemented In This Slice
 
@@ -50,3 +51,25 @@ The report exposes:
 - state/entity/constraint axis extraction;
 - component maturity scores;
 - reordered KB priorities.
+
+## P12 Implemented
+
+P12 turns KB infrastructure into reviewed commercial rule content:
+
+- `GET /api/v1/kb/rule-packs`
+- `GET /api/v1/kb/rule-packs/{pack_id}`
+- `POST /api/v1/kb/rule-packs/{pack_id}/import`
+
+Included packs:
+
+- `returner_recovery`
+- `build_fit_freshness`
+- `market_retention`
+
+Safety contract:
+
+- all pack rules are `reviewed`;
+- all pack rules are imported with `enabled=false`;
+- import requires explicit confirmation;
+- duplicate imports are skipped deterministically;
+- market rules are checked against forbidden market language.
