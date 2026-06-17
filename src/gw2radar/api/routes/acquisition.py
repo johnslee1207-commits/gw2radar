@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel
 
 from gw2radar.acquisition.local_pdf_adapter import ingest_pdf_inventory_as_acquisition_sources
+from gw2radar.acquisition.coverage import build_evidence_coverage_map, render_evidence_coverage_markdown
 from gw2radar.acquisition.manual_adapter import (
     ManualNoteImportInput,
     WebSummaryImportInput,
@@ -410,3 +411,24 @@ def get_acquisition_maturity_export(format: str = "markdown") -> Response:
             media_type="text/markdown; charset=utf-8",
         )
     raise HTTPException(status_code=400, detail="Unsupported acquisition maturity export format.")
+
+
+@router.get("/api/v1/acquisition/evidence-coverage", response_model=ApiDataEnvelope)
+def get_acquisition_evidence_coverage() -> ApiDataEnvelope:
+    init_db()
+    with db_session.SessionLocal() as session:
+        report = build_evidence_coverage_map(session)
+    return ApiDataEnvelope(data={"coverage": report.model_dump(mode="json")})
+
+
+@router.get("/api/v1/acquisition/evidence-coverage/export")
+def get_acquisition_evidence_coverage_export(format: str = "markdown") -> Response:
+    init_db()
+    with db_session.SessionLocal() as session:
+        report = build_evidence_coverage_map(session)
+    if format == "markdown":
+        return Response(
+            content=render_evidence_coverage_markdown(report),
+            media_type="text/markdown; charset=utf-8",
+        )
+    raise HTTPException(status_code=400, detail="Unsupported acquisition evidence coverage export format.")
