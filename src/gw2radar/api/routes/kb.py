@@ -23,6 +23,11 @@ from gw2radar.kb.kb_promotion_planner import (
     render_kb_promotion_plan_markdown,
 )
 from gw2radar.kb.kb_report_quality import score_kb_report_quality
+from gw2radar.kb.kb_release_readiness import (
+    build_kb_release_readiness_report,
+    render_kb_release_readiness_csv,
+    render_kb_release_readiness_markdown,
+)
 from gw2radar.kb.kb_repository import (
     create_article,
     deprecate_article,
@@ -236,6 +241,28 @@ def get_kb_semantic_maturity_export(format: str = "markdown") -> Response:
             media_type="text/markdown; charset=utf-8",
         )
     raise HTTPException(status_code=400, detail="Unsupported semantic maturity export format.")
+
+
+@router.get("/release-readiness", response_model=ApiDataEnvelope)
+def get_kb_release_readiness() -> ApiDataEnvelope:
+    report = _build_release_readiness_report()
+    return ApiDataEnvelope(data={"report": report.model_dump(mode="json")})
+
+
+@router.get("/release-readiness/export")
+def get_kb_release_readiness_export(format: str = "markdown") -> Response:
+    report = _build_release_readiness_report()
+    if format == "markdown":
+        return Response(
+            content=render_kb_release_readiness_markdown(report),
+            media_type="text/markdown; charset=utf-8",
+        )
+    if format == "csv":
+        return Response(
+            content=render_kb_release_readiness_csv(report),
+            media_type="text/csv; charset=utf-8",
+        )
+    raise HTTPException(status_code=400, detail="Unsupported release readiness export format.")
 
 
 @router.get("/promotion-plan", response_model=ApiDataEnvelope)
@@ -605,3 +632,25 @@ def _patch_id_from_rule(condition: str) -> str | None:
     if len(parts) < 3:
         return None
     return f"{parts[1]}:{parts[2]}"
+
+
+def _build_release_readiness_report():
+    graph = get_graph()
+    semantic_report = build_kb_semantic_maturity_report()
+    source_semantics = build_source_semantic_report()
+    init_db()
+    with db_session.SessionLocal() as session:
+        articles = list_articles(session)
+        rules = list_rules(session)
+    promotion_plan = build_kb_promotion_plan(articles, graph, include_rule_packs=True)
+    patch_dashboard = build_patch_review_dashboard(rules)
+    audit_events = list_patch_rule_audit_events()
+    rule_packs = list_domain_rule_packs()
+    return build_kb_release_readiness_report(
+        semantic_report,
+        promotion_plan,
+        source_semantics,
+        patch_dashboard,
+        audit_events,
+        rule_packs,
+    )

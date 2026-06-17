@@ -35,7 +35,7 @@ Remaining maturity gap after P12:
 
 ## Reordered Priorities
 
-1. `P17 KB Release Readiness And Operating Playbook`
+1. `P18 Admin Release Console Workflow`
 
 ## Implemented In This Slice
 
@@ -159,3 +159,30 @@ Safety contract remains unchanged:
 - all policy pack rules are imported with `enabled=false`;
 - import requires explicit confirmation;
 - duplicate imports are skipped deterministically.
+
+## P17 Implemented
+
+P17 adds a KB release readiness and operating playbook gate:
+
+- `GET /api/v1/kb/release-readiness`
+- `GET /api/v1/kb/release-readiness/export`
+
+Checklist coverage:
+
+- semantic maturity baseline;
+- reviewed disabled rule packs;
+- promotion plan blockers;
+- source semantics and evidence coverage;
+- patch dashboard and audit trail readiness;
+- operating boundaries for import and enable gates.
+
+Operator playbook coverage:
+
+- selected rule packs must be imported with explicit confirmation;
+- only reviewed KnowledgeRule records should be enabled;
+- source semantics, promotion plan, patch dashboard, and audit exports should be archived for release evidence;
+- release readiness is read-only and does not change KB state.
+
+Next maturity gap:
+
+- provide a front-end friendly admin workflow bundle for checklist display, exports, import, enable, and audit actions while preserving all confirmation gates.

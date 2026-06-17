@@ -187,6 +187,13 @@ def _graph_nodes() -> list[SemanticGraphNode]:
             anchors=["commercial.patch_freshness", "builds /patch-freshness", "market /patch-freshness"],
         ),
         SemanticGraphNode(
+            node_id="release_readiness",
+            label="KB Release Readiness",
+            node_type="operator_gate",
+            maturity=MaturityLevel.HIGH,
+            anchors=["kb_release_readiness", "kb routes /release-readiness"],
+        ),
+        SemanticGraphNode(
             node_id="patch_review",
             label="Patch Review Workflow",
             node_type="review_workflow",
@@ -220,6 +227,10 @@ def _graph_edges() -> list[SemanticGraphEdge]:
         SemanticGraphEdge(source="source_semantics", target="patch_freshness", relation="adds_source_hint_notices"),
         SemanticGraphEdge(source="patch_freshness", target="report_artifact", relation="adds_build_market_review_section"),
         SemanticGraphEdge(source="patch_review", target="report_artifact", relation="adds_patch_audit_provenance"),
+        SemanticGraphEdge(source="source_semantics", target="release_readiness", relation="feeds_operator_gate"),
+        SemanticGraphEdge(source="promotion_planner", target="release_readiness", relation="feeds_operator_gate"),
+        SemanticGraphEdge(source="patch_review", target="release_readiness", relation="feeds_operator_gate"),
+        SemanticGraphEdge(source="domain_rule_pack", target="release_readiness", relation="feeds_operator_gate"),
     ]
 
 
@@ -338,8 +349,25 @@ def _components() -> list[MaturityComponent]:
                 "confirmation-gated rule pack import API",
                 "rule pack promotion preview",
             ],
-            remaining_gaps=["operator-facing release checklist"],
-            next_priority="P17 KB release readiness and operating playbook",
+            remaining_gaps=["admin UI workflow"],
+            next_priority="P18 admin release console workflow",
+        ),
+        MaturityComponent(
+            component_id="kb_release_readiness",
+            name="KB release readiness and operating playbook",
+            maturity=MaturityLevel.HIGH,
+            score=0.9,
+            implemented=[
+                "release readiness gate",
+                "operator checklist",
+                "rule pack import/enable playbook",
+                "source semantics readiness",
+                "promotion blockers readiness",
+                "patch dashboard/audit readiness",
+                "Markdown/CSV release exports",
+            ],
+            remaining_gaps=["front-end admin console"],
+            next_priority="P18 admin release console workflow",
         ),
     ]
 
@@ -347,14 +375,14 @@ def _components() -> list[MaturityComponent]:
 def _priorities() -> list[PriorityRecommendation]:
     return [
         PriorityRecommendation(
-            priority_id="P17",
-            title="KB Release Readiness And Operating Playbook",
-            rationale="Domain rule packs and patch freshness are complete enough for an MVP operating loop; the next gap is a release checklist and operator playbook.",
+            priority_id="P18",
+            title="Admin Release Console Workflow",
+            rationale="The KB operating loop now has a release readiness API; a front-end friendly admin workflow can combine checklist, exports, import, enable, and audit queries.",
             acceptance=[
-                "summarize KB release readiness gates",
-                "document rule import/enable operating flow",
-                "include source semantics and patch freshness checks",
-                "export deterministic operator checklist",
+                "front-end friendly release readiness bundle",
+                "link checklist items to existing admin actions",
+                "surface export payloads",
+                "preserve confirmation gates for import and enable",
             ],
         ),
     ]
