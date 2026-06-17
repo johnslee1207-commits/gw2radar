@@ -30,12 +30,12 @@ Remaining maturity gap after P12:
 - Returner, build, and market now have reviewed disabled rule packs.
 - Generic KB promotion now has a batch planner for validation, distillation preview, rule pack preview, and deterministic exports.
 - Official source summaries now expose summary-only semantic hints, ontology links, action hints, and evidence refs.
+- Patch review and source semantic hints now surface manual build/market freshness notices in APIs and reports.
 - Guild and creator policy packs remain thinner than the personal commercial lanes.
 
 ## Reordered Priorities
 
-1. `P15 Patch Impact to Build/Market Freshness Integration`
-2. `P16 Guild/Creator Policy Rule Packs`
+1. `P16 Guild/Creator Policy Rule Packs`
 
 ## Implemented In This Slice
 
@@ -108,3 +108,26 @@ Extractor coverage:
 - exports deterministic Markdown and CSV.
 
 The extractor reads Markdown summaries only. It does not read raw PDFs, does not copy source text, and does not promote draft facts to reviewed rules.
+
+## P15 Implemented
+
+P15 connects patch impact and source semantic hints to commercial freshness review:
+
+- `GET /api/v1/builds/{build_id}/patch-freshness`
+- `GET /api/v1/market/patch-freshness`
+
+Integration coverage:
+
+- reviewed patch dashboard items can create build freshness notices;
+- reviewed patch dashboard items can create market watchlist freshness notices;
+- source semantic hints can create manual review notices even before rule promotion;
+- build fit responses include patch freshness notices;
+- market watchlist responses include patch freshness notices;
+- build and market paid report Markdown can include a patch freshness review section.
+
+Safety boundary:
+
+- notices are manual-review-only;
+- no automatic gear/build changes are performed;
+- no automated orders or trading actions are performed;
+- evidence refs remain attached to notices.

@@ -14,9 +14,17 @@ from gw2radar.commercial.market_radar import (
     record_price_snapshot,
     render_market_report,
 )
+from gw2radar.commercial.patch_freshness import (
+    build_patch_freshness_report,
+    market_freshness_notices,
+    render_patch_freshness_section,
+)
 from gw2radar.commercial.report_engine import ReportExportFormat, generate_report_job
 from gw2radar.db import session as db_session
 from gw2radar.db.init_db import init_db
+from gw2radar.kb.kb_repository import list_rules
+from gw2radar.kb.kb_source_semantics import build_source_semantic_report
+from gw2radar.kb.patch_impact_review import build_patch_review_dashboard
 
 router = APIRouter(prefix="/api/v1/market", tags=["market"])
 
@@ -36,8 +44,14 @@ class MarketReportRequest(BaseModel):
 def get_market_watchlist() -> ApiDataEnvelope:
     init_db()
     with db_session.SessionLocal() as session:
-        watchlist = [item.model_dump(mode="json") for item in list_watchlist(session, DEFAULT_USER_ID)]
-    return ApiDataEnvelope(data={"watchlist": watchlist})
+        watches = list_watchlist(session, DEFAULT_USER_ID)
+    notices = market_freshness_notices(watches, _patch_dashboard_items(), _source_semantics())
+    return ApiDataEnvelope(
+        data={
+            "watchlist": [item.model_dump(mode="json") for item in watches],
+            "patch_freshness_notices": [notice.model_dump(mode="json") for notice in notices],
+        }
+    )
 
 
 @router.post("/watchlist", response_model=ApiDataEnvelope)
@@ -87,6 +101,9 @@ def post_market_report(request: MarketReportRequest) -> ApiDataEnvelope:
     with db_session.SessionLocal() as session:
         report = build_market_radar_report(session, graph, request.goal_id, DEFAULT_USER_ID)
         markdown = render_market_report(report)
+        freshness = build_patch_freshness_report([], report.watchlist, _patch_dashboard_items(), _source_semantics())
+        if freshness.notices:
+            markdown = markdown.rstrip() + "\n\n" + "\n".join(render_patch_freshness_section(freshness)) + "\n"
         try:
             job = generate_report_job(
                 session,
@@ -100,3 +117,28 @@ def post_market_report(request: MarketReportRequest) -> ApiDataEnvelope:
         except PermissionError as exc:
             raise HTTPException(status_code=403, detail=str(exc)) from exc
     return ApiDataEnvelope(data={"job": job.model_dump(mode="json")})
+
+
+@router.get("/patch-freshness", response_model=ApiDataEnvelope)
+def get_market_patch_freshness() -> ApiDataEnvelope:
+    init_db()
+    with db_session.SessionLocal() as session:
+        watches = list_watchlist(session, DEFAULT_USER_ID)
+    notices = market_freshness_notices(watches, _patch_dashboard_items(), _source_semantics())
+    return ApiDataEnvelope(
+        data={
+            "notice_count": len(notices),
+            "notices": [notice.model_dump(mode="json") for notice in notices],
+        }
+    )
+
+
+def _patch_dashboard_items():
+    init_db()
+    with db_session.SessionLocal() as session:
+        rules = list_rules(session)
+    return build_patch_review_dashboard(rules)
+
+
+def _source_semantics():
+    return build_source_semantic_report()

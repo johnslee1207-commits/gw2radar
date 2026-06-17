@@ -16,9 +16,17 @@ from gw2radar.commercial.build_fit import (
     recommend_budget_alternative,
     render_build_fit_report,
 )
+from gw2radar.commercial.patch_freshness import (
+    build_freshness_notices,
+    build_patch_freshness_report,
+    render_patch_freshness_section,
+)
 from gw2radar.commercial.report_engine import ReportExportFormat, generate_report_job
 from gw2radar.db import session as db_session
 from gw2radar.db.init_db import init_db
+from gw2radar.kb.kb_repository import list_rules
+from gw2radar.kb.kb_source_semantics import build_source_semantic_report
+from gw2radar.kb.patch_impact_review import build_patch_review_dashboard
 
 router = APIRouter(prefix="/api/v1/builds", tags=["builds"])
 
@@ -52,7 +60,13 @@ def get_builds() -> ApiDataEnvelope:
 def post_build_fit(request: BuildFitRequest) -> ApiDataEnvelope:
     build = _load_build(request.build_id)
     result = evaluate_build_fit(build, request.account_gear)
-    return ApiDataEnvelope(data={"fit": result.model_dump(mode="json")})
+    notices = _build_notices(build)
+    return ApiDataEnvelope(
+        data={
+            "fit": result.model_dump(mode="json"),
+            "patch_freshness_notices": [notice.model_dump(mode="json") for notice in notices],
+        }
+    )
 
 
 @router.post("/transition-plan", response_model=ApiDataEnvelope)
@@ -73,7 +87,11 @@ def post_build_transition_plan(request: BuildFitRequest) -> ApiDataEnvelope:
 def post_build_report(request: BuildReportRequest) -> ApiDataEnvelope:
     build = _load_build(request.build_id)
     result = evaluate_build_fit(build, request.account_gear)
+    notices = _build_notices(build)
+    freshness = build_patch_freshness_report([build], [], _patch_dashboard_items(), _source_semantics())
     markdown = render_build_fit_report(result)
+    if notices:
+        markdown = markdown.rstrip() + "\n\n" + "\n".join(render_patch_freshness_section(freshness)) + "\n"
     init_db()
     with db_session.SessionLocal() as session:
         try:
@@ -91,6 +109,19 @@ def post_build_report(request: BuildReportRequest) -> ApiDataEnvelope:
     return ApiDataEnvelope(data={"job": job.model_dump(mode="json")})
 
 
+@router.get("/{build_id}/patch-freshness", response_model=ApiDataEnvelope)
+def get_build_patch_freshness(build_id: str) -> ApiDataEnvelope:
+    build = _load_build(build_id)
+    notices = _build_notices(build)
+    return ApiDataEnvelope(
+        data={
+            "build_id": build_id,
+            "notice_count": len(notices),
+            "notices": [notice.model_dump(mode="json") for notice in notices],
+        }
+    )
+
+
 def _load_build(build_id: str):
     init_db()
     with db_session.SessionLocal() as session:
@@ -98,3 +129,18 @@ def _load_build(build_id: str):
     if build is None:
         raise HTTPException(status_code=404, detail="Build not found")
     return build
+
+
+def _build_notices(build):
+    return build_freshness_notices(build, _patch_dashboard_items(), _source_semantics())
+
+
+def _patch_dashboard_items():
+    init_db()
+    with db_session.SessionLocal() as session:
+        rules = list_rules(session)
+    return build_patch_review_dashboard(rules)
+
+
+def _source_semantics():
+    return build_source_semantic_report()

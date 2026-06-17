@@ -180,6 +180,13 @@ def _graph_nodes() -> list[SemanticGraphNode]:
             anchors=["kb_source_semantics", "kb routes /source-semantics"],
         ),
         SemanticGraphNode(
+            node_id="patch_freshness",
+            label="Patch Freshness Integration",
+            node_type="commercial_review_notice",
+            maturity=MaturityLevel.HIGH,
+            anchors=["commercial.patch_freshness", "builds /patch-freshness", "market /patch-freshness"],
+        ),
+        SemanticGraphNode(
             node_id="patch_review",
             label="Patch Review Workflow",
             node_type="review_workflow",
@@ -209,6 +216,9 @@ def _graph_edges() -> list[SemanticGraphEdge]:
         SemanticGraphEdge(source="knowledge_rule", target="report_artifact", relation="explains_recommendation"),
         SemanticGraphEdge(source="patch_review", target="knowledge_rule", relation="promotes_patch_candidate"),
         SemanticGraphEdge(source="source_semantics", target="patch_review", relation="adds_patch_source_hints"),
+        SemanticGraphEdge(source="patch_review", target="patch_freshness", relation="creates_manual_review_notices"),
+        SemanticGraphEdge(source="source_semantics", target="patch_freshness", relation="adds_source_hint_notices"),
+        SemanticGraphEdge(source="patch_freshness", target="report_artifact", relation="adds_build_market_review_section"),
         SemanticGraphEdge(source="patch_review", target="report_artifact", relation="adds_patch_audit_provenance"),
     ]
 
@@ -300,10 +310,20 @@ def _components() -> list[MaturityComponent]:
             component_id="patch_review_operations",
             name="Patch review operations",
             maturity=MaturityLevel.HIGH,
-            score=0.92,
-            implemented=["review queue", "rule candidates", "confirmation gate", "audit trail", "dashboard", "admin workflow bundle"],
-            remaining_gaps=["batch validation against active builds and market watchlists"],
-            next_priority="P15 patch impact to build/market freshness integration",
+            score=0.95,
+            implemented=[
+                "review queue",
+                "rule candidates",
+                "confirmation gate",
+                "audit trail",
+                "dashboard",
+                "admin workflow bundle",
+                "build freshness notices",
+                "market watchlist freshness notices",
+                "report freshness sections",
+            ],
+            remaining_gaps=["deeper entity-level patch matching"],
+            next_priority="P16 guild/creator policy rule packs",
         ),
         MaturityComponent(
             component_id="domain_rule_packs",
@@ -326,14 +346,14 @@ def _components() -> list[MaturityComponent]:
 def _priorities() -> list[PriorityRecommendation]:
     return [
         PriorityRecommendation(
-            priority_id="P15",
-            title="Patch Impact to Build/Market Freshness Integration",
-            rationale="Official source semantics, patch review rules, and domain packs should now inform stale build warnings and market watchlist freshness.",
+            priority_id="P16",
+            title="Guild/Creator Policy Rule Packs",
+            rationale="Personal commercial lanes now have reviewed rules and patch freshness notices; team and creator lanes need reviewed policy packs.",
             acceptance=[
-                "flag build reports affected by enabled patch rules",
-                "surface market watchlist items affected by patch impact reviews",
-                "keep recommendations informational and manual",
-                "include patch evidence in report manifests",
+                "reviewed guild privacy and readiness rules",
+                "reviewed creator opportunity safety rules",
+                "rules remain disabled until explicit enable gate",
+                "report explanations preserve privacy-safe summaries",
             ],
         ),
     ]
