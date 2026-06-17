@@ -27,6 +27,10 @@ from gw2radar.acquisition.promotion_readiness import (
     build_acquisition_promotion_readiness_report,
     render_acquisition_promotion_readiness_markdown,
 )
+from gw2radar.acquisition.promotion_workflow import (
+    build_acquisition_promotion_workflow,
+    render_acquisition_promotion_workflow_markdown,
+)
 from gw2radar.acquisition.readiness import build_acquisition_readiness_report, render_acquisition_readiness_markdown
 from gw2radar.acquisition.repository import (
     create_job,
@@ -482,3 +486,43 @@ def get_acquisition_promotion_readiness_export(format: str = "markdown") -> Resp
             media_type="text/markdown; charset=utf-8",
         )
     raise HTTPException(status_code=400, detail="Unsupported acquisition promotion readiness export format.")
+
+
+@router.get("/api/v1/acquisition/promotion-workflow", response_model=ApiDataEnvelope)
+def get_acquisition_promotion_workflow(
+    priority: str | None = None,
+    item_type: str | None = None,
+    limit: int = 25,
+) -> ApiDataEnvelope:
+    init_db()
+    with db_session.SessionLocal() as session:
+        workflow = build_acquisition_promotion_workflow(
+            session,
+            priority=priority,
+            item_type=item_type,
+            limit=limit,
+        )
+    return ApiDataEnvelope(data={"workflow": workflow.model_dump(mode="json")})
+
+
+@router.get("/api/v1/acquisition/promotion-workflow/export")
+def get_acquisition_promotion_workflow_export(
+    format: str = "markdown",
+    priority: str | None = None,
+    item_type: str | None = None,
+    limit: int = 25,
+) -> Response:
+    init_db()
+    with db_session.SessionLocal() as session:
+        workflow = build_acquisition_promotion_workflow(
+            session,
+            priority=priority,
+            item_type=item_type,
+            limit=limit,
+        )
+    if format == "markdown":
+        return Response(
+            content=render_acquisition_promotion_workflow_markdown(workflow),
+            media_type="text/markdown; charset=utf-8",
+        )
+    raise HTTPException(status_code=400, detail="Unsupported acquisition promotion workflow export format.")
