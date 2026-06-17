@@ -17,6 +17,11 @@ from gw2radar.kb.kb_domain_rule_packs import (
 )
 from gw2radar.kb.kb_markdown_loader import load_markdown_directory
 from gw2radar.kb.kb_models import KnowledgeArticleInput, KnowledgeDomain, SourceRegistryInput, SourceType
+from gw2radar.kb.kb_promotion_planner import (
+    build_kb_promotion_plan,
+    render_kb_promotion_plan_csv,
+    render_kb_promotion_plan_markdown,
+)
 from gw2radar.kb.kb_report_quality import score_kb_report_quality
 from gw2radar.kb.kb_repository import (
     create_article,
@@ -226,6 +231,53 @@ def get_kb_semantic_maturity_export(format: str = "markdown") -> Response:
             media_type="text/markdown; charset=utf-8",
         )
     raise HTTPException(status_code=400, detail="Unsupported semantic maturity export format.")
+
+
+@router.get("/promotion-plan", response_model=ApiDataEnvelope)
+def get_kb_promotion_plan(
+    domain: KnowledgeDomain | None = None,
+    include_rule_packs: bool = True,
+) -> ApiDataEnvelope:
+    graph = get_graph()
+    init_db()
+    with db_session.SessionLocal() as session:
+        articles = list_articles(session, domain)
+    plan = build_kb_promotion_plan(
+        articles,
+        graph,
+        domain=domain,
+        include_rule_packs=include_rule_packs,
+    )
+    return ApiDataEnvelope(data={"plan": plan.model_dump(mode="json")})
+
+
+@router.get("/promotion-plan/export")
+def get_kb_promotion_plan_export(
+    domain: KnowledgeDomain | None = None,
+    include_rule_packs: bool = True,
+    format: str = "markdown",
+) -> Response:
+    graph = get_graph()
+    init_db()
+    with db_session.SessionLocal() as session:
+        articles = list_articles(session, domain)
+    plan = build_kb_promotion_plan(
+        articles,
+        graph,
+        domain=domain,
+        include_rule_packs=include_rule_packs,
+    )
+    if format == "markdown":
+        return Response(
+            content=render_kb_promotion_plan_markdown(plan),
+            media_type="text/markdown; charset=utf-8",
+        )
+    if format == "csv":
+        return Response(
+            content=render_kb_promotion_plan_csv(plan),
+            media_type="text/csv; charset=utf-8",
+        )
+    raise HTTPException(status_code=400, detail="Unsupported promotion plan export format.")
 
 
 @router.get("/rule-packs", response_model=ApiDataEnvelope)

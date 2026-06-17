@@ -166,6 +166,13 @@ def _graph_nodes() -> list[SemanticGraphNode]:
             anchors=["kb_domain_rule_packs", "kb routes /rule-packs"],
         ),
         SemanticGraphNode(
+            node_id="promotion_planner",
+            label="KB Promotion Planner",
+            node_type="batch_validation_workflow",
+            maturity=MaturityLevel.HIGH,
+            anchors=["kb_promotion_planner", "kb routes /promotion-plan"],
+        ),
+        SemanticGraphNode(
             node_id="patch_review",
             label="Patch Review Workflow",
             node_type="review_workflow",
@@ -186,8 +193,11 @@ def _graph_edges() -> list[SemanticGraphEdge]:
     return [
         SemanticGraphEdge(source="source_registry", target="kb_article", relation="authorizes_source_refs"),
         SemanticGraphEdge(source="kb_article", target="entity_linker", relation="validates_links"),
+        SemanticGraphEdge(source="promotion_planner", target="entity_linker", relation="batch_validates_article_links"),
         SemanticGraphEdge(source="kb_article", target="knowledge_rule", relation="distills_reviewed_rule"),
+        SemanticGraphEdge(source="promotion_planner", target="knowledge_rule", relation="previews_distillable_rules"),
         SemanticGraphEdge(source="domain_rule_pack", target="knowledge_rule", relation="imports_reviewed_disabled_rules"),
+        SemanticGraphEdge(source="promotion_planner", target="domain_rule_pack", relation="previews_rule_pack_imports"),
         SemanticGraphEdge(source="knowledge_rule", target="report_artifact", relation="explains_recommendation"),
         SemanticGraphEdge(source="patch_review", target="knowledge_rule", relation="promotes_patch_candidate"),
         SemanticGraphEdge(source="patch_review", target="report_artifact", relation="adds_patch_audit_provenance"),
@@ -200,8 +210,8 @@ def _axes() -> list[SemanticAxisEntry]:
             axis=SemanticAxis.STATE,
             name="Review and publication states",
             maturity=MaturityLevel.HIGH,
-            anchors=["KnowledgeReviewStatus", "PatchReviewDashboardItem.lifecycle_status"],
-            notes="draft/reviewed/needs_update/deprecated plus patch lifecycle are explicit and tested.",
+            anchors=["KnowledgeReviewStatus", "PatchReviewDashboardItem.lifecycle_status", "KbPromotionPlan"],
+            notes="draft/reviewed/needs_update/deprecated plus patch lifecycle and promotion readiness are explicit and tested.",
         ),
         SemanticAxisEntry(
             axis=SemanticAxis.ENTITY,
@@ -240,11 +250,17 @@ def _components() -> list[MaturityComponent]:
         MaturityComponent(
             component_id="kb_linker_distiller",
             name="Entity linker and rule distiller",
-            maturity=MaturityLevel.MEDIUM_HIGH,
-            score=0.86,
-            implemented=["link validation", "reviewed article to KnowledgeRule", "action schema guard"],
-            remaining_gaps=["richer ontology relation validation", "batch distillation preview"],
-            next_priority="P13 KB batch validation and promotion planner",
+            maturity=MaturityLevel.HIGH,
+            score=0.91,
+            implemented=[
+                "link validation",
+                "reviewed article to KnowledgeRule",
+                "action schema guard",
+                "batch promotion planner",
+                "Markdown/CSV promotion exports",
+            ],
+            remaining_gaps=["richer ontology relation validation"],
+            next_priority="P14 official source semantic extraction",
         ),
         MaturityComponent(
             component_id="kb_explanation_reports",
@@ -275,16 +291,17 @@ def _components() -> list[MaturityComponent]:
         MaturityComponent(
             component_id="domain_rule_packs",
             name="Domain KB rule packs",
-            maturity=MaturityLevel.MEDIUM_HIGH,
-            score=0.82,
+            maturity=MaturityLevel.HIGH,
+            score=0.87,
             implemented=[
                 "seed domains",
                 "core explanation infrastructure",
                 "reviewed disabled returner/build/market rule packs",
                 "confirmation-gated rule pack import API",
+                "rule pack promotion preview",
             ],
-            remaining_gaps=["batch validation and promotion workflow", "guild/creator policy packs"],
-            next_priority="P13 KB batch validation and promotion planner",
+            remaining_gaps=["guild/creator policy packs"],
+            next_priority="P16 guild/creator policy rule packs",
         ),
     ]
 
@@ -292,20 +309,9 @@ def _components() -> list[MaturityComponent]:
 def _priorities() -> list[PriorityRecommendation]:
     return [
         PriorityRecommendation(
-            priority_id="P13",
-            title="KB Batch Validation and Promotion Planner",
-            rationale="Reviewed domain rule packs now exist; operators need batch validation, blocker summaries, and promotion plans across KB articles and rule packs.",
-            acceptance=[
-                "batch validate article links",
-                "preview distillable rules and rule pack imports",
-                "summarize blockers",
-                "produce deterministic Markdown/CSV promotion plan",
-            ],
-        ),
-        PriorityRecommendation(
             priority_id="P14",
             title="Official Source Semantic Extraction",
-            rationale="PDF inventory and stubs are strong, but source facts remain shallow outside patch impact fields.",
+            rationale="Promotion planning and rule packs are in place; official PDF/news/source summaries need deeper semantic hints without copying source text.",
             acceptance=[
                 "extract source-level semantic hints",
                 "link to ontology IDs",

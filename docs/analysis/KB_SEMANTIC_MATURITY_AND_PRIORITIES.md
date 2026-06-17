@@ -28,15 +28,14 @@ The KB implementation now has a mature MVP semantic spine:
 Remaining maturity gap after P12:
 
 - Returner, build, and market now have reviewed disabled rule packs.
-- Generic KB promotion still needs a batch planner so operators can validate, preview, and promote many articles/rules safely.
+- Generic KB promotion now has a batch planner for validation, distillation preview, rule pack preview, and deterministic exports.
 - Guild and creator policy packs remain thinner than the personal commercial lanes.
 
 ## Reordered Priorities
 
-1. `P13 KB Batch Validation and Promotion Planner`
-2. `P14 Official Source Semantic Extraction`
-3. `P15 Patch Impact to Build/Market Freshness Integration`
-4. `P16 Guild/Creator Policy Rule Packs`
+1. `P14 Official Source Semantic Extraction`
+2. `P15 Patch Impact to Build/Market Freshness Integration`
+3. `P16 Guild/Creator Policy Rule Packs`
 
 ## Implemented In This Slice
 
@@ -73,3 +72,21 @@ Safety contract:
 - import requires explicit confirmation;
 - duplicate imports are skipped deterministically;
 - market rules are checked against forbidden market language.
+
+## P13 Implemented
+
+P13 adds a generic KB promotion planner:
+
+- `GET /api/v1/kb/promotion-plan`
+- `GET /api/v1/kb/promotion-plan/export`
+
+Planner coverage:
+
+- batch validates article linked entities and linked actions;
+- previews reviewed rule articles that can become `KnowledgeRule` records;
+- keeps previewed distilled rules `enabled=false`;
+- previews reviewed domain rule packs for import readiness;
+- summarizes blockers across articles and packs;
+- exports deterministic Markdown and CSV.
+
+The planner is intentionally read-only. Persistence still happens through existing reviewed/confirmed distillation and rule-pack import APIs.
