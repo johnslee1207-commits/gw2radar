@@ -19,6 +19,10 @@ from gw2radar.acquisition.models import (
     SourcePolicyInput,
 )
 from gw2radar.acquisition.official_api_adapter import run_official_api_acquisition_job
+from gw2radar.acquisition.promotion_action_plan import (
+    build_acquisition_promotion_action_plans,
+    render_acquisition_promotion_action_plans_markdown,
+)
 from gw2radar.acquisition.promotion_queue import (
     build_acquisition_promotion_queue,
     render_acquisition_promotion_queue_markdown,
@@ -526,3 +530,31 @@ def get_acquisition_promotion_workflow_export(
             media_type="text/markdown; charset=utf-8",
         )
     raise HTTPException(status_code=400, detail="Unsupported acquisition promotion workflow export format.")
+
+
+@router.get("/api/v1/acquisition/promotion-action-plans", response_model=ApiDataEnvelope)
+def get_acquisition_promotion_action_plans(
+    item_id: str | None = None,
+    limit: int = 50,
+) -> ApiDataEnvelope:
+    init_db()
+    with db_session.SessionLocal() as session:
+        bundle = build_acquisition_promotion_action_plans(session, item_id=item_id, limit=limit)
+    return ApiDataEnvelope(data={"bundle": bundle.model_dump(mode="json")})
+
+
+@router.get("/api/v1/acquisition/promotion-action-plans/export")
+def get_acquisition_promotion_action_plans_export(
+    format: str = "markdown",
+    item_id: str | None = None,
+    limit: int = 50,
+) -> Response:
+    init_db()
+    with db_session.SessionLocal() as session:
+        bundle = build_acquisition_promotion_action_plans(session, item_id=item_id, limit=limit)
+    if format == "markdown":
+        return Response(
+            content=render_acquisition_promotion_action_plans_markdown(bundle),
+            media_type="text/markdown; charset=utf-8",
+        )
+    raise HTTPException(status_code=400, detail="Unsupported acquisition promotion action plans export format.")
