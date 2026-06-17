@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>GW2Radar Player Dashboard</title>
+    <link rel="stylesheet" href="/player-ui/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Primary navigation">
+        <div class="brand">
+          <span class="brand-mark">G2</span>
+          <div>
+            <strong>GW2Radar</strong>
+            <span>Player Intelligence</span>
+          </div>
+        </div>
+        <nav class="nav-list">
+          <button class="nav-item active" data-view="dashboard">Dashboard</button>
+          <button class="nav-item" data-view="connect">Connect</button>
+          <button class="nav-item" data-view="returner">Returner</button>
+          <button class="nav-item" data-view="legendary">Legendary</button>
+          <button class="nav-item" data-view="build">Build Fit</button>
+          <button class="nav-item" data-view="reports">Reports</button>
+          <button class="nav-item" data-view="privacy">Privacy</button>
+        </nav>
+        <div class="safety-note">
+          <strong>Manual planning only</strong>
+          <span>No gameplay automation, no automatic trading, no profit guarantee.</span>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Account-aware planning cockpit</p>
+            <h1>GW2Radar Player Dashboard</h1>
+          </div>
+          <div class="status-strip" aria-label="Account status">
+            <span id="account-status" class="status-pill muted">Account not checked</span>
+            <span id="sync-status" class="status-pill muted">Sync idle</span>
+            <span class="status-pill good">API key never displayed</span>
+          </div>
+        </header>
+
+        <section id="dashboard" class="view active-view" aria-labelledby="dashboard-title">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Today</p>
+              <h2 id="dashboard-title">Best actions first</h2>
+            </div>
+            <button class="secondary-action" data-action="refreshDashboard">Refresh status</button>
+          </div>
+          <div class="dashboard-grid">
+            <article class="panel priority-panel">
+              <div class="panel-title">
+                <span class="marker amber"></span>
+                <h3>Today’s Best Actions</h3>
+              </div>
+              <ol class="action-list">
+                <li>Connect a read-only GW2 API key, then run account sync.</li>
+                <li>Open Returner Diagnosis to see readiness and blocked goals.</li>
+                <li>Review Legendary do-not-sell before selling materials.</li>
+                <li>Import a build before committing gear conversion cost.</li>
+              </ol>
+            </article>
+            <article class="panel">
+              <div class="panel-title">
+                <span class="marker green"></span>
+                <h3>Account Snapshot</h3>
+              </div>
+              <dl class="metric-list">
+                <div><dt>Connection</dt><dd id="metric-connection">Unknown</dd></div>
+                <div><dt>Last sync</dt><dd id="metric-sync">Not run</dd></div>
+                <div><dt>Data freshness</dt><dd>Requires sync check</dd></div>
+                <div><dt>Safety</dt><dd>Private data stays in local private layer</dd></div>
+              </dl>
+            </article>
+            <article class="opportunity-card" data-view-link="returner">
+              <span class="card-kicker">Opportunity 1</span>
+              <h3>Returner Diagnosis</h3>
+              <p>Catch up without chasing every old goal. Focus on account gaps, safe goals, and a 7-day plan.</p>
+            </article>
+            <article class="opportunity-card" data-view-link="legendary">
+              <span class="card-kicker">Opportunity 2</span>
+              <h3>Legendary Planner Pro</h3>
+              <p>See shared requirements, cheap versus fast path, and materials that should not be sold.</p>
+            </article>
+            <article class="opportunity-card" data-view-link="build">
+              <span class="card-kicker">Opportunity 3</span>
+              <h3>Build Fit Advisor</h3>
+              <p>Check if your account can play a build, what gear is reusable, and the transition budget.</p>
+            </article>
+            <article class="panel wide">
+              <div class="panel-title">
+                <span class="marker red"></span>
+                <h3>Do-not-sell warning</h3>
+              </div>
+              <p class="subtle">Market guidance is observation and planning only. GW2Radar never places orders, never automates trading, and never claims guaranteed returns.</p>
+              <pre id="dashboard-output" class="json-output" aria-live="polite">Dashboard output appears here.</pre>
+            </article>
+          </div>
+        </section>
+
+        <section id="connect" class="view" aria-labelledby="connect-title">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">First-use flow</p>
+              <h2 id="connect-title">Connect account and sync safely</h2>
+            </div>
+          </div>
+          <div class="two-column">
+            <form class="panel form-panel" data-form="apiKey">
+              <h3>GW2 API key</h3>
+              <p class="subtle">Use account, inventories, characters, wallet, and progression permissions where possible. The key is submitted once and cleared from this screen.</p>
+              <label>API key
+                <input id="api-key-input" type="password" autocomplete="off" placeholder="Paste GW2 API key" />
+              </label>
+              <div class="button-row">
+                <button type="submit">Save key</button>
+                <button type="button" class="secondary-action" data-action="deleteApiKey">Delete key</button>
+              </div>
+            </form>
+            <article class="panel">
+              <h3>Sync controls</h3>
+              <div class="button-grid">
+                <button data-action="apiKeyStatus">Check key status</button>
+                <button data-action="enqueueSync">Queue sync</button>
+                <button data-action="drainSync">Drain one job</button>
+                <button data-action="syncStatus">Sync status</button>
+                <button data-action="loadMock">Load demo graph</button>
+                <button class="danger-action" data-action="deleteSnapshot">Delete snapshot</button>
+              </div>
+              <pre id="connect-output" class="json-output" aria-live="polite">Connection and sync results appear here.</pre>
+            </article>
+          </div>
+        </section>
+
+        <section id="returner" class="view" aria-labelledby="returner-title">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Opportunity 1</p>
+              <h2 id="returner-title">Returner Diagnosis</h2>
+            </div>
+            <button data-action="previewReturnerReport">Generate preview</button>
+          </div>
+          <div class="three-column">
+            <article class="panel">
+              <h3>Readiness inputs</h3>
+              <label>Last played
+                <select id="last-played">
+                  <option>More than 12 months ago</option>
+                  <option>3 to 12 months ago</option>
+                  <option>Recently active</option>
+                </select>
+              </label>
+              <label>Main interest
+                <select id="returner-interest">
+                  <option>Legendary progress</option>
+                  <option>Open world catch-up</option>
+                  <option>Fractals and strikes</option>
+                  <option>Market cleanup</option>
+                </select>
+              </label>
+            </article>
+            <article class="panel">
+              <h3>Diagnosis actions</h3>
+              <div class="button-grid">
+                <button data-action="loadGoals">Load goals</button>
+                <button data-action="goalGap">Aurora gap</button>
+                <button data-action="generateActions">7-day action plan</button>
+                <button data-action="kbReport">KB report</button>
+              </div>
+            </article>
+            <article class="panel">
+              <h3>Player guidance</h3>
+              <ul class="plain-list">
+                <li>Prioritize unlocked progress over new grinds.</li>
+                <li>Delay goals blocked by stale patch evidence.</li>
+                <li>Keep assumptions visible in every report.</li>
+              </ul>
+            </article>
+          </div>
+          <pre id="returner-output" class="json-output tall" aria-live="polite">Returner diagnosis output appears here.</pre>
+        </section>
+
+        <section id="legendary" class="view" aria-labelledby="legendary-title">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Opportunity 2</p>
+              <h2 id="legendary-title">Legendary Planner Pro</h2>
+            </div>
+            <button data-action="legendaryReport">Create planner report</button>
+          </div>
+          <div class="two-column">
+            <article class="panel form-panel">
+              <h3>Goal portfolio</h3>
+              <label>Goal
+                <select id="legendary-goal">
+                  <option value="gw2:goal:aurora">Aurora</option>
+                </select>
+              </label>
+              <label>Priority
+                <input id="legendary-priority" type="number" min="1" max="9" value="1" />
+              </label>
+              <div class="button-grid">
+                <button data-action="addLegendaryGoal">Add goal</button>
+                <button data-action="legendaryPortfolio">Load portfolio</button>
+                <button data-action="legendaryRecompute">Cheap/fast path</button>
+                <button data-action="legendaryDoNotSell">Do-not-sell</button>
+              </div>
+            </article>
+            <article class="panel form-panel">
+              <h3>Market context</h3>
+              <label>Item id <input id="market-item-id" value="gw2:item:mystic_coin" /></label>
+              <label>Item name <input id="market-item-name" value="Mystic Coin" /></label>
+              <label>Buy copper <input id="market-buy" type="number" value="180000" /></label>
+              <label>Sell copper <input id="market-sell" type="number" value="195000" /></label>
+              <div class="button-grid">
+                <button data-action="marketSnapshot">Record snapshot</button>
+                <button data-action="marketWatch">Watch item</button>
+                <button data-action="goalCostIndex">Goal cost index</button>
+                <button data-action="marketSignals">Market signals</button>
+              </div>
+            </article>
+          </div>
+          <pre id="legendary-output" class="json-output tall" aria-live="polite">Legendary planning output appears here.</pre>
+        </section>
+
+        <section id="build" class="view" aria-labelledby="build-title">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Opportunity 3</p>
+              <h2 id="build-title">Build Fit Advisor</h2>
+            </div>
+            <button data-action="buildReport">Create build report</button>
+          </div>
+          <div class="two-column">
+            <article class="panel form-panel">
+              <h3>Import build</h3>
+              <label>Build name <input id="build-name" value="Power Virtuoso Starter" /></label>
+              <label>Profession <input id="build-profession" value="Mesmer" /></label>
+              <label>Specialization <input id="build-spec" value="Virtuoso" /></label>
+              <label>Role <input id="build-role" value="DPS" /></label>
+              <label>Game mode <input id="build-mode" value="Strike" /></label>
+              <label>Patch freshness days <input id="build-freshness" type="number" value="30" /></label>
+              <label>Estimated cost gold <input id="build-cost" type="number" value="42" /></label>
+              <div class="button-grid">
+                <button data-action="importBuild">Import build</button>
+                <button data-action="listBuilds">List builds</button>
+              </div>
+            </article>
+            <article class="panel form-panel">
+              <h3>Account fit check</h3>
+              <label>Build id <input id="active-build-id" placeholder="Use imported build id" /></label>
+              <label>Wallet gold <input id="wallet-gold" type="number" value="120" /></label>
+              <label>Owned stat combo <input id="owned-stat" value="Berserker" /></label>
+              <div class="button-grid">
+                <button data-action="evaluateBuild">Fit score</button>
+                <button data-action="transitionPlan">Transition plan</button>
+                <button data-action="buildFreshness">Patch freshness</button>
+              </div>
+            </article>
+          </div>
+          <pre id="build-output" class="json-output tall" aria-live="polite">Build fit output appears here.</pre>
+        </section>
+
+        <section id="reports" class="view" aria-labelledby="reports-title">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Reports center</p>
+              <h2 id="reports-title">Preview, unlock, export</h2>
+            </div>
+          </div>
+          <div class="two-column">
+            <article class="panel">
+              <h3>Products and pricing</h3>
+              <div class="button-grid">
+                <button data-action="reportProducts">Products</button>
+                <button data-action="pricingPlans">Pricing</button>
+                <button data-action="checkoutLegendary">Mock checkout</button>
+              </div>
+            </article>
+            <article class="panel form-panel">
+              <h3>Artifact lookup</h3>
+              <label>Job id <input id="report-job-id" placeholder="report job id" /></label>
+              <label>Artifact id <input id="artifact-id" placeholder="artifact id" /></label>
+              <div class="button-grid">
+                <button data-action="reportJob">Job status</button>
+                <button data-action="openArtifact">Open artifact</button>
+              </div>
+            </article>
+          </div>
+          <pre id="reports-output" class="json-output tall" aria-live="polite">Report center output appears here.</pre>
+        </section>
+
+        <section id="privacy" class="view" aria-labelledby="privacy-title">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Trust center</p>
+              <h2 id="privacy-title">Privacy & Safety</h2>
+            </div>
+          </div>
+          <div class="dashboard-grid">
+            <article class="panel">
+              <h3>Private data boundaries</h3>
+              <ul class="plain-list">
+                <li>API keys are submitted to the backend and never rendered back to this page.</li>
+                <li>Reports use summaries and evidence references, not raw private API responses.</li>
+                <li>Public KB, patch, market, and build evidence stays separate from account snapshots.</li>
+              </ul>
+            </article>
+            <article class="panel">
+              <h3>Player safety boundaries</h3>
+              <ul class="plain-list">
+                <li>No automatic gameplay inputs.</li>
+                <li>No automatic buy, sell, listing, or order placement.</li>
+                <li>No guaranteed profit or absolute meta claims.</li>
+              </ul>
+            </article>
+            <article class="panel wide">
+              <h3>Deletion controls</h3>
+              <div class="button-row">
+                <button class="danger-action" data-action="deleteApiKey">Delete API key</button>
+                <button class="danger-action" data-action="deleteSnapshot">Delete account snapshot</button>
+                <button data-action="apiKeyStatus">Check remaining key status</button>
+              </div>
+              <pre id="privacy-output" class="json-output" aria-live="polite">Privacy action output appears here.</pre>
+            </article>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script src="/player-ui/app.js" defer></script>
+  </body>
+</html>

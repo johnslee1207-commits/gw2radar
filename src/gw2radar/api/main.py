@@ -1,7 +1,9 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from gw2radar.api.envelope import http_exception_handler
@@ -18,6 +20,7 @@ from gw2radar.api.routes.kb import router as kb_router
 from gw2radar.api.routes.legendary import router as legendary_router
 from gw2radar.api.routes.market import router as market_router
 from gw2radar.api.routes.ops import router as ops_router
+from gw2radar.api.routes.player_ui import router as player_ui_router
 from gw2radar.api.routes.public_refresh import router as public_refresh_router
 from gw2radar.api.routes.reports import router as reports_router
 from gw2radar.api.routes.security import router as security_router
@@ -33,6 +36,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(title="GW2Radar MVP 0.1", lifespan=lifespan)
 app.add_exception_handler(StarletteHTTPException, http_exception_handler)
+app.mount(
+    "/player-ui",
+    StaticFiles(directory=Path(__file__).resolve().parents[1] / "ui" / "static"),
+    name="player-ui",
+)
 
 
 @app.get("/health")
@@ -66,5 +74,6 @@ app.include_router(account_router)
 app.include_router(account_sync_router)
 app.include_router(public_refresh_router)
 app.include_router(ops_router)
+app.include_router(player_ui_router)
 app.include_router(security_router)
 app.include_router(acquisition_router)
