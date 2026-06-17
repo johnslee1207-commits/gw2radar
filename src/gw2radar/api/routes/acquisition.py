@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel
 
+from gw2radar.acquisition.final_maturity_rollup import build_final_maturity_rollup, render_final_maturity_rollup_markdown
 from gw2radar.acquisition.local_pdf_adapter import ingest_pdf_inventory_as_acquisition_sources
 from gw2radar.acquisition.coverage import build_evidence_coverage_map, render_evidence_coverage_markdown
 from gw2radar.acquisition.manual_adapter import (
@@ -583,3 +584,24 @@ def get_acquisition_promotion_release_manifest_export(format: str = "markdown") 
             media_type="text/markdown; charset=utf-8",
         )
     raise HTTPException(status_code=400, detail="Unsupported acquisition promotion release manifest export format.")
+
+
+@router.get("/api/v1/acquisition/final-maturity-rollup", response_model=ApiDataEnvelope)
+def get_final_maturity_rollup() -> ApiDataEnvelope:
+    init_db()
+    with db_session.SessionLocal() as session:
+        rollup = build_final_maturity_rollup(session)
+    return ApiDataEnvelope(data={"rollup": rollup.model_dump(mode="json")})
+
+
+@router.get("/api/v1/acquisition/final-maturity-rollup/export")
+def get_final_maturity_rollup_export(format: str = "markdown") -> Response:
+    init_db()
+    with db_session.SessionLocal() as session:
+        rollup = build_final_maturity_rollup(session)
+    if format == "markdown":
+        return Response(
+            content=render_final_maturity_rollup_markdown(rollup),
+            media_type="text/markdown; charset=utf-8",
+        )
+    raise HTTPException(status_code=400, detail="Unsupported final maturity rollup export format.")
