@@ -31,6 +31,12 @@ from gw2radar.acquisition.repository import (
     register_source,
     upsert_policy,
 )
+from gw2radar.acquisition.seed_packs import (
+    AcquisitionSeedPackId,
+    get_acquisition_seed_pack,
+    import_acquisition_seed_pack,
+    list_acquisition_seed_packs,
+)
 from gw2radar.acquisition.worker import AcquisitionWorker
 from gw2radar.api.envelope import ApiDataEnvelope
 from gw2radar.db import session as db_session
@@ -70,6 +76,10 @@ class AcquisitionAdminWorkflowRequest(BaseModel):
     include_markdown_export: bool = False
 
 
+class ImportAcquisitionSeedPackRequest(BaseModel):
+    confirmed: bool = False
+
+
 @router.post("/api/v1/sources", response_model=ApiDataEnvelope)
 def post_source(request: AcquisitionSourceInput) -> ApiDataEnvelope:
     init_db()
@@ -94,6 +104,37 @@ def get_sources(
             )
         ]
     return ApiDataEnvelope(data={"sources": sources})
+
+
+@router.get("/api/v1/acquisition/seed-packs", response_model=ApiDataEnvelope)
+def get_acquisition_seed_packs() -> ApiDataEnvelope:
+    packs = list_acquisition_seed_packs()
+    return ApiDataEnvelope(
+        data={
+            "count": len(packs),
+            "packs": [pack.model_dump(mode="json") for pack in packs],
+        }
+    )
+
+
+@router.get("/api/v1/acquisition/seed-packs/{pack_id}", response_model=ApiDataEnvelope)
+def get_acquisition_seed_pack_route(pack_id: AcquisitionSeedPackId) -> ApiDataEnvelope:
+    pack = get_acquisition_seed_pack(pack_id)
+    return ApiDataEnvelope(data={"pack": pack.model_dump(mode="json")})
+
+
+@router.post("/api/v1/acquisition/seed-packs/{pack_id}/import", response_model=ApiDataEnvelope)
+def post_acquisition_seed_pack_import(
+    pack_id: AcquisitionSeedPackId,
+    request: ImportAcquisitionSeedPackRequest,
+) -> ApiDataEnvelope:
+    init_db()
+    with db_session.SessionLocal() as session:
+        try:
+            result = import_acquisition_seed_pack(session, pack_id, confirmed=request.confirmed)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return ApiDataEnvelope(data={"result": result.model_dump(mode="json")})
 
 
 @router.get("/api/v1/sources/{source_id}", response_model=ApiDataEnvelope)
