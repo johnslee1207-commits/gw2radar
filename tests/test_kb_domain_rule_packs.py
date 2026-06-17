@@ -23,11 +23,13 @@ def test_domain_rule_packs_are_reviewed_disabled_and_evidence_backed() -> None:
     rules = [rule for pack in packs for rule in pack.rules]
 
     assert {pack.pack_id for pack in packs} == set(DomainRulePackId)
-    assert len(rules) >= 6
+    assert len(rules) >= 10
     assert all(rule.review_status == KnowledgeReviewStatus.REVIEWED for rule in rules)
     assert all(rule.enabled is False for rule in rules)
     assert all(rule.evidence_refs for rule in rules)
     assert all("guaranteed profit" not in rule.recommendation.lower() for rule in rules)
+    assert any(pack.pack_id == DomainRulePackId.GUILD_PRIVACY_READINESS for pack in packs)
+    assert any(pack.pack_id == DomainRulePackId.CREATOR_SIGNAL_SAFETY for pack in packs)
 
 
 def test_domain_rule_pack_import_requires_confirmation_and_is_idempotent() -> None:
@@ -66,7 +68,7 @@ def test_domain_rule_pack_api_preview_and_import() -> None:
         imported = client.post("/api/v1/kb/rule-packs/returner_recovery/import", json={"confirmed": True})
 
         assert listed.status_code == 200
-        assert listed.json()["data"]["count"] == 3
+        assert listed.json()["data"]["count"] == 5
         assert preview.status_code == 200
         assert preview.json()["data"]["pack"]["pack_id"] == "returner_recovery"
         assert blocked.status_code == 400

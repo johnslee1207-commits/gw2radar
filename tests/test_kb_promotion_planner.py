@@ -101,9 +101,11 @@ def test_kb_promotion_plan_api_exports_json_markdown_and_csv() -> None:
 def test_kb_promotion_plan_includes_rule_pack_previews() -> None:
     plan = build_kb_promotion_plan([], build_mock_graph(), include_rule_packs=True)
 
-    assert plan.rule_pack_count == 3
-    assert plan.importable_rule_pack_count == 3
+    assert plan.rule_pack_count == 5
+    assert plan.importable_rule_pack_count == 5
     assert any(pack.pack_id == "market_retention" for pack in plan.rule_packs)
+    assert any(pack.pack_id == "guild_privacy_readiness" for pack in plan.rule_packs)
+    assert any(pack.pack_id == "creator_signal_safety" for pack in plan.rule_packs)
 
 
 def _reviewed_rule_article() -> KnowledgeArticleInput:

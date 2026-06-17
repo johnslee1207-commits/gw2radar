@@ -329,16 +329,17 @@ def _components() -> list[MaturityComponent]:
             component_id="domain_rule_packs",
             name="Domain KB rule packs",
             maturity=MaturityLevel.HIGH,
-            score=0.87,
+            score=0.92,
             implemented=[
                 "seed domains",
                 "core explanation infrastructure",
                 "reviewed disabled returner/build/market rule packs",
+                "reviewed disabled guild/creator policy rule packs",
                 "confirmation-gated rule pack import API",
                 "rule pack promotion preview",
             ],
-            remaining_gaps=["guild/creator policy packs"],
-            next_priority="P16 guild/creator policy rule packs",
+            remaining_gaps=["operator-facing release checklist"],
+            next_priority="P17 KB release readiness and operating playbook",
         ),
     ]
 
@@ -346,14 +347,14 @@ def _components() -> list[MaturityComponent]:
 def _priorities() -> list[PriorityRecommendation]:
     return [
         PriorityRecommendation(
-            priority_id="P16",
-            title="Guild/Creator Policy Rule Packs",
-            rationale="Personal commercial lanes now have reviewed rules and patch freshness notices; team and creator lanes need reviewed policy packs.",
+            priority_id="P17",
+            title="KB Release Readiness And Operating Playbook",
+            rationale="Domain rule packs and patch freshness are complete enough for an MVP operating loop; the next gap is a release checklist and operator playbook.",
             acceptance=[
-                "reviewed guild privacy and readiness rules",
-                "reviewed creator opportunity safety rules",
-                "rules remain disabled until explicit enable gate",
-                "report explanations preserve privacy-safe summaries",
+                "summarize KB release readiness gates",
+                "document rule import/enable operating flow",
+                "include source semantics and patch freshness checks",
+                "export deterministic operator checklist",
             ],
         ),
     ]

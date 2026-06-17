@@ -3,6 +3,7 @@ from enum import StrEnum
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from gw2radar.commercial.creator_intelligence import validate_no_forbidden_copy_markers
 from gw2radar.commercial.market_radar import validate_market_language
 from gw2radar.kb.kb_models import KnowledgeDomain, KnowledgeReviewStatus, KnowledgeRule, KnowledgeRuleInput
 from gw2radar.kb.kb_repository import create_rule, list_rules
@@ -13,6 +14,8 @@ class DomainRulePackId(StrEnum):
     RETURNER_RECOVERY = "returner_recovery"
     BUILD_FIT_FRESHNESS = "build_fit_freshness"
     MARKET_RETENTION = "market_retention"
+    GUILD_PRIVACY_READINESS = "guild_privacy_readiness"
+    CREATOR_SIGNAL_SAFETY = "creator_signal_safety"
 
 
 class DomainRulePack(BaseModel):
@@ -92,16 +95,38 @@ def _build_pack(pack_id: DomainRulePackId) -> DomainRulePack:
             evidence_refs=["docs/knowledge_base/build/build_fit_rules.md"],
             rules=rules,
         )
-    rules = _market_rules()
+    if pack_id == DomainRulePackId.MARKET_RETENTION:
+        rules = _market_rules()
+        for rule in rules:
+            validate_market_language(rule.recommendation)
+            validate_market_language(rule.explanation_template)
+        return DomainRulePack(
+            pack_id=pack_id,
+            title="Reviewed Market Retention Rules",
+            domain=KnowledgeDomain.MARKET,
+            summary="Keep market guidance observational, goal-aware, and bounded to manual planning.",
+            evidence_refs=["docs/knowledge_base/market/market_language_policy.md"],
+            rules=rules,
+        )
+    if pack_id == DomainRulePackId.GUILD_PRIVACY_READINESS:
+        return DomainRulePack(
+            pack_id=pack_id,
+            title="Reviewed Guild Privacy And Readiness Rules",
+            domain=KnowledgeDomain.GUILD,
+            summary="Keep guild readiness explanations consent-based and summary-only.",
+            evidence_refs=["docs/knowledge_base/guild/member_privacy_policy.md"],
+            rules=_guild_rules(),
+        )
+    rules = _creator_rules()
     for rule in rules:
-        validate_market_language(rule.recommendation)
-        validate_market_language(rule.explanation_template)
+        validate_no_forbidden_copy_markers(rule.recommendation)
+        validate_no_forbidden_copy_markers(rule.explanation_template)
     return DomainRulePack(
         pack_id=pack_id,
-        title="Reviewed Market Retention Rules",
-        domain=KnowledgeDomain.MARKET,
-        summary="Keep market guidance observational, goal-aware, and bounded to manual planning.",
-        evidence_refs=["docs/knowledge_base/market/market_language_policy.md"],
+        title="Reviewed Creator Signal Safety Rules",
+        domain=KnowledgeDomain.CREATOR,
+        summary="Use community signals as attributed discovery inputs with conservative confidence and no copied full text.",
+        evidence_refs=["docs/knowledge_base/creator/community_signal_policy.md"],
         rules=rules,
     )
 
@@ -196,6 +221,70 @@ def _market_rules() -> list[KnowledgeRuleInput]:
             explanation_template="Goal-required materials should stay protected until the planner verifies that only true surplus remains.",
             evidence_refs=evidence,
             confidence=0.88,
+            review_status=KnowledgeReviewStatus.REVIEWED,
+            enabled=False,
+        ),
+    ]
+
+
+def _guild_rules() -> list[KnowledgeRuleInput]:
+    evidence = ["docs/knowledge_base/guild/member_privacy_policy.md"]
+    return [
+        KnowledgeRuleInput(
+            name="Guild readiness consent summary boundary",
+            domain=KnowledgeDomain.GUILD,
+            condition="article_links_any_entity:gw2:system:guild_readiness",
+            recommendation="Use consent-based readiness bands and role coverage summaries for guild planning.",
+            action_type=ActionType.GENERATE_WEEKLY_PLAN.value,
+            priority_delta=0.2,
+            explanation_template="Guild readiness guidance should coordinate teams through privacy-safe summaries and active member consent.",
+            evidence_refs=evidence,
+            confidence=0.86,
+            review_status=KnowledgeReviewStatus.REVIEWED,
+            enabled=False,
+        ),
+        KnowledgeRuleInput(
+            name="Guild revoked consent exclusion",
+            domain=KnowledgeDomain.GUILD,
+            condition="article_links_any_entity:gw2:system:guild_readiness",
+            recommendation="Exclude revoked-consent members from readiness calculations and explain only aggregate coverage gaps.",
+            action_type=ActionType.GENERATE_WEEKLY_PLAN.value,
+            priority_delta=0.18,
+            explanation_template="When consent is revoked, reports should keep the member out of calculations and avoid exposing account-level details.",
+            evidence_refs=evidence,
+            confidence=0.84,
+            review_status=KnowledgeReviewStatus.REVIEWED,
+            enabled=False,
+        ),
+    ]
+
+
+def _creator_rules() -> list[KnowledgeRuleInput]:
+    evidence = ["docs/knowledge_base/creator/community_signal_policy.md"]
+    return [
+        KnowledgeRuleInput(
+            name="Creator community signal confidence boundary",
+            domain=KnowledgeDomain.CREATOR,
+            condition="article_links_any_entity:gw2:system:creator_intelligence",
+            recommendation="Treat community-derived opportunities as discovery signals until reviewed against stronger sources.",
+            action_type=ActionType.GENERATE_WEEKLY_PLAN.value,
+            priority_delta=0.12,
+            explanation_template="Creator intelligence should preserve source attribution and keep community claims conservative unless separately verified.",
+            evidence_refs=evidence,
+            confidence=0.72,
+            review_status=KnowledgeReviewStatus.REVIEWED,
+            enabled=False,
+        ),
+        KnowledgeRuleInput(
+            name="Creator summary-only source handling",
+            domain=KnowledgeDomain.CREATOR,
+            condition="article_links_any_entity:gw2:system:creator_intelligence",
+            recommendation="Store concise summaries and source links for creator research instead of copied community content.",
+            action_type=ActionType.GENERATE_WEEKLY_PLAN.value,
+            priority_delta=0.1,
+            explanation_template="Creator reports should identify guide gaps and content opportunities without reproducing third-party full text.",
+            evidence_refs=evidence,
+            confidence=0.74,
             review_status=KnowledgeReviewStatus.REVIEWED,
             enabled=False,
         ),

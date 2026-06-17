@@ -31,11 +31,11 @@ Remaining maturity gap after P12:
 - Generic KB promotion now has a batch planner for validation, distillation preview, rule pack preview, and deterministic exports.
 - Official source summaries now expose summary-only semantic hints, ontology links, action hints, and evidence refs.
 - Patch review and source semantic hints now surface manual build/market freshness notices in APIs and reports.
-- Guild and creator policy packs remain thinner than the personal commercial lanes.
+- Guild and creator policy packs now exist as reviewed disabled rules with confirmation-gated import.
 
 ## Reordered Priorities
 
-1. `P16 Guild/Creator Policy Rule Packs`
+1. `P17 KB Release Readiness And Operating Playbook`
 
 ## Implemented In This Slice
 
@@ -131,3 +131,31 @@ Safety boundary:
 - no automatic gear/build changes are performed;
 - no automated orders or trading actions are performed;
 - evidence refs remain attached to notices.
+
+## P16 Implemented
+
+P16 extends reviewed domain rule packs beyond personal commercial lanes:
+
+- `guild_privacy_readiness`
+- `creator_signal_safety`
+
+Guild policy coverage:
+
+- consent-based readiness summaries;
+- role coverage and readiness bands only;
+- revoked consent exclusion from readiness calculations;
+- no account-level detail exposure in rule explanations.
+
+Creator policy coverage:
+
+- community-derived opportunities remain discovery signals until reviewed;
+- attribution and conservative confidence are preserved;
+- concise summaries and source links are preferred;
+- copied community content is rejected by existing no-mass-copy policy checks.
+
+Safety contract remains unchanged:
+
+- all policy pack rules are `reviewed`;
+- all policy pack rules are imported with `enabled=false`;
+- import requires explicit confirmation;
+- duplicate imports are skipped deterministically.
