@@ -19,6 +19,10 @@ from gw2radar.acquisition.models import (
     SourcePolicyInput,
 )
 from gw2radar.acquisition.official_api_adapter import run_official_api_acquisition_job
+from gw2radar.acquisition.promotion_queue import (
+    build_acquisition_promotion_queue,
+    render_acquisition_promotion_queue_markdown,
+)
 from gw2radar.acquisition.readiness import build_acquisition_readiness_report, render_acquisition_readiness_markdown
 from gw2radar.acquisition.repository import (
     create_job,
@@ -432,3 +436,24 @@ def get_acquisition_evidence_coverage_export(format: str = "markdown") -> Respon
             media_type="text/markdown; charset=utf-8",
         )
     raise HTTPException(status_code=400, detail="Unsupported acquisition evidence coverage export format.")
+
+
+@router.get("/api/v1/acquisition/promotion-queue", response_model=ApiDataEnvelope)
+def get_acquisition_promotion_queue() -> ApiDataEnvelope:
+    init_db()
+    with db_session.SessionLocal() as session:
+        queue = build_acquisition_promotion_queue(session)
+    return ApiDataEnvelope(data={"queue": queue.model_dump(mode="json")})
+
+
+@router.get("/api/v1/acquisition/promotion-queue/export")
+def get_acquisition_promotion_queue_export(format: str = "markdown") -> Response:
+    init_db()
+    with db_session.SessionLocal() as session:
+        queue = build_acquisition_promotion_queue(session)
+    if format == "markdown":
+        return Response(
+            content=render_acquisition_promotion_queue_markdown(queue),
+            media_type="text/markdown; charset=utf-8",
+        )
+    raise HTTPException(status_code=400, detail="Unsupported acquisition promotion queue export format.")
