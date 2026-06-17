@@ -4,6 +4,10 @@
 
 This guide explains how users and operators use the three core GW2Radar commercial opportunities after external data is imported into the system.
 
+For a player-facing version with less API detail and more GW2 decision guidance, start with:
+
+- [Senior Player User Guide](SENIOR_PLAYER_USER_GUIDE.md)
+
 The guide is based on the current code graph and semantic graph:
 
 - Code graph: `npx gitnexus status` reports the repository index is up to date at commit `2f743b3`.
