@@ -29,6 +29,188 @@ flowchart LR
   Explanations --> Reports
 ```
 
+## System Startup
+
+### Local Development Startup
+
+Run these commands from the repository root:
+
+```powershell
+cd D:\Projects\gw2radar
+python -m uvicorn gw2radar.api.main:app --app-dir src --host 127.0.0.1 --port 8000 --reload
+```
+
+If port `8000` is already in use, choose another port:
+
+```powershell
+python -m uvicorn gw2radar.api.main:app --app-dir src --host 127.0.0.1 --port 8001 --reload
+```
+
+Verify the service is running:
+
+```http
+GET http://127.0.0.1:8000/health
+```
+
+Expected response:
+
+```json
+{
+  "status": "ok"
+}
+```
+
+Interactive API documentation is available at:
+
+```text
+http://127.0.0.1:8000/docs
+http://127.0.0.1:8000/redoc
+```
+
+### Development Data Bootstrap
+
+For local development or demos, load the mock graph first:
+
+```http
+POST http://127.0.0.1:8000/mock/load
+```
+
+This initializes a graph with sample entities, relations, player state, evidence, and the default legendary goal. It is the quickest path to try Returner, Legendary, Build Fit, and Market flows without real GW2 account data.
+
+### Database Initialization
+
+The FastAPI app calls `init_db()` during startup and route execution. No separate migration command is required for the current MVP SQLite-backed development flow.
+
+Generated report artifacts are written under:
+
+```text
+outputs/reports/
+```
+
+Generated export packages are written under:
+
+```text
+outputs/
+```
+
+### Real Account Startup Checklist
+
+For real account-backed usage:
+
+1. Start the API server.
+2. Store the GW2 API key through the API, not in source code.
+3. Queue account sync.
+4. Drain one sync job.
+5. Verify sync status.
+
+```http
+PUT  http://127.0.0.1:8000/api/v1/account/api-key
+POST http://127.0.0.1:8000/api/v1/account/sync
+POST http://127.0.0.1:8000/api/v1/account/sync/drain-one
+GET  http://127.0.0.1:8000/api/v1/account/sync/status
+```
+
+The account sync validates token permissions before private endpoint use. Required private data remains in the private player state graph.
+
+## How To Connect And Use
+
+### Client Connection Model
+
+GW2Radar is exposed as a JSON HTTP API. A frontend, script, or automation client should:
+
+1. Call `/health` before workflows.
+2. Call `/mock/load` for local demos or configure real account sync for real users.
+3. Use `/api/v1/...` endpoints for product workflows.
+4. Read returned artifact paths from report jobs.
+5. Fetch generated report artifacts through `/api/v1/reports/artifacts/{artifact_id}` when needed.
+
+### Minimal Demo Flow
+
+This flow proves the system is usable without real account credentials:
+
+```http
+GET  /health
+POST /mock/load
+GET  /goals
+GET  /goals/gw2:goal:aurora/gap
+POST /goals/gw2:goal:aurora/actions/generate
+POST /api/v1/reports/preview
+```
+
+Example preview payload:
+
+```json
+{
+  "goal_id": "gw2:goal:aurora",
+  "report_type": "returner"
+}
+```
+
+### Paid Report Connection Flow
+
+Paid commercial reports use the report product and entitlement layer.
+
+1. List enabled products.
+
+```http
+GET /api/v1/reports/products
+```
+
+2. Complete checkout in the mock growth/payment layer.
+
+```http
+GET  /api/v1/growth/pricing
+POST /api/v1/growth/checkout
+POST /api/v1/growth/checkout/{checkout_session_id}/complete
+```
+
+3. Generate the report through the product-specific route or generic report route.
+
+```http
+POST /api/v1/legendary/report
+POST /api/v1/builds/report
+POST /api/v1/market/report
+POST /api/v1/reports/generate
+```
+
+4. Inspect the job and artifact.
+
+```http
+GET /api/v1/reports/jobs/{job_id}
+GET /api/v1/reports/artifacts/{artifact_id}
+```
+
+The current payment implementation is a mock abstraction for development. It creates entitlements for report generation but does not process real payments.
+
+### External Data Connection Flow
+
+Use acquisition routes for documents, summaries, and source governance:
+
+```http
+POST /api/v1/acquisition/local-pdf/import
+POST /api/v1/acquisition/manual-note/import
+POST /api/v1/acquisition/web-summary/import
+GET  /api/v1/acquisition/evidence-coverage
+GET  /api/v1/acquisition/final-maturity-rollup
+```
+
+Use product-specific structured import routes for commercial data:
+
+```http
+POST /api/v1/builds/import
+POST /api/v1/market/snapshots
+POST /api/v1/market/watchlist
+POST /api/v1/legendary/goals
+```
+
+### Integration Boundaries
+
+- Do not put API keys in source code, request logs, markdown files, or committed fixtures.
+- Do not send copied full-text third-party guides into KB article bodies.
+- Do not use Market Radar outputs for automated trading or guaranteed-profit claims.
+- Do not expose private account state in public KB, public source registry entries, or shared reports.
+- Treat all generated report recommendations as manual player guidance.
+
 ## Shared Data Import Workflow
 
 Use this foundation before running any commercial workflow.
@@ -443,4 +625,3 @@ Required checks:
 | Returner Account Diagnosis | Reduce comeback confusion | Account snapshot, returner KB, goal graph | What to do first, today/week actions, evidence-backed report |
 | Legendary Goal Planning | Reduce long-term legendary planning cost | Goal graph, account materials, legendary KB, optional prices | Missing requirements, do-not-sell, cheap/fast paths, report |
 | Build / Gear Transition Fit | Reduce build selection and conversion cost | Structured build, account gear, build KB, patch freshness | Fit score, reusable/missing gear, transition cost, budget alternative |
-
