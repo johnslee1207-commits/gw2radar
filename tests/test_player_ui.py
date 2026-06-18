@@ -19,6 +19,8 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert "Build Fit Advisor" in response.text
     assert "Privacy & Safety" in response.text
     assert "No gameplay automation" in response.text
+    assert "Workflow readiness" in response.text
+    assert "No dashboard summary yet." in response.text
 
 
 def test_player_ui_static_assets_are_served() -> None:
@@ -32,6 +34,19 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "/api/v1/legendary/recompute" in js.text
     assert "/api/v1/builds/transition-plan" in js.text
     assert "/account/api-key" in js.text
+    assert "gw2radar.player.activeView" in js.text
+    assert "summarizeResult" in js.text
+    assert "artifactPath.split" in js.text
+    assert "Import or select a build before running this action." in js.text
+
+
+def test_player_ui_styles_cover_workflow_and_summaries() -> None:
+    css = client.get("/player-ui/styles.css")
+
+    assert css.status_code == 200
+    assert ".workflow-rail" in css.text
+    assert ".workflow-step.ready" in css.text
+    assert ".result-summary" in css.text
 
 
 def test_player_ui_docs_cover_required_flows() -> None:
@@ -53,3 +68,5 @@ def test_player_ui_docs_cover_required_flows() -> None:
     assert "Build Fit Advisor" in combined
     assert "No automatic trading" in combined
     assert "API key" in combined
+    assert "python -m uvicorn gw2radar.api.main:app --reload" in combined
+    assert "gw2radar.player.activeBuildId" in combined

@@ -10,6 +10,20 @@
 - `Reports`: products, pricing, mock checkout, job lookup, artifact open.
 - `Privacy`: safety boundaries, key deletion, account snapshot deletion.
 
+## Runtime Entry
+
+- API app: `gw2radar.api.main:app`
+- Local server command: `python -m uvicorn gw2radar.api.main:app --reload`
+- Player UI route: `/player`
+- Static asset mount: `/player-ui`
+
+## UI State
+
+- Active view is stored in `localStorage` under `gw2radar.player.activeView`.
+- Last imported build id is stored in `localStorage` under `gw2radar.player.activeBuildId`.
+- API key material is never stored in browser state.
+- Backend deletion controls remain under `Privacy`.
+
 ## Semantic Model
 
 - `Account` provides private state and freshness.

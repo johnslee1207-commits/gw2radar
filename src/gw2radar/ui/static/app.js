@@ -3,6 +3,11 @@ const state = {
   lastCheckoutId: "",
 };
 
+const storageKeys = {
+  activeView: "gw2radar.player.activeView",
+  activeBuildId: "gw2radar.player.activeBuildId",
+};
+
 const outputs = {
   dashboard: document.querySelector("#dashboard-output"),
   connect: document.querySelector("#connect-output"),
@@ -13,6 +18,16 @@ const outputs = {
   privacy: document.querySelector("#privacy-output"),
 };
 
+const summaries = {
+  dashboard: document.querySelector("#dashboard-summary"),
+  connect: document.querySelector("#connect-summary"),
+  returner: document.querySelector("#returner-summary"),
+  legendary: document.querySelector("#legendary-summary"),
+  build: document.querySelector("#build-summary"),
+  reports: document.querySelector("#reports-summary"),
+  privacy: document.querySelector("#privacy-summary"),
+};
+
 function showView(viewId) {
   document.querySelectorAll(".view").forEach((view) => {
     view.classList.toggle("active-view", view.id === viewId);
@@ -20,11 +35,101 @@ function showView(viewId) {
   document.querySelectorAll(".nav-item").forEach((item) => {
     item.classList.toggle("active", item.dataset.view === viewId);
   });
+  localStorage.setItem(storageKeys.activeView, viewId);
 }
 
 function render(target, value) {
   const element = outputs[target] || outputs.dashboard;
   element.textContent = typeof value === "string" ? value : JSON.stringify(value, null, 2);
+}
+
+function renderSummary(target, value) {
+  const element = summaries[target];
+  if (element) {
+    element.textContent = value;
+  }
+}
+
+function markStep(step, label, ready = true) {
+  const stepText = document.querySelector(`#step-${step}`);
+  const stepCard = document.querySelector(`[data-step="${step}"]`);
+  if (stepText) {
+    stepText.textContent = label;
+  }
+  if (stepCard) {
+    stepCard.classList.toggle("ready", ready);
+  }
+}
+
+function summarizeResult(target, payload) {
+  const data = payload?.data || payload;
+  if (target === "dashboard") {
+    return "Dashboard refreshed. Check connection and sync status before acting on account-aware plans.";
+  }
+  if (target === "connect") {
+    return "Connection workflow updated. Run sync before trusting private account state.";
+  }
+  if (target === "returner") {
+    if (Array.isArray(payload)) {
+      return `${payload.length} goals loaded. Pick one goal before generating a short action plan.`;
+    }
+    const missing = data?.missing_requirements?.length;
+    if (typeof missing === "number") {
+      return `${missing} missing requirements found. Treat unknown facts as assumptions.`;
+    }
+    return "Returner output updated. Review assumptions before following the plan.";
+  }
+  if (target === "legendary") {
+    const doNotSell = data?.do_not_sell?.length;
+    if (typeof doNotSell === "number") {
+      return `${doNotSell} do-not-sell entries need manual review before selling materials.`;
+    }
+    if (data?.goal_cost_index) {
+      return "Goal cost index updated from manual price snapshots and current goal gap.";
+    }
+    return "Legendary planning output updated. Market signals are observation-only.";
+  }
+  if (target === "build") {
+    const fit = data?.fit?.score?.score;
+    if (typeof fit === "number") {
+      return `Build fit score is ${Math.round(fit * 100)}%. Review missing gear before converting equipment.`;
+    }
+    if (data?.transition_plan) {
+      return "Transition plan updated with reusable gear, missing gear, and manual budget guidance.";
+    }
+    return "Build workflow updated. Imported build ids are saved locally for this browser.";
+  }
+  if (target === "reports") {
+    if (data?.job) {
+      return "Report job created or loaded. Use the artifact id to open the exported report.";
+    }
+    if (data?.checkout) {
+      return "Mock checkout completed for local entitlement testing.";
+    }
+    return "Report center updated. Products and pricing come from backend configuration.";
+  }
+  if (target === "privacy") {
+    return "Privacy action completed. Recheck key status if you deleted private credentials.";
+  }
+  return "Output updated.";
+}
+
+function captureReportRefs(payload) {
+  const job = payload?.data?.job || payload?.job;
+  const artifactPath = job?.artifact_path || "";
+  const artifactId =
+    job?.artifact_id ||
+    job?.artifact?.artifact_id ||
+    job?.artifacts?.[0]?.artifact_id ||
+    artifactPath.split(/[\\/]/).find((part) => part.startsWith("artifact_"));
+  if (job?.job_id) {
+    document.querySelector("#report-job-id").value = job.job_id;
+    markStep("report", "Report job ready");
+  }
+  if (artifactId) {
+    document.querySelector("#artifact-id").value = artifactId;
+    markStep("report", "Artifact ready");
+  }
 }
 
 async function fetchJson(path, options = {}) {
@@ -47,12 +152,16 @@ async function fetchJson(path, options = {}) {
 
 async function run(target, work) {
   render(target, "Loading...");
+  renderSummary(target, "Working...");
   try {
     const result = await work();
     render(target, result);
+    captureReportRefs(result);
+    renderSummary(target, summarizeResult(target, result));
     return result;
   } catch (error) {
     render(target, `Request failed:\n${error.message}`);
+    renderSummary(target, "The request failed. Check the JSON output for details and try the previous step again.");
     return null;
   }
 }
@@ -63,6 +172,7 @@ function updateStatusFromKey(payload) {
   status.textContent = hasKey ? "Account key stored" : "No API key stored";
   status.className = `status-pill ${hasKey ? "good" : "warn"}`;
   document.querySelector("#metric-connection").textContent = hasKey ? "Connected" : "Not connected";
+  markStep("connect", hasKey ? "Key stored" : "No key stored", hasKey);
 }
 
 function updateStatusFromSync(payload) {
@@ -71,6 +181,7 @@ function updateStatusFromSync(payload) {
   status.textContent = String(label);
   status.className = "status-pill good";
   document.querySelector("#metric-sync").textContent = new Date().toLocaleString();
+  markStep("sync", String(label));
 }
 
 function getNumber(selector) {
@@ -141,6 +252,14 @@ function activeBuildId() {
   return document.querySelector("#active-build-id").value || state.activeBuildId;
 }
 
+function requireActiveBuildId() {
+  const buildId = activeBuildId();
+  if (!buildId) {
+    throw new Error("Import or select a build before running this action.");
+  }
+  return buildId;
+}
+
 const actions = {
   refreshDashboard: () =>
     run("dashboard", async () => {
@@ -186,7 +305,11 @@ const actions = {
   loadGoals: () => run("returner", () => fetchJson("/goals")),
   goalGap: () => run("returner", () => fetchJson("/goals/gw2:goal:aurora/gap")),
   generateActions: () =>
-    run("returner", () => fetchJson("/goals/gw2:goal:aurora/actions/generate", { method: "POST" })),
+    run("returner", async () => {
+      const payload = await fetchJson("/goals/gw2:goal:aurora/actions/generate", { method: "POST" });
+      markStep("plan", "7-day action plan ready");
+      return payload;
+    }),
   kbReport: () => run("returner", () => fetch("/reports/gw2:goal:aurora/markdown/kb").then((r) => r.text())),
   previewReturnerReport: () =>
     run("returner", () =>
@@ -252,6 +375,8 @@ const actions = {
       if (buildId) {
         state.activeBuildId = buildId;
         document.querySelector("#active-build-id").value = buildId;
+        localStorage.setItem(storageKeys.activeBuildId, buildId);
+        markStep("plan", "Build imported");
       }
       return payload;
     }),
@@ -260,22 +385,22 @@ const actions = {
     run("build", () =>
       fetchJson("/api/v1/builds/fit", {
         method: "POST",
-        body: JSON.stringify({ build_id: activeBuildId(), account_gear: accountGearPayload() }),
+        body: JSON.stringify({ build_id: requireActiveBuildId(), account_gear: accountGearPayload() }),
       }),
     ),
   transitionPlan: () =>
     run("build", () =>
       fetchJson("/api/v1/builds/transition-plan", {
         method: "POST",
-        body: JSON.stringify({ build_id: activeBuildId(), account_gear: accountGearPayload() }),
+        body: JSON.stringify({ build_id: requireActiveBuildId(), account_gear: accountGearPayload() }),
       }),
     ),
-  buildFreshness: () => run("build", () => fetchJson(`/api/v1/builds/${encodeURIComponent(activeBuildId())}/patch-freshness`)),
+  buildFreshness: () => run("build", () => fetchJson(`/api/v1/builds/${encodeURIComponent(requireActiveBuildId())}/patch-freshness`)),
   buildReport: () =>
     run("build", () =>
       fetchJson("/api/v1/builds/report", {
         method: "POST",
-        body: JSON.stringify({ build_id: activeBuildId(), account_gear: accountGearPayload(), format: "markdown" }),
+        body: JSON.stringify({ build_id: requireActiveBuildId(), account_gear: accountGearPayload(), format: "markdown" }),
       }),
     ),
   reportProducts: () => run("reports", () => fetchJson("/api/v1/reports/products")),
@@ -337,4 +462,18 @@ document.querySelector('[data-form="apiKey"]').addEventListener("submit", (event
   });
 });
 
+function restoreLocalState() {
+  const savedBuildId = localStorage.getItem(storageKeys.activeBuildId);
+  if (savedBuildId) {
+    state.activeBuildId = savedBuildId;
+    document.querySelector("#active-build-id").value = savedBuildId;
+    markStep("plan", "Previous build restored");
+  }
+  const savedView = localStorage.getItem(storageKeys.activeView);
+  if (savedView && document.querySelector(`#${savedView}`)) {
+    showView(savedView);
+  }
+}
+
+restoreLocalState();
 actions.refreshDashboard();

@@ -207,6 +207,63 @@ label + label {
   white-space: nowrap;
 }
 
+.workflow-rail {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 18px;
+}
+
+.workflow-step {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  grid-template-areas:
+    "index label"
+    "index detail";
+  align-items: center;
+  min-height: 68px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 10px;
+}
+
+.workflow-step span {
+  grid-area: index;
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--surface-soft);
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.workflow-step strong {
+  grid-area: label;
+}
+
+.workflow-step em {
+  grid-area: detail;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflow-step.ready {
+  border-color: rgba(47, 133, 90, 0.35);
+  background: #f2fbf5;
+}
+
+.workflow-step.ready span {
+  background: var(--green);
+  color: #fff;
+}
+
 .status-pill.good {
   border-color: rgba(47, 133, 90, 0.25);
   background: #e9f6ee;
@@ -350,6 +407,16 @@ label + label {
   color: var(--muted);
 }
 
+.result-summary {
+  min-height: 42px;
+  margin: 14px 0 0;
+  border-left: 4px solid var(--teal);
+  border-radius: 6px;
+  background: #eef7f5;
+  color: #1d4f53;
+  padding: 9px 12px;
+}
+
 .form-panel {
   display: grid;
   align-content: start;
@@ -413,7 +480,8 @@ label + label {
 
   .dashboard-grid,
   .two-column,
-  .three-column {
+  .three-column,
+  .workflow-rail {
     grid-template-columns: 1fr;
   }
 
