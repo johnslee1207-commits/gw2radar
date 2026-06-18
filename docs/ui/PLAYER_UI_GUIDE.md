@@ -41,6 +41,7 @@ For local development without a real GW2 API key, open `Connect` and use `Load d
 
 The API key is cleared from the browser input after submission. The backend status endpoint never returns the raw key.
 The permission inspection endpoint returns only token metadata, granted permissions, missing permissions, feature impact, and safety boundaries. It never returns the raw key.
+The sync status expands the account job into endpoint-level progress for account profile, characters, wallet, materials, bank, and achievements.
 
 ## State Recovery
 
@@ -54,13 +55,32 @@ It does not store the GW2 API key. Deleting browser storage only resets UI conve
 ## Daily Use
 
 1. Review `Today’s Best Actions`.
-2. Use `Returner` to inspect goal gaps and a short action plan.
-3. Use `Legendary` before selling materials.
-4. Use `Build Fit` before converting gear.
-5. Use `Freshness` before following account-aware or market-aware advice.
-6. Use `Reports` to preview, unlock, retrieve artifacts, and reopen local report history.
+2. Review `This Week` actions and source confidence before committing to longer routes.
+3. Use `Returner` to inspect goal gaps, a short action plan, preview, and full report export.
+4. Use `Legendary` before selling materials.
+5. Use `Build Fit` before converting gear.
+6. Use `Freshness` before following account-aware or market-aware advice.
+7. Use `Reports` to preview, unlock, retrieve artifacts, and reopen local report history.
 
 Each workflow displays a short result summary above the raw JSON output. The summary is for navigation only; the raw JSON and generated report remain the authoritative output.
+
+## Legendary Goal Choices
+
+The Legendary view can load the player-facing goal catalog:
+
+- Aurora
+- Vision
+- Conflux
+- Ad Infinitum
+- Legendary Weapon
+- Legendary Armor
+- Custom Goal
+
+Use `Today / this week` after loading or adding goals to compare cheap, fast, and balanced routes.
+
+## Freshness And Confidence
+
+Dashboard, Freshness, preview reports, and full reports expose source confidence annotations. Treat stale account snapshots, manual market snapshots, old build sources, or unreviewed knowledge rules as manual-review signals.
 
 ## Data Management
 

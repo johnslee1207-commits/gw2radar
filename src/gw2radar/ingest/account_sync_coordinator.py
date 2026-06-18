@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from gw2radar.db.refresh_queue_repository import RefreshQueueRepository
 from gw2radar.graph.graph_query import GraphData
 from gw2radar.ingest.account_snapshot_sync import sync_account_snapshot
+from gw2radar.ingest.endpoint_schema import endpoint_schema
 from gw2radar.ingest.gw2_api_gateway import Gw2ApiGateway
 from gw2radar.ingest.permission_validator import validate_endpoint_permissions
 from gw2radar.ingest.refresh_queue import (
@@ -26,6 +27,15 @@ ACCOUNT_SYNC_ENDPOINTS = (
     "/v2/account/bank",
     "/v2/account/achievements",
 )
+
+ENDPOINT_LABELS = {
+    "/v2/account": "Account profile",
+    "/v2/characters": "Characters",
+    "/v2/account/wallet": "Wallet currencies",
+    "/v2/account/materials": "Materials",
+    "/v2/account/bank": "Bank",
+    "/v2/account/achievements": "Achievements",
+}
 
 
 @dataclass
@@ -58,6 +68,7 @@ class AccountSyncCoordinator:
             "task_id": item.id,
             "task_type": item.task_type.value,
             "masked_key": EncryptedApiKeyStore(self.session).status().masked_key,
+            "endpoint_progress": self._endpoint_progress("queued", token_permissions=set(tokeninfo.get("permissions", []))),
         }
 
     def status(self) -> dict:
@@ -73,9 +84,11 @@ class AccountSyncCoordinator:
             counts[status.value] = len(items)
             tasks.extend(items)
         latest = sorted(tasks, key=lambda item: item.created_at, reverse=True)[:5]
+        latest_status = latest[0].status.value if latest else "not_started"
         return {
             "status": "ok",
             "counts": counts,
+            "endpoint_progress": self._endpoint_progress(latest_status),
             "latest": [
                 {
                     "task_id": item.id,
@@ -107,16 +120,57 @@ class AccountSyncCoordinator:
         if result["status"] == "synced":
             self.graph_saver(graph)
             repo.mark_done(task.id)
-            return {**result, "status": "succeeded", "task_id": task.id}
+            return {**result, "status": "succeeded", "task_id": task.id, "endpoint_progress": self._endpoint_progress("succeeded")}
         repo.mark_retry(
             task.id,
             error_code="refresh_pending",
             error_message="Account sync returned refresh_pending.",
         )
-        return {"status": "delayed", "task_id": task.id, **result}
+        return {"status": "delayed", "task_id": task.id, **result, "endpoint_progress": self._endpoint_progress("delayed")}
 
     def _require_api_key(self) -> str:
         api_key = EncryptedApiKeyStore(self.session).get()
         if not api_key:
             raise ValueError("API key is not configured.")
         return api_key
+
+    def _endpoint_progress(self, status: str, token_permissions: set[str] | None = None) -> list[dict]:
+        normalized = {
+            "queued": "queued",
+            "processing": "syncing",
+            "succeeded": "succeeded",
+            "failed": "needs_review",
+            "retry_scheduled": "delayed",
+            "not_started": "not_started",
+            "delayed": "delayed",
+        }.get(status, status)
+        progress = []
+        for endpoint in ACCOUNT_SYNC_ENDPOINTS:
+            required = endpoint_schema(endpoint).required_permissions
+            missing = sorted(set(required).difference(token_permissions or set())) if token_permissions is not None else []
+            endpoint_status = "blocked" if missing else normalized
+            progress.append(
+                {
+                    "endpoint": endpoint,
+                    "label": ENDPOINT_LABELS[endpoint],
+                    "required_permissions": required,
+                    "missing_permissions": missing,
+                    "status": endpoint_status,
+                    "player_message": _player_sync_message(endpoint_status, ENDPOINT_LABELS[endpoint]),
+                }
+            )
+        return progress
+
+
+def _player_sync_message(status: str, label: str) -> str:
+    if status == "succeeded":
+        return f"{label} synced into the private account layer."
+    if status == "queued":
+        return f"{label} is queued for the next account sync worker."
+    if status == "syncing":
+        return f"{label} is currently being refreshed."
+    if status == "blocked":
+        return f"{label} is blocked by missing API key permissions."
+    if status == "delayed":
+        return f"{label} is delayed and should be retried later."
+    return f"{label} has not started."

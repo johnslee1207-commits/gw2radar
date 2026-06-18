@@ -108,6 +108,56 @@ def render_returner_readiness_markdown(report: ReturnerReadinessReport) -> str:
     return "\n".join(lines) + "\n"
 
 
+def render_returner_full_report_markdown(report: ReturnerReadinessReport) -> str:
+    low_dimensions = [dimension for dimension in report.dimensions if dimension.score < 60]
+    blockers = sorted({blocker for dimension in report.dimensions for blocker in dimension.blockers})
+    lines = [
+        "# Returner Full Recovery Report",
+        "",
+        "## One-Line Conclusion",
+        f"- {report.overall_status}: recover account basics before expensive or high-pressure goals.",
+        "",
+        "## Overall Returner Status",
+        f"- Score: {report.overall_score}/100",
+        f"- Status: {report.overall_status}",
+        "",
+        "## What You Should Do First",
+        *[f"- {item}" for item in report.what_to_do_first],
+        "",
+        "## Your Strongest Ready Character",
+        "- Needs Build Fit confirmation; current returner graph does not claim an absolute best character.",
+        "",
+        "## Missing Unlocks And Blockers",
+        *([f"- {item}" for item in blockers] or ["- No concrete blocker beyond assumptions is modeled."]),
+        "",
+        "## Recommended 7-Day Plan",
+        *[f"- Day {index}: {item}" for index, item in enumerate(report.what_to_do_first + report.safe_goals_to_start, start=1)],
+        "",
+        "## Recommended 30-Day Plan",
+        "- Week 1: restore basic travel, build, and active-goal context.",
+        "- Week 2: clear low-risk collection or achievement blockers.",
+        "- Week 3: refresh market and do-not-sell context before major spending.",
+        "- Week 4: generate updated reports after patch and account refresh.",
+        "",
+        "## Goals To Delay",
+        *[f"- {item}" for item in report.goals_to_delay],
+        "",
+        "## Safe Goals To Start",
+        *[f"- {item}" for item in report.safe_goals_to_start],
+        "",
+        "## Evidence & Data Freshness",
+        f"- {report.data_freshness}",
+        *[f"- Low dimension: {dimension.label} ({dimension.score}/100)" for dimension in low_dimensions],
+        "",
+        "## Safety Boundaries",
+        *[f"- {item}" for item in report.safety_boundaries],
+        "",
+        "## Assumptions",
+        *[f"- {item}" for item in report.assumptions],
+    ]
+    return "\n".join(lines) + "\n"
+
+
 def _travel_dimension(graph: GraphData) -> ReadinessDimension:
     has_private_state = bool(graph.player_state)
     score = 58 if has_private_state else 35

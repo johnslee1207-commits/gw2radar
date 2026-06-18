@@ -199,6 +199,7 @@ DEFAULT_PAGES = [
 ]
 
 DEFAULT_PLANS = [
+    ("plan_returner_once", "Returner Full Recovery Report", "returner_full_report", 1000, BillingInterval.ONE_TIME),
     ("plan_legendary_once", "Legendary Planner Pro Report", "legendary_planner_pro_report", 1500, BillingInterval.ONE_TIME),
     ("plan_build_fit_once", "Build Fit Report", "build_fit_report", 1200, BillingInterval.ONE_TIME),
     ("plan_market_once", "Market Snapshot Report", "market_snapshot_report", 700, BillingInterval.ONE_TIME),

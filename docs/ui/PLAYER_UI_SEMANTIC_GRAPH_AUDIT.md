@@ -13,7 +13,9 @@ graph TD
   Connect --> AccountKey["API Key Status"]
   Connect --> PermissionInspection["Permission Inspection"]
   Connect --> AccountSync["Account Sync"]
+  AccountSync --> EndpointProgress["Endpoint Progress"]
   AccountSync --> Dashboard["Dashboard"]
+  Dashboard --> BestActions["Account-Aware Best Actions"]
   Dashboard --> Returner["Returner Diagnosis"]
   Returner --> ReturnerReadiness["Returner Readiness Score"]
   Dashboard --> Legendary["Legendary Planner Pro"]
@@ -24,8 +26,11 @@ graph TD
   Legendary --> ReportCenter
   BuildFit --> ReportCenter
   Legendary --> DoNotSell["Do-Not-Sell"]
+  Legendary --> LegendaryGoalCatalog["Legendary Goal Catalog"]
+  Legendary --> LegendaryWeeklyRoute["Today / This Week Route"]
   BuildFit --> GearTransition["Gear Transition"]
   Freshness --> SafetyBoundary["Manual Review Boundary"]
+  Freshness --> SourceConfidence["Source Confidence Annotations"]
   Privacy["Privacy & Safety"] --> DeleteKey["Delete API Key"]
   Privacy --> DeleteSnapshot["Delete Account Snapshot"]
   Privacy --> DeleteAllPrivate["Delete All Private Data"]
@@ -38,15 +43,17 @@ graph TD
 | PlayerIntent | Welcome intent buttons | Browser local UI state | Implemented |
 | AccountConnection | Connect key form and key status | `/account/api-key`, `/api/v1/security/api-key/status` | Implemented |
 | PermissionInspection | Connect permission status grid | `/account/api-key/permissions` | Implemented |
-| AccountSync | Sync controls and checklist | `/api/v1/account/sync` | Implemented |
-| DashboardAction | Today actions and opportunity cards | Static UI plus existing goal/build/market APIs | Partial |
+| AccountSync | Sync controls and endpoint checklist | `/api/v1/account/sync` endpoint progress | Implemented |
+| DashboardAction | Today and this-week account-aware actions | `/api/v1/player/dashboard` | Implemented |
 | ReturnerDiagnosis | Returner view | `/goals`, `/goals/{goal_id}/gap`, actions, preview | Implemented |
 | ReturnerReadiness | Returner score cards | `/api/v1/returner/readiness` | Implemented |
 | LegendaryPlanning | Legendary view | `/api/v1/legendary/*`, `/api/v1/market/*` | Implemented |
+| LegendaryGoalCatalog | Goal select with seven player-guide choices | `/api/v1/legendary/goals/catalog` | Implemented |
+| LegendaryWeeklyRoute | Today and this-week route comparison | `/api/v1/legendary/actions` | Implemented |
 | BuildFit | Build Fit view | `/api/v1/builds/*` | Implemented |
 | CharacterSnapshot | Build Fit character snapshot selector | `/api/v1/builds/character-snapshots` | Implemented |
 | ReportArtifact | Reports view | `/api/v1/reports/*`, local report history | Implemented |
-| FreshnessSignal | Freshness view and dashboard card | Sync status, market patch freshness, build freshness | Partial |
+| FreshnessSignal | Freshness view, dashboard card, and source confidence annotations | `/api/v1/player/freshness-annotations` plus report artifacts | Implemented |
 | PrivacyControl | Privacy view | `/account/*`, `/api/v1/security/private-data` | Implemented |
 
 ## Guide Checklist
@@ -56,18 +63,18 @@ graph TD
 | P0 Welcome page | `Welcome` view with player intent choices | Complete |
 | P0 API key connect page | `Connect` view with key form and safety notes | Complete |
 | P0 Permission check page | Required/optional chips, permission inspection action, granted/missing status, and limited-mode feature impacts | Complete |
-| P0 Account sync progress | Sync controls and progress checklist | Partial; checklist is state-level, not per-endpoint progress |
+| P0 Account sync progress | Sync controls and endpoint-level progress for account, characters, wallet, materials, bank, and achievements | Complete |
 | P0 Dashboard | Account status, actions, opportunity cards, do-not-sell warning | Complete |
 | P1 Returner onboarding questions | Last played and interest controls | Complete |
 | P1 Account readiness score | Travel, combat, progression, legendary, and group PvE score cards | Complete |
-| P1 What to do first | Today actions and generated action plan | Partial |
+| P1 What to do first | Account-aware dashboard best actions plus generated action plan | Complete |
 | P1 7-day recovery plan | `7-day action plan` action | Complete |
 | P1 Report preview | `Generate preview` action | Complete |
-| P2 Goal selection | Aurora goal select | Partial; more goal types remain future work |
+| P2 Goal selection | Aurora, Vision, Conflux, Ad Infinitum, Legendary Weapon, Legendary Armor, and Custom Goal catalog | Complete |
 | P2 Portfolio view | Load portfolio action | Complete |
 | P2 Missing requirements | Goal gap and recompute output | Complete |
 | P2 Do-not-sell list | Do-not-sell action and dashboard warning | Complete |
-| P2 Today / this week actions | Today actions present; this-week plan not modeled separately | Partial |
+| P2 Today / this week actions | Legendary action plan exposes today actions, this-week actions, and route comparison | Complete |
 | P2 Route comparison | Cheap/fast path action | Complete |
 | P3 Build import | Manual structured build import | Complete |
 | P3 Character selection | Manual sample character snapshots plus manual fields mode | Complete |
@@ -77,10 +84,10 @@ graph TD
 | P3 Budget alternative | Transition plan output | Complete |
 | P3 Patch freshness warning | Patch freshness action | Complete |
 | P4 Free preview | Returner report preview | Complete |
-| P4 Full report generation | Legendary and build report generation | Partial; returner full report remains product-driven |
+| P4 Full report generation | Returner, Legendary, and Build full report generation through entitlement-gated artifacts | Complete |
 | P4 Previous reports | Local report history | Complete |
 | P4 Download/export | Artifact open action | Complete |
-| P4 Data freshness annotations | Freshness view and summaries | Partial |
+| P4 Data freshness annotations | Recommendation-level source confidence appears in dashboard, freshness view, preview, and full reports | Complete |
 | P5 API key safety page | Privacy page and connect notes | Complete |
 | P5 Delete API key | Delete key action | Complete |
 | P5 Delete account snapshot | Delete snapshot action | Complete |
@@ -89,8 +96,8 @@ graph TD
 
 ## Maturity Summary
 
-- Complete: 26 guide items.
-- Partial: 6 guide items.
+- Complete: 32 guide items.
+- Partial: 0 guide items.
 - Missing: 0 guide items.
 
-The largest remaining semantic gaps are now depth gaps rather than missing workflow nodes: per-endpoint sync progress, broader legendary goal selection, returner full report product wiring, and replacing manual sample character snapshots with synced official character equipment when that private data path is available.
+All player-guide checklist items are now implemented at MVP depth. Remaining post-MVP depth improvements are qualitative rather than checklist gaps: richer official character equipment sync beyond manual sample snapshots, more domain-specific requirements for every seeded legendary goal, and front-end polish for long-running sync worker timelines.

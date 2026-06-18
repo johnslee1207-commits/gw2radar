@@ -69,8 +69,11 @@ def test_account_sync_enqueue_status_and_no_key_leakage() -> None:
         assert response.status_code == 200
         assert response.json()["status"] == "queued"
         assert response.json()["task_type"] == "account_snapshot_sync"
+        assert len(response.json()["endpoint_progress"]) == 6
+        assert {item["status"] for item in response.json()["endpoint_progress"]} == {"queued"}
         assert raw_key not in str(response.json())
         assert status.json()["counts"]["queued"] == 1
+        assert len(status.json()["endpoint_progress"]) == 6
         assert raw_key not in str(status.json())
     finally:
         _teardown_temp_api(temp_dir, original_factory)
@@ -103,7 +106,9 @@ def test_account_sync_drain_one_persists_private_layer_snapshot() -> None:
         assert drained.status_code == 200
         assert drained.json()["status"] == "succeeded"
         assert drained.json()["updated_player_state"] == 5
+        assert {item["status"] for item in drained.json()["endpoint_progress"]} == {"succeeded"}
         assert status.json()["counts"]["succeeded"] == 1
+        assert {item["status"] for item in status.json()["endpoint_progress"]} == {"succeeded"}
 
         state.reset_cached_graph()
         graph = state.get_graph()

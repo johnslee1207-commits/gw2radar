@@ -41,5 +41,6 @@ def test_paid_report_full_generates_markdown_and_manifest() -> None:
         assert manifest.exists()
         assert "Missing Requirements" in artifact.read_text(encoding="utf-8")
         assert "no API keys" in artifact.read_text(encoding="utf-8")
+        assert "Data Freshness & Source Confidence" in artifact.read_text(encoding="utf-8")
     finally:
         close_database()

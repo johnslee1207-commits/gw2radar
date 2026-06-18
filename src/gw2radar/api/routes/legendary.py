@@ -7,8 +7,10 @@ from gw2radar.commercial.legendary_planner import (
     DEFAULT_USER_ID,
     LegendaryGoalInput,
     add_legendary_goal,
+    build_legendary_action_plan,
     ensure_default_portfolio,
     get_portfolio,
+    list_legendary_goal_catalog,
     recompute_legendary_plan,
     render_legendary_planner_report,
 )
@@ -41,6 +43,13 @@ def post_legendary_goal(request: LegendaryGoalInput) -> ApiDataEnvelope:
     return ApiDataEnvelope(data={"goal": goal.model_dump(mode="json")})
 
 
+@router.get("/goals/catalog", response_model=ApiDataEnvelope)
+def get_legendary_goal_catalog() -> ApiDataEnvelope:
+    graph = get_graph()
+    catalog = [item.model_dump(mode="json") for item in list_legendary_goal_catalog(graph)]
+    return ApiDataEnvelope(data={"goals": catalog})
+
+
 @router.get("/portfolio", response_model=ApiDataEnvelope)
 def get_legendary_portfolio() -> ApiDataEnvelope:
     graph = get_graph()
@@ -57,6 +66,15 @@ def post_legendary_recompute() -> ApiDataEnvelope:
     with db_session.SessionLocal() as session:
         result = recompute_legendary_plan(session, graph, user_id=DEFAULT_USER_ID)
     return ApiDataEnvelope(data={"planner": result.model_dump(mode="json")})
+
+
+@router.get("/actions", response_model=ApiDataEnvelope)
+def get_legendary_actions() -> ApiDataEnvelope:
+    graph = get_graph()
+    init_db()
+    with db_session.SessionLocal() as session:
+        result = recompute_legendary_plan(session, graph, user_id=DEFAULT_USER_ID)
+    return ApiDataEnvelope(data={"action_plan": build_legendary_action_plan(result).model_dump(mode="json")})
 
 
 @router.get("/do-not-sell", response_model=ApiDataEnvelope)

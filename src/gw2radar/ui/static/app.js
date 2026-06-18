@@ -94,9 +94,26 @@ function markStep(step, label, ready = true) {
   }
 }
 
+function renderActionList(selector, actions) {
+  const list = document.querySelector(selector);
+  if (!list || !Array.isArray(actions)) {
+    return;
+  }
+  list.innerHTML = "";
+  for (const action of actions) {
+    const item = document.createElement("li");
+    item.textContent = action.reason ? `${action.title} - ${action.reason}` : action.title;
+    list.appendChild(item);
+  }
+}
+
 function summarizeResult(target, payload) {
   const data = payload?.data || payload;
   if (target === "dashboard") {
+    if (data?.dashboard) {
+      const count = data.dashboard.today_best_actions?.length || 0;
+      return `${count} account-aware best actions loaded with freshness annotations.`;
+    }
     return "Dashboard refreshed. Check connection and sync status before acting on account-aware plans.";
   }
   if (target === "welcome") {
@@ -124,6 +141,12 @@ function summarizeResult(target, payload) {
     return "Returner output updated. Review assumptions before following the plan.";
   }
   if (target === "legendary") {
+    if (data?.action_plan) {
+      return "Legendary today and this-week route loaded with cheap, fast, and balanced path context.";
+    }
+    if (data?.goals) {
+      return `${data.goals.length} legendary goal choices loaded. Add the goals you want to compare.`;
+    }
     const doNotSell = data?.do_not_sell?.length;
     if (typeof doNotSell === "number") {
       return `${doNotSell} do-not-sell entries need manual review before selling materials.`;
@@ -246,6 +269,11 @@ function updateStatusFromKey(payload) {
   markStep("connect", hasKey ? "Key stored" : "No key stored", hasKey);
 }
 
+function renderDashboardPlan(plan) {
+  renderActionList("#dashboard-today-actions", plan?.today_best_actions || []);
+  renderActionList("#dashboard-week-actions", plan?.this_week_actions || []);
+}
+
 function renderPermissionReport(report) {
   const grid = document.querySelector("#permission-status-grid");
   if (!grid || !report) {
@@ -281,6 +309,36 @@ function renderPermissionReport(report) {
   }
 }
 
+function renderSyncProgress(progress) {
+  if (!Array.isArray(progress)) {
+    return;
+  }
+  const idByEndpoint = {
+    "/v2/account": "sync-profile",
+    "/v2/characters": "sync-characters",
+    "/v2/account/wallet": "sync-wallet",
+    "/v2/account/materials": "sync-materials",
+    "/v2/account/bank": "sync-bank",
+    "/v2/account/achievements": "sync-achievements",
+  };
+  for (const item of progress) {
+    const element = document.querySelector(`#${idByEndpoint[item.endpoint]}`);
+    if (!element) {
+      continue;
+    }
+    const status = item.status || "not_started";
+    element.textContent = `${item.label}: ${status}`;
+    element.className = "";
+    if (["succeeded", "queued", "syncing"].includes(status)) {
+      element.classList.add("ready");
+    }
+    if (["delayed", "needs_review", "blocked"].includes(status)) {
+      element.classList.add(status);
+    }
+    element.title = item.player_message || "";
+  }
+}
+
 function updateStatusFromSync(payload) {
   const status = document.querySelector("#sync-status");
   const label = payload?.status || payload?.queue_status || "Sync status updated";
@@ -289,7 +347,7 @@ function updateStatusFromSync(payload) {
   document.querySelector("#metric-sync").textContent = new Date().toLocaleString();
   document.querySelector("#freshness-account").textContent = "Checked just now";
   document.querySelector("#freshness-account-card").textContent = `Account sync state checked: ${label}`;
-  document.querySelectorAll(".sync-checklist span").forEach((item) => item.classList.add("ready"));
+  renderSyncProgress(payload?.endpoint_progress || payload?.data?.endpoint_progress || []);
   markStep("sync", String(label));
 }
 
@@ -374,6 +432,42 @@ function renderCharacterSnapshots(snapshots) {
   }
 }
 
+function renderLegendaryGoalCatalog(goals) {
+  const select = document.querySelector("#legendary-goal");
+  if (!select || !Array.isArray(goals)) {
+    return;
+  }
+  select.innerHTML = "";
+  for (const goal of goals) {
+    const option = document.createElement("option");
+    option.value = goal.graph_goal_id;
+    option.textContent = `${goal.display_name} (${goal.goal_type})`;
+    select.appendChild(option);
+  }
+}
+
+function renderFreshnessAnnotations(annotations) {
+  const grid = document.querySelector("#freshness-annotation-grid");
+  if (!grid || !Array.isArray(annotations)) {
+    return;
+  }
+  grid.innerHTML = "";
+  for (const annotation of annotations) {
+    const card = document.createElement("article");
+    const title = document.createElement("strong");
+    const status = document.createElement("span");
+    const message = document.createElement("span");
+    const refresh = document.createElement("span");
+    card.className = "freshness-annotation";
+    title.textContent = `${annotation.subject}: ${annotation.status}`;
+    status.textContent = `Confidence: ${annotation.source_confidence}`;
+    message.textContent = annotation.player_message;
+    refresh.textContent = `Refresh: ${annotation.next_refresh_action}`;
+    card.append(title, status, message, refresh);
+    grid.appendChild(card);
+  }
+}
+
 function applyAccountGearSnapshot(snapshot, accountGear) {
   state.selectedAccountGear = accountGear;
   document.querySelector("#build-profession").value = accountGear.profession || "";
@@ -438,7 +532,10 @@ const actions = {
       updateStatusFromKey(key);
       const sync = await fetchJson("/api/v1/account/sync/status");
       updateStatusFromSync(sync);
-      return { account: key, sync };
+      const dashboard = await fetchJson("/api/v1/player/dashboard");
+      renderDashboardPlan(dashboard?.data?.dashboard || {});
+      renderFreshnessAnnotations(dashboard?.data?.dashboard?.data_freshness || []);
+      return { account: key, sync, dashboard };
     }),
   apiKeyStatus: () =>
     run("connect", async () => {
@@ -507,6 +604,13 @@ const actions = {
     }),
   returnerReadinessExport: () =>
     run("returner", () => fetch("/api/v1/returner/readiness/export?goal_id=gw2:goal:aurora").then((r) => r.text())),
+  returnerFullReport: () =>
+    run("returner", () =>
+      fetchJson("/api/v1/returner/report", {
+        method: "POST",
+        body: JSON.stringify({ goal_id: "gw2:goal:aurora", format: "markdown" }),
+      }),
+    ),
   goalGap: () => run("returner", () => fetchJson("/goals/gw2:goal:aurora/gap")),
   generateActions: () =>
     run("returner", async () => {
@@ -532,7 +636,14 @@ const actions = {
         }),
       }),
     ),
+  legendaryGoalCatalog: () =>
+    run("legendary", async () => {
+      const payload = await fetchJson("/api/v1/legendary/goals/catalog");
+      renderLegendaryGoalCatalog(payload?.data?.goals || []);
+      return payload;
+    }),
   legendaryPortfolio: () => run("legendary", () => fetchJson("/api/v1/legendary/portfolio")),
+  legendaryActions: () => run("legendary", () => fetchJson("/api/v1/legendary/actions")),
   legendaryRecompute: () => run("legendary", () => fetchJson("/api/v1/legendary/recompute", { method: "POST" })),
   legendaryDoNotSell: () => run("legendary", () => fetchJson("/api/v1/legendary/do-not-sell")),
   legendaryReport: () =>
@@ -641,6 +752,19 @@ const actions = {
       const completed = await fetchJson(`/api/v1/growth/checkout/${state.lastCheckoutId}/complete`, { method: "POST" });
       return { checkout: payload, completed };
     }),
+  checkoutReturner: () =>
+    run("reports", async () => {
+      const payload = await fetchJson("/api/v1/growth/checkout", {
+        method: "POST",
+        body: JSON.stringify({ plan_id: "plan_returner_once", user_id: "local-user" }),
+      });
+      state.lastCheckoutId = payload?.data?.checkout?.checkout_session_id || "";
+      if (!state.lastCheckoutId) {
+        return payload;
+      }
+      const completed = await fetchJson(`/api/v1/growth/checkout/${state.lastCheckoutId}/complete`, { method: "POST" });
+      return { checkout: payload, completed };
+    }),
   reportJob: () => {
     const jobId = document.querySelector("#report-job-id").value;
     return run("reports", () => fetchJson(`/api/v1/reports/jobs/${encodeURIComponent(jobId)}`));
@@ -659,10 +783,13 @@ const actions = {
     run("freshness", async () => {
       const sync = await fetchJson("/api/v1/account/sync/status");
       const market = await fetchJson("/api/v1/market/patch-freshness");
+      const annotations = await fetchJson("/api/v1/player/freshness-annotations");
       updateStatusFromSync(sync);
+      renderFreshnessAnnotations(annotations?.data?.annotations || []);
       return {
         account_snapshot: sync,
         market_patch_freshness: market,
+        freshness_annotations: annotations,
         build_sources: "Check per imported build.",
         knowledge_rules: "Reviewed enabled rules only.",
         boundary: "Planning guidance only; refresh stale data before manual action.",

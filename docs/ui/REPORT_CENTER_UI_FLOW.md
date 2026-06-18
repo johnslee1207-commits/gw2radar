@@ -19,3 +19,4 @@ A player wants a durable artifact after previewing or unlocking a report.
 - Products and pricing come from backend configuration.
 - Mock checkout is only a development payment abstraction.
 - Report jobs preserve product id, goal id, format, and artifact references.
+- Preview and full report artifacts include data freshness and source confidence annotations.

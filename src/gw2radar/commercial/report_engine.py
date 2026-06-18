@@ -14,6 +14,7 @@ from gw2radar.inference.goal_gap import calculate_goal_gap
 from gw2radar.kb.kb_models import KnowledgeReviewStatus, KnowledgeRule
 from gw2radar.kb.kb_report_quality import score_kb_report_quality
 from gw2radar.kb.patch_rule_audit import build_patch_rule_audit_manifest
+from gw2radar.commercial.player_intelligence import render_freshness_markdown
 from gw2radar.reports.markdown_report import generate_kb_backed_markdown_report, generate_markdown_report
 from gw2radar.security.log_sanitizer import sanitize_log_payload
 
@@ -82,6 +83,13 @@ DEFAULT_PRODUCTS = [
         report_type="returner",
         tier=ReportTier.FREE,
         price_cents=0,
+    ),
+    ReportProduct(
+        product_id="returner_full_report",
+        name="Returner Full Recovery Report",
+        report_type="returner_full",
+        tier=ReportTier.PAID_ONCE,
+        price_cents=1000,
     ),
     ReportProduct(
         product_id="legendary_gap_report",
@@ -309,6 +317,8 @@ def _render_preview_markdown(graph: GraphData, goal_id: str, report_type: str) -
     lines.extend(
         [
             "",
+            render_freshness_markdown(graph).rstrip(),
+            "",
             "## Paid Detail Boundary",
             "- Full missing-material tables, complete do-not-sell policy, and export artifacts require a full report entitlement.",
             "- No API keys or unredacted private payloads are included.",
@@ -335,6 +345,8 @@ def _render_full_markdown(
         f"Knowledge-backed explanations: {str(knowledge_backed).lower()}",
         "",
         "Privacy boundary: no API keys, no unredacted private payloads, and recommendations require manual player action.",
+        "",
+        render_freshness_markdown(graph).rstrip(),
         "",
     ]
     return "\n".join(header) + base_report

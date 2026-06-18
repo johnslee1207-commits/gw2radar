@@ -125,11 +125,15 @@
                 <span class="marker amber"></span>
                 <h3>Today’s Best Actions</h3>
               </div>
-              <ol class="action-list">
+              <ol class="action-list" id="dashboard-today-actions">
                 <li>Connect a read-only GW2 API key, then run account sync.</li>
                 <li>Open Returner Diagnosis to see readiness and blocked goals.</li>
                 <li>Review Legendary do-not-sell before selling materials.</li>
                 <li>Import a build before committing gear conversion cost.</li>
+              </ol>
+              <h3>This week</h3>
+              <ol class="action-list" id="dashboard-week-actions">
+                <li>Refresh the dashboard to load account-aware weekly actions.</li>
               </ol>
             </article>
             <article class="panel">
@@ -221,7 +225,8 @@
                 <span id="sync-characters">Characters</span>
                 <span id="sync-wallet">Wallet</span>
                 <span id="sync-materials">Materials</span>
-                <span id="sync-equipment">Equipment and builds</span>
+                <span id="sync-bank">Bank</span>
+                <span id="sync-achievements">Achievements</span>
               </div>
               <div class="button-grid">
                 <button data-action="apiKeyStatus">Check key status</button>
@@ -248,6 +253,7 @@
               <button data-action="returnerReadiness">Readiness score</button>
               <button data-action="returnerReadinessExport">Export readiness</button>
               <button data-action="previewReturnerReport">Generate preview</button>
+              <button data-action="returnerFullReport">Generate full report</button>
             </div>
           </div>
           <div class="readiness-grid" aria-label="Returner readiness scores">
@@ -338,8 +344,10 @@
                 <input id="legendary-priority" type="number" min="1" max="9" value="1" />
               </label>
               <div class="button-grid">
+                <button data-action="legendaryGoalCatalog">Load goal catalog</button>
                 <button data-action="addLegendaryGoal">Add goal</button>
                 <button data-action="legendaryPortfolio">Load portfolio</button>
+                <button data-action="legendaryActions">Today / this week</button>
                 <button data-action="legendaryRecompute">Cheap/fast path</button>
                 <button data-action="legendaryDoNotSell">Do-not-sell</button>
               </div>
@@ -422,6 +430,7 @@
               <div class="button-grid">
                 <button data-action="reportProducts">Products</button>
                 <button data-action="pricingPlans">Pricing</button>
+                <button data-action="checkoutReturner">Mock returner checkout</button>
                 <button data-action="checkoutLegendary">Mock checkout</button>
               </div>
             </article>
@@ -474,6 +483,9 @@
               <h3>Confidence Boundary</h3>
               <p class="freshness-value">Fresh data supports planning, not automation or guaranteed outcomes.</p>
             </article>
+          </div>
+          <div class="freshness-annotation-grid" id="freshness-annotation-grid" aria-live="polite">
+            Refresh freshness to load recommendation-level source confidence.
           </div>
           <div class="result-summary" id="freshness-summary">No freshness check yet.</div>
           <pre id="freshness-output" class="json-output" aria-live="polite">Freshness output appears here.</pre>

@@ -573,10 +573,48 @@ label + label {
   color: #22543d;
 }
 
+.sync-checklist span.delayed,
+.sync-checklist span.needs_review,
+.sync-checklist span.blocked {
+  border-color: rgba(183, 121, 31, 0.32);
+  background: #fff8e6;
+  color: #744210;
+}
+
+.sync-checklist span.blocked {
+  border-color: rgba(184, 50, 50, 0.32);
+  background: #fff0f0;
+  color: #742a2a;
+}
+
 .freshness-value {
   min-height: 72px;
   margin: 0;
   color: var(--muted);
+}
+
+.freshness-annotation-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.freshness-annotation {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 12px;
+}
+
+.freshness-annotation strong,
+.freshness-annotation span {
+  display: block;
+}
+
+.freshness-annotation span {
+  color: var(--muted);
+  font-size: 0.86rem;
 }
 
 .gear-summary {
@@ -664,6 +702,7 @@ label + label {
   .goal-choice-grid,
   .permission-grid,
   .permission-status,
+  .freshness-annotation-grid,
   .sync-checklist {
     grid-template-columns: 1fr;
     justify-content: stretch;

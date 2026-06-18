@@ -14,6 +14,7 @@ def test_free_report_preview_hides_paid_only_detail() -> None:
 
     assert "GW2Radar Free Report Preview" in preview_text
     assert "Top Recommendations" in preview_text
+    assert "Data Freshness & Source Confidence" in preview_text
     assert "Missing Requirements" not in preview_text
     assert "Full missing-material tables" in preview_text
     assert Path(str(preview["manifest_path"])).exists()

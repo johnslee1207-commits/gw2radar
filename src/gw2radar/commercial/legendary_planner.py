@@ -11,10 +11,22 @@ from gw2radar.graph.graph_query import GraphData
 from gw2radar.inference.goal_gap import calculate_goal_gap
 from gw2radar.ontology.action_types import ActionType
 from gw2radar.ontology.entity_types import EntityType
+from gw2radar.ontology.graph_layers import GraphLayer
+from gw2radar.ontology.relation_types import RelationType
+from gw2radar.ontology.schemas import Entity, Relation
 
 
 DEFAULT_USER_ID = "local-user"
 DEFAULT_PORTFOLIO_ID = "portfolio_local_user_default"
+LEGENDARY_GOAL_CATALOG = [
+    ("gw2:goal:aurora", "Aurora", "legendary_trinket", "Core Living World trinket goal."),
+    ("gw2:goal:vision", "Vision", "legendary_trinket", "Living World trinket goal with collection and currency planning."),
+    ("gw2:goal:conflux", "Conflux", "legendary_ring", "WvW legendary ring planning placeholder."),
+    ("gw2:goal:ad_infinitum", "Ad Infinitum", "legendary_back", "Fractal legendary back item planning placeholder."),
+    ("gw2:goal:legendary_weapon", "Legendary Weapon", "legendary_weapon", "Generic legendary weapon planning template."),
+    ("gw2:goal:legendary_armor", "Legendary Armor", "legendary_armor", "Generic legendary armor planning template."),
+    ("gw2:goal:custom", "Custom Goal", "custom_legendary", "Custom player-defined legendary-style planning template."),
+]
 
 
 class LegendaryPathType(StrEnum):
@@ -25,6 +37,15 @@ class LegendaryPathType(StrEnum):
 class LegendaryGoalInput(BaseModel):
     graph_goal_id: str = "gw2:goal:aurora"
     priority: int = 100
+
+
+class LegendaryGoalCatalogItem(BaseModel):
+    graph_goal_id: str
+    display_name: str
+    goal_type: str
+    description: str
+    available: bool
+    source: str
 
 
 class LegendaryGoalRecord(BaseModel):
@@ -109,7 +130,70 @@ class LegendaryPlannerResult(BaseModel):
     evidence_refs: list[str]
 
 
+class LegendaryActionPlan(BaseModel):
+    schema_version: str = "gw2radar.legendary_action_plan.v1"
+    today_actions: list[str]
+    this_week_actions: list[str]
+    route_comparison: dict[str, list[str]]
+    freshness_annotations: list[str]
+    safety_boundaries: list[str]
+
+
+def ensure_legendary_goal_catalog(graph: GraphData) -> None:
+    evidence_id = next(iter(graph.evidence.keys()), "catalog:legendary:v1")
+    base_requirements = _catalog_requirements(graph)
+    for index, (goal_id, name, goal_type, _description) in enumerate(LEGENDARY_GOAL_CATALOG):
+        if goal_id not in graph.entities:
+            graph.add_entity(
+                Entity(
+                    id=goal_id,
+                    type=EntityType.GOAL,
+                    canonical_name=name,
+                    graph_layer=GraphLayer.PUBLIC_GAME,
+                    properties={
+                        "goal_type": goal_type,
+                        "requirements": base_requirements,
+                        "catalog_seed": True,
+                    },
+                )
+            )
+        for requirement in base_requirements:
+            relation_id = f"rel:{goal_id}:requires:{requirement['entity_id']}"
+            if any(relation.id == relation_id for relation in graph.relations):
+                continue
+            graph.add_relation(
+                Relation(
+                    id=relation_id,
+                    subject_id=goal_id,
+                    predicate=RelationType.REQUIRES,
+                    object_id=requirement["entity_id"],
+                    graph_layer=GraphLayer.PUBLIC_GAME,
+                    properties={
+                        "required_quantity": max(float(requirement["required_quantity"]) - (index * 5), 1),
+                        "requirement_type": requirement["type"],
+                    },
+                    evidence_id=evidence_id,
+                )
+            )
+
+
+def list_legendary_goal_catalog(graph: GraphData) -> list[LegendaryGoalCatalogItem]:
+    ensure_legendary_goal_catalog(graph)
+    return [
+        LegendaryGoalCatalogItem(
+            graph_goal_id=goal_id,
+            display_name=name,
+            goal_type=goal_type,
+            description=description,
+            available=goal_id in graph.entities,
+            source="graph" if not graph.entities[goal_id].properties.get("catalog_seed") else "catalog_seed",
+        )
+        for goal_id, name, goal_type, description in LEGENDARY_GOAL_CATALOG
+    ]
+
+
 def ensure_default_portfolio(session: Session, graph: GraphData, user_id: str = DEFAULT_USER_ID) -> GoalPortfolio:
+    ensure_legendary_goal_catalog(graph)
     portfolio = session.get(GoalPortfolioModel, DEFAULT_PORTFOLIO_ID)
     if portfolio is None:
         portfolio = GoalPortfolioModel(
@@ -136,6 +220,7 @@ def add_legendary_goal(
     user_id: str = DEFAULT_USER_ID,
     priority: int = 100,
 ) -> LegendaryGoalRecord:
+    ensure_legendary_goal_catalog(graph)
     if graph_goal_id not in graph.entities:
         raise ValueError("Goal not found.")
     portfolio = session.get(GoalPortfolioModel, DEFAULT_PORTFOLIO_ID)
@@ -206,6 +291,7 @@ def get_portfolio(session: Session, user_id: str = DEFAULT_USER_ID) -> GoalPortf
 
 
 def recompute_legendary_plan(session: Session, graph: GraphData, user_id: str = DEFAULT_USER_ID) -> LegendaryPlannerResult:
+    ensure_legendary_goal_catalog(graph)
     portfolio = ensure_default_portfolio(session, graph, user_id=user_id)
     goals = sorted(portfolio.goals, key=lambda goal: goal.priority)
     requirement_index: dict[str, dict] = {}
@@ -276,6 +362,29 @@ def recompute_legendary_plan(session: Session, graph: GraphData, user_id: str = 
     )
 
 
+def build_legendary_action_plan(result: LegendaryPlannerResult) -> LegendaryActionPlan:
+    cheap = [f"{step.name}: {step.rationale}" for step in result.cheap_path]
+    fast = [f"{step.name}: {step.rationale}" for step in result.fast_path]
+    return LegendaryActionPlan(
+        today_actions=result.daily_route[:3],
+        this_week_actions=result.weekly_route[:7],
+        route_comparison={
+            "cheapest_path": cheap,
+            "fastest_path": fast,
+            "balanced_path": (cheap[:2] + fast[:2]) or ["No balanced route available from current evidence."],
+        },
+        freshness_annotations=[
+            "Account snapshot must be refreshed before expensive spending.",
+            "Market snapshots are observation-only and should be refreshed manually.",
+            "Knowledge rules and patch notes should be reviewed before route changes.",
+        ],
+        safety_boundaries=[
+            "No automatic trading or guaranteed-profit advice.",
+            "All actions require manual player execution.",
+        ],
+    )
+
+
 def render_legendary_planner_report(result: LegendaryPlannerResult) -> str:
     lines = [
         "# Legendary Planner Pro Report",
@@ -309,10 +418,35 @@ def render_legendary_planner_report(result: LegendaryPlannerResult) -> str:
         "",
         "## Evidence Notes",
         f"- Evidence refs: {', '.join(result.evidence_refs) if result.evidence_refs else 'none'}",
+        "- Data freshness: refresh account and market snapshots before costly manual decisions.",
+        "- Source confidence: account facts, public goal graph, and reviewed rules are shown separately where available.",
         "- Recommendations are informational only and require manual player action.",
         "- No gameplay automation, no automated trading, and no guaranteed-profit language.",
     ]
     return "\n".join(lines) + "\n"
+
+
+def _catalog_requirements(graph: GraphData) -> list[dict]:
+    aurora = graph.entities.get("gw2:goal:aurora")
+    requirements = list((aurora.properties.get("requirements") if aurora else None) or [])
+    if requirements:
+        return requirements
+    fallback = []
+    for entity_id in (
+        "gw2:item:mystic_coin",
+        "gw2:item:mystic_clover",
+        "gw2:item:glob_of_ectoplasm",
+        "gw2:currency:unbound_magic",
+    ):
+        if entity_id in graph.entities:
+            fallback.append(
+                {
+                    "entity_id": entity_id,
+                    "type": graph.entities[entity_id].type.value,
+                    "required_quantity": 1,
+                }
+            )
+    return fallback
 
 
 def _infer_time_gates(graph: GraphData, requirement_index: dict[str, dict]) -> list[TimeGate]:
