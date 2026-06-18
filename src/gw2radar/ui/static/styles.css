@@ -435,6 +435,73 @@ label + label {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.goal-choice-grid,
+.permission-grid,
+.sync-checklist {
+  display: grid;
+  gap: 8px;
+}
+
+.goal-choice-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.goal-choice {
+  min-height: 58px;
+  border-color: var(--line);
+  background: var(--surface-soft);
+  color: var(--ink);
+  text-align: left;
+}
+
+.goal-choice:hover {
+  border-color: var(--teal);
+}
+
+.permission-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.permission-grid span,
+.sync-checklist span {
+  min-height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-soft);
+  color: var(--muted);
+  padding: 6px 8px;
+  font-size: 0.86rem;
+}
+
+.permission-grid span::before,
+.sync-checklist span::before {
+  content: "check ";
+  color: var(--green);
+  font-weight: 800;
+}
+
+.permission-grid .optional-permission::before {
+  content: "optional ";
+  color: var(--amber);
+}
+
+.sync-checklist {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 12px;
+}
+
+.sync-checklist span.ready {
+  border-color: rgba(47, 133, 90, 0.35);
+  background: #edf8f0;
+  color: #22543d;
+}
+
+.freshness-value {
+  min-height: 72px;
+  margin: 0;
+  color: var(--muted);
+}
+
 .secondary-action {
   border-color: var(--line);
   background: var(--surface);
@@ -506,7 +573,10 @@ label + label {
   .status-strip,
   .button-row,
   .button-grid,
-  .nav-list {
+  .nav-list,
+  .goal-choice-grid,
+  .permission-grid,
+  .sync-checklist {
     grid-template-columns: 1fr;
     justify-content: stretch;
   }

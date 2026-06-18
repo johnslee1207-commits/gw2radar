@@ -1,32 +1,63 @@
 const state = {
   activeBuildId: "",
   lastCheckoutId: "",
+  playerIntent: "",
 };
 
 const storageKeys = {
   activeView: "gw2radar.player.activeView",
   activeBuildId: "gw2radar.player.activeBuildId",
+  playerIntent: "gw2radar.player.intent",
+  reportHistory: "gw2radar.player.reportHistory",
 };
 
 const outputs = {
+  welcome: document.querySelector("#dashboard-output"),
   dashboard: document.querySelector("#dashboard-output"),
   connect: document.querySelector("#connect-output"),
   returner: document.querySelector("#returner-output"),
   legendary: document.querySelector("#legendary-output"),
   build: document.querySelector("#build-output"),
   reports: document.querySelector("#reports-output"),
+  freshness: document.querySelector("#freshness-output"),
   privacy: document.querySelector("#privacy-output"),
 };
 
 const summaries = {
+  welcome: document.querySelector("#welcome-summary"),
   dashboard: document.querySelector("#dashboard-summary"),
   connect: document.querySelector("#connect-summary"),
   returner: document.querySelector("#returner-summary"),
   legendary: document.querySelector("#legendary-summary"),
   build: document.querySelector("#build-summary"),
   reports: document.querySelector("#reports-summary"),
+  freshness: document.querySelector("#freshness-summary"),
   privacy: document.querySelector("#privacy-summary"),
 };
+
+function readStorage(key, fallback = "") {
+  try {
+    return localStorage.getItem(key) || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeStorage(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // Local UI state is optional; backend data is unaffected.
+  }
+}
+
+function removeStorage(key) {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // Ignore unavailable browser storage.
+  }
+}
 
 function showView(viewId) {
   document.querySelectorAll(".view").forEach((view) => {
@@ -35,7 +66,7 @@ function showView(viewId) {
   document.querySelectorAll(".nav-item").forEach((item) => {
     item.classList.toggle("active", item.dataset.view === viewId);
   });
-  localStorage.setItem(storageKeys.activeView, viewId);
+  writeStorage(storageKeys.activeView, viewId);
 }
 
 function render(target, value) {
@@ -65,6 +96,9 @@ function summarizeResult(target, payload) {
   const data = payload?.data || payload;
   if (target === "dashboard") {
     return "Dashboard refreshed. Check connection and sync status before acting on account-aware plans.";
+  }
+  if (target === "welcome") {
+    return "Player intent selected. Connect and sync before trusting account-aware recommendations.";
   }
   if (target === "connect") {
     return "Connection workflow updated. Run sync before trusting private account state.";
@@ -108,6 +142,9 @@ function summarizeResult(target, payload) {
     }
     return "Report center updated. Products and pricing come from backend configuration.";
   }
+  if (target === "freshness") {
+    return "Freshness state refreshed. Stale data means recommendations need manual review.";
+  }
   if (target === "privacy") {
     return "Privacy action completed. Recheck key status if you deleted private credentials.";
   }
@@ -130,6 +167,30 @@ function captureReportRefs(payload) {
     document.querySelector("#artifact-id").value = artifactId;
     markStep("report", "Artifact ready");
   }
+  if (job?.job_id || artifactId) {
+    addReportHistory({
+      job_id: job?.job_id || "",
+      artifact_id: artifactId || "",
+      report_type: job?.report_type || "unknown",
+      format: job?.format || "unknown",
+      captured_at: new Date().toISOString(),
+    });
+  }
+}
+
+function reportHistory() {
+  const raw = readStorage(storageKeys.reportHistory, "[]");
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function addReportHistory(entry) {
+  const history = [entry, ...reportHistory()].slice(0, 12);
+  writeStorage(storageKeys.reportHistory, JSON.stringify(history));
 }
 
 async function fetchJson(path, options = {}) {
@@ -181,6 +242,9 @@ function updateStatusFromSync(payload) {
   status.textContent = String(label);
   status.className = "status-pill good";
   document.querySelector("#metric-sync").textContent = new Date().toLocaleString();
+  document.querySelector("#freshness-account").textContent = "Checked just now";
+  document.querySelector("#freshness-account-card").textContent = `Account sync state checked: ${label}`;
+  document.querySelectorAll(".sync-checklist span").forEach((item) => item.classList.add("ready"));
   markStep("sync", String(label));
 }
 
@@ -261,6 +325,16 @@ function requireActiveBuildId() {
 }
 
 const actions = {
+  startWithDashboard: () => {
+    showView("dashboard");
+    renderSummary("welcome", "Dashboard opened. Connect and sync if this is your first session.");
+  },
+  selectIntent: (intent) => {
+    state.playerIntent = intent;
+    writeStorage(storageKeys.playerIntent, intent);
+    renderSummary("welcome", `Selected intent: ${intent}.`);
+    markStep("plan", `Intent: ${intent}`);
+  },
   refreshDashboard: () =>
     run("dashboard", async () => {
       const key = await fetchJson("/account/api-key/status");
@@ -283,6 +357,23 @@ const actions = {
     }),
   deleteSnapshot: () =>
     run("privacy", () => fetchJson("/account/snapshot", { method: "DELETE" })),
+  deleteAllPrivateData: () =>
+    run("privacy", async () => {
+      const payload = await fetchJson("/api/v1/security/private-data", {
+        method: "DELETE",
+        body: JSON.stringify({
+          delete_api_key: true,
+          delete_account_snapshot: true,
+          delete_private_player_state: true,
+          delete_personal_intelligence: true,
+          delete_exports: true,
+        }),
+      });
+      updateStatusFromKey({ has_key: false });
+      removeStorage(storageKeys.activeBuildId);
+      removeStorage(storageKeys.reportHistory);
+      return payload;
+    }),
   enqueueSync: () =>
     run("connect", async () => {
       const payload = await fetchJson("/api/v1/account/sync", { method: "POST" });
@@ -422,6 +513,29 @@ const actions = {
     const jobId = document.querySelector("#report-job-id").value;
     return run("reports", () => fetchJson(`/api/v1/reports/jobs/${encodeURIComponent(jobId)}`));
   },
+  showReportHistory: () =>
+    run("reports", async () => ({
+      report_history: reportHistory(),
+      note: "Stored locally in this browser for convenience only.",
+    })),
+  clearReportHistory: () =>
+    run("reports", async () => {
+      removeStorage(storageKeys.reportHistory);
+      return { status: "cleared", report_history: [] };
+    }),
+  refreshFreshness: () =>
+    run("freshness", async () => {
+      const sync = await fetchJson("/api/v1/account/sync/status");
+      const market = await fetchJson("/api/v1/market/patch-freshness");
+      updateStatusFromSync(sync);
+      return {
+        account_snapshot: sync,
+        market_patch_freshness: market,
+        build_sources: "Check per imported build.",
+        knowledge_rules: "Reviewed enabled rules only.",
+        boundary: "Planning guidance only; refresh stale data before manual action.",
+      };
+    }),
   openArtifact: () => {
     const artifactId = document.querySelector("#artifact-id").value;
     if (artifactId) {
@@ -435,7 +549,12 @@ document.querySelectorAll(".nav-item").forEach((button) => {
 });
 
 document.querySelectorAll("[data-view-link]").forEach((card) => {
-  card.addEventListener("click", () => showView(card.dataset.viewLink));
+  card.addEventListener("click", () => {
+    if (card.dataset.intent) {
+      actions.selectIntent(card.dataset.intent);
+    }
+    showView(card.dataset.viewLink);
+  });
 });
 
 document.querySelectorAll("[data-action]").forEach((button) => {
@@ -463,13 +582,18 @@ document.querySelector('[data-form="apiKey"]').addEventListener("submit", (event
 });
 
 function restoreLocalState() {
-  const savedBuildId = localStorage.getItem(storageKeys.activeBuildId);
+  const savedIntent = readStorage(storageKeys.playerIntent);
+  if (savedIntent) {
+    state.playerIntent = savedIntent;
+    renderSummary("welcome", `Restored intent: ${savedIntent}.`);
+  }
+  const savedBuildId = readStorage(storageKeys.activeBuildId);
   if (savedBuildId) {
     state.activeBuildId = savedBuildId;
     document.querySelector("#active-build-id").value = savedBuildId;
     markStep("plan", "Previous build restored");
   }
-  const savedView = localStorage.getItem(storageKeys.activeView);
+  const savedView = readStorage(storageKeys.activeView);
   if (savedView && document.querySelector(`#${savedView}`)) {
     showView(savedView);
   }

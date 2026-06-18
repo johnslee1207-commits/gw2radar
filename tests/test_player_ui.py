@@ -14,13 +14,16 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert response.status_code == 200
     assert "text/html" in response.headers["content-type"]
     assert "GW2Radar Player Dashboard" in response.text
+    assert "Welcome to GW2Radar" in response.text
     assert "Returner Diagnosis" in response.text
     assert "Legendary Planner Pro" in response.text
     assert "Build Fit Advisor" in response.text
+    assert "Data Freshness" in response.text
     assert "Privacy & Safety" in response.text
     assert "No gameplay automation" in response.text
     assert "Workflow readiness" in response.text
     assert "No dashboard summary yet." in response.text
+    assert "Delete all private data" in response.text
 
 
 def test_player_ui_static_assets_are_served() -> None:
@@ -38,6 +41,10 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "summarizeResult" in js.text
     assert "artifactPath.split" in js.text
     assert "Import or select a build before running this action." in js.text
+    assert "gw2radar.player.intent" in js.text
+    assert "gw2radar.player.reportHistory" in js.text
+    assert "/api/v1/security/private-data" in js.text
+    assert "refreshFreshness" in js.text
 
 
 def test_player_ui_styles_cover_workflow_and_summaries() -> None:
@@ -47,6 +54,9 @@ def test_player_ui_styles_cover_workflow_and_summaries() -> None:
     assert ".workflow-rail" in css.text
     assert ".workflow-step.ready" in css.text
     assert ".result-summary" in css.text
+    assert ".goal-choice-grid" in css.text
+    assert ".permission-grid" in css.text
+    assert ".sync-checklist" in css.text
 
 
 def test_player_ui_docs_cover_required_flows() -> None:
@@ -59,6 +69,7 @@ def test_player_ui_docs_cover_required_flows() -> None:
         "BUILD_FIT_UI_FLOW.md",
         "REPORT_CENTER_UI_FLOW.md",
         "PRIVACY_SAFETY_UI_FLOW.md",
+        "PLAYER_UI_SEMANTIC_GRAPH_AUDIT.md",
     ]
 
     combined = "\n".join((docs_root / name).read_text(encoding="utf-8") for name in required)
@@ -70,3 +81,6 @@ def test_player_ui_docs_cover_required_flows() -> None:
     assert "API key" in combined
     assert "python -m uvicorn gw2radar.api.main:app --reload" in combined
     assert "gw2radar.player.activeBuildId" in combined
+    assert "PlayerIntent" in combined
+    assert "FreshnessSignal" in combined
+    assert "Delete all private data" in combined

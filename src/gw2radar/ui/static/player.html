@@ -17,12 +17,14 @@
           </div>
         </div>
         <nav class="nav-list">
-          <button class="nav-item active" data-view="dashboard">Dashboard</button>
+          <button class="nav-item active" data-view="welcome">Welcome</button>
+          <button class="nav-item" data-view="dashboard">Dashboard</button>
           <button class="nav-item" data-view="connect">Connect</button>
           <button class="nav-item" data-view="returner">Returner</button>
           <button class="nav-item" data-view="legendary">Legendary</button>
           <button class="nav-item" data-view="build">Build Fit</button>
           <button class="nav-item" data-view="reports">Reports</button>
+          <button class="nav-item" data-view="freshness">Freshness</button>
           <button class="nav-item" data-view="privacy">Privacy</button>
         </nav>
         <div class="safety-note">
@@ -66,7 +68,50 @@
           </div>
         </section>
 
-        <section id="dashboard" class="view active-view" aria-labelledby="dashboard-title">
+        <section id="welcome" class="view active-view" aria-labelledby="welcome-title">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Start here</p>
+              <h2 id="welcome-title">Welcome to GW2Radar</h2>
+            </div>
+            <button data-action="startWithDashboard">Enter dashboard</button>
+          </div>
+          <div class="dashboard-grid">
+            <article class="panel priority-panel">
+              <h3>What do you want to solve today?</h3>
+              <div class="goal-choice-grid" role="group" aria-label="Player intent">
+                <button class="goal-choice" data-intent="returner" data-view-link="returner">I am returning after a break</button>
+                <button class="goal-choice" data-intent="legendary" data-view-link="legendary">I am planning a legendary</button>
+                <button class="goal-choice" data-intent="build" data-view-link="build">I want to switch builds</button>
+                <button class="goal-choice" data-intent="dashboard" data-view-link="dashboard">I only want account status</button>
+              </div>
+            </article>
+            <article class="panel">
+              <h3>Safe account connection</h3>
+              <ul class="plain-list">
+                <li>Official GW2 API only.</li>
+                <li>No game login.</li>
+                <li>No character control.</li>
+                <li>No crafting, trading, or chat automation.</li>
+              </ul>
+            </article>
+            <article class="panel">
+              <h3>Best starting path</h3>
+              <ol class="action-list">
+                <li>Connect account.</li>
+                <li>Run sync.</li>
+                <li>Check freshness.</li>
+                <li>Generate the right report.</li>
+              </ol>
+            </article>
+            <article class="panel wide">
+              <h3>Current intent</h3>
+              <div class="result-summary" id="welcome-summary">No player intent selected yet.</div>
+            </article>
+          </div>
+        </section>
+
+        <section id="dashboard" class="view" aria-labelledby="dashboard-title">
           <div class="section-head">
             <div>
               <p class="eyebrow">Today</p>
@@ -99,6 +144,18 @@
                 <div><dt>Safety</dt><dd>Private data stays in local private layer</dd></div>
               </dl>
             </article>
+            <article class="panel">
+              <div class="panel-title">
+                <span class="marker amber"></span>
+                <h3>Data Freshness</h3>
+              </div>
+              <dl class="metric-list">
+                <div><dt>Account snapshot</dt><dd id="freshness-account">Unknown</dd></div>
+                <div><dt>Market prices</dt><dd id="freshness-market">Manual snapshots</dd></div>
+                <div><dt>Build sources</dt><dd id="freshness-build">Needs review</dd></div>
+                <div><dt>Knowledge rules</dt><dd id="freshness-kb">Reviewed rules only</dd></div>
+              </dl>
+            </article>
             <article class="opportunity-card" data-view-link="returner">
               <span class="card-kicker">Opportunity 1</span>
               <h3>Returner Diagnosis</h3>
@@ -114,7 +171,7 @@
               <h3>Build Fit Advisor</h3>
               <p>Check if your account can play a build, what gear is reusable, and the transition budget.</p>
             </article>
-            <article class="panel wide">
+            <article class="panel">
               <div class="panel-title">
                 <span class="marker red"></span>
                 <h3>Do-not-sell warning</h3>
@@ -137,6 +194,15 @@
             <form class="panel form-panel" data-form="apiKey">
               <h3>GW2 API key</h3>
               <p class="subtle">Use account, inventories, characters, wallet, and progression permissions where possible. The key is submitted once and cleared from this screen.</p>
+              <div class="permission-grid" aria-label="Required permissions">
+                <span>account</span>
+                <span>characters</span>
+                <span>inventories</span>
+                <span>wallet</span>
+                <span>progression</span>
+                <span class="optional-permission">unlocks</span>
+                <span class="optional-permission">builds</span>
+              </div>
               <label>API key
                 <input id="api-key-input" type="password" autocomplete="off" placeholder="Paste GW2 API key" />
               </label>
@@ -147,6 +213,13 @@
             </form>
             <article class="panel">
               <h3>Sync controls</h3>
+              <div class="sync-checklist" aria-label="Sync progress">
+                <span id="sync-profile">Account profile</span>
+                <span id="sync-characters">Characters</span>
+                <span id="sync-wallet">Wallet</span>
+                <span id="sync-materials">Materials</span>
+                <span id="sync-equipment">Equipment and builds</span>
+              </div>
               <div class="button-grid">
                 <button data-action="apiKeyStatus">Check key status</button>
                 <button data-action="enqueueSync">Queue sync</button>
@@ -316,11 +389,51 @@
               <div class="button-grid">
                 <button data-action="reportJob">Job status</button>
                 <button data-action="openArtifact">Open artifact</button>
+                <button data-action="showReportHistory">Previous reports</button>
+                <button class="secondary-action" data-action="clearReportHistory">Clear local history</button>
               </div>
             </article>
           </div>
           <div class="result-summary" id="reports-summary">No report summary yet.</div>
           <pre id="reports-output" class="json-output tall" aria-live="polite">Report center output appears here.</pre>
+        </section>
+
+        <section id="freshness" class="view" aria-labelledby="freshness-title">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Trust signal</p>
+              <h2 id="freshness-title">Data Freshness</h2>
+            </div>
+            <button data-action="refreshFreshness">Refresh freshness</button>
+          </div>
+          <div class="dashboard-grid">
+            <article class="panel">
+              <h3>Account Snapshot</h3>
+              <p class="freshness-value" id="freshness-account-card">Unknown until sync status is checked.</p>
+            </article>
+            <article class="panel">
+              <h3>Market Prices</h3>
+              <p class="freshness-value">Manual snapshots only; verify before purchases or sales.</p>
+            </article>
+            <article class="panel">
+              <h3>Build Sources</h3>
+              <p class="freshness-value">Patch freshness warnings appear after build import.</p>
+            </article>
+            <article class="panel">
+              <h3>Patch Notes</h3>
+              <p class="freshness-value">Reviewed KB and patch rules can explain recommendation changes.</p>
+            </article>
+            <article class="panel">
+              <h3>Knowledge Rules</h3>
+              <p class="freshness-value">Enabled reviewed rules only; unreviewed rules should not drive high-priority actions.</p>
+            </article>
+            <article class="panel">
+              <h3>Confidence Boundary</h3>
+              <p class="freshness-value">Fresh data supports planning, not automation or guaranteed outcomes.</p>
+            </article>
+          </div>
+          <div class="result-summary" id="freshness-summary">No freshness check yet.</div>
+          <pre id="freshness-output" class="json-output" aria-live="polite">Freshness output appears here.</pre>
         </section>
 
         <section id="privacy" class="view" aria-labelledby="privacy-title">
@@ -343,7 +456,9 @@
               <h3>Player safety boundaries</h3>
               <ul class="plain-list">
                 <li>No automatic gameplay inputs.</li>
+                <li>No game memory reading or game file modification.</li>
                 <li>No automatic buy, sell, listing, or order placement.</li>
+                <li>No crafting or chat automation.</li>
                 <li>No guaranteed profit or absolute meta claims.</li>
               </ul>
             </article>
@@ -352,6 +467,7 @@
               <div class="button-row">
                 <button class="danger-action" data-action="deleteApiKey">Delete API key</button>
                 <button class="danger-action" data-action="deleteSnapshot">Delete account snapshot</button>
+                <button class="danger-action" data-action="deleteAllPrivateData">Delete all private data</button>
                 <button data-action="apiKeyStatus">Check remaining key status</button>
               </div>
               <pre id="privacy-output" class="json-output" aria-live="polite">Privacy action output appears here.</pre>
