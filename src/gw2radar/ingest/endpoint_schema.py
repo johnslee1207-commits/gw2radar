@@ -59,6 +59,12 @@ ENDPOINT_SCHEMAS: dict[str, Gw2EndpointSchema] = {
         supports_batch=True,
         ttl_seconds=72 * 60 * 60,
     ),
+    "/v2/itemstats": Gw2EndpointSchema(
+        endpoint="/v2/itemstats",
+        kind=Gw2EndpointKind.PUBLIC,
+        supports_batch=True,
+        ttl_seconds=72 * 60 * 60,
+    ),
     "/v2/achievements": Gw2EndpointSchema(
         endpoint="/v2/achievements",
         kind=Gw2EndpointKind.PUBLIC,

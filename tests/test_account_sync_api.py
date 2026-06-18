@@ -23,10 +23,15 @@ class AccountSyncGateway:
             "profession": "Mesmer",
             "level": 80,
             "equipment": [
-                {"id": 1001, "slot": "Coat", "name": "Synced Berserker Chest", "stat_combo": "Berserker"},
-                {"id": 1002, "slot": "WeaponA1", "name": "Synced Berserker Dagger", "stat_combo": "Berserker"},
+                {"id": 1001, "slot": "Coat", "stats": {"id": 161}},
+                {"id": 1002, "slot": "WeaponA1", "stats": {"id": 161}},
             ],
         },
+        "/v2/items": [
+            {"id": 1001, "name": "Synced Berserker Chest"},
+            {"id": 1002, "name": "Synced Berserker Dagger"},
+        ],
+        "/v2/itemstats": [{"id": 161, "name": "Berserker"}],
         "/v2/account/wallet": [{"id": 1, "value": 42}],
         "/v2/account/materials": [{"id": 19721, "count": 7}],
         "/v2/account/bank": [{"id": 19722, "count": 2}],
@@ -45,6 +50,17 @@ class AccountSyncGateway:
             endpoint=endpoint,
             request_id=f"req:{endpoint}",
             payload=self.payloads[endpoint],
+            evidence_id=f"evidence:{endpoint}",
+        )
+
+    def get_batch(self, endpoint, ids, *, params=None, api_key=None, priority="P3"):
+        wanted = set(ids)
+        payload = [row for row in self.payloads[endpoint] if row["id"] in wanted]
+        return GatewayResult(
+            status=GatewayStatus.OK,
+            endpoint=endpoint,
+            request_id=f"req:{endpoint}",
+            payload=payload,
             evidence_id=f"evidence:{endpoint}",
         )
 
@@ -125,7 +141,13 @@ def test_account_sync_drain_one_persists_private_layer_snapshot() -> None:
         assert graph.entities["gw2:character:Hero One"].type == EntityType.CHARACTER
         assert graph.entities["gw2:character:Hero One"].graph_layer == GraphLayer.PRIVATE_PLAYER_STATE
         assert graph.entities["gw2:character:Hero One"].properties["profession"] == "Mesmer"
-        assert graph.entities["gw2:character:Hero One"].properties["equipment"]
+        equipment = graph.entities["gw2:character:Hero One"].properties["equipment"]
+        assert equipment
+        assert equipment[0]["item_name"] == "Synced Berserker Chest"
+        assert equipment[0]["stat_combo"] == "Berserker"
+        assert equipment[0]["metadata_sources"] == ["official_items", "official_itemstats"]
+        assert graph.entities["gw2:item:1001"].canonical_name == "Synced Berserker Chest"
+        assert graph.entities["gw2:item:1001"].properties["stat_combo"] == "Berserker"
         assert all(player_state.graph_layer == GraphLayer.PRIVATE_PLAYER_STATE for player_state in graph.player_state)
         assert all(
             relation.graph_layer == GraphLayer.PRIVATE_PLAYER_STATE
@@ -137,6 +159,11 @@ def test_account_sync_drain_one_persists_private_layer_snapshot() -> None:
         assert snapshots.status_code == 200
         assert snapshots.json()["data"]["snapshots"][0]["source"] == "synced_official_api"
         assert snapshots.json()["data"]["snapshots"][0]["character_name"] == "Hero One"
+        snapshot_id = snapshots.json()["data"]["snapshots"][0]["snapshot_id"]
+        account_gear = client.get(f"/api/v1/builds/character-snapshots/{snapshot_id}/account-gear")
+        assert account_gear.status_code == 200
+        assert account_gear.json()["data"]["account_gear"]["gear"][0]["item_name"] == "Synced Berserker Chest"
+        assert account_gear.json()["data"]["account_gear"]["gear"][0]["stat_combo"] == "Berserker"
     finally:
         _teardown_temp_api(temp_dir, original_factory)
 

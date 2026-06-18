@@ -36,11 +36,12 @@ def sync_account_snapshot(graph: GraphData, gateway: Gw2ApiGateway, *, api_key: 
     for name in characters.payload:
         entity_id = f"gw2:character:{name}"
         detail = _fetch_character_detail(gateway, str(name), api_key)
-        properties = _character_properties(detail) if detail else {"sync_detail_status": "name_only"}
+        equipment_metadata = _fetch_equipment_metadata(gateway, detail) if detail else _empty_equipment_metadata()
+        properties = _character_properties(detail, equipment_metadata) if detail else {"sync_detail_status": "name_only"}
         _ensure_entity(graph, entity_id, EntityType.CHARACTER, str(name), GraphLayer.PRIVATE_PLAYER_STATE, properties)
         _add_private_state(graph, account_id, entity_id, 1.0, "characters")
         if detail:
-            _add_character_equipment_state(graph, account_id, entity_id, detail)
+            _add_character_equipment_state(graph, account_id, entity_id, detail, equipment_metadata)
         count += 1
     for entry in wallet.payload:
         entity_id = f"gw2:currency:{entry['id']}"
@@ -131,32 +132,61 @@ def _fetch_character_detail(gateway: Gw2ApiGateway, character_name: str, api_key
     return result.payload if result.status == GatewayStatus.OK and isinstance(result.payload, dict) else None
 
 
-def _character_properties(detail: dict) -> dict:
+def _character_properties(detail: dict, equipment_metadata: dict[str, dict[int, dict]]) -> dict:
     return {
         "profession": detail.get("profession"),
         "level": detail.get("level"),
         "race": detail.get("race"),
         "gender": detail.get("gender"),
-        "equipment": [_equipment_properties(item) for item in detail.get("equipment", []) if isinstance(item, dict)],
+        "equipment": [
+            _equipment_properties(item, equipment_metadata)
+            for item in detail.get("equipment", [])
+            if isinstance(item, dict)
+        ],
         "sync_detail_status": "detail_synced",
     }
 
 
-def _equipment_properties(item: dict) -> dict:
+def _equipment_properties(item: dict, equipment_metadata: dict[str, dict[int, dict]] | None = None) -> dict:
+    equipment_metadata = equipment_metadata or _empty_equipment_metadata()
     stats = item.get("stats") if isinstance(item.get("stats"), dict) else {}
+    item_id = item.get("id")
+    stat_id = stats.get("id")
+    official_item = _metadata_entry(equipment_metadata.get("items", {}), item_id)
+    official_stat = _metadata_entry(equipment_metadata.get("itemstats", {}), stat_id)
+    item_name = item.get("name") or official_item.get("name") or f"Item {item.get('id', 'unknown')}"
+    stat_combo = (
+        item.get("stat_combo")
+        or stats.get("name")
+        or official_stat.get("name")
+        or (f"stat:{stat_id}" if stat_id else "Unknown")
+    )
+    metadata_sources = []
+    if official_item.get("name"):
+        metadata_sources.append("official_items")
+    if official_stat.get("name"):
+        metadata_sources.append("official_itemstats")
     return {
         "slot": item.get("slot"),
-        "item_id": item.get("id"),
-        "item_name": item.get("name") or f"Item {item.get('id', 'unknown')}",
-        "stat_combo": item.get("stat_combo") or stats.get("name") or (f"stat:{stats.get('id')}" if stats.get("id") else "Unknown"),
+        "item_id": item_id,
+        "item_name": item_name,
+        "stat_combo": stat_combo,
+        "stat_id": stat_id,
+        "metadata_sources": metadata_sources,
     }
 
 
-def _add_character_equipment_state(graph: GraphData, account_id: str, character_id: str, detail: dict) -> None:
+def _add_character_equipment_state(
+    graph: GraphData,
+    account_id: str,
+    character_id: str,
+    detail: dict,
+    equipment_metadata: dict[str, dict[int, dict]],
+) -> None:
     for item in detail.get("equipment", []):
         if not isinstance(item, dict) or item.get("id") is None:
             continue
-        equipment = _equipment_properties(item)
+        equipment = _equipment_properties(item, equipment_metadata)
         entity_id = f"gw2:item:{equipment['item_id']}"
         _ensure_entity(
             graph,
@@ -164,7 +194,12 @@ def _add_character_equipment_state(graph: GraphData, account_id: str, character_
             EntityType.ITEM,
             equipment["item_name"],
             GraphLayer.PRIVATE_PLAYER_STATE,
-            {"equipment_slot": equipment["slot"], "stat_combo": equipment["stat_combo"]},
+            {
+                "equipment_slot": equipment["slot"],
+                "stat_combo": equipment["stat_combo"],
+                "stat_id": equipment["stat_id"],
+                "metadata_sources": equipment["metadata_sources"],
+            },
         )
         _add_private_state(graph, account_id, entity_id, 1.0, f"character_equipment:{character_id}")
         relation_id = f"rel:{character_id}:owns:{entity_id}:{equipment['slot']}"
@@ -179,3 +214,58 @@ def _add_character_equipment_state(graph: GraphData, account_id: str, character_
                     properties={"quantity": 1, "location": "character_equipment", "slot": equipment["slot"]},
                 )
             )
+
+
+def _empty_equipment_metadata() -> dict[str, dict[int, dict]]:
+    return {"items": {}, "itemstats": {}}
+
+
+def _fetch_equipment_metadata(gateway: Gw2ApiGateway, detail: dict) -> dict[str, dict[int, dict]]:
+    equipment = [item for item in detail.get("equipment", []) if isinstance(item, dict)]
+    item_ids = sorted({_safe_int(item.get("id")) for item in equipment if _safe_int(item.get("id")) is not None})
+    stat_ids = sorted(
+        {
+            _safe_int(item.get("stats", {}).get("id"))
+            for item in equipment
+            if isinstance(item.get("stats"), dict) and _safe_int(item.get("stats", {}).get("id")) is not None
+        }
+    )
+    return {
+        "items": _fetch_public_metadata(gateway, "/v2/items", item_ids),
+        "itemstats": _fetch_public_metadata(gateway, "/v2/itemstats", stat_ids),
+    }
+
+
+def _fetch_public_metadata(gateway: Gw2ApiGateway, endpoint: str, ids: list[int]) -> dict[int, dict]:
+    if not ids:
+        return {}
+    try:
+        result = gateway.get_batch(endpoint, ids=ids, priority="P2")
+    except Exception:
+        return {}
+    if result.status != GatewayStatus.OK:
+        return {}
+    payload = result.payload
+    rows = payload if isinstance(payload, list) else [payload]
+    metadata: dict[int, dict] = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        row_id = _safe_int(row.get("id"))
+        if row_id is not None:
+            metadata[row_id] = row
+    return metadata
+
+
+def _metadata_entry(metadata: dict[int, dict], raw_id: object) -> dict:
+    row_id = _safe_int(raw_id)
+    if row_id is None:
+        return {}
+    return metadata.get(row_id, {})
+
+
+def _safe_int(value: object) -> int | None:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None

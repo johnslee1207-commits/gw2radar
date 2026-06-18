@@ -23,4 +23,5 @@ A player wants to know whether their account can play a build, what gear is reus
 - Budget alternatives are suggestions, not meta guarantees.
 - Source attribution is preserved.
 - Synced official API snapshots must be labeled as synced private data and remain advisory.
+- Synced official API equipment should use public item/stat metadata enrichment when available and keep id/Unknown fallbacks when metadata is missing.
 - Manual sample character snapshots must keep assumptions visible and must not be represented as synced ArenaNet equipment.
