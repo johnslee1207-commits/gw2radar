@@ -6,6 +6,7 @@ Start the API server and open `/player`. The page is a player cockpit for the th
 
 - Returner Diagnosis
 - Legendary Planner Pro
+- Achievement Route Planner
 - Build Fit Advisor
 
 The UI is intentionally account-first. It shows account connection, sync state, data freshness, safety boundaries, and the next manual action before exposing report or market controls.
@@ -34,7 +35,14 @@ python harness/run_player_ui_e2e_smoke.py
 
 The harness verifies the cockpit shell, demo graph, build import, reviewed
 upgrade-rule import and enable gate, Build Fit KB evidence, paid report
-generation, and artifact retrieval.
+generation, and artifact retrieval. The route planner has a focused smoke path:
+
+```bash
+python harness/run_achievement_route_smoke.py
+```
+
+It verifies the route UI marker, deterministic route API, ready/blocked/time-gated
+classification, Markdown assumptions, CSV export, and manual-planning boundary.
 
 When a real API key appears to save successfully but no account-aware result
 appears, run:
@@ -138,10 +146,12 @@ It does not store the GW2 API key. Deleting browser storage only resets UI conve
 2. Review `This Week` actions and source confidence before committing to longer routes.
 3. Use `Returner` to inspect goal gaps, a short action plan, preview, and full report export.
 4. Use `Legendary` before selling materials.
-5. Use `Build Fit` before converting gear. Synced official API character snapshots appear first when account sync has character detail; item and stat names are enriched from public `/v2/items` and `/v2/itemstats` metadata when available. Manual samples remain available as fallback.
-6. In `Build Fit`, use `Preview upgrade pack`, `Import disabled rules`, `List upgrade rules`, and `Enable selected rule` when you want rune, sigil, and relic effect explanations to cite reviewed KB evidence. Re-run `Fit score` after enabling a rule.
-7. Use `Freshness` before following account-aware or market-aware advice.
-8. Use `Reports` to preview, unlock, retrieve artifacts, and reopen local report history.
+5. Use `Routes` when the next problem is achievement or collection execution. Select a goal, enter available minutes, list completed step ids, list unlocked prerequisites such as `living_world_s3_access`, and decide whether to include group-content steps.
+6. In `Routes`, use `Plan route` first. Ready steps are grouped by map, blocked steps show missing prerequisites or group opt-in, and daily/weekly gates are marked as scheduling checks rather than guarantees. Export Markdown for a readable route plan or CSV for spreadsheet review.
+7. Use `Build Fit` before converting gear. Synced official API character snapshots appear first when account sync has character detail; item and stat names are enriched from public `/v2/items` and `/v2/itemstats` metadata when available. Manual samples remain available as fallback.
+8. In `Build Fit`, use `Preview upgrade pack`, `Import disabled rules`, `List upgrade rules`, and `Enable selected rule` when you want rune, sigil, and relic effect explanations to cite reviewed KB evidence. Re-run `Fit score` after enabling a rule.
+9. Use `Freshness` before following account-aware or market-aware advice.
+10. Use `Reports` to preview, unlock, retrieve artifacts, and reopen local report history.
 
 Each workflow displays a short result summary above the raw JSON output. The summary is for navigation only; the raw JSON and generated report remain the authoritative output.
 
@@ -158,6 +168,18 @@ The Legendary view can load the player-facing goal catalog:
 - Custom Goal
 
 Use `Today / this week` after loading or adding goals to compare cheap, fast, and balanced routes.
+
+## Achievement And Collection Routes
+
+The Routes view turns route planning into a manual checklist:
+
+- Goal: `aurora_sample`, `vision_sample`, `ad_infinitum_sample`, or all seeded sample goals.
+- Available minutes: the session window used to fit ready steps.
+- Completed step ids: skipped from the next plan.
+- Unlocked prerequisite ids: player-provided facts that move steps from blocked to ready.
+- Include group-content steps: opt-in before group/meta/fractal steps are considered ready.
+
+Outputs separate ready, blocked, and time-gated steps. Every route export includes assumptions and safety boundaries, because the MVP seed is a planning scaffold and not a complete official achievement database.
 
 ## Freshness And Confidence
 

@@ -36,6 +36,11 @@ graph TD
   Dashboard --> Returner["Returner Diagnosis"]
   Returner --> ReturnerReadiness["Returner Readiness Score"]
   Dashboard --> Legendary["Legendary Planner Pro"]
+  Dashboard --> AchievementRoute["Achievement Route Planner"]
+  AchievementRoute --> RoutePrerequisite["Prerequisite State"]
+  AchievementRoute --> RouteSegment["Map-Grouped Segment"]
+  AchievementRoute --> RouteTimeGate["Daily/Weekly Time Gate"]
+  AchievementRoute --> RouteExport["Markdown/CSV Route Export"]
   Dashboard --> BuildFit["Build Fit Advisor"]
   BuildFit --> CharacterSnapshot["Character Snapshot"]
   CharacterSnapshot --> SyncedCharacterGear["Synced Official Character Gear"]
@@ -91,6 +96,10 @@ graph TD
 | LegendaryPlanning | Legendary view | `/api/v1/legendary/*`, `/api/v1/market/*` | Implemented |
 | LegendaryGoalCatalog | Goal select with seven player-guide choices | `/api/v1/legendary/goals/catalog` | Implemented |
 | LegendaryWeeklyRoute | Today and this-week route comparison | `/api/v1/legendary/actions` | Implemented |
+| AchievementRoutePlanning | Routes view with goal, minutes, completed steps, prerequisites, and group-content opt-in | `/api/v1/achievement-routes/plan`, `build_achievement_route_plan` | Implemented |
+| RoutePrerequisiteState | Player-provided prerequisite ids separate ready from blocked route steps | `AchievementRouteRequest.unlocked_prerequisite_ids` | Implemented |
+| RouteSegment | Map-grouped ready, blocked, and time-gated route segments | `AchievementRouteSegment` | Implemented |
+| RouteExport | Deterministic Markdown/CSV route export with assumptions and manual boundary | `/api/v1/achievement-routes/plan/export`, `harness/run_achievement_route_smoke.py` | Implemented |
 | BuildFit | Build Fit view | `/api/v1/builds/*` | Implemented |
 | CharacterSnapshot | Build Fit character snapshot selector with synced-first/manual fallback sources | `/api/v1/builds/character-snapshots` | Implemented |
 | SyncedCharacterGear | Official API-derived character equipment snapshot | Account sync private character detail bridge | Implemented |
@@ -137,6 +146,8 @@ graph TD
 | P2 Do-not-sell list | Do-not-sell action and dashboard warning | Complete |
 | P2 Today / this week actions | Legendary action plan exposes today actions, this-week actions, and route comparison | Complete |
 | P2 Route comparison | Cheap/fast path action | Complete |
+| P2 Achievement route planner | Routes view groups achievement and collection seed steps by map, prerequisites, time gates, and available session length | Complete |
+| P2 Route export | Markdown and CSV route exports preserve assumptions, evidence refs, and manual-planning boundaries | Complete |
 | P3 Build import | Manual structured build import | Complete |
 | P3 Character selection | Synced official API character snapshots, manual samples, and manual fields mode | Complete |
 | P3 Fit score | Fit score action | Complete |
@@ -159,8 +170,8 @@ graph TD
 
 ## Maturity Summary
 
-- Complete: 48 guide items.
+- Complete: 50 guide items.
 - Partial: 0 guide items.
 - Missing: 0 guide items.
 
-All player-guide checklist items are now implemented at MVP depth. Synced character equipment now bridges official character detail into Build Fit, enriches item/stat names through best-effort public item metadata, classifies armor, weapons, runes, sigils, and relics, and adds conservative upgrade effect-family review hints. The Build Fit UI now exposes the `build_upgrade_effects` rule pack flow so reviewed rules can be previewed, imported as disabled, listed, and enabled through a reviewer gate before they become evidence. Upgrade effect explanations prefer reviewed and enabled KB rule evidence and fall back to explicit heuristic labeling when evidence is absent, so they do not invent source authority. Account connection troubleshooting now has a full privacy-safe loop: UI diagnostic, debug bundle export, local/API support review, `/support` workbench, evidence-path recommendations, copyable support reply, safe audit metadata, filtered CSV export, metrics summary, remediation playbook, product backlog generation, backlog export, backlog-to-roadmap draft promotion, promotion lifecycle events, promotion readiness rollup, promotion export, and boundary violation detection. Remaining post-MVP depth improvements are qualitative rather than checklist gaps: more domain-specific requirements for every seeded legendary goal, richer effect parsing from official descriptions and reviewed rule packs, and front-end polish for long-running sync worker timelines.
+All player-guide checklist items are now implemented at MVP depth. Achievement route planning now adds a manual collection route loop: player-provided prerequisite state, map-grouped segments, daily/weekly gate labeling, blocked group-content handling, and deterministic Markdown/CSV exports with assumptions. Synced character equipment now bridges official character detail into Build Fit, enriches item/stat names through best-effort public item metadata, classifies armor, weapons, runes, sigils, and relics, and adds conservative upgrade effect-family review hints. The Build Fit UI now exposes the `build_upgrade_effects` rule pack flow so reviewed rules can be previewed, imported as disabled, listed, and enabled through a reviewer gate before they become evidence. Upgrade effect explanations prefer reviewed and enabled KB rule evidence and fall back to explicit heuristic labeling when evidence is absent, so they do not invent source authority. Account connection troubleshooting now has a full privacy-safe loop: UI diagnostic, debug bundle export, local/API support review, `/support` workbench, evidence-path recommendations, copyable support reply, safe audit metadata, filtered CSV export, metrics summary, remediation playbook, product backlog generation, backlog export, backlog-to-roadmap draft promotion, promotion lifecycle events, promotion readiness rollup, promotion export, and boundary violation detection. Remaining post-MVP depth improvements are qualitative rather than checklist gaps: richer official achievement-step ingestion for every seeded route, more domain-specific requirements for every seeded legendary goal, richer effect parsing from official descriptions and reviewed rule packs, and front-end polish for long-running sync worker timelines.

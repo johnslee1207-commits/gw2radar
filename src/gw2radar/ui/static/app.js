@@ -20,6 +20,7 @@ const outputs = {
   connect: document.querySelector("#connect-output"),
   returner: document.querySelector("#returner-output"),
   legendary: document.querySelector("#legendary-output"),
+  routes: document.querySelector("#routes-output"),
   build: document.querySelector("#build-output"),
   reports: document.querySelector("#reports-output"),
   freshness: document.querySelector("#freshness-output"),
@@ -32,6 +33,7 @@ const summaries = {
   connect: document.querySelector("#connect-summary"),
   returner: document.querySelector("#returner-summary"),
   legendary: document.querySelector("#legendary-summary"),
+  routes: document.querySelector("#routes-summary"),
   build: document.querySelector("#build-summary"),
   reports: document.querySelector("#reports-summary"),
   freshness: document.querySelector("#freshness-summary"),
@@ -196,6 +198,18 @@ function summarizeResult(target, payload) {
       return "Goal cost index updated from manual price snapshots and current goal gap.";
     }
     return "Legendary planning output updated. Market signals are observation-only.";
+  }
+  if (target === "routes") {
+    if (data?.plan) {
+      const plan = data.plan;
+      return `${plan.ready_step_ids?.length || 0} ready steps, ${plan.blocked_step_ids?.length || 0} blockers, ${plan.segments?.length || 0} map segments loaded.`;
+    }
+    if (typeof payload === "string") {
+      return payload.includes("Achievement & Collection Route Plan")
+        ? "Markdown route export generated with assumptions and manual-planning boundaries."
+        : "Route export generated.";
+    }
+    return "Achievement route planning output updated.";
   }
   if (target === "build") {
     if (data?.pack?.pack_id === "build_upgrade_effects") {
@@ -507,6 +521,33 @@ function runDiagnosticFix(actionId) {
 
 function getNumber(selector) {
   return Number(document.querySelector(selector).value || 0);
+}
+
+function routeList(selector) {
+  return document
+    .querySelector(selector)
+    .value.split(/\r?\n|,/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function routeRequestPayload() {
+  return {
+    user_id: "local-user",
+    goal_id: document.querySelector("#route-goal").value,
+    available_minutes: getNumber("#route-minutes") || 45,
+    completed_step_ids: routeList("#route-completed"),
+    unlocked_prerequisite_ids: routeList("#route-prereqs"),
+    include_group_content: document.querySelector("#route-include-group").checked,
+  };
+}
+
+function renderRoutePlan(plan) {
+  document.querySelector("#route-ready-count").textContent = String(plan?.ready_step_ids?.length || 0);
+  document.querySelector("#route-blocked-count").textContent = String(plan?.blocked_step_ids?.length || 0);
+  document.querySelector("#route-gated-count").textContent = String(plan?.time_gated_step_ids?.length || 0);
+  document.querySelector("#route-segment-count").textContent = String(plan?.segments?.length || 0);
+  renderActionList("#route-next-actions", plan?.next_actions || []);
 }
 
 function buildImportPayload() {
@@ -912,6 +953,44 @@ const actions = {
     ),
   goalCostIndex: () => run("legendary", () => fetchJson("/api/v1/market/goal-cost-index?goal_id=gw2:goal:aurora")),
   marketSignals: () => run("legendary", () => fetchJson("/api/v1/market/signals?goal_id=gw2:goal:aurora")),
+  planAchievementRoute: () =>
+    run("routes", async () => {
+      const payload = await fetchJson("/api/v1/achievement-routes/plan", {
+        method: "POST",
+        body: JSON.stringify(routeRequestPayload()),
+      });
+      renderRoutePlan(payload?.data?.plan || {});
+      markStep("plan", "Route plan ready");
+      return payload;
+    }),
+  exportAchievementRouteMarkdown: () =>
+    run("routes", () =>
+      fetch("/api/v1/achievement-routes/plan/export?format=markdown", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(routeRequestPayload()),
+      }).then(async (response) => {
+        const text = await response.text();
+        if (!response.ok) {
+          throw new Error(text || `HTTP ${response.status}`);
+        }
+        return text;
+      }),
+    ),
+  exportAchievementRouteCsv: () =>
+    run("routes", () =>
+      fetch("/api/v1/achievement-routes/plan/export?format=csv", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(routeRequestPayload()),
+      }).then(async (response) => {
+        const text = await response.text();
+        if (!response.ok) {
+          throw new Error(text || `HTTP ${response.status}`);
+        }
+        return text;
+      }),
+    ),
   importBuild: () =>
     run("build", async () => {
       const payload = await fetchJson("/api/v1/builds/import", {

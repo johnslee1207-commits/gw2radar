@@ -27,6 +27,17 @@ the reviewed `build_upgrade_effects` rule pack can be imported disabled and
 enabled through the review gate, Build Fit uses reviewed KB evidence, and a paid
 Build Fit report artifact can be generated and retrieved.
 
+## Achievement Route Smoke Command
+
+```bash
+python harness/run_achievement_route_smoke.py
+```
+
+This smoke path verifies the P1 Achievement & Collection Route Planner:
+the `/player` UI exposes the route planner, `/api/v1/achievement-routes/plan`
+returns deterministic ready/blocked/time-gated steps, and Markdown/CSV exports
+preserve assumptions plus the manual-planning safety boundary.
+
 ## Account Connection Diagnostic Command
 
 ```bash
@@ -98,6 +109,14 @@ readiness rollup, and visible no-secret boundary copy.
 9. Generate a Markdown Build Fit report.
 10. Retrieve the generated artifact and verify Build Fit sections are present.
 11. Print PASS/FAIL and exit non-zero on failure.
+
+## Achievement Route Harness Steps
+
+1. Load `/player` and verify the Achievement Route Planner is present.
+2. Submit a sample route request with known unlocked prerequisites.
+3. Confirm the route plan schema, ready steps, blocked steps, and safety boundary.
+4. Export Markdown and confirm assumptions are present with no guarantee wording.
+5. Export CSV and confirm the deterministic route header is present.
 
 ## Account Connection Diagnostic Steps
 

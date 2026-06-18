@@ -35,6 +35,12 @@ textarea {
   font: inherit;
 }
 
+input[type="checkbox"] {
+  width: auto;
+  min-height: auto;
+  margin: 0;
+}
+
 button {
   min-height: 40px;
   border: 1px solid var(--focus);
@@ -83,6 +89,12 @@ label {
 
 label + label {
   margin-top: 12px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .app-shell {
@@ -429,6 +441,10 @@ label + label {
 .action-list li + li,
 .plain-list li + li {
   margin-top: 8px;
+}
+
+.route-action-list {
+  margin-top: 16px;
 }
 
 .metric-list {

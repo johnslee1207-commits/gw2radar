@@ -22,6 +22,7 @@
           <button class="nav-item" data-view="connect">Connect</button>
           <button class="nav-item" data-view="returner">Returner</button>
           <button class="nav-item" data-view="legendary">Legendary</button>
+          <button class="nav-item" data-view="routes">Routes</button>
           <button class="nav-item" data-view="build">Build Fit</button>
           <button class="nav-item" data-view="reports">Reports</button>
           <button class="nav-item" data-view="freshness">Freshness</button>
@@ -82,6 +83,7 @@
               <div class="goal-choice-grid" role="group" aria-label="Player intent">
                 <button class="goal-choice" data-intent="returner" data-view-link="returner">I am returning after a break</button>
                 <button class="goal-choice" data-intent="legendary" data-view-link="legendary">I am planning a legendary</button>
+                <button class="goal-choice" data-intent="routes" data-view-link="routes">I need collection route steps</button>
                 <button class="goal-choice" data-intent="build" data-view-link="build">I want to switch builds</button>
                 <button class="goal-choice" data-intent="dashboard" data-view-link="dashboard">I only want account status</button>
               </div>
@@ -174,6 +176,11 @@
               <span class="card-kicker">Opportunity 3</span>
               <h3>Build Fit Advisor</h3>
               <p>Check if your account can play a build, what gear is reusable, and the transition budget.</p>
+            </article>
+            <article class="opportunity-card" data-view-link="routes">
+              <span class="card-kicker">Planner</span>
+              <h3>Achievement Route Planner</h3>
+              <p>Group achievement and collection steps by map, prerequisites, time gates, and manual session length.</p>
             </article>
             <article class="panel">
               <div class="panel-title">
@@ -373,6 +380,60 @@
           </div>
           <div class="result-summary" id="legendary-summary">No legendary summary yet.</div>
           <pre id="legendary-output" class="json-output tall" aria-live="polite">Legendary planning output appears here.</pre>
+        </section>
+
+        <section id="routes" class="view" aria-labelledby="routes-title">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Collection planning</p>
+              <h2 id="routes-title">Achievement Route Planner</h2>
+            </div>
+            <div class="button-row">
+              <button data-action="planAchievementRoute">Plan route</button>
+              <button data-action="exportAchievementRouteMarkdown">Export Markdown</button>
+              <button data-action="exportAchievementRouteCsv">Export CSV</button>
+            </div>
+          </div>
+          <div class="two-column">
+            <article class="panel form-panel">
+              <h3>Route inputs</h3>
+              <label>Goal
+                <select id="route-goal">
+                  <option value="aurora_sample">Aurora sample route</option>
+                  <option value="vision_sample">Vision sample route</option>
+                  <option value="ad_infinitum_sample">Ad Infinitum sample route</option>
+                  <option value="all">All sample goals</option>
+                </select>
+              </label>
+              <label>Available minutes
+                <input id="route-minutes" type="number" min="10" max="240" value="45" />
+              </label>
+              <label>Completed step ids
+                <textarea id="route-completed" rows="3" placeholder="One step id per line"></textarea>
+              </label>
+              <label>Unlocked prerequisite ids
+                <textarea id="route-prereqs" rows="3">living_world_s3_access</textarea>
+              </label>
+              <label class="checkbox-label">
+                <input id="route-include-group" type="checkbox" />
+                Include group-content steps
+              </label>
+            </article>
+            <article class="panel">
+              <h3>Route preview</h3>
+              <dl class="metric-list">
+                <div><dt>Ready</dt><dd id="route-ready-count">--</dd></div>
+                <div><dt>Blocked</dt><dd id="route-blocked-count">--</dd></div>
+                <div><dt>Time gated</dt><dd id="route-gated-count">--</dd></div>
+                <div><dt>Segments</dt><dd id="route-segment-count">--</dd></div>
+              </dl>
+              <ol class="action-list route-action-list" id="route-next-actions">
+                <li>Plan a route to load map-grouped actions.</li>
+              </ol>
+            </article>
+          </div>
+          <div class="result-summary" id="routes-summary">No route plan yet.</div>
+          <pre id="routes-output" class="json-output tall" aria-live="polite">Achievement route output appears here.</pre>
         </section>
 
         <section id="build" class="view" aria-labelledby="build-title">

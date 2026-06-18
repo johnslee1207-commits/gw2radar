@@ -10,6 +10,7 @@ from gw2radar.api.envelope import http_exception_handler
 from gw2radar.api.routes.acquisition import router as acquisition_router
 from gw2radar.api.routes.account import router as account_router
 from gw2radar.api.routes.account_sync import router as account_sync_router
+from gw2radar.api.routes.achievement_routes import router as achievement_routes_router
 from gw2radar.api.routes.actions import router as actions_router
 from gw2radar.api.routes.builds import router as builds_router
 from gw2radar.api.routes.creator import router as creator_router
@@ -75,6 +76,7 @@ app.include_router(reports_router)
 app.include_router(returner_router)
 app.include_router(account_router)
 app.include_router(account_sync_router)
+app.include_router(achievement_routes_router)
 app.include_router(public_refresh_router)
 app.include_router(ops_router)
 app.include_router(player_dashboard_router)
