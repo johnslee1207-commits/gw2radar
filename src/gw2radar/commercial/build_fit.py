@@ -75,6 +75,30 @@ class AccountGearSnapshot(BaseModel):
     gear: list[AccountGearItem] = Field(default_factory=list)
 
 
+class CharacterGearSnapshot(BaseModel):
+    snapshot_id: str
+    character_name: str
+    profession: str
+    specialization: str
+    level: int = 80
+    preferred_game_modes: list[str] = Field(default_factory=list)
+    difficulty_preference: str = "medium"
+    wallet_gold: float = 0.0
+    gear: list[AccountGearItem] = Field(default_factory=list)
+    source: str = "manual_sample"
+    assumptions: list[str] = Field(default_factory=list)
+
+    def to_account_gear_snapshot(self) -> AccountGearSnapshot:
+        return AccountGearSnapshot(
+            profession=self.profession,
+            specializations=[self.specialization],
+            preferred_game_modes=self.preferred_game_modes,
+            difficulty_preference=self.difficulty_preference,
+            wallet_gold=self.wallet_gold,
+            gear=self.gear,
+        )
+
+
 class GearMatchItem(BaseModel):
     requirement: GearRequirement
     matched: bool
@@ -120,6 +144,54 @@ class BuildFitResult(BaseModel):
     budget_alternative: BudgetAlternative
 
 
+DEFAULT_CHARACTER_SNAPSHOTS = [
+    CharacterGearSnapshot(
+        snapshot_id="manual_virtuoso_power",
+        character_name="Manual Virtuoso Power Template",
+        profession="Mesmer",
+        specialization="Virtuoso",
+        preferred_game_modes=["Strike", "Open World"],
+        difficulty_preference="medium",
+        wallet_gold=120,
+        gear=[
+            AccountGearItem(slot=GearSlot.HEAD, item_name="Manual Power Headgear", stat_combo="Berserker"),
+            AccountGearItem(slot=GearSlot.SHOULDERS, item_name="Manual Power Shoulders", stat_combo="Berserker"),
+            AccountGearItem(slot=GearSlot.CHEST, item_name="Manual Power Chest", stat_combo="Berserker"),
+            AccountGearItem(slot=GearSlot.HANDS, item_name="Manual Power Gloves", stat_combo="Berserker"),
+            AccountGearItem(slot=GearSlot.LEGS, item_name="Manual Power Leggings", stat_combo="Berserker"),
+            AccountGearItem(slot=GearSlot.FEET, item_name="Manual Power Boots", stat_combo="Berserker"),
+            AccountGearItem(slot=GearSlot.WEAPON_1, item_name="Manual Power Dagger", stat_combo="Berserker"),
+            AccountGearItem(slot=GearSlot.WEAPON_2, item_name="Manual Power Focus", stat_combo="Berserker"),
+            AccountGearItem(slot=GearSlot.RUNE, item_name="Manual Power Rune Set", stat_combo="Power"),
+            AccountGearItem(slot=GearSlot.SIGIL, item_name="Manual Power Sigil Set", stat_combo="Power"),
+            AccountGearItem(slot=GearSlot.RELIC, item_name="Manual Power Relic", stat_combo="Power"),
+        ],
+        assumptions=[
+            "This is a manual sample snapshot, not synced ArenaNet character equipment.",
+            "Player should verify actual equipment, runes, sigils, and relics in game.",
+        ],
+    ),
+    CharacterGearSnapshot(
+        snapshot_id="manual_reaper_open_world",
+        character_name="Manual Reaper Open World Template",
+        profession="Necromancer",
+        specialization="Reaper",
+        preferred_game_modes=["Open World"],
+        difficulty_preference="low",
+        wallet_gold=80,
+        gear=[
+            AccountGearItem(slot=GearSlot.CHEST, item_name="Manual Soldier Chest", stat_combo="Soldier"),
+            AccountGearItem(slot=GearSlot.WEAPON_1, item_name="Manual Greatsword", stat_combo="Berserker"),
+            AccountGearItem(slot=GearSlot.RUNE, item_name="Manual Defensive Rune Set", stat_combo="Defense"),
+        ],
+        assumptions=[
+            "This sample is intentionally imperfect to show missing gear and budget alternatives.",
+            "Character selection is advisory until official character equipment sync is wired into this UI.",
+        ],
+    ),
+]
+
+
 def import_build(session: Session, build: BuildImport, user_id: str = DEFAULT_USER_ID) -> BuildRecord:
     build_id = f"build_{uuid4().hex}"
     now = utc_now()
@@ -160,6 +232,14 @@ def list_builds(session: Session, user_id: str = DEFAULT_USER_ID) -> list[BuildR
 def get_build(session: Session, build_id: str) -> BuildRecord | None:
     row = session.get(BuildModel, build_id)
     return _build_from_model(row) if row else None
+
+
+def list_character_snapshots() -> list[CharacterGearSnapshot]:
+    return DEFAULT_CHARACTER_SNAPSHOTS
+
+
+def get_character_snapshot(snapshot_id: str) -> CharacterGearSnapshot | None:
+    return next((snapshot for snapshot in DEFAULT_CHARACTER_SNAPSHOTS if snapshot.snapshot_id == snapshot_id), None)
 
 
 def evaluate_build_fit(build: BuildRecord, account: AccountGearSnapshot) -> BuildFitResult:

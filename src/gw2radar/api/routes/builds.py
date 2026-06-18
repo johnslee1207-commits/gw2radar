@@ -10,7 +10,9 @@ from gw2radar.commercial.build_fit import (
     build_transition_plan,
     evaluate_build_fit,
     get_build,
+    get_character_snapshot,
     import_build,
+    list_character_snapshots,
     list_builds,
     match_account_gear,
     recommend_budget_alternative,
@@ -54,6 +56,31 @@ def get_builds() -> ApiDataEnvelope:
     with db_session.SessionLocal() as session:
         builds = [build.model_dump(mode="json") for build in list_builds(session, user_id=DEFAULT_USER_ID)]
     return ApiDataEnvelope(data={"builds": builds})
+
+
+@router.get("/character-snapshots", response_model=ApiDataEnvelope)
+def get_build_character_snapshots() -> ApiDataEnvelope:
+    snapshots = [snapshot.model_dump(mode="json") for snapshot in list_character_snapshots()]
+    return ApiDataEnvelope(
+        data={
+            "snapshots": snapshots,
+            "boundary": "Manual sample snapshots only; verify actual character equipment in game.",
+        }
+    )
+
+
+@router.get("/character-snapshots/{snapshot_id}/account-gear", response_model=ApiDataEnvelope)
+def get_build_character_snapshot_account_gear(snapshot_id: str) -> ApiDataEnvelope:
+    snapshot = get_character_snapshot(snapshot_id)
+    if snapshot is None:
+        raise HTTPException(status_code=404, detail="Character snapshot not found")
+    return ApiDataEnvelope(
+        data={
+            "snapshot": snapshot.model_dump(mode="json"),
+            "account_gear": snapshot.to_account_gear_snapshot().model_dump(mode="json"),
+            "boundary": "This account gear payload is derived from a manual sample snapshot.",
+        }
+    )
 
 
 @router.post("/fit", response_model=ApiDataEnvelope)

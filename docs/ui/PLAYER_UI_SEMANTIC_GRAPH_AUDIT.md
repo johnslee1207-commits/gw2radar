@@ -17,6 +17,7 @@ graph TD
   Returner --> ReturnerReadiness["Returner Readiness Score"]
   Dashboard --> Legendary["Legendary Planner Pro"]
   Dashboard --> BuildFit["Build Fit Advisor"]
+  BuildFit --> CharacterSnapshot["Character Snapshot"]
   Dashboard --> Freshness["Data Freshness"]
   Returner --> ReportCenter["Reports"]
   Legendary --> ReportCenter
@@ -41,6 +42,7 @@ graph TD
 | ReturnerReadiness | Returner score cards | `/api/v1/returner/readiness` | Implemented |
 | LegendaryPlanning | Legendary view | `/api/v1/legendary/*`, `/api/v1/market/*` | Implemented |
 | BuildFit | Build Fit view | `/api/v1/builds/*` | Implemented |
+| CharacterSnapshot | Build Fit character snapshot selector | `/api/v1/builds/character-snapshots` | Implemented |
 | ReportArtifact | Reports view | `/api/v1/reports/*`, local report history | Implemented |
 | FreshnessSignal | Freshness view and dashboard card | Sync status, market patch freshness, build freshness | Partial |
 | PrivacyControl | Privacy view | `/account/*`, `/api/v1/security/private-data` | Implemented |
@@ -66,7 +68,7 @@ graph TD
 | P2 Today / this week actions | Today actions present; this-week plan not modeled separately | Partial |
 | P2 Route comparison | Cheap/fast path action | Complete |
 | P3 Build import | Manual structured build import | Complete |
-| P3 Character selection | Lightweight account gear fields only | Partial |
+| P3 Character selection | Manual sample character snapshots plus manual fields mode | Complete |
 | P3 Fit score | Fit score action | Complete |
 | P3 Gear reuse / missing gear | Fit and transition plan output | Complete |
 | P3 Transition cost | Transition plan output | Complete |
@@ -85,8 +87,8 @@ graph TD
 
 ## Maturity Summary
 
-- Complete: 24 guide items.
-- Partial: 8 guide items.
+- Complete: 25 guide items.
+- Partial: 7 guide items.
 - Missing: 0 guide items.
 
-The largest remaining semantic gaps are now depth gaps rather than missing workflow nodes: granular permission inspection, per-endpoint sync progress, broader legendary goal selection, and richer character-level Build Fit selection.
+The largest remaining semantic gaps are now depth gaps rather than missing workflow nodes: granular permission inspection, per-endpoint sync progress, broader legendary goal selection, and replacing manual sample character snapshots with synced official character equipment when that private data path is available.

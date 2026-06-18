@@ -384,9 +384,17 @@
             <article class="panel form-panel">
               <h3>Account fit check</h3>
               <label>Build id <input id="active-build-id" placeholder="Use imported build id" /></label>
+              <label>Character snapshot
+                <select id="character-snapshot">
+                  <option value="">Manual fields only</option>
+                </select>
+              </label>
               <label>Wallet gold <input id="wallet-gold" type="number" value="120" /></label>
               <label>Owned stat combo <input id="owned-stat" value="Berserker" /></label>
+              <div class="gear-summary" id="gear-summary">Manual lightweight snapshot: chest only.</div>
               <div class="button-grid">
+                <button data-action="loadCharacterSnapshots">Load character snapshots</button>
+                <button data-action="applyCharacterSnapshot">Use selected snapshot</button>
                 <button data-action="evaluateBuild">Fit score</button>
                 <button data-action="transitionPlan">Transition plan</button>
                 <button data-action="buildFreshness">Patch freshness</button>

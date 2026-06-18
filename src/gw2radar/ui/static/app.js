@@ -2,6 +2,8 @@ const state = {
   activeBuildId: "",
   lastCheckoutId: "",
   playerIntent: "",
+  characterSnapshots: [],
+  selectedAccountGear: null,
 };
 
 const storageKeys = {
@@ -299,6 +301,12 @@ function buildImportPayload() {
 }
 
 function accountGearPayload() {
+  if (state.selectedAccountGear) {
+    return {
+      ...state.selectedAccountGear,
+      wallet_gold: getNumber("#wallet-gold") || state.selectedAccountGear.wallet_gold || 0,
+    };
+  }
   return {
     profession: document.querySelector("#build-profession").value,
     specializations: [document.querySelector("#build-spec").value],
@@ -313,6 +321,28 @@ function accountGearPayload() {
       },
     ],
   };
+}
+
+function renderCharacterSnapshots(snapshots) {
+  const select = document.querySelector("#character-snapshot");
+  select.innerHTML = '<option value="">Manual fields only</option>';
+  for (const snapshot of snapshots) {
+    const option = document.createElement("option");
+    option.value = snapshot.snapshot_id;
+    option.textContent = `${snapshot.character_name} (${snapshot.profession} / ${snapshot.specialization})`;
+    select.appendChild(option);
+  }
+}
+
+function applyAccountGearSnapshot(snapshot, accountGear) {
+  state.selectedAccountGear = accountGear;
+  document.querySelector("#build-profession").value = accountGear.profession || "";
+  document.querySelector("#build-spec").value = accountGear.specializations?.[0] || "";
+  document.querySelector("#build-mode").value = accountGear.preferred_game_modes?.[0] || "";
+  document.querySelector("#wallet-gold").value = accountGear.wallet_gold || 0;
+  const gearCount = accountGear.gear?.length || 0;
+  document.querySelector("#gear-summary").textContent =
+    `${snapshot.character_name}: ${gearCount} gear slots loaded. ${snapshot.assumptions?.[0] || "Verify manually."}`;
 }
 
 function updateReturnerScores(report) {
@@ -505,6 +535,25 @@ const actions = {
         localStorage.setItem(storageKeys.activeBuildId, buildId);
         markStep("plan", "Build imported");
       }
+      return payload;
+    }),
+  loadCharacterSnapshots: () =>
+    run("build", async () => {
+      const payload = await fetchJson("/api/v1/builds/character-snapshots");
+      state.characterSnapshots = payload?.data?.snapshots || [];
+      renderCharacterSnapshots(state.characterSnapshots);
+      return payload;
+    }),
+  applyCharacterSnapshot: () =>
+    run("build", async () => {
+      const snapshotId = document.querySelector("#character-snapshot").value;
+      if (!snapshotId) {
+        state.selectedAccountGear = null;
+        document.querySelector("#gear-summary").textContent = "Manual lightweight snapshot: chest only.";
+        return { status: "manual_mode", boundary: "Manual fields only; no sample character snapshot selected." };
+      }
+      const payload = await fetchJson(`/api/v1/builds/character-snapshots/${encodeURIComponent(snapshotId)}/account-gear`);
+      applyAccountGearSnapshot(payload.data.snapshot, payload.data.account_gear);
       return payload;
     }),
   listBuilds: () => run("build", () => fetchJson("/api/v1/builds")),

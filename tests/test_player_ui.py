@@ -19,6 +19,8 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert "Readiness score" in response.text
     assert "Legendary Planner Pro" in response.text
     assert "Build Fit Advisor" in response.text
+    assert "Character snapshot" in response.text
+    assert "Load character snapshots" in response.text
     assert "Data Freshness" in response.text
     assert "Privacy & Safety" in response.text
     assert "No gameplay automation" in response.text
@@ -37,6 +39,8 @@ def test_player_ui_static_assets_are_served() -> None:
     assert js.status_code == 200
     assert "/api/v1/legendary/recompute" in js.text
     assert "/api/v1/builds/transition-plan" in js.text
+    assert "/api/v1/builds/character-snapshots" in js.text
+    assert "applyAccountGearSnapshot" in js.text
     assert "/account/api-key" in js.text
     assert "gw2radar.player.activeView" in js.text
     assert "summarizeResult" in js.text
@@ -59,6 +63,7 @@ def test_player_ui_styles_cover_workflow_and_summaries() -> None:
     assert ".result-summary" in css.text
     assert ".readiness-grid" in css.text
     assert ".score-card" in css.text
+    assert ".gear-summary" in css.text
     assert ".goal-choice-grid" in css.text
     assert ".permission-grid" in css.text
     assert ".sync-checklist" in css.text

@@ -530,6 +530,15 @@ label + label {
   color: var(--muted);
 }
 
+.gear-summary {
+  min-height: 48px;
+  border: 1px dashed var(--line);
+  border-radius: 6px;
+  background: var(--surface-soft);
+  color: var(--muted);
+  padding: 9px 10px;
+}
+
 .secondary-action {
   border-color: var(--line);
   background: var(--surface);
