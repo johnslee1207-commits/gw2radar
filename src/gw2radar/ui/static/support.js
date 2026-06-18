@@ -6,11 +6,15 @@ const clearButton = document.querySelector("#clear-button");
 const copyTemplateButton = document.querySelector("#copy-template-button");
 const saveAuditButton = document.querySelector("#save-audit-button");
 const refreshAuditButton = document.querySelector("#refresh-audit-button");
+const exportAuditButton = document.querySelector("#export-audit-button");
 const summary = document.querySelector("#support-summary");
 const findingList = document.querySelector("#finding-list");
 const replyTemplate = document.querySelector("#reply-template");
 const reviewerName = document.querySelector("#reviewer-name");
 const auditList = document.querySelector("#audit-list");
+const auditStatusFilter = document.querySelector("#audit-status-filter");
+const auditSeverityFilter = document.querySelector("#audit-severity-filter");
+const auditReviewerFilter = document.querySelector("#audit-reviewer-filter");
 const output = document.querySelector("#support-output");
 let lastBundle = null;
 let lastReview = null;
@@ -148,9 +152,29 @@ async function saveAuditRecord() {
 }
 
 async function refreshAuditRecords() {
-  const response = await fetch("/account/debug-bundle/review/audit?limit=10");
+  const response = await fetch(`/account/debug-bundle/review/audit?${auditQueryString()}`);
   const payload = await response.json();
   renderAuditRecords(payload.records || []);
+}
+
+function auditQueryString(format = "json") {
+  const params = new URLSearchParams();
+  params.set("limit", "10");
+  params.set("format", format);
+  if (auditStatusFilter?.value) {
+    params.set("status", auditStatusFilter.value.trim());
+  }
+  if (auditSeverityFilter?.value) {
+    params.set("severity", auditSeverityFilter.value);
+  }
+  if (auditReviewerFilter?.value) {
+    params.set("reviewer", auditReviewerFilter.value.trim());
+  }
+  return params.toString();
+}
+
+function exportAuditCsv() {
+  window.location.href = `/account/debug-bundle/review/audit?${auditQueryString("csv")}`;
 }
 
 function renderAuditRecords(records) {
@@ -200,6 +224,8 @@ clearButton?.addEventListener("click", () => {
 saveAuditButton?.addEventListener("click", saveAuditRecord);
 
 refreshAuditButton?.addEventListener("click", refreshAuditRecords);
+
+exportAuditButton?.addEventListener("click", exportAuditCsv);
 
 copyTemplateButton?.addEventListener("click", async () => {
   if (!replyTemplate.value) {

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import re
+from csv import DictWriter
 from datetime import datetime
+from io import StringIO
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -68,14 +70,64 @@ def create_support_review_audit(
     return _to_record(record)
 
 
-def list_support_review_audits(session: Session, *, limit: int = 20) -> list[SupportReviewAuditRecord]:
+def list_support_review_audits(
+    session: Session,
+    *,
+    limit: int = 20,
+    status: str | None = None,
+    severity: str | None = None,
+    reviewer: str | None = None,
+    created_from: datetime | None = None,
+    created_to: datetime | None = None,
+) -> list[SupportReviewAuditRecord]:
     safe_limit = min(max(int(limit or 20), 1), 100)
-    rows = session.scalars(
-        select(SupportReviewAuditModel)
-        .order_by(SupportReviewAuditModel.created_at.desc())
-        .limit(safe_limit)
-    ).all()
+    statement = select(SupportReviewAuditModel)
+    if status:
+        statement = statement.where(SupportReviewAuditModel.overall_status == _safe_text(status, max_length=80))
+    if severity:
+        statement = statement.where(SupportReviewAuditModel.highest_severity == _safe_text(severity, max_length=20))
+    if reviewer:
+        statement = statement.where(SupportReviewAuditModel.reviewer == _safe_text(reviewer, max_length=80))
+    if created_from:
+        statement = statement.where(SupportReviewAuditModel.created_at >= created_from)
+    if created_to:
+        statement = statement.where(SupportReviewAuditModel.created_at <= created_to)
+    rows = session.scalars(statement.order_by(SupportReviewAuditModel.created_at.desc()).limit(safe_limit)).all()
     return [_to_record(row) for row in rows]
+
+
+def render_support_review_audit_csv(records: list[SupportReviewAuditRecord]) -> str:
+    output = StringIO()
+    fieldnames = [
+        "case_id",
+        "created_at",
+        "overall_status",
+        "highest_severity",
+        "finding_count",
+        "finding_ids",
+        "reviewer",
+        "source",
+        "bundle_schema_version",
+        "reply_template_summary",
+    ]
+    writer = DictWriter(output, fieldnames=fieldnames, lineterminator="\n")
+    writer.writeheader()
+    for record in records:
+        writer.writerow(
+            {
+                "case_id": record.case_id,
+                "created_at": record.created_at.isoformat(),
+                "overall_status": record.overall_status,
+                "highest_severity": record.highest_severity,
+                "finding_count": record.finding_count,
+                "finding_ids": ";".join(record.finding_ids),
+                "reviewer": record.reviewer,
+                "source": record.source,
+                "bundle_schema_version": record.bundle_schema_version or "",
+                "reply_template_summary": record.reply_template_summary,
+            }
+        )
+    return output.getvalue()
 
 
 def _highest_severity(severities: list[str]) -> str:

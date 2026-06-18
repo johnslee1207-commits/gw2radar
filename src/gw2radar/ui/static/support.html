@@ -83,7 +83,29 @@
               <p class="eyebrow">Audit</p>
               <h2>Recent Review Records</h2>
             </div>
-            <button id="refresh-audit-button" type="button">Refresh records</button>
+            <div class="button-row">
+              <button id="refresh-audit-button" type="button">Refresh records</button>
+              <button id="export-audit-button" type="button">Export CSV</button>
+            </div>
+          </div>
+          <div class="three-column compact-fields support-filter-grid">
+            <label>
+              Status
+              <input id="audit-status-filter" type="text" placeholder="ready, needs_key" />
+            </label>
+            <label>
+              Severity
+              <select id="audit-severity-filter">
+                <option value="">Any</option>
+                <option value="critical">Critical</option>
+                <option value="warning">Warning</option>
+                <option value="info">Info</option>
+              </select>
+            </label>
+            <label>
+              Reviewer
+              <input id="audit-reviewer-filter" type="text" placeholder="support" />
+            </label>
           </div>
           <div id="audit-list" class="support-audit-list">No audit records loaded.</div>
         </section>

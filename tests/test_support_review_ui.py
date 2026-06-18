@@ -17,6 +17,8 @@ def test_support_review_page_serves_operator_workbench() -> None:
     assert "Player reply template" in response.text
     assert "Recent Review Records" in response.text
     assert "Save audit" in response.text
+    assert "Export CSV" in response.text
+    assert "audit-severity-filter" in response.text
     assert "Do Not Request Secrets" in response.text
     assert "Do not ask for a raw GW2 API key" in response.text
     assert "/player-ui/support.js" in response.text
@@ -32,6 +34,9 @@ def test_support_review_static_assets_include_review_workflow() -> None:
     assert "buildReplyTemplate" in js.text
     assert "saveAuditRecord" in js.text
     assert "renderAuditRecords" in js.text
+    assert "auditQueryString" in js.text
+    assert "exportAuditCsv" in js.text
+    assert 'params.set("format", format)' in js.text
     assert "privacy-boundary violations" not in js.text
     assert "Please do not send your raw GW2 API key" in js.text
     assert "navigator.clipboard.writeText" in js.text

@@ -81,7 +81,9 @@ evidence paths, and a reply template that preserves the no-secret boundary.
 Reviewers can save a case audit record after review. The audit stores status,
 finding ids, reviewer, timestamp, evidence paths, and a short reply summary only;
 it does not store the raw bundle, raw API key, local build ids, private account
-payloads, or report contents. The review also rejects bundles that appear to
+payloads, or report contents. The support workbench can filter audit records by
+status, severity, and reviewer, then export the same privacy-safe metadata as
+CSV for support trend analysis. The review also rejects bundles that appear to
 contain sensitive fields outside the privacy-safe support boundary.
 
 ## First Use

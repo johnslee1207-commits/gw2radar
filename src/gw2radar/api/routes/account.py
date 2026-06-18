@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 from pydantic import BaseModel
 from fastapi import APIRouter
+from fastapi.responses import Response
 
 from gw2radar.api import state
 from gw2radar.api.state import delete_account_snapshot, reset_cached_graph
@@ -14,7 +15,11 @@ from gw2radar.ingest.gw2_api_gateway import Gw2ApiGateway
 from gw2radar.ontology.graph_layers import GraphLayer
 from gw2radar.security.api_key_permissions import build_missing_key_permission_report, build_permission_report
 from gw2radar.security.api_key_store import EncryptedApiKeyStore
-from gw2radar.support.account_debug_bundle_audit import create_support_review_audit, list_support_review_audits
+from gw2radar.support.account_debug_bundle_audit import (
+    create_support_review_audit,
+    list_support_review_audits,
+    render_support_review_audit_csv,
+)
 from gw2radar.support.account_debug_bundle_review import review_account_debug_bundle
 
 router = APIRouter(prefix="/account", tags=["account"])
@@ -126,13 +131,43 @@ def post_account_debug_bundle_review_audit(request: DebugBundleAuditRequest) -> 
     return _with_key_store(write_audit)
 
 
-@router.get("/debug-bundle/review/audit")
-def get_account_debug_bundle_review_audit(limit: int = 20) -> dict:
-    def read_audits(store: EncryptedApiKeyStore) -> dict:
-        records = list_support_review_audits(store.session, limit=limit)
+@router.get("/debug-bundle/review/audit", response_model=None)
+def get_account_debug_bundle_review_audit(
+    limit: int = 20,
+    status: str | None = None,
+    severity: str | None = None,
+    reviewer: str | None = None,
+    created_from: str | None = None,
+    created_to: str | None = None,
+    format: str = "json",
+):
+    def read_audits(store: EncryptedApiKeyStore):
+        records = list_support_review_audits(
+            store.session,
+            limit=limit,
+            status=status,
+            severity=severity,
+            reviewer=reviewer,
+            created_from=_parse_optional_datetime(created_from),
+            created_to=_parse_optional_datetime(created_to),
+        )
+        if format == "csv":
+            return Response(
+                content=render_support_review_audit_csv(records),
+                media_type="text/csv; charset=utf-8",
+                headers={"Content-Disposition": 'attachment; filename="support_review_audit.csv"'},
+            )
         return {
             "schema_version": "gw2radar.account_debug_bundle_review_audit_list.v1",
             "records": [record.model_dump(mode="json") for record in records],
+            "filters": {
+                "limit": limit,
+                "status": status,
+                "severity": severity,
+                "reviewer": reviewer,
+                "created_from": created_from,
+                "created_to": created_to,
+            },
             "boundary": "Audit records exclude raw bundles, raw API keys, and private account payloads.",
         }
 
@@ -160,6 +195,13 @@ def _with_key_store(callback):
     init_db()
     with db_session.SessionLocal() as session:
         return callback(EncryptedApiKeyStore(session))
+
+
+def _parse_optional_datetime(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    normalized = value.replace("Z", "+00:00")
+    return datetime.fromisoformat(normalized)
 
 
 def _build_account_connection_diagnostic(store: EncryptedApiKeyStore) -> dict:

@@ -53,6 +53,49 @@ def test_support_review_audit_stores_safe_metadata_without_raw_bundle() -> None:
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
+def test_support_review_audit_filters_and_exports_privacy_safe_csv() -> None:
+    temp_dir = Path(".test_tmp") / f"support-review-audit-filter-{uuid4().hex}"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        configure_database(f"sqlite:///{temp_dir / 'support-review-filter.db'}")
+        state.reset_cached_graph()
+        client = TestClient(app)
+
+        ready = client.post(
+            "/account/debug-bundle/review/audit",
+            json={"bundle": _ready_bundle(), "reviewer": "alice", "reply_template": "Ready flow."},
+        ).json()
+        critical = client.post(
+            "/account/debug-bundle/review/audit",
+            json={"bundle": _missing_key_bundle(), "reviewer": "bob", "reply_template": "Paste a key."},
+        ).json()
+
+        assert ready["audit_record"]["overall_status"] == "ready"
+        assert critical["audit_record"]["highest_severity"] == "critical"
+
+        filtered = client.get("/account/debug-bundle/review/audit?severity=critical&reviewer=bob&limit=10").json()
+
+        assert filtered["filters"]["severity"] == "critical"
+        assert filtered["filters"]["reviewer"] == "bob"
+        assert len(filtered["records"]) == 1
+        assert filtered["records"][0]["case_id"] == critical["audit_record"]["case_id"]
+
+        csv_response = client.get("/account/debug-bundle/review/audit?status=ready&format=csv")
+        csv_text = csv_response.text
+
+        assert csv_response.status_code == 200
+        assert "text/csv" in csv_response.headers["content-type"]
+        assert "case_id,created_at,overall_status" in csv_text
+        assert ready["audit_record"]["case_id"] in csv_text
+        assert critical["audit_record"]["case_id"] not in csv_text
+        assert "Diagnostic Berserker Chest" not in csv_text
+        assert "debug_note" not in csv_text
+    finally:
+        close_database()
+        state.reset_cached_graph()
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
 def _sample_bundle() -> dict:
     return {
         "schema_version": "gw2radar.account_debug_bundle.v1",
@@ -74,3 +117,19 @@ def _sample_bundle() -> dict:
         "snapshot_summary": {"synced_character_snapshot_count": 1, "synced_gear_count": 4},
         "debug_note": "Diagnostic Berserker Chest",
     }
+
+
+def _ready_bundle() -> dict:
+    bundle = _sample_bundle()
+    bundle["client_state"] = {"active_view": "build", "active_build_id_present": True}
+    bundle.pop("debug_note", None)
+    return bundle
+
+
+def _missing_key_bundle() -> dict:
+    bundle = _sample_bundle()
+    bundle["key_status"] = {"is_configured": False}
+    bundle["diagnostic_summary"]["summary_status"] = "blocked"
+    bundle["diagnostic_summary"]["checks"][0] = {"check_id": "api_key_stored", "status": "fail"}
+    bundle.pop("debug_note", None)
+    return bundle
