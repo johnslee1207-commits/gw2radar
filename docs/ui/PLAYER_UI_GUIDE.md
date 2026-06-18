@@ -91,9 +91,13 @@ blockers to support steps, safe player reply templates, evidence paths, and
 product fix suggestions. The product backlog generator turns those product
 suggestions into ranked backlog items with affected case counts, support signal,
 and acceptance criteria. The backlog can be exported as Markdown for issue or
-roadmap drafting, or CSV for triage spreadsheets. The review also rejects bundles
-that appear to contain sensitive fields outside the privacy-safe support
-boundary.
+roadmap drafting, or CSV for triage spreadsheets. Reviewers can also promote a
+ranked backlog item into a draft roadmap/issue artifact from the support
+workbench, then list or export those drafts as Markdown or CSV. Promotion drafts
+contain product-planning summaries only; they do not store raw debug bundles, raw
+API keys, private account payloads, local build ids, or report contents. The
+review also rejects bundles that appear to contain sensitive fields outside the
+privacy-safe support boundary.
 
 ## First Use
 

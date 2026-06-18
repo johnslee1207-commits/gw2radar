@@ -23,6 +23,8 @@ graph TD
   SupportReviewMetrics --> SupportReviewPlaybook["Remediation Playbook"]
   SupportReviewPlaybook --> SupportReviewBacklog["Product Fix Backlog"]
   SupportReviewBacklog --> SupportReviewBacklogExport["Backlog Markdown/CSV Export"]
+  SupportReviewBacklog --> SupportBacklogPromotion["Roadmap Draft Promotion"]
+  SupportBacklogPromotion --> SupportBacklogPromotionExport["Promotion Markdown/CSV Export"]
   Connect --> AccountSync["Account Sync"]
   PermissionInspection --> AccountConnectionDiagnostic
   AccountSync --> AccountConnectionDiagnostic
@@ -76,6 +78,8 @@ graph TD
 | SupportReviewPlaybook | Top-blocker remediation steps, safe player templates, and product fix suggestions | `/account/debug-bundle/review/audit/playbook`, `build_support_review_playbook`, `/support` playbook section | Implemented |
 | SupportReviewBacklog | Product backlog items ranked from playbook fix suggestions and affected support cases | `/account/debug-bundle/review/audit/backlog`, `build_support_review_product_backlog`, `/support` backlog section | Implemented |
 | SupportReviewBacklogExport | Backlog export for roadmap and issue drafting | `/account/debug-bundle/review/audit/backlog?format=markdown`, `render_support_review_backlog_markdown`, `render_support_review_backlog_csv` | Implemented |
+| SupportBacklogPromotion | Draft roadmap/issue artifact generated from a ranked support backlog item | `/account/debug-bundle/review/audit/backlog/promotions`, `create_support_backlog_promotion`, `/support` Roadmap Drafts section | Implemented |
+| SupportBacklogPromotionExport | Promotion draft list and Markdown/CSV export | `list_support_backlog_promotions`, `render_support_backlog_promotions_markdown`, `render_support_backlog_promotions_csv` | Implemented |
 | AccountSync | Sync controls and endpoint checklist | `/api/v1/account/sync` endpoint progress | Implemented |
 | DashboardAction | Today and this-week account-aware actions | `/api/v1/player/dashboard` | Implemented |
 | ReturnerDiagnosis | Returner view | `/goals`, `/goals/{goal_id}/gap`, actions, preview | Implemented |
@@ -112,6 +116,8 @@ graph TD
 | P0 Support review remediation playbook | Top blockers map to standard support steps, player reply templates, evidence paths, and product fix suggestions without raw bundle access | Complete |
 | P0 Support review product backlog | Playbook product suggestions become ranked backlog items with affected case counts, support signal, and acceptance criteria | Complete |
 | P0 Support review backlog export | Product backlog can be exported as Markdown or CSV without raw bundle or raw key content | Complete |
+| P0 Support backlog promotion | Ranked support backlog items can be promoted into draft roadmap/issue artifacts without storing raw bundle or private account payloads | Complete |
+| P0 Support backlog promotion export | Promotion drafts can be listed and exported as Markdown or CSV for product planning handoff | Complete |
 | P0 Account sync progress | Sync controls and endpoint-level progress for account, characters, wallet, materials, bank, and achievements | Complete |
 | P0 Dashboard | Account status, actions, opportunity cards, do-not-sell warning | Complete |
 | P1 Returner onboarding questions | Last played and interest controls | Complete |
@@ -147,8 +153,8 @@ graph TD
 
 ## Maturity Summary
 
-- Complete: 44 guide items.
+- Complete: 46 guide items.
 - Partial: 0 guide items.
 - Missing: 0 guide items.
 
-All player-guide checklist items are now implemented at MVP depth. Synced character equipment now bridges official character detail into Build Fit, enriches item/stat names through best-effort public item metadata, classifies armor, weapons, runes, sigils, and relics, and adds conservative upgrade effect-family review hints. The Build Fit UI now exposes the `build_upgrade_effects` rule pack flow so reviewed rules can be previewed, imported as disabled, listed, and enabled through a reviewer gate before they become evidence. Upgrade effect explanations prefer reviewed and enabled KB rule evidence and fall back to explicit heuristic labeling when evidence is absent, so they do not invent source authority. Account connection troubleshooting now has a full privacy-safe loop: UI diagnostic, debug bundle export, local/API support review, `/support` workbench, evidence-path recommendations, copyable support reply, safe audit metadata, filtered CSV export, metrics summary, remediation playbook, product backlog generation, backlog export, and boundary violation detection. Remaining post-MVP depth improvements are qualitative rather than checklist gaps: more domain-specific requirements for every seeded legendary goal, richer effect parsing from official descriptions and reviewed rule packs, and front-end polish for long-running sync worker timelines.
+All player-guide checklist items are now implemented at MVP depth. Synced character equipment now bridges official character detail into Build Fit, enriches item/stat names through best-effort public item metadata, classifies armor, weapons, runes, sigils, and relics, and adds conservative upgrade effect-family review hints. The Build Fit UI now exposes the `build_upgrade_effects` rule pack flow so reviewed rules can be previewed, imported as disabled, listed, and enabled through a reviewer gate before they become evidence. Upgrade effect explanations prefer reviewed and enabled KB rule evidence and fall back to explicit heuristic labeling when evidence is absent, so they do not invent source authority. Account connection troubleshooting now has a full privacy-safe loop: UI diagnostic, debug bundle export, local/API support review, `/support` workbench, evidence-path recommendations, copyable support reply, safe audit metadata, filtered CSV export, metrics summary, remediation playbook, product backlog generation, backlog export, backlog-to-roadmap draft promotion, promotion export, and boundary violation detection. Remaining post-MVP depth improvements are qualitative rather than checklist gaps: more domain-specific requirements for every seeded legendary goal, richer effect parsing from official descriptions and reviewed rule packs, and front-end polish for long-running sync worker timelines.

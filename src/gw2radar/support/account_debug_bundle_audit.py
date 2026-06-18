@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from csv import DictWriter
-from datetime import datetime
+from datetime import datetime, timezone
 from io import StringIO
 from uuid import uuid4
 
@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from gw2radar.db.models import SupportReviewAuditModel
+from gw2radar.db.models import SupportBacklogPromotionModel, SupportReviewAuditModel
 from gw2radar.support.account_debug_bundle_review import SupportReviewReport
 
 
@@ -87,6 +87,28 @@ class SupportReviewBacklogSummary(BaseModel):
     backlog_items: list[SupportReviewBacklogItem] = Field(default_factory=list)
     summary: str
     boundary: str = "Backlog items are generated from aggregated privacy-safe support metadata only."
+
+
+class SupportBacklogPromotionArtifact(BaseModel):
+    promotion_id: str
+    backlog_id: str
+    blocker_id: str
+    title: str
+    priority: str
+    artifact_type: str
+    status: str
+    reviewer: str
+    source: str
+    body_markdown: str
+    properties: dict = Field(default_factory=dict)
+    created_at: datetime
+    updated_at: datetime
+
+
+class SupportBacklogPromotionList(BaseModel):
+    schema_version: str = "gw2radar.support_backlog_promotion_list.v1"
+    promotions: list[SupportBacklogPromotionArtifact] = Field(default_factory=list)
+    boundary: str = "Promotion artifacts contain product-planning summaries only; raw support bundles, API keys, and private account payloads are excluded."
 
 
 PLAYBOOKS: dict[str, SupportReviewPlaybookItem] = {
@@ -420,6 +442,162 @@ def render_support_review_backlog_markdown(backlog: SupportReviewBacklogSummary)
     return "\n".join(lines)
 
 
+def create_support_backlog_promotion(
+    session: Session,
+    *,
+    item: SupportReviewBacklogItem,
+    reviewer: str | None = None,
+    artifact_type: str = "roadmap_issue_draft",
+    source: str = "support_backlog",
+) -> SupportBacklogPromotionArtifact:
+    now = datetime.now(timezone.utc)
+    body = render_support_backlog_promotion_body(item, artifact_type=artifact_type)
+    record = SupportBacklogPromotionModel(
+        promotion_id=f"support-promotion-{uuid4().hex}",
+        backlog_id=_safe_text(item.backlog_id, max_length=120),
+        blocker_id=_safe_text(item.blocker_id, max_length=120),
+        title=_safe_text(item.title, max_length=200),
+        priority=_safe_text(item.priority, max_length=20),
+        artifact_type=_safe_text(artifact_type or "roadmap_issue_draft", max_length=80),
+        status="draft",
+        reviewer=_safe_text(reviewer or "support", max_length=80),
+        source=_safe_text(source or "support_backlog", max_length=80),
+        body_markdown=body,
+        properties_json={
+            "affected_cases": item.affected_cases,
+            "support_signal": item.support_signal,
+            "acceptance_criteria": list(item.acceptance_criteria),
+            "product_fix_suggestion": item.product_fix_suggestion,
+            "stores_raw_bundle": False,
+            "stores_raw_api_key": False,
+            "stores_private_account_payload": False,
+        },
+        created_at=now,
+        updated_at=now,
+    )
+    session.add(record)
+    session.commit()
+    session.refresh(record)
+    return _to_promotion(record)
+
+
+def list_support_backlog_promotions(
+    session: Session,
+    *,
+    limit: int = 20,
+    status: str | None = None,
+    reviewer: str | None = None,
+) -> SupportBacklogPromotionList:
+    safe_limit = min(max(int(limit or 20), 1), 100)
+    statement = select(SupportBacklogPromotionModel)
+    if status:
+        statement = statement.where(SupportBacklogPromotionModel.status == _safe_text(status, max_length=80))
+    if reviewer:
+        statement = statement.where(SupportBacklogPromotionModel.reviewer == _safe_text(reviewer, max_length=80))
+    rows = session.scalars(statement.order_by(SupportBacklogPromotionModel.created_at.desc()).limit(safe_limit)).all()
+    return SupportBacklogPromotionList(promotions=[_to_promotion(row) for row in rows])
+
+
+def render_support_backlog_promotion_body(
+    item: SupportReviewBacklogItem,
+    *,
+    artifact_type: str = "roadmap_issue_draft",
+) -> str:
+    lines = [
+        f"# {item.priority} {item.title}",
+        "",
+        f"Artifact type: `{artifact_type or 'roadmap_issue_draft'}`",
+        f"Backlog ID: `{item.backlog_id}`",
+        f"Blocker: `{item.blocker_id}`",
+        f"Affected cases: {item.affected_cases}",
+        "",
+        "## Support Signal",
+        "",
+        item.support_signal,
+        "",
+        "## Product Fix",
+        "",
+        item.product_fix_suggestion,
+        "",
+        "## Acceptance Criteria",
+        "",
+    ]
+    lines.extend(f"- {criterion}" for criterion in item.acceptance_criteria)
+    lines.extend(
+        [
+            "",
+            "## Safety Boundary",
+            "",
+            "- Do not request raw GW2 API keys.",
+            "- Do not persist raw debug bundles in the issue.",
+            "- Do not include private inventory, bank, wallet, material, achievement, equipment, or report payloads.",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def render_support_backlog_promotions_markdown(bundle: SupportBacklogPromotionList) -> str:
+    lines = [
+        "# Support Backlog Promotion Drafts",
+        "",
+        f"Boundary: {bundle.boundary}",
+        "",
+    ]
+    if not bundle.promotions:
+        lines.append("No promotion drafts match the current filters.")
+        return "\n".join(lines) + "\n"
+    for promotion in bundle.promotions:
+        lines.extend(
+            [
+                f"## {promotion.priority} - {promotion.title}",
+                "",
+                f"- Promotion ID: `{promotion.promotion_id}`",
+                f"- Backlog ID: `{promotion.backlog_id}`",
+                f"- Status: `{promotion.status}`",
+                f"- Reviewer: `{promotion.reviewer}`",
+                f"- Created: {promotion.created_at.isoformat()}",
+                "",
+                promotion.body_markdown.strip(),
+                "",
+            ]
+        )
+    return "\n".join(lines)
+
+
+def render_support_backlog_promotions_csv(bundle: SupportBacklogPromotionList) -> str:
+    output = StringIO()
+    fieldnames = [
+        "promotion_id",
+        "backlog_id",
+        "blocker_id",
+        "priority",
+        "title",
+        "artifact_type",
+        "status",
+        "reviewer",
+        "affected_cases",
+        "created_at",
+    ]
+    writer = DictWriter(output, fieldnames=fieldnames, lineterminator="\n")
+    writer.writeheader()
+    for promotion in bundle.promotions:
+        writer.writerow(
+            {
+                "promotion_id": promotion.promotion_id,
+                "backlog_id": promotion.backlog_id,
+                "blocker_id": promotion.blocker_id,
+                "priority": promotion.priority,
+                "title": promotion.title,
+                "artifact_type": promotion.artifact_type,
+                "status": promotion.status,
+                "reviewer": promotion.reviewer,
+                "affected_cases": promotion.properties.get("affected_cases", 0),
+                "created_at": promotion.created_at.isoformat(),
+            }
+        )
+    return output.getvalue()
+
+
 def _highest_severity(severities: list[str]) -> str:
     if not severities:
         return "info"
@@ -516,4 +694,22 @@ def _to_record(row: SupportReviewAuditModel) -> SupportReviewAuditRecord:
         reply_template_summary=row.reply_template_summary,
         properties=dict(row.properties_json or {}),
         created_at=row.created_at,
+    )
+
+
+def _to_promotion(row: SupportBacklogPromotionModel) -> SupportBacklogPromotionArtifact:
+    return SupportBacklogPromotionArtifact(
+        promotion_id=row.promotion_id,
+        backlog_id=row.backlog_id,
+        blocker_id=row.blocker_id,
+        title=row.title,
+        priority=row.priority,
+        artifact_type=row.artifact_type,
+        status=row.status,
+        reviewer=row.reviewer,
+        source=row.source,
+        body_markdown=row.body_markdown,
+        properties=dict(row.properties_json or {}),
+        created_at=row.created_at,
+        updated_at=row.updated_at,
     )

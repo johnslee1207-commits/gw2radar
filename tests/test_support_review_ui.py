@@ -25,6 +25,9 @@ def test_support_review_page_serves_operator_workbench() -> None:
     assert "Product Fix Backlog" in response.text
     assert "Refresh backlog" in response.text
     assert "Export MD" in response.text
+    assert "Roadmap Drafts" in response.text
+    assert "Refresh drafts" in response.text
+    assert "promotion-list" in response.text
     assert "audit-severity-filter" in response.text
     assert "Do Not Request Secrets" in response.text
     assert "Do not ask for a raw GW2 API key" in response.text
@@ -51,6 +54,10 @@ def test_support_review_static_assets_include_review_workflow() -> None:
     assert "renderPlaybook" in js.text
     assert "renderBacklog" in js.text
     assert "exportBacklog" in js.text
+    assert "promoteBacklogItem" in js.text
+    assert "renderPromotions" in js.text
+    assert "/account/debug-bundle/review/audit/backlog/promotions" in js.text
+    assert "Promote draft" in js.text
     assert "markdown" in js.text
     assert 'params.set("format", format)' in js.text
     assert "privacy-boundary violations" not in js.text
@@ -63,6 +70,7 @@ def test_support_review_static_assets_include_review_workflow() -> None:
     assert ".support-metrics-grid" in css.text
     assert ".support-playbook-item" in css.text
     assert ".support-backlog-item" in css.text
+    assert ".support-promotion-item" in css.text
     assert ".support-finding.warning" in css.text
     assert ".support-finding.info" in css.text
 

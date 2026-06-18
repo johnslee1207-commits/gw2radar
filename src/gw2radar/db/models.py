@@ -143,6 +143,24 @@ class SupportReviewAuditModel(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 
+class SupportBacklogPromotionModel(Base):
+    __tablename__ = "support_backlog_promotions"
+
+    promotion_id: Mapped[str] = mapped_column(String, primary_key=True)
+    backlog_id: Mapped[str] = mapped_column(String, nullable=False)
+    blocker_id: Mapped[str] = mapped_column(String, nullable=False)
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    priority: Mapped[str] = mapped_column(String, nullable=False)
+    artifact_type: Mapped[str] = mapped_column(String, default="roadmap_issue_draft")
+    status: Mapped[str] = mapped_column(String, default="draft")
+    reviewer: Mapped[str] = mapped_column(String, default="support")
+    source: Mapped[str] = mapped_column(String, default="support_backlog")
+    body_markdown: Mapped[str] = mapped_column(Text, nullable=False)
+    properties_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
 class SecretModel(Base):
     __tablename__ = "secrets"
 

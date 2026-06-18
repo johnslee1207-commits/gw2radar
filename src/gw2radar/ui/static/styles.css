@@ -807,14 +807,16 @@ label + label {
 }
 
 .support-playbook-list,
-.support-backlog-list {
+.support-backlog-list,
+.support-promotion-list {
   display: grid;
   gap: 10px;
   margin-top: 14px;
 }
 
 .support-playbook-item,
-.support-backlog-item {
+.support-backlog-item,
+.support-promotion-item {
   border-left-color: var(--focus);
 }
 
@@ -822,6 +824,19 @@ label + label {
 .support-backlog-item ul {
   margin: 0;
   padding-left: 22px;
+}
+
+.support-promotion-item span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.86rem;
+  margin: 6px 0 10px;
+}
+
+.support-promotion-item pre {
+  max-height: 220px;
+  overflow: auto;
+  white-space: pre-wrap;
 }
 
 .support-metrics-grid {

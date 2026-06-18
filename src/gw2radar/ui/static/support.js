@@ -12,6 +12,9 @@ const refreshPlaybookButton = document.querySelector("#refresh-playbook-button")
 const refreshBacklogButton = document.querySelector("#refresh-backlog-button");
 const exportBacklogMdButton = document.querySelector("#export-backlog-md-button");
 const exportBacklogCsvButton = document.querySelector("#export-backlog-csv-button");
+const refreshPromotionsButton = document.querySelector("#refresh-promotions-button");
+const exportPromotionsMdButton = document.querySelector("#export-promotions-md-button");
+const exportPromotionsCsvButton = document.querySelector("#export-promotions-csv-button");
 const summary = document.querySelector("#support-summary");
 const findingList = document.querySelector("#finding-list");
 const replyTemplate = document.querySelector("#reply-template");
@@ -28,6 +31,8 @@ const playbookSummary = document.querySelector("#playbook-summary");
 const playbookList = document.querySelector("#playbook-list");
 const backlogSummary = document.querySelector("#backlog-summary");
 const backlogList = document.querySelector("#backlog-list");
+const promotionSummary = document.querySelector("#promotion-summary");
+const promotionList = document.querySelector("#promotion-list");
 const output = document.querySelector("#support-output");
 let lastBundle = null;
 let lastReview = null;
@@ -211,6 +216,12 @@ async function refreshBacklog() {
   renderBacklog(backlog);
 }
 
+async function refreshPromotions() {
+  const response = await fetch(`/account/debug-bundle/review/audit/backlog/promotions?${promotionQueryString()}`);
+  const bundle = await response.json();
+  renderPromotions(bundle);
+}
+
 function renderAuditMetrics(metrics) {
   metricsSummary.textContent = `${metrics.total_records || 0} records. ${metrics.trend_summary || "No summary available."}`;
   renderMetricList(metricsStatusList, metrics.status_counts || []);
@@ -278,19 +289,84 @@ function renderBacklog(backlog) {
     fix.textContent = `Fix: ${backlogItem.product_fix_suggestion}`;
     const signal = document.createElement("p");
     signal.textContent = `Signal: ${backlogItem.support_signal}`;
+    const promote = document.createElement("button");
+    promote.type = "button";
+    promote.textContent = "Promote draft";
+    promote.addEventListener("click", () => promoteBacklogItem(backlogItem.backlog_id));
     const criteria = document.createElement("ul");
     for (const criterion of backlogItem.acceptance_criteria || []) {
       const li = document.createElement("li");
       li.textContent = criterion;
       criteria.appendChild(li);
     }
-    item.append(title, fix, signal, criteria);
+    item.append(title, fix, signal, promote, criteria);
     backlogList.appendChild(item);
   }
 }
 
 function exportBacklog(format) {
   window.location.href = `/account/debug-bundle/review/audit/backlog?${auditQueryString(format)}`;
+}
+
+async function promoteBacklogItem(backlogId) {
+  const body = {
+    backlog_id: backlogId,
+    reviewer: reviewerName?.value || "support",
+    audit_reviewer: auditReviewerFilter?.value?.trim() || null,
+    status: auditStatusFilter?.value?.trim() || null,
+    severity: auditSeverityFilter?.value || null,
+    artifact_type: "roadmap_issue_draft",
+    source: "support_workbench",
+  };
+  const response = await fetch("/account/debug-bundle/review/audit/backlog/promotions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const payload = await response.json();
+  output.textContent = JSON.stringify(payload, null, 2);
+  if (payload.status === "created") {
+    summary.textContent = `Promotion draft created: ${payload.promotion?.promotion_id || "unknown"}.`;
+    await refreshPromotions();
+  } else {
+    summary.textContent = `Promotion draft not created: ${payload.status || "unknown"}.`;
+  }
+}
+
+function promotionQueryString(format = "json") {
+  const params = new URLSearchParams();
+  params.set("limit", "10");
+  params.set("format", format);
+  if (reviewerName?.value) {
+    params.set("reviewer", reviewerName.value.trim());
+  }
+  return params.toString();
+}
+
+function exportPromotions(format) {
+  window.location.href = `/account/debug-bundle/review/audit/backlog/promotions?${promotionQueryString(format)}`;
+}
+
+function renderPromotions(bundle) {
+  const promotions = Array.isArray(bundle.promotions) ? bundle.promotions : [];
+  promotionSummary.textContent = `${promotions.length} promotion drafts loaded.`;
+  promotionList.innerHTML = "";
+  if (!promotions.length) {
+    promotionList.textContent = "No promotion drafts match the current reviewer filter.";
+    return;
+  }
+  for (const promotion of promotions) {
+    const item = document.createElement("article");
+    item.className = "support-promotion-item";
+    const title = document.createElement("strong");
+    title.textContent = `${promotion.priority} · ${promotion.title} · ${promotion.status}`;
+    const meta = document.createElement("span");
+    meta.textContent = `${promotion.promotion_id} · backlog: ${promotion.backlog_id} · reviewer: ${promotion.reviewer}`;
+    const body = document.createElement("pre");
+    body.textContent = promotion.body_markdown || "";
+    item.append(title, meta, body);
+    promotionList.appendChild(item);
+  }
 }
 
 function renderAuditRecords(records) {
@@ -352,6 +428,12 @@ refreshBacklogButton?.addEventListener("click", refreshBacklog);
 exportBacklogMdButton?.addEventListener("click", () => exportBacklog("markdown"));
 
 exportBacklogCsvButton?.addEventListener("click", () => exportBacklog("csv"));
+
+refreshPromotionsButton?.addEventListener("click", refreshPromotions);
+
+exportPromotionsMdButton?.addEventListener("click", () => exportPromotions("markdown"));
+
+exportPromotionsCsvButton?.addEventListener("click", () => exportPromotions("csv"));
 
 copyTemplateButton?.addEventListener("click", async () => {
   if (!replyTemplate.value) {

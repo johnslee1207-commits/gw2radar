@@ -35,6 +35,17 @@ def main() -> int:
     audit_backlog = client.get("/account/debug-bundle/review/audit/backlog?reviewer=smoke&limit=10")
     backlog_markdown = client.get("/account/debug-bundle/review/audit/backlog?reviewer=smoke&format=markdown")
     backlog_csv = client.get("/account/debug-bundle/review/audit/backlog?reviewer=smoke&format=csv")
+    promotion = client.post(
+        "/account/debug-bundle/review/audit/backlog/promotions",
+        json={
+            "backlog_id": "support-backlog-frontend_flow_incomplete",
+            "reviewer": "smoke",
+            "audit_reviewer": "smoke",
+        },
+    )
+    promotions = client.get("/account/debug-bundle/review/audit/backlog/promotions?reviewer=smoke")
+    promotions_markdown = client.get("/account/debug-bundle/review/audit/backlog/promotions?reviewer=smoke&format=markdown")
+    promotions_csv = client.get("/account/debug-bundle/review/audit/backlog/promotions?reviewer=smoke&format=csv")
 
     _add(checks, "support page is served", page.status_code == 200 and "Debug Bundle Support Review" in page.text, page.text)
     _add(checks, "support script is served", js.status_code == 200 and "/account/debug-bundle/review" in js.text, js.text)
@@ -49,6 +60,10 @@ def main() -> int:
     _add(checks, "support audit backlog ranks product fixes", audit_backlog.status_code == 200 and audit_backlog.json().get("schema_version") == "gw2radar.account_debug_bundle_review_backlog.v1" and audit_backlog.json().get("backlog_items"), audit_backlog.text)
     _add(checks, "support audit backlog exports markdown", backlog_markdown.status_code == 200 and "# Support Review Product Backlog" in backlog_markdown.text, backlog_markdown.text)
     _add(checks, "support audit backlog exports csv", backlog_csv.status_code == 200 and "backlog_id,priority,blocker_id" in backlog_csv.text, backlog_csv.text)
+    _add(checks, "support backlog promotes roadmap draft", promotion.status_code == 200 and promotion.json().get("status") == "created", promotion.text)
+    _add(checks, "support backlog promotion list is visible", promotions.status_code == 200 and promotions.json().get("promotions"), promotions.text)
+    _add(checks, "support backlog promotions export markdown", promotions_markdown.status_code == 200 and "# Support Backlog Promotion Drafts" in promotions_markdown.text, promotions_markdown.text)
+    _add(checks, "support backlog promotions export csv", promotions_csv.status_code == 200 and "promotion_id,backlog_id,blocker_id" in promotions_csv.text, promotions_csv.text)
     _add(checks, "no-secret boundary is visible", "Do not ask for a raw GW2 API key" in page.text and "Please do not send your raw GW2 API key" in js.text, "boundary missing")
 
     failed = [check for check in checks if not check[1]]

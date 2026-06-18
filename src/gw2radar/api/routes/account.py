@@ -19,8 +19,12 @@ from gw2radar.support.account_debug_bundle_audit import (
     build_support_review_product_backlog,
     build_support_review_playbook,
     build_support_review_metrics,
+    create_support_backlog_promotion,
+    list_support_backlog_promotions,
     create_support_review_audit,
     list_support_review_audits,
+    render_support_backlog_promotions_csv,
+    render_support_backlog_promotions_markdown,
     render_support_review_backlog_csv,
     render_support_review_backlog_markdown,
     render_support_review_audit_csv,
@@ -47,6 +51,19 @@ class DebugBundleAuditRequest(BaseModel):
     reviewer: str | None = None
     reply_template: str | None = None
     source: str = "support_workbench"
+
+
+class SupportBacklogPromotionRequest(BaseModel):
+    backlog_id: str
+    reviewer: str | None = None
+    artifact_type: str = "roadmap_issue_draft"
+    source: str = "support_backlog"
+    limit: int = 100
+    status: str | None = None
+    severity: str | None = None
+    audit_reviewer: str | None = None
+    created_from: str | None = None
+    created_to: str | None = None
 
 
 @router.get("/api-key/status")
@@ -298,6 +315,80 @@ def get_account_debug_bundle_review_audit_backlog(
         }
 
     return _with_key_store(read_backlog)
+
+
+@router.post("/debug-bundle/review/audit/backlog/promotions")
+def post_account_debug_bundle_review_audit_backlog_promotion(request: SupportBacklogPromotionRequest) -> dict:
+    def promote_backlog_item(store: EncryptedApiKeyStore) -> dict:
+        records = list_support_review_audits(
+            store.session,
+            limit=request.limit,
+            status=request.status,
+            severity=request.severity,
+            reviewer=request.audit_reviewer,
+            created_from=_parse_optional_datetime(request.created_from),
+            created_to=_parse_optional_datetime(request.created_to),
+        )
+        metrics = build_support_review_metrics(records)
+        playbook = build_support_review_playbook(metrics)
+        backlog = build_support_review_product_backlog(metrics, playbook)
+        selected = next((item for item in backlog.backlog_items if item.backlog_id == request.backlog_id), None)
+        if selected is None:
+            return {
+                "schema_version": "gw2radar.support_backlog_promotion_result.v1",
+                "status": "not_found",
+                "promotion": None,
+                "available_backlog_ids": [item.backlog_id for item in backlog.backlog_items],
+                "boundary": "No raw support bundle, raw API key, or private account payload was read or stored.",
+            }
+        promotion = create_support_backlog_promotion(
+            store.session,
+            item=selected,
+            reviewer=request.reviewer,
+            artifact_type=request.artifact_type,
+            source=request.source,
+        )
+        return {
+            "schema_version": "gw2radar.support_backlog_promotion_result.v1",
+            "status": "created",
+            "promotion": promotion.model_dump(mode="json"),
+            "boundary": "Promotion stores a product-planning draft only; raw support bundles, raw API keys, and private account payloads are excluded.",
+        }
+
+    return _with_key_store(promote_backlog_item)
+
+
+@router.get("/debug-bundle/review/audit/backlog/promotions")
+def get_account_debug_bundle_review_audit_backlog_promotions(
+    limit: int = 20,
+    status: str | None = None,
+    reviewer: str | None = None,
+    format: str = "json",
+):
+    def read_promotions(store: EncryptedApiKeyStore):
+        bundle = list_support_backlog_promotions(store.session, limit=limit, status=status, reviewer=reviewer)
+        if format == "csv":
+            return Response(
+                content=render_support_backlog_promotions_csv(bundle),
+                media_type="text/csv; charset=utf-8",
+                headers={"Content-Disposition": 'attachment; filename="support_backlog_promotions.csv"'},
+            )
+        if format == "markdown":
+            return Response(
+                content=render_support_backlog_promotions_markdown(bundle),
+                media_type="text/markdown; charset=utf-8",
+                headers={"Content-Disposition": 'attachment; filename="support_backlog_promotions.md"'},
+            )
+        return {
+            **bundle.model_dump(mode="json"),
+            "filters": {
+                "limit": limit,
+                "status": status,
+                "reviewer": reviewer,
+            },
+        }
+
+    return _with_key_store(read_promotions)
 
 
 @router.put("/api-key")

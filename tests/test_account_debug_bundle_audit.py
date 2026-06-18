@@ -222,6 +222,97 @@ def test_support_review_backlog_exports_markdown_and_csv() -> None:
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
+def test_support_review_backlog_promotes_to_safe_product_draft() -> None:
+    temp_dir = Path(".test_tmp") / f"support-review-backlog-promotion-{uuid4().hex}"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        configure_database(f"sqlite:///{temp_dir / 'support-review-backlog-promotion.db'}")
+        state.reset_cached_graph()
+        client = TestClient(app)
+
+        client.post("/account/debug-bundle/review/audit", json={"bundle": _missing_key_bundle(), "reviewer": "promoter"})
+        client.post("/account/debug-bundle/review/audit", json={"bundle": _missing_key_bundle(), "reviewer": "promoter"})
+
+        response = client.post(
+            "/account/debug-bundle/review/audit/backlog/promotions",
+            json={
+                "backlog_id": "support-backlog-needs_key",
+                "reviewer": "product lead",
+                "audit_reviewer": "promoter",
+                "artifact_type": "roadmap_issue_draft",
+            },
+        )
+        payload = response.json()
+        rendered = str(payload)
+
+        assert response.status_code == 200
+        assert payload["schema_version"] == "gw2radar.support_backlog_promotion_result.v1"
+        assert payload["status"] == "created"
+        promotion = payload["promotion"]
+        assert promotion["backlog_id"] == "support-backlog-needs_key"
+        assert promotion["blocker_id"] == "needs_key"
+        assert promotion["status"] == "draft"
+        assert promotion["reviewer"] == "product lead"
+        assert "Support Signal" in promotion["body_markdown"]
+        assert "Do not request raw GW2 API keys" in promotion["body_markdown"]
+        assert promotion["properties"]["affected_cases"] == 2
+        assert promotion["properties"]["stores_raw_bundle"] is False
+        assert promotion["properties"]["stores_raw_api_key"] is False
+        assert promotion["properties"]["stores_private_account_payload"] is False
+        assert "Diagnostic Berserker Chest" not in rendered
+        assert "12345678-1234-1234-1234-123456789abc" not in rendered
+
+        listing = client.get("/account/debug-bundle/review/audit/backlog/promotions?reviewer=product%20lead").json()
+        assert listing["schema_version"] == "gw2radar.support_backlog_promotion_list.v1"
+        assert len(listing["promotions"]) == 1
+        assert listing["promotions"][0]["promotion_id"] == promotion["promotion_id"]
+
+        markdown = client.get("/account/debug-bundle/review/audit/backlog/promotions?reviewer=product%20lead&format=markdown")
+        csv_response = client.get("/account/debug-bundle/review/audit/backlog/promotions?reviewer=product%20lead&format=csv")
+
+        assert markdown.status_code == 200
+        assert "text/markdown" in markdown.headers["content-type"]
+        assert "# Support Backlog Promotion Drafts" in markdown.text
+        assert promotion["promotion_id"] in markdown.text
+        assert "Diagnostic Berserker Chest" not in markdown.text
+
+        assert csv_response.status_code == 200
+        assert "text/csv" in csv_response.headers["content-type"]
+        assert "promotion_id,backlog_id,blocker_id,priority,title" in csv_response.text
+        assert promotion["promotion_id"] in csv_response.text
+        assert "Diagnostic Berserker Chest" not in csv_response.text
+    finally:
+        close_database()
+        state.reset_cached_graph()
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def test_support_review_backlog_promotion_reports_missing_backlog_id() -> None:
+    temp_dir = Path(".test_tmp") / f"support-review-backlog-promotion-missing-{uuid4().hex}"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        configure_database(f"sqlite:///{temp_dir / 'support-review-backlog-promotion-missing.db'}")
+        state.reset_cached_graph()
+        client = TestClient(app)
+
+        client.post("/account/debug-bundle/review/audit", json={"bundle": _missing_key_bundle(), "reviewer": "promoter"})
+        response = client.post(
+            "/account/debug-bundle/review/audit/backlog/promotions",
+            json={"backlog_id": "support-backlog-unknown", "reviewer": "product lead", "audit_reviewer": "promoter"},
+        )
+        payload = response.json()
+
+        assert response.status_code == 200
+        assert payload["status"] == "not_found"
+        assert payload["promotion"] is None
+        assert payload["available_backlog_ids"] == ["support-backlog-needs_key"]
+        assert "raw API key" in payload["boundary"]
+    finally:
+        close_database()
+        state.reset_cached_graph()
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
 def _sample_bundle() -> dict:
     return {
         "schema_version": "gw2radar.account_debug_bundle.v1",
