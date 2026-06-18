@@ -13,6 +13,7 @@ from gw2radar.ontology.action_types import ActionType
 class DomainRulePackId(StrEnum):
     RETURNER_RECOVERY = "returner_recovery"
     BUILD_FIT_FRESHNESS = "build_fit_freshness"
+    BUILD_UPGRADE_EFFECTS = "build_upgrade_effects"
     MARKET_RETENTION = "market_retention"
     GUILD_PRIVACY_READINESS = "guild_privacy_readiness"
     CREATOR_SIGNAL_SAFETY = "creator_signal_safety"
@@ -93,6 +94,16 @@ def _build_pack(pack_id: DomainRulePackId) -> DomainRulePack:
             domain=KnowledgeDomain.BUILD,
             summary="Explain build readiness through reusable gear, transition cost, source attribution, and patch freshness.",
             evidence_refs=["docs/knowledge_base/build/build_fit_rules.md"],
+            rules=rules,
+        )
+    if pack_id == DomainRulePackId.BUILD_UPGRADE_EFFECTS:
+        rules = _build_upgrade_effect_rules()
+        return DomainRulePack(
+            pack_id=pack_id,
+            title="Reviewed Build Upgrade Effect Rules",
+            domain=KnowledgeDomain.BUILD,
+            summary="Map rune, sigil, and relic text to conservative effect families for Build Fit explanations.",
+            evidence_refs=["docs/knowledge_base/build/build_fit_rules.md#upgrade-effect-evidence-notes"],
             rules=rules,
         )
     if pack_id == DomainRulePackId.MARKET_RETENTION:
@@ -189,6 +200,77 @@ def _build_rules() -> list[KnowledgeRuleInput]:
             explanation_template="Build Fit Advisor should prefer practical account fit and budget alternatives over unsupported performance claims.",
             evidence_refs=evidence,
             confidence=0.82,
+            review_status=KnowledgeReviewStatus.REVIEWED,
+            enabled=False,
+        ),
+    ]
+
+
+def _build_upgrade_effect_rules() -> list[KnowledgeRuleInput]:
+    evidence = ["docs/knowledge_base/build/build_fit_rules.md#upgrade-effect-evidence-notes"]
+    return [
+        KnowledgeRuleInput(
+            name="Build upgrade power damage family",
+            domain=KnowledgeDomain.BUILD,
+            condition="upgrade_effect_family:power_damage:rune:sigil:relic",
+            recommendation="Treat power, berserker, precision, ferocity, scholar, force, and impact upgrade text as power_damage evidence for manual Build Fit review.",
+            action_type=ActionType.HOLD.value,
+            priority_delta=0.0,
+            explanation_template="Power-oriented rune, sigil, and relic labels can explain why an upgrade appears aligned with power or DPS build expectations.",
+            evidence_refs=evidence,
+            confidence=0.78,
+            review_status=KnowledgeReviewStatus.REVIEWED,
+            enabled=False,
+        ),
+        KnowledgeRuleInput(
+            name="Build upgrade condition damage family",
+            domain=KnowledgeDomain.BUILD,
+            condition="upgrade_effect_family:condition_damage:rune:sigil:relic",
+            recommendation="Treat condition, viper, afflicted, nightmare, torment, bleeding, and burning upgrade text as condition_damage evidence for manual Build Fit review.",
+            action_type=ActionType.HOLD.value,
+            priority_delta=0.0,
+            explanation_template="Condition-oriented upgrade labels can explain why an upgrade appears aligned with condition damage build expectations.",
+            evidence_refs=evidence,
+            confidence=0.78,
+            review_status=KnowledgeReviewStatus.REVIEWED,
+            enabled=False,
+        ),
+        KnowledgeRuleInput(
+            name="Build upgrade boon support family",
+            domain=KnowledgeDomain.BUILD,
+            condition="upgrade_effect_family:boon_support:rune:sigil:relic",
+            recommendation="Treat boon, concentration, leadership, divinity, quickness, and alacrity upgrade text as boon_support evidence for manual Build Fit review.",
+            action_type=ActionType.HOLD.value,
+            priority_delta=0.0,
+            explanation_template="Boon-oriented upgrade labels can explain why an upgrade appears aligned with support or boon DPS build expectations.",
+            evidence_refs=evidence,
+            confidence=0.76,
+            review_status=KnowledgeReviewStatus.REVIEWED,
+            enabled=False,
+        ),
+        KnowledgeRuleInput(
+            name="Build upgrade healing support family",
+            domain=KnowledgeDomain.BUILD,
+            condition="upgrade_effect_family:healing_support:rune:sigil:relic",
+            recommendation="Treat healing, water, monk, magi, and harrier upgrade text as healing_support evidence for manual Build Fit review.",
+            action_type=ActionType.HOLD.value,
+            priority_delta=0.0,
+            explanation_template="Healing-oriented upgrade labels can explain why an upgrade appears aligned with healer or sustain support build expectations.",
+            evidence_refs=evidence,
+            confidence=0.76,
+            review_status=KnowledgeReviewStatus.REVIEWED,
+            enabled=False,
+        ),
+        KnowledgeRuleInput(
+            name="Build upgrade defensive survival family",
+            domain=KnowledgeDomain.BUILD,
+            condition="upgrade_effect_family:defensive_survival:rune:sigil:relic",
+            recommendation="Treat durability, soldier, defense, sanctuary, protection, vitality, and toughness upgrade text as defensive_survival evidence for manual Build Fit review.",
+            action_type=ActionType.HOLD.value,
+            priority_delta=0.0,
+            explanation_template="Defensive upgrade labels can explain why an upgrade may be safer but possibly misaligned for strict DPS build expectations.",
+            evidence_refs=evidence,
+            confidence=0.76,
             review_status=KnowledgeReviewStatus.REVIEWED,
             enabled=False,
         ),

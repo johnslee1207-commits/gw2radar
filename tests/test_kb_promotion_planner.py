@@ -9,6 +9,7 @@ from gw2radar.db import session as db_session
 from gw2radar.db.init_db import init_db
 from gw2radar.db.session import close_database, configure_database
 from gw2radar.graph.graph_builder import build_mock_graph
+from gw2radar.kb.kb_domain_rule_packs import DomainRulePackId
 from gw2radar.kb.kb_models import (
     KnowledgeArticleInput,
     KnowledgeContentType,
@@ -101,8 +102,9 @@ def test_kb_promotion_plan_api_exports_json_markdown_and_csv() -> None:
 def test_kb_promotion_plan_includes_rule_pack_previews() -> None:
     plan = build_kb_promotion_plan([], build_mock_graph(), include_rule_packs=True)
 
-    assert plan.rule_pack_count == 5
-    assert plan.importable_rule_pack_count == 5
+    assert plan.rule_pack_count == len(DomainRulePackId)
+    assert plan.importable_rule_pack_count == len(DomainRulePackId)
+    assert any(pack.pack_id == "build_upgrade_effects" for pack in plan.rule_packs)
     assert any(pack.pack_id == "market_retention" for pack in plan.rule_packs)
     assert any(pack.pack_id == "guild_privacy_readiness" for pack in plan.rule_packs)
     assert any(pack.pack_id == "creator_signal_safety" for pack in plan.rule_packs)
