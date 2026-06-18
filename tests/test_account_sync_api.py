@@ -24,13 +24,15 @@ class AccountSyncGateway:
             "profession": "Mesmer",
             "level": 80,
             "equipment": [
-                {"id": 1001, "slot": "Coat", "stats": {"id": 161}},
-                {"id": 1002, "slot": "WeaponA1", "stats": {"id": 161}},
+                {"id": 1001, "slot": "Coat", "stats": {"id": 161}, "upgrades": [2001]},
+                {"id": 1002, "slot": "WeaponA1", "stats": {"id": 161}, "upgrades": [2002]},
             ],
         },
         "/v2/items": [
-            {"id": 1001, "name": "Synced Berserker Chest"},
-            {"id": 1002, "name": "Synced Berserker Dagger"},
+            {"id": 1001, "name": "Synced Berserker Chest", "type": "Armor"},
+            {"id": 1002, "name": "Synced Berserker Dagger", "type": "Weapon"},
+            {"id": 2001, "name": "Superior Rune of the Scholar", "type": "UpgradeComponent", "details": {"type": "Rune"}},
+            {"id": 2002, "name": "Superior Sigil of Force", "type": "UpgradeComponent", "details": {"type": "Sigil"}},
         ],
         "/v2/itemstats": [{"id": 161, "name": "Berserker"}],
         "/v2/account/wallet": [{"id": 1, "value": 42}],
@@ -168,8 +170,12 @@ def test_account_sync_drain_one_persists_private_layer_snapshot() -> None:
         assert equipment[0]["item_name"] == "Synced Berserker Chest"
         assert equipment[0]["stat_combo"] == "Berserker"
         assert equipment[0]["metadata_sources"] == ["official_items", "official_itemstats"]
+        assert any(item["equipment_category"] == "rune" for item in equipment)
+        assert any(item["equipment_category"] == "sigil" for item in equipment)
         assert graph.entities["gw2:item:1001"].canonical_name == "Synced Berserker Chest"
         assert graph.entities["gw2:item:1001"].properties["stat_combo"] == "Berserker"
+        assert graph.entities["gw2:item:2001"].properties["equipment_category"] == "rune"
+        assert graph.entities["gw2:item:2002"].properties["equipment_category"] == "sigil"
         assert all(player_state.graph_layer == GraphLayer.PRIVATE_PLAYER_STATE for player_state in graph.player_state)
         assert all(
             relation.graph_layer == GraphLayer.PRIVATE_PLAYER_STATE
@@ -186,6 +192,8 @@ def test_account_sync_drain_one_persists_private_layer_snapshot() -> None:
         assert account_gear.status_code == 200
         assert account_gear.json()["data"]["account_gear"]["gear"][0]["item_name"] == "Synced Berserker Chest"
         assert account_gear.json()["data"]["account_gear"]["gear"][0]["stat_combo"] == "Berserker"
+        categories = {item["equipment_category"] for item in account_gear.json()["data"]["account_gear"]["gear"]}
+        assert {"armor", "weapon", "rune", "sigil"} <= categories
     finally:
         _teardown_temp_api(temp_dir, original_factory)
 

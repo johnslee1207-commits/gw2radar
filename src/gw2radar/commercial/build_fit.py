@@ -67,6 +67,7 @@ class AccountGearItem(BaseModel):
     slot: GearSlot
     item_name: str
     stat_combo: str
+    equipment_category: str = "equipment"
 
 
 class AccountGearSnapshot(BaseModel):
@@ -165,9 +166,9 @@ DEFAULT_CHARACTER_SNAPSHOTS = [
             AccountGearItem(slot=GearSlot.FEET, item_name="Manual Power Boots", stat_combo="Berserker"),
             AccountGearItem(slot=GearSlot.WEAPON_1, item_name="Manual Power Dagger", stat_combo="Berserker"),
             AccountGearItem(slot=GearSlot.WEAPON_2, item_name="Manual Power Focus", stat_combo="Berserker"),
-            AccountGearItem(slot=GearSlot.RUNE, item_name="Manual Power Rune Set", stat_combo="Power"),
-            AccountGearItem(slot=GearSlot.SIGIL, item_name="Manual Power Sigil Set", stat_combo="Power"),
-            AccountGearItem(slot=GearSlot.RELIC, item_name="Manual Power Relic", stat_combo="Power"),
+            AccountGearItem(slot=GearSlot.RUNE, item_name="Manual Power Rune Set", stat_combo="Power", equipment_category="rune"),
+            AccountGearItem(slot=GearSlot.SIGIL, item_name="Manual Power Sigil Set", stat_combo="Power", equipment_category="sigil"),
+            AccountGearItem(slot=GearSlot.RELIC, item_name="Manual Power Relic", stat_combo="Power", equipment_category="relic"),
         ],
         assumptions=[
             "This is a manual sample snapshot, not synced ArenaNet character equipment.",
@@ -185,7 +186,7 @@ DEFAULT_CHARACTER_SNAPSHOTS = [
         gear=[
             AccountGearItem(slot=GearSlot.CHEST, item_name="Manual Soldier Chest", stat_combo="Soldier"),
             AccountGearItem(slot=GearSlot.WEAPON_1, item_name="Manual Greatsword", stat_combo="Berserker"),
-            AccountGearItem(slot=GearSlot.RUNE, item_name="Manual Defensive Rune Set", stat_combo="Defense"),
+            AccountGearItem(slot=GearSlot.RUNE, item_name="Manual Defensive Rune Set", stat_combo="Defense", equipment_category="rune"),
         ],
         assumptions=[
             "This sample is intentionally imperfect to show missing gear and budget alternatives.",
@@ -306,7 +307,7 @@ def match_account_gear(build: BuildRecord, account: AccountGearSnapshot) -> list
                 matched=matched,
                 reusable_item_name=owned.item_name if matched and owned else None,
                 explanation=(
-                    f"{requirement.slot.value} can reuse {owned.item_name}."
+                    f"{requirement.slot.value} can reuse {owned.item_name} ({owned.equipment_category})."
                     if matched and owned
                     else f"{requirement.slot.value} needs {requirement.stat_combo} gear for this build."
                 ),
@@ -473,6 +474,7 @@ def _account_gear_item(item: dict) -> AccountGearItem | None:
         slot=slot,
         item_name=str(item.get("item_name") or f"Item {item.get('item_id', 'unknown')}"),
         stat_combo=str(item.get("stat_combo") or "Unknown"),
+        equipment_category=str(item.get("equipment_category") or _category_from_slot(slot)),
     )
 
 
@@ -513,3 +515,15 @@ def _wallet_gold(graph: GraphData) -> float:
 
 def _safe_snapshot_id(value: str) -> str:
     return "".join(ch.lower() if ch.isalnum() else "_" for ch in value).strip("_") or "character"
+
+
+def _category_from_slot(slot: GearSlot) -> str:
+    if slot is GearSlot.RUNE:
+        return "rune"
+    if slot is GearSlot.SIGIL:
+        return "sigil"
+    if slot is GearSlot.RELIC:
+        return "relic"
+    if slot in {GearSlot.WEAPON_1, GearSlot.WEAPON_2}:
+        return "weapon"
+    return "armor"

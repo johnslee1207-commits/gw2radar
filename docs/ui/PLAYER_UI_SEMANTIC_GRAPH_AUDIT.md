@@ -23,6 +23,7 @@ graph TD
   BuildFit --> CharacterSnapshot["Character Snapshot"]
   CharacterSnapshot --> SyncedCharacterGear["Synced Official Character Gear"]
   SyncedCharacterGear --> PublicItemMetadata["Public Item/Stat Metadata"]
+  PublicItemMetadata --> GearSemanticCategory["Rune/Sigil/Relic Category"]
   Dashboard --> Freshness["Data Freshness"]
   Returner --> ReportCenter["Reports"]
   Legendary --> ReportCenter
@@ -56,6 +57,7 @@ graph TD
 | CharacterSnapshot | Build Fit character snapshot selector with synced-first/manual fallback sources | `/api/v1/builds/character-snapshots` | Implemented |
 | SyncedCharacterGear | Official API-derived character equipment snapshot | Account sync private character detail bridge | Implemented |
 | PublicItemMetadata | Public item and stat-name enrichment for synced equipment | `/v2/items`, `/v2/itemstats` best-effort batch metadata | Implemented |
+| GearSemanticCategory | Rune, sigil, relic, armor, and weapon category labels for Build Fit gear | Official item metadata, equipment upgrades, and Build Fit account gear snapshots | Implemented |
 | ReportArtifact | Reports view | `/api/v1/reports/*`, local report history | Implemented |
 | FreshnessSignal | Freshness view, dashboard card, and source confidence annotations | `/api/v1/player/freshness-annotations` plus report artifacts | Implemented |
 | PrivacyControl | Privacy view | `/account/*`, `/api/v1/security/private-data` | Implemented |
@@ -104,4 +106,4 @@ graph TD
 - Partial: 0 guide items.
 - Missing: 0 guide items.
 
-All player-guide checklist items are now implemented at MVP depth. Synced character equipment now bridges official character detail into Build Fit and enriches item/stat names through best-effort public item metadata without inventing missing facts. Remaining post-MVP depth improvements are qualitative rather than checklist gaps: more domain-specific requirements for every seeded legendary goal, richer rune/sigil/relic classification, and front-end polish for long-running sync worker timelines.
+All player-guide checklist items are now implemented at MVP depth. Synced character equipment now bridges official character detail into Build Fit, enriches item/stat names through best-effort public item metadata, and classifies armor, weapons, runes, sigils, and relics without inventing missing facts. Remaining post-MVP depth improvements are qualitative rather than checklist gaps: more domain-specific requirements for every seeded legendary goal, richer upgrade-effect evaluation beyond category labels, and front-end polish for long-running sync worker timelines.

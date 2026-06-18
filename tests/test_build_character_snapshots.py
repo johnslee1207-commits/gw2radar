@@ -94,6 +94,14 @@ def test_synced_character_snapshots_precede_manual_fallbacks() -> None:
                         "item_id": 1001,
                         "item_name": "Synced Berserker Chest",
                         "stat_combo": "Berserker",
+                        "equipment_category": "armor",
+                    },
+                    {
+                        "slot": "Rune",
+                        "item_id": 2001,
+                        "item_name": "Superior Rune of the Scholar",
+                        "stat_combo": "Rune",
+                        "equipment_category": "rune",
                     }
                 ],
             },
@@ -107,3 +115,5 @@ def test_synced_character_snapshots_precede_manual_fallbacks() -> None:
     assert snapshots[0].character_name == "Hero One"
     assert synced is not None
     assert synced.to_account_gear_snapshot().gear[0].item_name == "Synced Berserker Chest"
+    assert synced.to_account_gear_snapshot().gear[1].slot == "rune"
+    assert synced.to_account_gear_snapshot().gear[1].equipment_category == "rune"

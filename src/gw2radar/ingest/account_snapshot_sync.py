@@ -138,27 +138,44 @@ def _character_properties(detail: dict, equipment_metadata: dict[str, dict[int, 
         "level": detail.get("level"),
         "race": detail.get("race"),
         "gender": detail.get("gender"),
-        "equipment": [
-            _equipment_properties(item, equipment_metadata)
-            for item in detail.get("equipment", [])
-            if isinstance(item, dict)
-        ],
+        "equipment": _equipment_entries(detail, equipment_metadata),
         "sync_detail_status": "detail_synced",
     }
 
 
-def _equipment_properties(item: dict, equipment_metadata: dict[str, dict[int, dict]] | None = None) -> dict:
+def _equipment_entries(detail: dict, equipment_metadata: dict[str, dict[int, dict]]) -> list[dict]:
+    entries: list[dict] = []
+    for item in detail.get("equipment", []):
+        if not isinstance(item, dict):
+            continue
+        entries.append(_equipment_properties(item, equipment_metadata))
+        entries.extend(_upgrade_equipment_properties(item, equipment_metadata))
+    return entries
+
+
+def _equipment_properties(
+    item: dict,
+    equipment_metadata: dict[str, dict[int, dict]] | None = None,
+    *,
+    slot_override: str | None = None,
+    item_id_override: int | None = None,
+    equipment_category_override: str | None = None,
+    source_slot: str | None = None,
+) -> dict:
     equipment_metadata = equipment_metadata or _empty_equipment_metadata()
     stats = item.get("stats") if isinstance(item.get("stats"), dict) else {}
-    item_id = item.get("id")
+    item_id = item_id_override or item.get("id")
     stat_id = stats.get("id")
     official_item = _metadata_entry(equipment_metadata.get("items", {}), item_id)
     official_stat = _metadata_entry(equipment_metadata.get("itemstats", {}), stat_id)
     item_name = item.get("name") or official_item.get("name") or f"Item {item.get('id', 'unknown')}"
+    if item_id_override is not None:
+        item_name = official_item.get("name") or f"Item {item_id_override}"
     stat_combo = (
         item.get("stat_combo")
         or stats.get("name")
         or official_stat.get("name")
+        or _upgrade_stat_combo(official_item)
         or (f"stat:{stat_id}" if stat_id else "Unknown")
     )
     metadata_sources = []
@@ -167,13 +184,36 @@ def _equipment_properties(item: dict, equipment_metadata: dict[str, dict[int, di
     if official_stat.get("name"):
         metadata_sources.append("official_itemstats")
     return {
-        "slot": item.get("slot"),
+        "slot": slot_override or item.get("slot"),
         "item_id": item_id,
         "item_name": item_name,
         "stat_combo": stat_combo,
         "stat_id": stat_id,
+        "equipment_category": equipment_category_override or _equipment_category(item.get("slot"), official_item),
+        "source_slot": source_slot or item.get("slot"),
         "metadata_sources": metadata_sources,
     }
+
+
+def _upgrade_equipment_properties(item: dict, equipment_metadata: dict[str, dict[int, dict]]) -> list[dict]:
+    entries: list[dict] = []
+    upgrades = item.get("upgrades") if isinstance(item.get("upgrades"), list) else []
+    for upgrade_id in upgrades:
+        official_item = _metadata_entry(equipment_metadata.get("items", {}), upgrade_id)
+        category = _equipment_category(None, official_item)
+        if category not in {"rune", "sigil"}:
+            continue
+        entries.append(
+            _equipment_properties(
+                item,
+                equipment_metadata,
+                slot_override=category,
+                item_id_override=_safe_int(upgrade_id),
+                equipment_category_override=category,
+                source_slot=str(item.get("slot") or ""),
+            )
+        )
+    return entries
 
 
 def _add_character_equipment_state(
@@ -183,10 +223,9 @@ def _add_character_equipment_state(
     detail: dict,
     equipment_metadata: dict[str, dict[int, dict]],
 ) -> None:
-    for item in detail.get("equipment", []):
-        if not isinstance(item, dict) or item.get("id") is None:
+    for equipment in _equipment_entries(detail, equipment_metadata):
+        if equipment.get("item_id") is None:
             continue
-        equipment = _equipment_properties(item, equipment_metadata)
         entity_id = f"gw2:item:{equipment['item_id']}"
         _ensure_entity(
             graph,
@@ -198,6 +237,8 @@ def _add_character_equipment_state(
                 "equipment_slot": equipment["slot"],
                 "stat_combo": equipment["stat_combo"],
                 "stat_id": equipment["stat_id"],
+                "equipment_category": equipment["equipment_category"],
+                "source_slot": equipment["source_slot"],
                 "metadata_sources": equipment["metadata_sources"],
             },
         )
@@ -222,7 +263,14 @@ def _empty_equipment_metadata() -> dict[str, dict[int, dict]]:
 
 def _fetch_equipment_metadata(gateway: Gw2ApiGateway, detail: dict) -> dict[str, dict[int, dict]]:
     equipment = [item for item in detail.get("equipment", []) if isinstance(item, dict)]
-    item_ids = sorted({_safe_int(item.get("id")) for item in equipment if _safe_int(item.get("id")) is not None})
+    item_ids = sorted(
+        {
+            item_id
+            for item in equipment
+            for item_id in [_safe_int(item.get("id")), *_safe_upgrade_ids(item)]
+            if item_id is not None
+        }
+    )
     stat_ids = sorted(
         {
             _safe_int(item.get("stats", {}).get("id"))
@@ -269,3 +317,36 @@ def _safe_int(value: object) -> int | None:
         return int(value)
     except (TypeError, ValueError):
         return None
+
+
+def _safe_upgrade_ids(item: dict) -> list[int]:
+    upgrades = item.get("upgrades") if isinstance(item.get("upgrades"), list) else []
+    return [value for value in (_safe_int(upgrade_id) for upgrade_id in upgrades) if value is not None]
+
+
+def _equipment_category(slot: object, official_item: dict) -> str:
+    details = official_item.get("details") if isinstance(official_item.get("details"), dict) else {}
+    detail_type = str(details.get("type") or "").lower()
+    item_type = str(official_item.get("type") or "").lower()
+    slot_value = str(slot or "").lower()
+    if detail_type == "rune" or slot_value == "rune":
+        return "rune"
+    if detail_type == "sigil" or slot_value == "sigil":
+        return "sigil"
+    if item_type == "relic" or slot_value == "relic":
+        return "relic"
+    if slot_value.startswith("weapon"):
+        return "weapon"
+    if slot_value in {"helm", "head", "shoulders", "coat", "chest", "gloves", "hands", "leggings", "legs", "boots", "feet"}:
+        return "armor"
+    return "equipment"
+
+
+def _upgrade_stat_combo(official_item: dict) -> str | None:
+    details = official_item.get("details") if isinstance(official_item.get("details"), dict) else {}
+    detail_type = details.get("type")
+    if detail_type in {"Rune", "Sigil"}:
+        return str(detail_type)
+    if str(official_item.get("type") or "").lower() == "relic":
+        return "Relic"
+    return None
