@@ -96,6 +96,39 @@ def test_support_review_audit_filters_and_exports_privacy_safe_csv() -> None:
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
+def test_support_review_audit_metrics_summarize_top_blockers() -> None:
+    temp_dir = Path(".test_tmp") / f"support-review-audit-metrics-{uuid4().hex}"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        configure_database(f"sqlite:///{temp_dir / 'support-review-metrics.db'}")
+        state.reset_cached_graph()
+        client = TestClient(app)
+
+        client.post("/account/debug-bundle/review/audit", json={"bundle": _ready_bundle(), "reviewer": "metrics"})
+        client.post("/account/debug-bundle/review/audit", json={"bundle": _missing_key_bundle(), "reviewer": "metrics"})
+        client.post("/account/debug-bundle/review/audit", json={"bundle": _missing_permission_bundle(), "reviewer": "metrics"})
+
+        metrics = client.get("/account/debug-bundle/review/audit/metrics?reviewer=metrics&limit=10").json()
+        rendered = str(metrics)
+
+        assert metrics["schema_version"] == "gw2radar.account_debug_bundle_review_metrics.v1"
+        assert metrics["total_records"] == 3
+        assert _count_for(metrics["status_counts"], "ready") == 1
+        assert _count_for(metrics["status_counts"], "needs_key") == 1
+        assert _count_for(metrics["status_counts"], "needs_permissions") == 1
+        assert _count_for(metrics["severity_counts"], "critical") == 2
+        assert _count_for(metrics["finding_counts"], "needs_key") == 1
+        assert _count_for(metrics["finding_counts"], "needs_permissions") == 1
+        assert metrics["top_blockers"][0]["count"] == 1
+        assert "privacy-safe audit metadata" in metrics["boundary"]
+        assert "Diagnostic Berserker Chest" not in rendered
+        assert "diagnostic_summary" not in rendered
+    finally:
+        close_database()
+        state.reset_cached_graph()
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
 def _sample_bundle() -> dict:
     return {
         "schema_version": "gw2radar.account_debug_bundle.v1",
@@ -133,3 +166,16 @@ def _missing_key_bundle() -> dict:
     bundle["diagnostic_summary"]["checks"][0] = {"check_id": "api_key_stored", "status": "fail"}
     bundle.pop("debug_note", None)
     return bundle
+
+
+def _missing_permission_bundle() -> dict:
+    bundle = _sample_bundle()
+    bundle["permission_summary"] = {"missing_required_permissions": ["characters"]}
+    bundle["diagnostic_summary"]["summary_status"] = "blocked"
+    bundle["diagnostic_summary"]["checks"][1] = {"check_id": "permissions_ready", "status": "fail"}
+    bundle.pop("debug_note", None)
+    return bundle
+
+
+def _count_for(counts: list[dict], key: str) -> int:
+    return next((item["count"] for item in counts if item["key"] == key), 0)

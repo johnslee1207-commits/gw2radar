@@ -19,6 +19,7 @@ graph TD
   AccountDebugBundleReview --> SupportReviewWorkbench["Support Review Workbench"]
   SupportReviewWorkbench --> SupportReviewAudit["Support Review Audit Log"]
   SupportReviewAudit --> SupportReviewAuditExport["Filtered CSV Export"]
+  SupportReviewAudit --> SupportReviewMetrics["Metrics Summary"]
   Connect --> AccountSync["Account Sync"]
   PermissionInspection --> AccountConnectionDiagnostic
   AccountSync --> AccountConnectionDiagnostic
@@ -68,6 +69,7 @@ graph TD
 | SupportReviewWorkbench | Operator page for upload/paste review, findings, and reply template | `/support`, `/player-ui/support.js`, `harness/run_support_review_ui_smoke.py` | Implemented |
 | SupportReviewAudit | Privacy-safe support case metadata audit | `/account/debug-bundle/review/audit`, `SupportReviewAuditModel`, `create_support_review_audit` | Implemented |
 | SupportReviewAuditExport | Status/severity/reviewer filters and privacy-safe CSV export | `list_support_review_audits`, `render_support_review_audit_csv`, `/support` audit filters | Implemented |
+| SupportReviewMetrics | Aggregated connection failure metrics from safe audit metadata | `/account/debug-bundle/review/audit/metrics`, `build_support_review_metrics`, `/support` metrics summary | Implemented |
 | AccountSync | Sync controls and endpoint checklist | `/api/v1/account/sync` endpoint progress | Implemented |
 | DashboardAction | Today and this-week account-aware actions | `/api/v1/player/dashboard` | Implemented |
 | ReturnerDiagnosis | Returner view | `/goals`, `/goals/{goal_id}/gap`, actions, preview | Implemented |
@@ -100,6 +102,7 @@ graph TD
 | P0 Support review workbench | `/support` upload/paste page renders findings, evidence paths, and copyable player reply template while repeating the no-secret boundary | Complete |
 | P0 Support review audit | Safe case audit records store status, finding ids, reviewer, evidence paths, timestamp, and reply summary without raw bundle persistence | Complete |
 | P0 Support review audit export | Audit records can be filtered by status, severity, and reviewer, then exported as privacy-safe CSV metadata | Complete |
+| P0 Support review metrics | Filtered audit metadata aggregates total cases, status counts, severity counts, finding counts, top blockers, and trend summary without raw bundle access | Complete |
 | P0 Account sync progress | Sync controls and endpoint-level progress for account, characters, wallet, materials, bank, and achievements | Complete |
 | P0 Dashboard | Account status, actions, opportunity cards, do-not-sell warning | Complete |
 | P1 Returner onboarding questions | Last played and interest controls | Complete |
@@ -135,8 +138,8 @@ graph TD
 
 ## Maturity Summary
 
-- Complete: 40 guide items.
+- Complete: 41 guide items.
 - Partial: 0 guide items.
 - Missing: 0 guide items.
 
-All player-guide checklist items are now implemented at MVP depth. Synced character equipment now bridges official character detail into Build Fit, enriches item/stat names through best-effort public item metadata, classifies armor, weapons, runes, sigils, and relics, and adds conservative upgrade effect-family review hints. The Build Fit UI now exposes the `build_upgrade_effects` rule pack flow so reviewed rules can be previewed, imported as disabled, listed, and enabled through a reviewer gate before they become evidence. Upgrade effect explanations prefer reviewed and enabled KB rule evidence and fall back to explicit heuristic labeling when evidence is absent, so they do not invent source authority. Account connection troubleshooting now has a full privacy-safe loop: UI diagnostic, debug bundle export, local/API support review, `/support` workbench, evidence-path recommendations, copyable support reply, safe audit metadata, filtered CSV export, and boundary violation detection. Remaining post-MVP depth improvements are qualitative rather than checklist gaps: more domain-specific requirements for every seeded legendary goal, richer effect parsing from official descriptions and reviewed rule packs, and front-end polish for long-running sync worker timelines.
+All player-guide checklist items are now implemented at MVP depth. Synced character equipment now bridges official character detail into Build Fit, enriches item/stat names through best-effort public item metadata, classifies armor, weapons, runes, sigils, and relics, and adds conservative upgrade effect-family review hints. The Build Fit UI now exposes the `build_upgrade_effects` rule pack flow so reviewed rules can be previewed, imported as disabled, listed, and enabled through a reviewer gate before they become evidence. Upgrade effect explanations prefer reviewed and enabled KB rule evidence and fall back to explicit heuristic labeling when evidence is absent, so they do not invent source authority. Account connection troubleshooting now has a full privacy-safe loop: UI diagnostic, debug bundle export, local/API support review, `/support` workbench, evidence-path recommendations, copyable support reply, safe audit metadata, filtered CSV export, metrics summary, and boundary violation detection. Remaining post-MVP depth improvements are qualitative rather than checklist gaps: more domain-specific requirements for every seeded legendary goal, richer effect parsing from official descriptions and reviewed rule packs, and front-end polish for long-running sync worker timelines.

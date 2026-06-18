@@ -802,6 +802,14 @@ label + label {
   gap: 10px;
 }
 
+.support-metrics-grid {
+  margin-top: 14px;
+}
+
+.support-metrics-grid h3 {
+  margin-top: 0;
+}
+
 .support-boundary ul {
   margin-bottom: 0;
 }

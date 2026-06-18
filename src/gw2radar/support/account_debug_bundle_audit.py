@@ -35,6 +35,22 @@ class SupportReviewAuditRecord(BaseModel):
     created_at: datetime
 
 
+class SupportReviewMetricCount(BaseModel):
+    key: str
+    count: int
+
+
+class SupportReviewMetricsSummary(BaseModel):
+    schema_version: str = "gw2radar.account_debug_bundle_review_metrics.v1"
+    total_records: int
+    status_counts: list[SupportReviewMetricCount] = Field(default_factory=list)
+    severity_counts: list[SupportReviewMetricCount] = Field(default_factory=list)
+    finding_counts: list[SupportReviewMetricCount] = Field(default_factory=list)
+    top_blockers: list[SupportReviewMetricCount] = Field(default_factory=list)
+    trend_summary: str
+    boundary: str = "Metrics are aggregated from privacy-safe audit metadata only; raw bundles and raw API keys are not read."
+
+
 def create_support_review_audit(
     session: Session,
     *,
@@ -130,6 +146,21 @@ def render_support_review_audit_csv(records: list[SupportReviewAuditRecord]) -> 
     return output.getvalue()
 
 
+def build_support_review_metrics(records: list[SupportReviewAuditRecord]) -> SupportReviewMetricsSummary:
+    status_counts = _count_values(record.overall_status for record in records)
+    severity_counts = _count_values(record.highest_severity for record in records)
+    finding_counts = _count_values(finding_id for record in records for finding_id in record.finding_ids)
+    blockers = [item for item in finding_counts if item.key != "none"][:5]
+    return SupportReviewMetricsSummary(
+        total_records=len(records),
+        status_counts=status_counts,
+        severity_counts=severity_counts,
+        finding_counts=finding_counts,
+        top_blockers=blockers,
+        trend_summary=_trend_summary(len(records), status_counts, severity_counts, blockers),
+    )
+
+
 def _highest_severity(severities: list[str]) -> str:
     if not severities:
         return "info"
@@ -148,6 +179,33 @@ def _evidence_refs(review: SupportReviewReport) -> list[str]:
     for finding in review.findings:
         refs.extend(finding.evidence_refs)
     return refs[:20]
+
+
+def _count_values(values) -> list[SupportReviewMetricCount]:
+    counts: dict[str, int] = {}
+    for value in values:
+        key = str(value or "none")
+        counts[key] = counts.get(key, 0) + 1
+    return [
+        SupportReviewMetricCount(key=key, count=count)
+        for key, count in sorted(counts.items(), key=lambda item: (-item[1], item[0]))
+    ]
+
+
+def _trend_summary(
+    total_records: int,
+    status_counts: list[SupportReviewMetricCount],
+    severity_counts: list[SupportReviewMetricCount],
+    blockers: list[SupportReviewMetricCount],
+) -> str:
+    if total_records == 0:
+        return "No support review audit records match the current filters."
+    top_status = status_counts[0].key if status_counts else "unknown"
+    top_severity = severity_counts[0].key if severity_counts else "unknown"
+    if blockers:
+        top_blocker = blockers[0].key
+        return f"{total_records} reviewed cases; most common status is {top_status}, severity is {top_severity}, and top blocker is {top_blocker}."
+    return f"{total_records} reviewed cases; most common status is {top_status}, severity is {top_severity}, with no finding-specific blocker recorded."
 
 
 def _to_record(row: SupportReviewAuditModel) -> SupportReviewAuditRecord:

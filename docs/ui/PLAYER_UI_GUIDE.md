@@ -83,8 +83,11 @@ finding ids, reviewer, timestamp, evidence paths, and a short reply summary only
 it does not store the raw bundle, raw API key, local build ids, private account
 payloads, or report contents. The support workbench can filter audit records by
 status, severity, and reviewer, then export the same privacy-safe metadata as
-CSV for support trend analysis. The review also rejects bundles that appear to
-contain sensitive fields outside the privacy-safe support boundary.
+CSV for support trend analysis. The metrics summary aggregates matching audit
+records into total cases, status counts, severity counts, finding counts, top
+blockers, and a short trend sentence so support can prioritize real connection
+failure causes without reading raw bundles. The review also rejects bundles that
+appear to contain sensitive fields outside the privacy-safe support boundary.
 
 ## First Use
 

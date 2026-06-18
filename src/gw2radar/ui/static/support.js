@@ -7,6 +7,7 @@ const copyTemplateButton = document.querySelector("#copy-template-button");
 const saveAuditButton = document.querySelector("#save-audit-button");
 const refreshAuditButton = document.querySelector("#refresh-audit-button");
 const exportAuditButton = document.querySelector("#export-audit-button");
+const refreshMetricsButton = document.querySelector("#refresh-metrics-button");
 const summary = document.querySelector("#support-summary");
 const findingList = document.querySelector("#finding-list");
 const replyTemplate = document.querySelector("#reply-template");
@@ -15,6 +16,10 @@ const auditList = document.querySelector("#audit-list");
 const auditStatusFilter = document.querySelector("#audit-status-filter");
 const auditSeverityFilter = document.querySelector("#audit-severity-filter");
 const auditReviewerFilter = document.querySelector("#audit-reviewer-filter");
+const metricsSummary = document.querySelector("#metrics-summary");
+const metricsStatusList = document.querySelector("#metrics-status-list");
+const metricsSeverityList = document.querySelector("#metrics-severity-list");
+const metricsBlockerList = document.querySelector("#metrics-blocker-list");
 const output = document.querySelector("#support-output");
 let lastBundle = null;
 let lastReview = null;
@@ -155,6 +160,7 @@ async function refreshAuditRecords() {
   const response = await fetch(`/account/debug-bundle/review/audit?${auditQueryString()}`);
   const payload = await response.json();
   renderAuditRecords(payload.records || []);
+  await refreshAuditMetrics();
 }
 
 function auditQueryString(format = "json") {
@@ -175,6 +181,34 @@ function auditQueryString(format = "json") {
 
 function exportAuditCsv() {
   window.location.href = `/account/debug-bundle/review/audit?${auditQueryString("csv")}`;
+}
+
+async function refreshAuditMetrics() {
+  const response = await fetch(`/account/debug-bundle/review/audit/metrics?${auditQueryString()}`);
+  const metrics = await response.json();
+  renderAuditMetrics(metrics);
+}
+
+function renderAuditMetrics(metrics) {
+  metricsSummary.textContent = `${metrics.total_records || 0} records. ${metrics.trend_summary || "No summary available."}`;
+  renderMetricList(metricsStatusList, metrics.status_counts || []);
+  renderMetricList(metricsSeverityList, metrics.severity_counts || []);
+  renderMetricList(metricsBlockerList, metrics.top_blockers || []);
+}
+
+function renderMetricList(target, rows) {
+  target.innerHTML = "";
+  if (!rows.length) {
+    const empty = document.createElement("li");
+    empty.textContent = "None";
+    target.appendChild(empty);
+    return;
+  }
+  for (const row of rows) {
+    const item = document.createElement("li");
+    item.textContent = `${row.key}: ${row.count}`;
+    target.appendChild(item);
+  }
 }
 
 function renderAuditRecords(records) {
@@ -226,6 +260,8 @@ saveAuditButton?.addEventListener("click", saveAuditRecord);
 refreshAuditButton?.addEventListener("click", refreshAuditRecords);
 
 exportAuditButton?.addEventListener("click", exportAuditCsv);
+
+refreshMetricsButton?.addEventListener("click", refreshAuditMetrics);
 
 copyTemplateButton?.addEventListener("click", async () => {
   if (!replyTemplate.value) {

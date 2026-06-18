@@ -16,6 +16,7 @@ from gw2radar.ontology.graph_layers import GraphLayer
 from gw2radar.security.api_key_permissions import build_missing_key_permission_report, build_permission_report
 from gw2radar.security.api_key_store import EncryptedApiKeyStore
 from gw2radar.support.account_debug_bundle_audit import (
+    build_support_review_metrics,
     create_support_review_audit,
     list_support_review_audits,
     render_support_review_audit_csv,
@@ -172,6 +173,41 @@ def get_account_debug_bundle_review_audit(
         }
 
     return _with_key_store(read_audits)
+
+
+@router.get("/debug-bundle/review/audit/metrics")
+def get_account_debug_bundle_review_audit_metrics(
+    limit: int = 100,
+    status: str | None = None,
+    severity: str | None = None,
+    reviewer: str | None = None,
+    created_from: str | None = None,
+    created_to: str | None = None,
+) -> dict:
+    def read_metrics(store: EncryptedApiKeyStore) -> dict:
+        records = list_support_review_audits(
+            store.session,
+            limit=limit,
+            status=status,
+            severity=severity,
+            reviewer=reviewer,
+            created_from=_parse_optional_datetime(created_from),
+            created_to=_parse_optional_datetime(created_to),
+        )
+        metrics = build_support_review_metrics(records)
+        return {
+            **metrics.model_dump(mode="json"),
+            "filters": {
+                "limit": limit,
+                "status": status,
+                "severity": severity,
+                "reviewer": reviewer,
+                "created_from": created_from,
+                "created_to": created_to,
+            },
+        }
+
+    return _with_key_store(read_metrics)
 
 
 @router.put("/api-key")

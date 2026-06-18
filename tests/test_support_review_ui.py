@@ -18,6 +18,8 @@ def test_support_review_page_serves_operator_workbench() -> None:
     assert "Recent Review Records" in response.text
     assert "Save audit" in response.text
     assert "Export CSV" in response.text
+    assert "Failure Reason Summary" in response.text
+    assert "Refresh metrics" in response.text
     assert "audit-severity-filter" in response.text
     assert "Do Not Request Secrets" in response.text
     assert "Do not ask for a raw GW2 API key" in response.text
@@ -36,6 +38,9 @@ def test_support_review_static_assets_include_review_workflow() -> None:
     assert "renderAuditRecords" in js.text
     assert "auditQueryString" in js.text
     assert "exportAuditCsv" in js.text
+    assert "/account/debug-bundle/review/audit/metrics" in js.text
+    assert "renderAuditMetrics" in js.text
+    assert "renderMetricList" in js.text
     assert 'params.set("format", format)' in js.text
     assert "privacy-boundary violations" not in js.text
     assert "Please do not send your raw GW2 API key" in js.text
@@ -44,6 +49,7 @@ def test_support_review_static_assets_include_review_workflow() -> None:
     assert ".support-grid" in css.text
     assert ".support-finding.critical" in css.text
     assert ".support-audit-record.critical" in css.text
+    assert ".support-metrics-grid" in css.text
     assert ".support-finding.warning" in css.text
     assert ".support-finding.info" in css.text
 
