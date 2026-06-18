@@ -134,6 +134,25 @@ class SupportBacklogPromotionEventList(BaseModel):
     boundary: str = "Promotion event logs contain workflow metadata only and exclude raw support bundles, API keys, and private account payloads."
 
 
+class SupportPromotionReadinessRollup(BaseModel):
+    schema_version: str = "gw2radar.support_promotion_readiness_rollup.v1"
+    ready: bool
+    maturity_label: str
+    readiness_score: float
+    summary: str
+    audit_total: int
+    backlog_total: int
+    promotion_total: int
+    event_total: int
+    status_counts: list[SupportReviewMetricCount] = Field(default_factory=list)
+    unpromoted_backlog_ids: list[str] = Field(default_factory=list)
+    blockers: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    next_steps: list[str] = Field(default_factory=list)
+    evidence_chain: list[str] = Field(default_factory=list)
+    boundary: str = "Readiness rollup uses privacy-safe support metadata, product-planning drafts, and workflow events only."
+
+
 PLAYBOOKS: dict[str, SupportReviewPlaybookItem] = {
     "needs_key": SupportReviewPlaybookItem(
         blocker_id="needs_key",
@@ -754,6 +773,141 @@ def render_support_backlog_promotion_events_csv(bundle: SupportBacklogPromotionE
     return output.getvalue()
 
 
+def build_support_promotion_readiness_rollup(
+    *,
+    metrics: SupportReviewMetricsSummary,
+    backlog: SupportReviewBacklogSummary,
+    promotions: SupportBacklogPromotionList,
+    events: SupportBacklogPromotionEventList,
+) -> SupportPromotionReadinessRollup:
+    promotion_status_counts = _count_values(promotion.status for promotion in promotions.promotions)
+    promoted_backlog_ids = {promotion.backlog_id for promotion in promotions.promotions}
+    unpromoted = [item.backlog_id for item in backlog.backlog_items if item.backlog_id not in promoted_backlog_ids]
+    status_count_map = {item.key: item.count for item in promotion_status_counts}
+    draft_count = status_count_map.get("draft", 0)
+    accepted_count = status_count_map.get("accepted", 0)
+    linked_count = status_count_map.get("linked", 0)
+    closed_count = status_count_map.get("closed", 0)
+    blockers = _promotion_readiness_blockers(
+        metrics=metrics,
+        backlog=backlog,
+        promotions=promotions,
+        promoted_count=len(promoted_backlog_ids),
+        lifecycle_count=accepted_count + linked_count + closed_count,
+    )
+    warnings = _promotion_readiness_warnings(
+        backlog=backlog,
+        unpromoted=unpromoted,
+        draft_count=draft_count,
+        accepted_count=accepted_count,
+        linked_count=linked_count,
+        event_total=len(events.events),
+        promotion_total=len(promotions.promotions),
+    )
+    score = _promotion_readiness_score(
+        audit_total=metrics.total_records,
+        backlog_total=len(backlog.backlog_items),
+        promotion_total=len(promotions.promotions),
+        promoted_count=len(promoted_backlog_ids),
+        lifecycle_count=accepted_count + linked_count + closed_count,
+        event_total=len(events.events),
+    )
+    ready = not blockers
+    label = _promotion_readiness_label(score, blockers, warnings)
+    return SupportPromotionReadinessRollup(
+        ready=ready,
+        maturity_label=label,
+        readiness_score=score,
+        summary=_promotion_readiness_summary(label, score, metrics.total_records, len(backlog.backlog_items), len(promotions.promotions), len(events.events)),
+        audit_total=metrics.total_records,
+        backlog_total=len(backlog.backlog_items),
+        promotion_total=len(promotions.promotions),
+        event_total=len(events.events),
+        status_counts=promotion_status_counts,
+        unpromoted_backlog_ids=unpromoted,
+        blockers=blockers,
+        warnings=warnings,
+        next_steps=_promotion_readiness_next_steps(blockers, warnings, unpromoted, draft_count, accepted_count, linked_count),
+        evidence_chain=[
+            "/account/debug-bundle/review/audit/metrics",
+            "/account/debug-bundle/review/audit/backlog",
+            "/account/debug-bundle/review/audit/backlog/promotions",
+            "/account/debug-bundle/review/audit/backlog/promotions/events",
+        ],
+    )
+
+
+def render_support_promotion_readiness_markdown(rollup: SupportPromotionReadinessRollup) -> str:
+    lines = [
+        "# Support Promotion Readiness Rollup",
+        "",
+        f"- ready: `{str(rollup.ready).lower()}`",
+        f"- maturity_label: `{rollup.maturity_label}`",
+        f"- readiness_score: `{rollup.readiness_score:.1f}`",
+        f"- summary: {rollup.summary}",
+        "",
+        f"Boundary: {rollup.boundary}",
+        "",
+        "## Counts",
+        "",
+        f"- Audit records: {rollup.audit_total}",
+        f"- Backlog items: {rollup.backlog_total}",
+        f"- Promotion drafts: {rollup.promotion_total}",
+        f"- Promotion events: {rollup.event_total}",
+        "",
+        "## Promotion Status",
+        "",
+    ]
+    if rollup.status_counts:
+        lines.extend(f"- {item.key}: {item.count}" for item in rollup.status_counts)
+    else:
+        lines.append("- none: 0")
+    lines.extend(["", "## Blockers", ""])
+    lines.extend(f"- {item}" for item in rollup.blockers) if rollup.blockers else lines.append("- None")
+    lines.extend(["", "## Warnings", ""])
+    lines.extend(f"- {item}" for item in rollup.warnings) if rollup.warnings else lines.append("- None")
+    lines.extend(["", "## Next Steps", ""])
+    lines.extend(f"- {item}" for item in rollup.next_steps)
+    lines.extend(["", "## Evidence Chain", ""])
+    lines.extend(f"- `{item}`" for item in rollup.evidence_chain)
+    return "\n".join(lines) + "\n"
+
+
+def render_support_promotion_readiness_csv(rollup: SupportPromotionReadinessRollup) -> str:
+    output = StringIO()
+    fieldnames = [
+        "ready",
+        "maturity_label",
+        "readiness_score",
+        "audit_total",
+        "backlog_total",
+        "promotion_total",
+        "event_total",
+        "blocker_count",
+        "warning_count",
+        "unpromoted_backlog_ids",
+        "next_steps",
+    ]
+    writer = DictWriter(output, fieldnames=fieldnames, lineterminator="\n")
+    writer.writeheader()
+    writer.writerow(
+        {
+            "ready": str(rollup.ready).lower(),
+            "maturity_label": rollup.maturity_label,
+            "readiness_score": f"{rollup.readiness_score:.1f}",
+            "audit_total": rollup.audit_total,
+            "backlog_total": rollup.backlog_total,
+            "promotion_total": rollup.promotion_total,
+            "event_total": rollup.event_total,
+            "blocker_count": len(rollup.blockers),
+            "warning_count": len(rollup.warnings),
+            "unpromoted_backlog_ids": ";".join(rollup.unpromoted_backlog_ids),
+            "next_steps": " | ".join(rollup.next_steps),
+        }
+    )
+    return output.getvalue()
+
+
 def _highest_severity(severities: list[str]) -> str:
     if not severities:
         return "info"
@@ -837,6 +991,135 @@ def _backlog_summary(total_records: int, items: list[SupportReviewBacklogItem]) 
         return f"{total_records} matching support cases found, but no mapped product fix suggestion is available."
     top = items[0]
     return f"{len(items)} product backlog items generated from {total_records} matching cases; top priority is {top.priority} `{top.blocker_id}`."
+
+
+def _promotion_readiness_blockers(
+    *,
+    metrics: SupportReviewMetricsSummary,
+    backlog: SupportReviewBacklogSummary,
+    promotions: SupportBacklogPromotionList,
+    promoted_count: int,
+    lifecycle_count: int,
+) -> list[str]:
+    blockers: list[str] = []
+    if metrics.total_records == 0:
+        blockers.append("No support audit records are available for promotion readiness.")
+    if backlog.backlog_items and promoted_count == 0:
+        blockers.append("Product backlog items exist, but none have been promoted into roadmap drafts.")
+    if promotions.promotions and lifecycle_count == 0:
+        blockers.append("Promotion drafts exist, but none have been accepted, linked, or closed.")
+    return blockers
+
+
+def _promotion_readiness_warnings(
+    *,
+    backlog: SupportReviewBacklogSummary,
+    unpromoted: list[str],
+    draft_count: int,
+    accepted_count: int,
+    linked_count: int,
+    event_total: int,
+    promotion_total: int,
+) -> list[str]:
+    warnings: list[str] = []
+    if unpromoted:
+        warnings.append(f"{len(unpromoted)} backlog items have not been promoted yet.")
+    if draft_count:
+        warnings.append(f"{draft_count} promotion drafts are still waiting for product review.")
+    if accepted_count and linked_count == 0:
+        warnings.append("Accepted promotion drafts have not been linked to roadmap references yet.")
+    if promotion_total and event_total < promotion_total:
+        warnings.append("Some promotion drafts do not have a matching creation event.")
+    if backlog.backlog_items and not warnings:
+        warnings.append("Maintain a regular support-to-product review cadence for new backlog items.")
+    return warnings
+
+
+def _promotion_readiness_score(
+    *,
+    audit_total: int,
+    backlog_total: int,
+    promotion_total: int,
+    promoted_count: int,
+    lifecycle_count: int,
+    event_total: int,
+) -> float:
+    score = 0.0
+    if audit_total > 0:
+        score += 20.0
+    if backlog_total > 0:
+        score += 20.0
+    if backlog_total == 0:
+        score += 20.0 if audit_total > 0 else 0.0
+    else:
+        score += 25.0 * min(promoted_count / backlog_total, 1.0)
+    if promotion_total == 0:
+        lifecycle_ratio = 0.0
+    else:
+        lifecycle_ratio = min(lifecycle_count / promotion_total, 1.0)
+    score += 25.0 * lifecycle_ratio
+    if promotion_total == 0:
+        event_ratio = 0.0
+    else:
+        event_ratio = min(event_total / promotion_total, 1.0)
+    score += 10.0 * event_ratio
+    return round(min(score, 100.0), 1)
+
+
+def _promotion_readiness_label(score: float, blockers: list[str], warnings: list[str]) -> str:
+    if blockers:
+        return "blocked"
+    if score >= 90 and not warnings:
+        return "release_ready"
+    if score >= 75:
+        return "operable_with_warnings"
+    return "developing"
+
+
+def _promotion_readiness_summary(
+    label: str,
+    score: float,
+    audit_total: int,
+    backlog_total: int,
+    promotion_total: int,
+    event_total: int,
+) -> str:
+    return (
+        f"Support promotion readiness is {label} at {score:.1f}/100 from "
+        f"{audit_total} audit records, {backlog_total} backlog items, "
+        f"{promotion_total} promotion drafts, and {event_total} lifecycle events."
+    )
+
+
+def _promotion_readiness_next_steps(
+    blockers: list[str],
+    warnings: list[str],
+    unpromoted: list[str],
+    draft_count: int,
+    accepted_count: int,
+    linked_count: int,
+) -> list[str]:
+    if blockers:
+        steps = [
+            "Resolve readiness blockers before treating support feedback as product-planning complete.",
+        ]
+        if unpromoted:
+            steps.append(f"Promote backlog items: {', '.join(unpromoted[:5])}.")
+        if draft_count:
+            steps.append("Review draft promotions and mark them accepted, linked, or closed.")
+        return steps
+    steps: list[str] = []
+    if unpromoted:
+        steps.append(f"Promote or explicitly defer backlog items: {', '.join(unpromoted[:5])}.")
+    if draft_count:
+        steps.append("Move reviewed drafts out of draft status.")
+    if accepted_count and linked_count == 0:
+        steps.append("Attach accepted drafts to a roadmap, issue, or release planning reference.")
+    if not steps:
+        steps.append("Continue normal support audit, backlog promotion, and lifecycle review cadence.")
+    if warnings and len(steps) == 1:
+        steps.append("Review warnings during the next product operations pass.")
+    return steps
 
 
 def _to_record(row: SupportReviewAuditModel) -> SupportReviewAuditRecord:

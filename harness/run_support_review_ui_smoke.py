@@ -58,6 +58,13 @@ def main() -> int:
     promotion_events_csv = client.get(
         f"/account/debug-bundle/review/audit/backlog/promotions/events?promotion_id={promotion_id}&format=csv"
     )
+    promotion_readiness = client.get("/account/debug-bundle/review/audit/backlog/promotions/readiness?audit_reviewer=smoke&promotion_reviewer=smoke")
+    promotion_readiness_markdown = client.get(
+        "/account/debug-bundle/review/audit/backlog/promotions/readiness?audit_reviewer=smoke&promotion_reviewer=smoke&format=markdown"
+    )
+    promotion_readiness_csv = client.get(
+        "/account/debug-bundle/review/audit/backlog/promotions/readiness?audit_reviewer=smoke&promotion_reviewer=smoke&format=csv"
+    )
 
     _add(checks, "support page is served", page.status_code == 200 and "Debug Bundle Support Review" in page.text, page.text)
     _add(checks, "support script is served", js.status_code == 200 and "/account/debug-bundle/review" in js.text, js.text)
@@ -80,6 +87,9 @@ def main() -> int:
     _add(checks, "support backlog promotion events are visible", promotion_events.status_code == 200 and len(promotion_events.json().get("events", [])) >= 2, promotion_events.text)
     _add(checks, "support backlog promotion events export markdown", promotion_events_markdown.status_code == 200 and "# Support Backlog Promotion Events" in promotion_events_markdown.text, promotion_events_markdown.text)
     _add(checks, "support backlog promotion events export csv", promotion_events_csv.status_code == 200 and "event_id,promotion_id,action" in promotion_events_csv.text, promotion_events_csv.text)
+    _add(checks, "support promotion readiness rollup is visible", promotion_readiness.status_code == 200 and promotion_readiness.json().get("schema_version") == "gw2radar.support_promotion_readiness_rollup.v1", promotion_readiness.text)
+    _add(checks, "support promotion readiness exports markdown", promotion_readiness_markdown.status_code == 200 and "# Support Promotion Readiness Rollup" in promotion_readiness_markdown.text, promotion_readiness_markdown.text)
+    _add(checks, "support promotion readiness exports csv", promotion_readiness_csv.status_code == 200 and "ready,maturity_label,readiness_score" in promotion_readiness_csv.text, promotion_readiness_csv.text)
     _add(checks, "no-secret boundary is visible", "Do not ask for a raw GW2 API key" in page.text and "Please do not send your raw GW2 API key" in js.text, "boundary missing")
 
     failed = [check for check in checks if not check[1]]

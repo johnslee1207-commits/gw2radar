@@ -18,6 +18,9 @@ const exportPromotionsCsvButton = document.querySelector("#export-promotions-csv
 const refreshPromotionEventsButton = document.querySelector("#refresh-promotion-events-button");
 const exportPromotionEventsMdButton = document.querySelector("#export-promotion-events-md-button");
 const exportPromotionEventsCsvButton = document.querySelector("#export-promotion-events-csv-button");
+const refreshPromotionReadinessButton = document.querySelector("#refresh-promotion-readiness-button");
+const exportPromotionReadinessMdButton = document.querySelector("#export-promotion-readiness-md-button");
+const exportPromotionReadinessCsvButton = document.querySelector("#export-promotion-readiness-csv-button");
 const summary = document.querySelector("#support-summary");
 const findingList = document.querySelector("#finding-list");
 const replyTemplate = document.querySelector("#reply-template");
@@ -38,6 +41,10 @@ const promotionSummary = document.querySelector("#promotion-summary");
 const promotionList = document.querySelector("#promotion-list");
 const promotionEventSummary = document.querySelector("#promotion-event-summary");
 const promotionEventList = document.querySelector("#promotion-event-list");
+const promotionReadinessSummary = document.querySelector("#promotion-readiness-summary");
+const promotionReadinessStatusList = document.querySelector("#promotion-readiness-status-list");
+const promotionReadinessBlockerList = document.querySelector("#promotion-readiness-blocker-list");
+const promotionReadinessNextStepList = document.querySelector("#promotion-readiness-next-step-list");
 const output = document.querySelector("#support-output");
 let lastBundle = null;
 let lastReview = null;
@@ -181,6 +188,7 @@ async function refreshAuditRecords() {
   await refreshAuditMetrics();
   await refreshPlaybook();
   await refreshBacklog();
+  await refreshPromotionReadiness();
 }
 
 function auditQueryString(format = "json") {
@@ -231,6 +239,12 @@ async function refreshPromotionEvents() {
   const response = await fetch(`/account/debug-bundle/review/audit/backlog/promotions/events?${promotionEventQueryString()}`);
   const bundle = await response.json();
   renderPromotionEvents(bundle);
+}
+
+async function refreshPromotionReadiness() {
+  const response = await fetch(`/account/debug-bundle/review/audit/backlog/promotions/readiness?${promotionReadinessQueryString()}`);
+  const rollup = await response.json();
+  renderPromotionReadiness(rollup);
 }
 
 function renderAuditMetrics(metrics) {
@@ -339,6 +353,7 @@ async function promoteBacklogItem(backlogId) {
   if (payload.status === "created") {
     summary.textContent = `Promotion draft created: ${payload.promotion?.promotion_id || "unknown"}.`;
     await refreshPromotions();
+    await refreshPromotionReadiness();
   } else {
     summary.textContent = `Promotion draft not created: ${payload.status || "unknown"}.`;
   }
@@ -409,6 +424,7 @@ async function updatePromotionStatus(promotionId, status) {
     summary.textContent = `Promotion ${promotionId} marked ${status}.`;
     await refreshPromotions();
     await refreshPromotionEvents();
+    await refreshPromotionReadiness();
   } else {
     summary.textContent = `Promotion status not updated: ${payload.status || "unknown"}.`;
   }
@@ -423,6 +439,31 @@ function promotionEventQueryString(format = "json") {
 
 function exportPromotionEvents(format) {
   window.location.href = `/account/debug-bundle/review/audit/backlog/promotions/events?${promotionEventQueryString(format)}`;
+}
+
+function promotionReadinessQueryString(format = "json") {
+  const params = new URLSearchParams();
+  params.set("audit_limit", "100");
+  params.set("promotion_limit", "100");
+  params.set("event_limit", "100");
+  params.set("format", format);
+  if (auditStatusFilter?.value) {
+    params.set("status", auditStatusFilter.value.trim());
+  }
+  if (auditSeverityFilter?.value) {
+    params.set("severity", auditSeverityFilter.value);
+  }
+  if (auditReviewerFilter?.value) {
+    params.set("audit_reviewer", auditReviewerFilter.value.trim());
+  }
+  if (reviewerName?.value) {
+    params.set("promotion_reviewer", reviewerName.value.trim());
+  }
+  return params.toString();
+}
+
+function exportPromotionReadiness(format) {
+  window.location.href = `/account/debug-bundle/review/audit/backlog/promotions/readiness?${promotionReadinessQueryString(format)}`;
 }
 
 function renderPromotionEvents(bundle) {
@@ -444,6 +485,35 @@ function renderPromotionEvents(bundle) {
     note.textContent = event.note || "No note.";
     item.append(title, meta, note);
     promotionEventList.appendChild(item);
+  }
+}
+
+function renderPromotionReadiness(rollup) {
+  const score = typeof rollup.readiness_score === "number" ? rollup.readiness_score.toFixed(1) : "0.0";
+  promotionReadinessSummary.textContent = `${rollup.maturity_label || "unknown"} · ${score}/100 · ${rollup.summary || "No readiness summary available."}`;
+  renderMetricList(promotionReadinessStatusList, [
+    { key: "ready", count: rollup.ready ? 1 : 0 },
+    { key: "audit_records", count: rollup.audit_total || 0 },
+    { key: "backlog_items", count: rollup.backlog_total || 0 },
+    { key: "promotion_drafts", count: rollup.promotion_total || 0 },
+    { key: "promotion_events", count: rollup.event_total || 0 },
+  ]);
+  renderTextList(promotionReadinessBlockerList, rollup.blockers || []);
+  renderTextList(promotionReadinessNextStepList, rollup.next_steps || []);
+}
+
+function renderTextList(target, rows) {
+  target.innerHTML = "";
+  if (!rows.length) {
+    const empty = document.createElement("li");
+    empty.textContent = "None";
+    target.appendChild(empty);
+    return;
+  }
+  for (const row of rows) {
+    const item = document.createElement("li");
+    item.textContent = row;
+    target.appendChild(item);
   }
 }
 
@@ -518,6 +588,12 @@ refreshPromotionEventsButton?.addEventListener("click", refreshPromotionEvents);
 exportPromotionEventsMdButton?.addEventListener("click", () => exportPromotionEvents("markdown"));
 
 exportPromotionEventsCsvButton?.addEventListener("click", () => exportPromotionEvents("csv"));
+
+refreshPromotionReadinessButton?.addEventListener("click", refreshPromotionReadiness);
+
+exportPromotionReadinessMdButton?.addEventListener("click", () => exportPromotionReadiness("markdown"));
+
+exportPromotionReadinessCsvButton?.addEventListener("click", () => exportPromotionReadiness("csv"));
 
 copyTemplateButton?.addEventListener("click", async () => {
   if (!replyTemplate.value) {

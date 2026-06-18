@@ -95,11 +95,14 @@ roadmap drafting, or CSV for triage spreadsheets. Reviewers can also promote a
 ranked backlog item into a draft roadmap/issue artifact from the support
 workbench, then list or export those drafts as Markdown or CSV. Drafts can be
 marked `accepted`, `linked`, or `closed`; each status change writes a workflow
-event that can be listed or exported for product handoff review. Promotion drafts
-and events contain product-planning summaries only; they do not store raw debug
-bundles, raw API keys, private account payloads, local build ids, or report
-contents. The review also rejects bundles that appear to contain sensitive fields
-outside the privacy-safe support boundary.
+event that can be listed or exported for product handoff review. The readiness
+rollup combines audit records, product backlog, promotion drafts, and lifecycle
+events into a single score, maturity label, blockers, warnings, and next steps.
+Promotion drafts, events, and readiness summaries contain product-planning
+metadata only; they do not store raw debug bundles, raw API keys, private account
+payloads, local build ids, or report contents. The review also rejects bundles
+that appear to contain sensitive fields outside the privacy-safe support
+boundary.
 
 ## First Use
 

@@ -19,6 +19,7 @@ from gw2radar.support.account_debug_bundle_audit import (
     build_support_review_product_backlog,
     build_support_review_playbook,
     build_support_review_metrics,
+    build_support_promotion_readiness_rollup,
     create_support_backlog_promotion,
     list_support_backlog_promotion_events,
     list_support_backlog_promotions,
@@ -28,6 +29,8 @@ from gw2radar.support.account_debug_bundle_audit import (
     render_support_backlog_promotion_events_markdown,
     render_support_backlog_promotions_csv,
     render_support_backlog_promotions_markdown,
+    render_support_promotion_readiness_csv,
+    render_support_promotion_readiness_markdown,
     render_support_review_backlog_csv,
     render_support_review_backlog_markdown,
     render_support_review_audit_csv,
@@ -400,6 +403,70 @@ def get_account_debug_bundle_review_audit_backlog_promotions(
         }
 
     return _with_key_store(read_promotions)
+
+
+@router.get("/debug-bundle/review/audit/backlog/promotions/readiness")
+def get_account_debug_bundle_review_audit_backlog_promotion_readiness(
+    audit_limit: int = 100,
+    promotion_limit: int = 100,
+    event_limit: int = 100,
+    status: str | None = None,
+    severity: str | None = None,
+    audit_reviewer: str | None = None,
+    promotion_reviewer: str | None = None,
+    created_from: str | None = None,
+    created_to: str | None = None,
+    format: str = "json",
+):
+    def read_readiness(store: EncryptedApiKeyStore):
+        records = list_support_review_audits(
+            store.session,
+            limit=audit_limit,
+            status=status,
+            severity=severity,
+            reviewer=audit_reviewer,
+            created_from=_parse_optional_datetime(created_from),
+            created_to=_parse_optional_datetime(created_to),
+        )
+        metrics = build_support_review_metrics(records)
+        playbook = build_support_review_playbook(metrics)
+        backlog = build_support_review_product_backlog(metrics, playbook)
+        promotions = list_support_backlog_promotions(store.session, limit=promotion_limit, reviewer=promotion_reviewer)
+        events = list_support_backlog_promotion_events(store.session, limit=event_limit)
+        rollup = build_support_promotion_readiness_rollup(
+            metrics=metrics,
+            backlog=backlog,
+            promotions=promotions,
+            events=events,
+        )
+        if format == "csv":
+            return Response(
+                content=render_support_promotion_readiness_csv(rollup),
+                media_type="text/csv; charset=utf-8",
+                headers={"Content-Disposition": 'attachment; filename="support_promotion_readiness.csv"'},
+            )
+        if format == "markdown":
+            return Response(
+                content=render_support_promotion_readiness_markdown(rollup),
+                media_type="text/markdown; charset=utf-8",
+                headers={"Content-Disposition": 'attachment; filename="support_promotion_readiness.md"'},
+            )
+        return {
+            **rollup.model_dump(mode="json"),
+            "filters": {
+                "audit_limit": audit_limit,
+                "promotion_limit": promotion_limit,
+                "event_limit": event_limit,
+                "status": status,
+                "severity": severity,
+                "audit_reviewer": audit_reviewer,
+                "promotion_reviewer": promotion_reviewer,
+                "created_from": created_from,
+                "created_to": created_to,
+            },
+        }
+
+    return _with_key_store(read_readiness)
 
 
 @router.post("/debug-bundle/review/audit/backlog/promotions/{promotion_id}/status")

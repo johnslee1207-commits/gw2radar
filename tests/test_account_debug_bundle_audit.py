@@ -385,6 +385,77 @@ def test_support_review_backlog_promotion_status_events_are_auditable() -> None:
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
+def test_support_promotion_readiness_rollup_summarizes_product_handoff_state() -> None:
+    temp_dir = Path(".test_tmp") / f"support-promotion-readiness-{uuid4().hex}"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        configure_database(f"sqlite:///{temp_dir / 'support-promotion-readiness.db'}")
+        state.reset_cached_graph()
+        client = TestClient(app)
+
+        client.post("/account/debug-bundle/review/audit", json={"bundle": _missing_key_bundle(), "reviewer": "readiness"})
+        client.post("/account/debug-bundle/review/audit", json={"bundle": _missing_permission_bundle(), "reviewer": "readiness"})
+
+        blocked = client.get("/account/debug-bundle/review/audit/backlog/promotions/readiness?audit_reviewer=readiness").json()
+
+        assert blocked["schema_version"] == "gw2radar.support_promotion_readiness_rollup.v1"
+        assert blocked["ready"] is False
+        assert blocked["maturity_label"] == "blocked"
+        assert blocked["audit_total"] == 2
+        assert blocked["backlog_total"] == 2
+        assert blocked["promotion_total"] == 0
+        assert blocked["unpromoted_backlog_ids"] == ["support-backlog-needs_key", "support-backlog-needs_permissions"]
+        assert any("none have been promoted" in blocker for blocker in blocked["blockers"])
+
+        created = client.post(
+            "/account/debug-bundle/review/audit/backlog/promotions",
+            json={"backlog_id": "support-backlog-needs_key", "reviewer": "product", "audit_reviewer": "readiness"},
+        ).json()
+        promotion_id = created["promotion"]["promotion_id"]
+        client.post(
+            f"/account/debug-bundle/review/audit/backlog/promotions/{promotion_id}/status",
+            json={"status": "linked", "reviewer": "product", "note": "Linked to readiness gate.", "external_ref": "ROADMAP-22"},
+        )
+
+        rollup_response = client.get(
+            "/account/debug-bundle/review/audit/backlog/promotions/readiness?audit_reviewer=readiness&promotion_reviewer=product"
+        )
+        rollup = rollup_response.json()
+        markdown = client.get(
+            "/account/debug-bundle/review/audit/backlog/promotions/readiness?audit_reviewer=readiness&promotion_reviewer=product&format=markdown"
+        )
+        csv_response = client.get(
+            "/account/debug-bundle/review/audit/backlog/promotions/readiness?audit_reviewer=readiness&promotion_reviewer=product&format=csv"
+        )
+
+        assert rollup_response.status_code == 200
+        assert rollup["ready"] is True
+        assert rollup["maturity_label"] == "operable_with_warnings"
+        assert rollup["readiness_score"] >= 80
+        assert rollup["promotion_total"] == 1
+        assert rollup["event_total"] == 2
+        assert rollup["unpromoted_backlog_ids"] == ["support-backlog-needs_permissions"]
+        assert any(item["key"] == "linked" and item["count"] == 1 for item in rollup["status_counts"])
+        assert any("not been promoted" in warning for warning in rollup["warnings"])
+        assert any("Promote or explicitly defer" in step for step in rollup["next_steps"])
+        assert "/account/debug-bundle/review/audit/backlog/promotions/events" in rollup["evidence_chain"]
+        assert "Diagnostic Berserker Chest" not in str(rollup)
+
+        assert "text/markdown" in markdown.headers["content-type"]
+        assert "# Support Promotion Readiness Rollup" in markdown.text
+        assert "operable_with_warnings" in markdown.text
+        assert "Diagnostic Berserker Chest" not in markdown.text
+
+        assert "text/csv" in csv_response.headers["content-type"]
+        assert "ready,maturity_label,readiness_score,audit_total" in csv_response.text
+        assert "support-backlog-needs_permissions" in csv_response.text
+        assert "Diagnostic Berserker Chest" not in csv_response.text
+    finally:
+        close_database()
+        state.reset_cached_graph()
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
 def _sample_bundle() -> dict:
     return {
         "schema_version": "gw2radar.account_debug_bundle.v1",

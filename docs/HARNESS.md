@@ -68,8 +68,8 @@ This smoke path verifies the `/support` operator page, static support script,
 support-specific styles, the review API contract, safe audit write/list behavior,
 audit filtering, privacy-safe CSV export, metrics summary, remediation playbook,
 product fix backlog, backlog Markdown/CSV export, roadmap draft promotion,
-promotion Markdown/CSV export, promotion status audit events, and visible
-no-secret boundary copy.
+promotion Markdown/CSV export, promotion status audit events, promotion
+readiness rollup, and visible no-secret boundary copy.
 
 ## Smoke Harness Steps
 
@@ -138,8 +138,9 @@ no-secret boundary copy.
 13. Export promotion drafts as Markdown and CSV.
 14. Update a promotion draft lifecycle status.
 15. Export promotion status events as Markdown and CSV.
-16. Confirm the UI-facing contract returns a support status and finding.
-17. Confirm the page tells reviewers not to request raw API keys or private account payloads.
+16. Load the support promotion readiness rollup and export it as Markdown and CSV.
+17. Confirm the UI-facing contract returns a support status and finding.
+18. Confirm the page tells reviewers not to request raw API keys or private account payloads.
 
 ## Required Checks
 
