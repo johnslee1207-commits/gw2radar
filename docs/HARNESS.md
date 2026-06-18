@@ -65,8 +65,8 @@ python harness/run_support_review_ui_smoke.py
 ```
 
 This smoke path verifies the `/support` operator page, static support script,
-support-specific styles, the review API contract, and visible no-secret boundary
-copy.
+support-specific styles, the review API contract, safe audit write/list behavior,
+and visible no-secret boundary copy.
 
 ## Smoke Harness Steps
 
@@ -123,8 +123,10 @@ copy.
 1. Serve `/support`.
 2. Serve `/player-ui/support.js` and shared styles.
 3. Submit a privacy-safe sample bundle to `/account/debug-bundle/review`.
-4. Confirm the UI-facing contract returns a support status and finding.
-5. Confirm the page tells reviewers not to request raw API keys or private account payloads.
+4. Save an audit record through `/account/debug-bundle/review/audit`.
+5. List recent audit records and confirm at least one safe metadata record exists.
+6. Confirm the UI-facing contract returns a support status and finding.
+7. Confirm the page tells reviewers not to request raw API keys or private account payloads.
 
 ## Required Checks
 

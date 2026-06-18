@@ -77,9 +77,12 @@ The review classifies common "saved but no result" cases: missing key, missing
 permissions, delayed sync, sync not queued, private snapshot not written, synced
 character snapshot missing, Build Fit snapshot not loaded, or backend ready while
 the player UI flow is still incomplete. The support page renders the same result,
-evidence paths, and a reply template that preserves the no-secret boundary. It
-also rejects bundles that appear to contain sensitive fields outside the
-privacy-safe support boundary.
+evidence paths, and a reply template that preserves the no-secret boundary.
+Reviewers can save a case audit record after review. The audit stores status,
+finding ids, reviewer, timestamp, evidence paths, and a short reply summary only;
+it does not store the raw bundle, raw API key, local build ids, private account
+payloads, or report contents. The review also rejects bundles that appear to
+contain sensitive fields outside the privacy-safe support boundary.
 
 ## First Use
 

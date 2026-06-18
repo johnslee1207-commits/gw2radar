@@ -4,10 +4,16 @@ const reviewButton = document.querySelector("#review-button");
 const loadSampleButton = document.querySelector("#load-sample-button");
 const clearButton = document.querySelector("#clear-button");
 const copyTemplateButton = document.querySelector("#copy-template-button");
+const saveAuditButton = document.querySelector("#save-audit-button");
+const refreshAuditButton = document.querySelector("#refresh-audit-button");
 const summary = document.querySelector("#support-summary");
 const findingList = document.querySelector("#finding-list");
 const replyTemplate = document.querySelector("#reply-template");
+const reviewerName = document.querySelector("#reviewer-name");
+const auditList = document.querySelector("#audit-list");
 const output = document.querySelector("#support-output");
+let lastBundle = null;
+let lastReview = null;
 
 const sampleBundle = {
   schema_version: "gw2radar.account_debug_bundle.v1",
@@ -51,6 +57,7 @@ const sampleBundle = {
 };
 
 function setReviewState(review) {
+  lastReview = review;
   output.textContent = JSON.stringify(review, null, 2);
   summary.textContent = `${review.overall_status}: ${review.summary}`;
   summary.classList.toggle("ready", review.overall_status === "ready");
@@ -105,8 +112,11 @@ async function reviewBundle() {
     output.textContent = "{}";
     findingList.innerHTML = "";
     replyTemplate.value = "The uploaded debug bundle is not valid JSON. Please export a fresh bundle and try again.";
+    lastBundle = null;
+    lastReview = null;
     return;
   }
+  lastBundle = bundle;
   const response = await fetch("/account/debug-bundle/review", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -114,6 +124,53 @@ async function reviewBundle() {
   });
   const review = await response.json();
   setReviewState(review);
+}
+
+async function saveAuditRecord() {
+  if (!lastBundle || !lastReview) {
+    summary.textContent = "Review a bundle before saving an audit record.";
+    return;
+  }
+  const response = await fetch("/account/debug-bundle/review/audit", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      bundle: lastBundle,
+      reviewer: reviewerName?.value || "support",
+      reply_template: replyTemplate.value,
+      source: "support_workbench",
+    }),
+  });
+  const payload = await response.json();
+  summary.textContent = `Audit saved: ${payload.audit_record?.case_id || "unknown case"}. Raw bundle was not stored.`;
+  output.textContent = JSON.stringify(payload, null, 2);
+  await refreshAuditRecords();
+}
+
+async function refreshAuditRecords() {
+  const response = await fetch("/account/debug-bundle/review/audit?limit=10");
+  const payload = await response.json();
+  renderAuditRecords(payload.records || []);
+}
+
+function renderAuditRecords(records) {
+  auditList.innerHTML = "";
+  if (!records.length) {
+    auditList.textContent = "No audit records saved yet.";
+    return;
+  }
+  for (const record of records) {
+    const item = document.createElement("article");
+    item.className = `support-audit-record ${record.highest_severity || "info"}`;
+    const title = document.createElement("strong");
+    title.textContent = `${record.overall_status} · ${record.case_id}`;
+    const meta = document.createElement("span");
+    meta.textContent = `${record.created_at} · reviewer: ${record.reviewer || "support"} · findings: ${(record.finding_ids || []).join(", ") || "none"}`;
+    const reply = document.createElement("p");
+    reply.textContent = record.reply_template_summary || "No reply summary stored.";
+    item.append(title, meta, reply);
+    auditList.appendChild(item);
+  }
 }
 
 bundleFile?.addEventListener("change", async () => {
@@ -132,11 +189,17 @@ loadSampleButton?.addEventListener("click", () => {
 
 clearButton?.addEventListener("click", () => {
   bundleInput.value = "";
+  lastBundle = null;
+  lastReview = null;
   summary.textContent = "No bundle reviewed yet.";
   findingList.innerHTML = "";
   replyTemplate.value = "";
   output.textContent = "{}";
 });
+
+saveAuditButton?.addEventListener("click", saveAuditRecord);
+
+refreshAuditButton?.addEventListener("click", refreshAuditRecords);
 
 copyTemplateButton?.addEventListener("click", async () => {
   if (!replyTemplate.value) {

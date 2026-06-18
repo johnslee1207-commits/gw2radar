@@ -14,6 +14,7 @@ from gw2radar.ingest.gw2_api_gateway import Gw2ApiGateway
 from gw2radar.ontology.graph_layers import GraphLayer
 from gw2radar.security.api_key_permissions import build_missing_key_permission_report, build_permission_report
 from gw2radar.security.api_key_store import EncryptedApiKeyStore
+from gw2radar.support.account_debug_bundle_audit import create_support_review_audit, list_support_review_audits
 from gw2radar.support.account_debug_bundle_review import review_account_debug_bundle
 
 router = APIRouter(prefix="/account", tags=["account"])
@@ -29,6 +30,13 @@ class DebugBundleRequest(BaseModel):
     active_build_id: str | None = None
     player_intent: str | None = None
     report_history_count: int = 0
+
+
+class DebugBundleAuditRequest(BaseModel):
+    bundle: dict
+    reviewer: str | None = None
+    reply_template: str | None = None
+    source: str = "support_workbench"
 
 
 @router.get("/api-key/status")
@@ -95,6 +103,40 @@ def post_account_debug_bundle(request: DebugBundleRequest) -> dict:
 @router.post("/debug-bundle/review")
 def post_account_debug_bundle_review(bundle: dict) -> dict:
     return review_account_debug_bundle(bundle).model_dump(mode="json")
+
+
+@router.post("/debug-bundle/review/audit")
+def post_account_debug_bundle_review_audit(request: DebugBundleAuditRequest) -> dict:
+    def write_audit(store: EncryptedApiKeyStore) -> dict:
+        review = review_account_debug_bundle(request.bundle)
+        record = create_support_review_audit(
+            store.session,
+            review=review,
+            reviewer=request.reviewer,
+            reply_template=request.reply_template,
+            source=request.source,
+        )
+        return {
+            "schema_version": "gw2radar.account_debug_bundle_review_audit_result.v1",
+            "review": review.model_dump(mode="json"),
+            "audit_record": record.model_dump(mode="json"),
+            "boundary": "Audit stores review metadata and reply summary only; raw bundles and raw API keys are not stored.",
+        }
+
+    return _with_key_store(write_audit)
+
+
+@router.get("/debug-bundle/review/audit")
+def get_account_debug_bundle_review_audit(limit: int = 20) -> dict:
+    def read_audits(store: EncryptedApiKeyStore) -> dict:
+        records = list_support_review_audits(store.session, limit=limit)
+        return {
+            "schema_version": "gw2radar.account_debug_bundle_review_audit_list.v1",
+            "records": [record.model_dump(mode="json") for record in records],
+            "boundary": "Audit records exclude raw bundles, raw API keys, and private account payloads.",
+        }
+
+    return _with_key_store(read_audits)
 
 
 @router.put("/api-key")

@@ -23,11 +23,18 @@ def main() -> int:
     js = client.get("/player-ui/support.js")
     css = client.get("/player-ui/styles.css")
     review = client.post("/account/debug-bundle/review", json=_sample_bundle())
+    audit = client.post(
+        "/account/debug-bundle/review/audit",
+        json={"bundle": _sample_bundle(), "reviewer": "smoke", "reply_template": "Open Build Fit next."},
+    )
+    audit_list = client.get("/account/debug-bundle/review/audit?limit=3")
 
     _add(checks, "support page is served", page.status_code == 200 and "Debug Bundle Support Review" in page.text, page.text)
     _add(checks, "support script is served", js.status_code == 200 and "/account/debug-bundle/review" in js.text, js.text)
     _add(checks, "support styles are served", css.status_code == 200 and ".support-finding" in css.text, css.text)
     _add(checks, "support review API classifies sample flow", review.status_code == 200 and review.json().get("overall_status") == "frontend_flow_incomplete", review.text)
+    _add(checks, "support audit stores safe review metadata", audit.status_code == 200 and audit.json().get("audit_record", {}).get("overall_status") == "frontend_flow_incomplete", audit.text)
+    _add(checks, "support audit list exposes recent records", audit_list.status_code == 200 and len(audit_list.json().get("records", [])) >= 1, audit_list.text)
     _add(checks, "no-secret boundary is visible", "Do not ask for a raw GW2 API key" in page.text and "Please do not send your raw GW2 API key" in js.text, "boundary missing")
 
     failed = [check for check in checks if not check[1]]

@@ -49,10 +49,17 @@
                 <p class="eyebrow">Result</p>
                 <h2>Support Decision</h2>
               </div>
-              <button id="copy-template-button" type="button">Copy reply</button>
+              <div class="button-row">
+                <button id="save-audit-button" type="button">Save audit</button>
+                <button id="copy-template-button" type="button">Copy reply</button>
+              </div>
             </div>
             <div id="support-summary" class="result-summary">No bundle reviewed yet.</div>
             <div id="finding-list" class="support-finding-list" aria-live="polite"></div>
+            <label>
+              Reviewer
+              <input id="reviewer-name" type="text" value="support" maxlength="80" />
+            </label>
             <label>
               Player reply template
               <textarea id="reply-template" rows="8" readonly></textarea>
@@ -68,6 +75,17 @@
             <li>Do not request private inventory, bank, wallet, material, achievement, or equipment payloads.</li>
             <li>Use diagnostic status, missing permissions, sync progress, snapshot counts, and UI state flags only.</li>
           </ul>
+        </section>
+
+        <section class="panel" aria-label="Recent support review audit records">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Audit</p>
+              <h2>Recent Review Records</h2>
+            </div>
+            <button id="refresh-audit-button" type="button">Refresh records</button>
+          </div>
+          <div id="audit-list" class="support-audit-list">No audit records loaded.</div>
         </section>
 
         <section class="panel" aria-label="Raw review JSON">

@@ -125,6 +125,24 @@ class ApiKeySecretModel(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 
+class SupportReviewAuditModel(Base):
+    __tablename__ = "support_review_audits"
+
+    case_id: Mapped[str] = mapped_column(String, primary_key=True)
+    bundle_schema_version: Mapped[str | None] = mapped_column(String, nullable=True)
+    review_schema_version: Mapped[str] = mapped_column(String, nullable=False)
+    overall_status: Mapped[str] = mapped_column(String, nullable=False)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    highest_severity: Mapped[str] = mapped_column(String, nullable=False)
+    finding_count: Mapped[int] = mapped_column(Integer, default=0)
+    finding_ids_json: Mapped[list] = mapped_column(JSON, default=list)
+    reviewer: Mapped[str] = mapped_column(String, default="support")
+    source: Mapped[str] = mapped_column(String, default="support_workbench")
+    reply_template_summary: Mapped[str] = mapped_column(Text, default="")
+    properties_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
 class SecretModel(Base):
     __tablename__ = "secrets"
 

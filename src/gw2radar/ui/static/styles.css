@@ -760,7 +760,8 @@ label + label {
   margin: 14px 0;
 }
 
-.support-finding {
+.support-finding,
+.support-audit-record {
   display: grid;
   gap: 6px;
   border: 1px solid var(--line);
@@ -770,25 +771,35 @@ label + label {
   padding: 12px;
 }
 
-.support-finding p {
+.support-finding p,
+.support-audit-record p {
   margin: 0;
 }
 
-.support-finding code {
+.support-finding code,
+.support-audit-record span {
   overflow-wrap: anywhere;
   color: var(--muted);
 }
 
-.support-finding.critical {
+.support-finding.critical,
+.support-audit-record.critical {
   border-left-color: var(--red);
 }
 
-.support-finding.warning {
+.support-finding.warning,
+.support-audit-record.warning {
   border-left-color: var(--amber);
 }
 
-.support-finding.info {
+.support-finding.info,
+.support-audit-record.info {
   border-left-color: var(--teal);
+}
+
+.support-audit-list {
+  display: grid;
+  gap: 10px;
 }
 
 .support-boundary ul {
