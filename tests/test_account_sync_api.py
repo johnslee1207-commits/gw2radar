@@ -18,6 +18,15 @@ class AccountSyncGateway:
     payloads = {
         "/v2/account": {"name": "Test.1234", "world": 1001},
         "/v2/characters": ["Hero One"],
+        "/v2/characters/Hero%20One": {
+            "name": "Hero One",
+            "profession": "Mesmer",
+            "level": 80,
+            "equipment": [
+                {"id": 1001, "slot": "Coat", "name": "Synced Berserker Chest", "stat_combo": "Berserker"},
+                {"id": 1002, "slot": "WeaponA1", "name": "Synced Berserker Dagger", "stat_combo": "Berserker"},
+            ],
+        },
         "/v2/account/wallet": [{"id": 1, "value": 42}],
         "/v2/account/materials": [{"id": 19721, "count": 7}],
         "/v2/account/bank": [{"id": 19722, "count": 2}],
@@ -115,12 +124,19 @@ def test_account_sync_drain_one_persists_private_layer_snapshot() -> None:
         assert graph.entities["gw2:account:Test.1234"].graph_layer == GraphLayer.PRIVATE_PLAYER_STATE
         assert graph.entities["gw2:character:Hero One"].type == EntityType.CHARACTER
         assert graph.entities["gw2:character:Hero One"].graph_layer == GraphLayer.PRIVATE_PLAYER_STATE
+        assert graph.entities["gw2:character:Hero One"].properties["profession"] == "Mesmer"
+        assert graph.entities["gw2:character:Hero One"].properties["equipment"]
         assert all(player_state.graph_layer == GraphLayer.PRIVATE_PLAYER_STATE for player_state in graph.player_state)
         assert all(
             relation.graph_layer == GraphLayer.PRIVATE_PLAYER_STATE
             for relation in graph.relations
             if relation.subject_id == "gw2:account:Test.1234"
         )
+
+        snapshots = client.get("/api/v1/builds/character-snapshots")
+        assert snapshots.status_code == 200
+        assert snapshots.json()["data"]["snapshots"][0]["source"] == "synced_official_api"
+        assert snapshots.json()["data"]["snapshots"][0]["character_name"] == "Hero One"
     finally:
         _teardown_temp_api(temp_dir, original_factory)
 

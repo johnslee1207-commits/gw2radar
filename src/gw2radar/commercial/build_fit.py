@@ -6,6 +6,9 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from gw2radar.db.models import BuildModel, utc_now
+from gw2radar.graph.graph_query import GraphData
+from gw2radar.ontology.entity_types import EntityType
+from gw2radar.ontology.graph_layers import GraphLayer
 
 
 DEFAULT_USER_ID = "local-user"
@@ -234,12 +237,47 @@ def get_build(session: Session, build_id: str) -> BuildRecord | None:
     return _build_from_model(row) if row else None
 
 
-def list_character_snapshots() -> list[CharacterGearSnapshot]:
-    return DEFAULT_CHARACTER_SNAPSHOTS
+def list_character_snapshots(graph: GraphData | None = None) -> list[CharacterGearSnapshot]:
+    synced = list_synced_character_snapshots(graph) if graph is not None else []
+    return [*synced, *DEFAULT_CHARACTER_SNAPSHOTS]
 
 
-def get_character_snapshot(snapshot_id: str) -> CharacterGearSnapshot | None:
-    return next((snapshot for snapshot in DEFAULT_CHARACTER_SNAPSHOTS if snapshot.snapshot_id == snapshot_id), None)
+def get_character_snapshot(snapshot_id: str, graph: GraphData | None = None) -> CharacterGearSnapshot | None:
+    return next((snapshot for snapshot in list_character_snapshots(graph) if snapshot.snapshot_id == snapshot_id), None)
+
+
+def list_synced_character_snapshots(graph: GraphData | None) -> list[CharacterGearSnapshot]:
+    if graph is None:
+        return []
+    snapshots: list[CharacterGearSnapshot] = []
+    wallet_gold = _wallet_gold(graph)
+    for entity in sorted(graph.entities.values(), key=lambda item: item.canonical_name):
+        if entity.type is not EntityType.CHARACTER or entity.graph_layer is not GraphLayer.PRIVATE_PLAYER_STATE:
+            continue
+        if entity.properties.get("sync_detail_status") != "detail_synced":
+            continue
+        gear = [_account_gear_item(item) for item in entity.properties.get("equipment", [])]
+        gear = [item for item in gear if item is not None]
+        snapshots.append(
+            CharacterGearSnapshot(
+                snapshot_id=f"synced_{_safe_snapshot_id(entity.canonical_name)}",
+                character_name=entity.canonical_name,
+                profession=entity.properties.get("profession") or "Unknown",
+                specialization=entity.properties.get("specialization") or entity.properties.get("profession") or "Unknown",
+                level=int(entity.properties.get("level") or 80),
+                preferred_game_modes=["Open World", "Strike"],
+                difficulty_preference="medium",
+                wallet_gold=wallet_gold,
+                gear=gear,
+                source="synced_official_api",
+                assumptions=[
+                    "This snapshot is derived from synced official GW2 API character data.",
+                    "Item names or stat names may require item metadata enrichment when the API only exposes ids.",
+                    "GW2Radar never changes equipment; use this for manual planning only.",
+                ],
+            )
+        )
+    return snapshots
 
 
 def evaluate_build_fit(build: BuildRecord, account: AccountGearSnapshot) -> BuildFitResult:
@@ -425,3 +463,53 @@ def _difficulty_score(build_difficulty: str, preference: str) -> float:
     build_level = levels.get(build_difficulty.lower(), 2)
     preferred_level = levels.get(preference.lower(), 2)
     return 1.0 if build_level <= preferred_level else 0.5
+
+
+def _account_gear_item(item: dict) -> AccountGearItem | None:
+    slot = _map_official_slot(str(item.get("slot") or ""))
+    if slot is None:
+        return None
+    return AccountGearItem(
+        slot=slot,
+        item_name=str(item.get("item_name") or f"Item {item.get('item_id', 'unknown')}"),
+        stat_combo=str(item.get("stat_combo") or "Unknown"),
+    )
+
+
+def _map_official_slot(slot: str) -> GearSlot | None:
+    normalized = slot.lower()
+    mapping = {
+        "helm": GearSlot.HEAD,
+        "head": GearSlot.HEAD,
+        "shoulders": GearSlot.SHOULDERS,
+        "coat": GearSlot.CHEST,
+        "chest": GearSlot.CHEST,
+        "gloves": GearSlot.HANDS,
+        "hands": GearSlot.HANDS,
+        "leggings": GearSlot.LEGS,
+        "legs": GearSlot.LEGS,
+        "boots": GearSlot.FEET,
+        "feet": GearSlot.FEET,
+        "weapona1": GearSlot.WEAPON_1,
+        "weaponb1": GearSlot.WEAPON_1,
+        "weapon_1": GearSlot.WEAPON_1,
+        "weapona2": GearSlot.WEAPON_2,
+        "weaponb2": GearSlot.WEAPON_2,
+        "weapon_2": GearSlot.WEAPON_2,
+        "rune": GearSlot.RUNE,
+        "sigil": GearSlot.SIGIL,
+        "relic": GearSlot.RELIC,
+    }
+    return mapping.get(normalized)
+
+
+def _wallet_gold(graph: GraphData) -> float:
+    return round(
+        sum(state.quantity for state in graph.player_state if state.entity_id in {"gw2:currency:1", "gw2:currency:gold"})
+        / 10000,
+        2,
+    )
+
+
+def _safe_snapshot_id(value: str) -> str:
+    return "".join(ch.lower() if ch.isalnum() else "_" for ch in value).strip("_") or "character"

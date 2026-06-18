@@ -1,3 +1,5 @@
+from urllib.parse import quote
+
 from gw2radar.graph.graph_query import GraphData
 from gw2radar.ingest.gateway_status import GatewayStatus
 from gw2radar.ingest.gw2_api_gateway import Gw2ApiGateway
@@ -33,8 +35,12 @@ def sync_account_snapshot(graph: GraphData, gateway: Gw2ApiGateway, *, api_key: 
     count = 0
     for name in characters.payload:
         entity_id = f"gw2:character:{name}"
-        _ensure_entity(graph, entity_id, EntityType.CHARACTER, str(name), GraphLayer.PRIVATE_PLAYER_STATE)
+        detail = _fetch_character_detail(gateway, str(name), api_key)
+        properties = _character_properties(detail) if detail else {"sync_detail_status": "name_only"}
+        _ensure_entity(graph, entity_id, EntityType.CHARACTER, str(name), GraphLayer.PRIVATE_PLAYER_STATE, properties)
         _add_private_state(graph, account_id, entity_id, 1.0, "characters")
+        if detail:
+            _add_character_equipment_state(graph, account_id, entity_id, detail)
         count += 1
     for entry in wallet.payload:
         entity_id = f"gw2:currency:{entry['id']}"
@@ -69,6 +75,7 @@ def _ensure_entity(
     entity_type: EntityType,
     name: str,
     graph_layer: GraphLayer = GraphLayer.PUBLIC_GAME,
+    properties: dict | None = None,
 ) -> None:
     if entity_id not in graph.entities:
         graph.add_entity(
@@ -77,8 +84,11 @@ def _ensure_entity(
                 type=entity_type,
                 canonical_name=name,
                 graph_layer=graph_layer,
+                properties=properties or {},
             )
         )
+    elif properties:
+        graph.entities[entity_id].properties.update(properties)
 
 
 def _add_private_state(
@@ -110,3 +120,62 @@ def _add_private_state(
                 properties={"quantity": quantity, "location": location},
             )
         )
+
+
+def _fetch_character_detail(gateway: Gw2ApiGateway, character_name: str, api_key: str) -> dict | None:
+    endpoint = f"/v2/characters/{quote(character_name, safe='')}"
+    try:
+        result = gateway.get(endpoint, api_key=api_key, priority="P1")
+    except Exception:
+        return None
+    return result.payload if result.status == GatewayStatus.OK and isinstance(result.payload, dict) else None
+
+
+def _character_properties(detail: dict) -> dict:
+    return {
+        "profession": detail.get("profession"),
+        "level": detail.get("level"),
+        "race": detail.get("race"),
+        "gender": detail.get("gender"),
+        "equipment": [_equipment_properties(item) for item in detail.get("equipment", []) if isinstance(item, dict)],
+        "sync_detail_status": "detail_synced",
+    }
+
+
+def _equipment_properties(item: dict) -> dict:
+    stats = item.get("stats") if isinstance(item.get("stats"), dict) else {}
+    return {
+        "slot": item.get("slot"),
+        "item_id": item.get("id"),
+        "item_name": item.get("name") or f"Item {item.get('id', 'unknown')}",
+        "stat_combo": item.get("stat_combo") or stats.get("name") or (f"stat:{stats.get('id')}" if stats.get("id") else "Unknown"),
+    }
+
+
+def _add_character_equipment_state(graph: GraphData, account_id: str, character_id: str, detail: dict) -> None:
+    for item in detail.get("equipment", []):
+        if not isinstance(item, dict) or item.get("id") is None:
+            continue
+        equipment = _equipment_properties(item)
+        entity_id = f"gw2:item:{equipment['item_id']}"
+        _ensure_entity(
+            graph,
+            entity_id,
+            EntityType.ITEM,
+            equipment["item_name"],
+            GraphLayer.PRIVATE_PLAYER_STATE,
+            {"equipment_slot": equipment["slot"], "stat_combo": equipment["stat_combo"]},
+        )
+        _add_private_state(graph, account_id, entity_id, 1.0, f"character_equipment:{character_id}")
+        relation_id = f"rel:{character_id}:owns:{entity_id}:{equipment['slot']}"
+        if not any(relation.id == relation_id for relation in graph.relations):
+            graph.add_relation(
+                Relation(
+                    id=relation_id,
+                    subject_id=character_id,
+                    predicate=RelationType.OWNED_BY,
+                    object_id=entity_id,
+                    graph_layer=GraphLayer.PRIVATE_PLAYER_STATE,
+                    properties={"quantity": 1, "location": "character_equipment", "slot": equipment["slot"]},
+                )
+            )

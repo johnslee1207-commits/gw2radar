@@ -21,6 +21,7 @@ graph TD
   Dashboard --> Legendary["Legendary Planner Pro"]
   Dashboard --> BuildFit["Build Fit Advisor"]
   BuildFit --> CharacterSnapshot["Character Snapshot"]
+  CharacterSnapshot --> SyncedCharacterGear["Synced Official Character Gear"]
   Dashboard --> Freshness["Data Freshness"]
   Returner --> ReportCenter["Reports"]
   Legendary --> ReportCenter
@@ -51,7 +52,8 @@ graph TD
 | LegendaryGoalCatalog | Goal select with seven player-guide choices | `/api/v1/legendary/goals/catalog` | Implemented |
 | LegendaryWeeklyRoute | Today and this-week route comparison | `/api/v1/legendary/actions` | Implemented |
 | BuildFit | Build Fit view | `/api/v1/builds/*` | Implemented |
-| CharacterSnapshot | Build Fit character snapshot selector | `/api/v1/builds/character-snapshots` | Implemented |
+| CharacterSnapshot | Build Fit character snapshot selector with synced-first/manual fallback sources | `/api/v1/builds/character-snapshots` | Implemented |
+| SyncedCharacterGear | Official API-derived character equipment snapshot | Account sync private character detail bridge | Implemented |
 | ReportArtifact | Reports view | `/api/v1/reports/*`, local report history | Implemented |
 | FreshnessSignal | Freshness view, dashboard card, and source confidence annotations | `/api/v1/player/freshness-annotations` plus report artifacts | Implemented |
 | PrivacyControl | Privacy view | `/account/*`, `/api/v1/security/private-data` | Implemented |
@@ -77,7 +79,7 @@ graph TD
 | P2 Today / this week actions | Legendary action plan exposes today actions, this-week actions, and route comparison | Complete |
 | P2 Route comparison | Cheap/fast path action | Complete |
 | P3 Build import | Manual structured build import | Complete |
-| P3 Character selection | Manual sample character snapshots plus manual fields mode | Complete |
+| P3 Character selection | Synced official API character snapshots, manual samples, and manual fields mode | Complete |
 | P3 Fit score | Fit score action | Complete |
 | P3 Gear reuse / missing gear | Fit and transition plan output | Complete |
 | P3 Transition cost | Transition plan output | Complete |
@@ -100,4 +102,4 @@ graph TD
 - Partial: 0 guide items.
 - Missing: 0 guide items.
 
-All player-guide checklist items are now implemented at MVP depth. Remaining post-MVP depth improvements are qualitative rather than checklist gaps: richer official character equipment sync beyond manual sample snapshots, more domain-specific requirements for every seeded legendary goal, and front-end polish for long-running sync worker timelines.
+All player-guide checklist items are now implemented at MVP depth. Remaining post-MVP depth improvements are qualitative rather than checklist gaps: richer item metadata/stat-name enrichment for synced equipment, more domain-specific requirements for every seeded legendary goal, and front-end polish for long-running sync worker timelines.

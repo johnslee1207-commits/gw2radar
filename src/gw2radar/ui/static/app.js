@@ -427,7 +427,8 @@ function renderCharacterSnapshots(snapshots) {
   for (const snapshot of snapshots) {
     const option = document.createElement("option");
     option.value = snapshot.snapshot_id;
-    option.textContent = `${snapshot.character_name} (${snapshot.profession} / ${snapshot.specialization})`;
+    const source = snapshot.source === "synced_official_api" ? "synced" : "manual";
+    option.textContent = `${snapshot.character_name} (${snapshot.profession} / ${snapshot.specialization}) - ${source}`;
     select.appendChild(option);
   }
 }
@@ -475,8 +476,9 @@ function applyAccountGearSnapshot(snapshot, accountGear) {
   document.querySelector("#build-mode").value = accountGear.preferred_game_modes?.[0] || "";
   document.querySelector("#wallet-gold").value = accountGear.wallet_gold || 0;
   const gearCount = accountGear.gear?.length || 0;
+  const source = snapshot.source === "synced_official_api" ? "Official API synced snapshot" : "Manual sample snapshot";
   document.querySelector("#gear-summary").textContent =
-    `${snapshot.character_name}: ${gearCount} gear slots loaded. ${snapshot.assumptions?.[0] || "Verify manually."}`;
+    `${snapshot.character_name}: ${gearCount} gear slots loaded. ${source}. ${snapshot.assumptions?.[0] || "Verify manually."}`;
 }
 
 function updateReturnerScores(report) {

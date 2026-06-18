@@ -1,12 +1,20 @@
+import shutil
+from pathlib import Path
+from uuid import uuid4
+
 from fastapi.testclient import TestClient
 
+from gw2radar.api import state
 from gw2radar.api.main import app
 from gw2radar.commercial.build_fit import BuildRecord, evaluate_build_fit, get_character_snapshot, list_character_snapshots
+from gw2radar.db.init_db import init_db
+from gw2radar.db.session import close_database, configure_database
+from gw2radar.graph.graph_query import GraphData
+from gw2radar.ontology.entity_types import EntityType
+from gw2radar.ontology.graph_layers import GraphLayer
+from gw2radar.ontology.schemas import Entity
 from build_fit_helpers import sample_build_import
 from gw2radar.db.models import utc_now
-
-
-client = TestClient(app)
 
 
 def test_manual_character_snapshots_are_available_with_assumptions() -> None:
@@ -19,19 +27,30 @@ def test_manual_character_snapshots_are_available_with_assumptions() -> None:
 
 
 def test_build_character_snapshot_api_converts_to_account_gear() -> None:
-    response = client.get("/api/v1/builds/character-snapshots")
+    temp_dir = Path(".test_tmp") / f"build-snapshots-{uuid4().hex}"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        configure_database(f"sqlite:///{temp_dir / 'builds.db'}")
+        init_db()
+        state.reset_cached_graph()
+        client = TestClient(app)
+        response = client.get("/api/v1/builds/character-snapshots")
 
-    assert response.status_code == 200
-    payload = response.json()["data"]
-    snapshot_id = payload["snapshots"][0]["snapshot_id"]
-    assert "Manual sample snapshots only" in payload["boundary"]
+        assert response.status_code == 200
+        payload = response.json()["data"]
+        snapshot_id = payload["snapshots"][0]["snapshot_id"]
+        assert "manual samples remain as fallback" in payload["boundary"]
 
-    converted = client.get(f"/api/v1/builds/character-snapshots/{snapshot_id}/account-gear")
+        converted = client.get(f"/api/v1/builds/character-snapshots/{snapshot_id}/account-gear")
 
-    assert converted.status_code == 200
-    data = converted.json()["data"]
-    assert data["account_gear"]["gear"]
-    assert data["snapshot"]["assumptions"]
+        assert converted.status_code == 200
+        data = converted.json()["data"]
+        assert data["account_gear"]["gear"]
+        assert data["snapshot"]["assumptions"]
+    finally:
+        close_database()
+        state.reset_cached_graph()
+        shutil.rmtree(temp_dir, ignore_errors=True)
 
 
 def test_manual_virtuoso_snapshot_matches_sample_build_better_than_manual_chest_only() -> None:
@@ -55,3 +74,36 @@ def test_manual_virtuoso_snapshot_matches_sample_build_better_than_manual_chest_
     )
 
     assert rich_fit.score.gear_match >= light_fit.score.gear_match
+
+
+def test_synced_character_snapshots_precede_manual_fallbacks() -> None:
+    graph = GraphData(account_id="gw2:account:Test.1234")
+    graph.add_entity(
+        Entity(
+            id="gw2:character:Hero One",
+            type=EntityType.CHARACTER,
+            canonical_name="Hero One",
+            graph_layer=GraphLayer.PRIVATE_PLAYER_STATE,
+            properties={
+                "profession": "Mesmer",
+                "level": 80,
+                "sync_detail_status": "detail_synced",
+                "equipment": [
+                    {
+                        "slot": "Coat",
+                        "item_id": 1001,
+                        "item_name": "Synced Berserker Chest",
+                        "stat_combo": "Berserker",
+                    }
+                ],
+            },
+        )
+    )
+
+    snapshots = list_character_snapshots(graph)
+    synced = get_character_snapshot("synced_hero_one", graph)
+
+    assert snapshots[0].source == "synced_official_api"
+    assert snapshots[0].character_name == "Hero One"
+    assert synced is not None
+    assert synced.to_account_gear_snapshot().gear[0].item_name == "Synced Berserker Chest"

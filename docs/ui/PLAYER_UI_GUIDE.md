@@ -58,7 +58,7 @@ It does not store the GW2 API key. Deleting browser storage only resets UI conve
 2. Review `This Week` actions and source confidence before committing to longer routes.
 3. Use `Returner` to inspect goal gaps, a short action plan, preview, and full report export.
 4. Use `Legendary` before selling materials.
-5. Use `Build Fit` before converting gear.
+5. Use `Build Fit` before converting gear. Synced official API character snapshots appear first when account sync has character detail; manual samples remain available as fallback.
 6. Use `Freshness` before following account-aware or market-aware advice.
 7. Use `Reports` to preview, unlock, retrieve artifacts, and reopen local report history.
 

@@ -111,6 +111,12 @@ ENDPOINT_SCHEMAS: dict[str, Gw2EndpointSchema] = {
 
 
 def endpoint_schema(endpoint: str) -> Gw2EndpointSchema:
+    if endpoint.startswith("/v2/characters/"):
+        return Gw2EndpointSchema(
+            endpoint=endpoint,
+            kind=Gw2EndpointKind.PRIVATE,
+            required_permissions=frozenset({"characters", "inventories"}),
+        )
     return ENDPOINT_SCHEMAS.get(
         endpoint,
         Gw2EndpointSchema(endpoint=endpoint, kind=Gw2EndpointKind.PUBLIC),

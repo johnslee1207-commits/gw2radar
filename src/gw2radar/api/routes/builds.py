@@ -60,25 +60,31 @@ def get_builds() -> ApiDataEnvelope:
 
 @router.get("/character-snapshots", response_model=ApiDataEnvelope)
 def get_build_character_snapshots() -> ApiDataEnvelope:
-    snapshots = [snapshot.model_dump(mode="json") for snapshot in list_character_snapshots()]
+    graph = get_graph()
+    snapshots = [snapshot.model_dump(mode="json") for snapshot in list_character_snapshots(graph)]
     return ApiDataEnvelope(
         data={
             "snapshots": snapshots,
-            "boundary": "Manual sample snapshots only; verify actual character equipment in game.",
+            "boundary": "Synced official API character snapshots appear first when available; manual samples remain as fallback.",
         }
     )
 
 
 @router.get("/character-snapshots/{snapshot_id}/account-gear", response_model=ApiDataEnvelope)
 def get_build_character_snapshot_account_gear(snapshot_id: str) -> ApiDataEnvelope:
-    snapshot = get_character_snapshot(snapshot_id)
+    snapshot = get_character_snapshot(snapshot_id, get_graph())
     if snapshot is None:
         raise HTTPException(status_code=404, detail="Character snapshot not found")
+    source_note = (
+        "This account gear payload is derived from synced official GW2 API character data."
+        if snapshot.source == "synced_official_api"
+        else "This account gear payload is derived from a manual sample snapshot."
+    )
     return ApiDataEnvelope(
         data={
             "snapshot": snapshot.model_dump(mode="json"),
             "account_gear": snapshot.to_account_gear_snapshot().model_dump(mode="json"),
-            "boundary": "This account gear payload is derived from a manual sample snapshot.",
+            "boundary": source_note,
         }
     )
 
