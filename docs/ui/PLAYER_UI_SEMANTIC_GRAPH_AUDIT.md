@@ -28,6 +28,8 @@ graph TD
   BuildFit --> BuildUpgradeRulePack["build_upgrade_effects Rule Pack"]
   BuildUpgradeRulePack --> KBRule
   KBRule["Reviewed Enabled KB Rule"] --> UpgradeEffectEvaluation
+  UpgradeEffectEvaluation --> PlayerUiE2ESmoke["Player UI E2E Smoke"]
+  PlayerUiE2ESmoke --> ReportArtifact
   Dashboard --> Freshness["Data Freshness"]
   Returner --> ReportCenter["Reports"]
   Legendary --> ReportCenter
@@ -64,6 +66,7 @@ graph TD
 | GearSemanticCategory | Rune, sigil, relic, armor, and weapon category labels for Build Fit gear | Official item metadata, equipment upgrades, and Build Fit account gear snapshots | Implemented |
 | BuildUpgradeRulePack | Build Fit upgrade rule pack preview, import, list, and enable workflow | `/api/v1/kb/rule-packs/build_upgrade_effects`, `/api/v1/kb/rules` | Implemented |
 | UpgradeEffectEvaluation | Conservative rune, sigil, and relic effect-family review hints with reviewed KB evidence when available | Build Fit result `upgrade_effects`, `KnowledgeRule`, and Build Fit report Upgrade Effects section | Implemented |
+| PlayerUiE2ESmoke | Browserless regression of the player cockpit path | `harness/run_player_ui_e2e_smoke.py`, `tests/test_player_ui_e2e_smoke.py` | Implemented |
 | ReportArtifact | Reports view | `/api/v1/reports/*`, local report history | Implemented |
 | FreshnessSignal | Freshness view, dashboard card, and source confidence annotations | `/api/v1/player/freshness-annotations` plus report artifacts | Implemented |
 | PrivacyControl | Privacy view | `/account/*`, `/api/v1/security/private-data` | Implemented |
@@ -96,6 +99,7 @@ graph TD
 | P3 Budget alternative | Transition plan output | Complete |
 | P3 Patch freshness warning | Patch freshness action | Complete |
 | P3 Upgrade evidence rule pack | Build Fit rule pack preview, disabled import, rule list, and enable gate | Complete |
+| P3 E2E regression path | Demo graph, build import, KB evidence enablement, fit score, paid report artifact | Complete |
 | P4 Free preview | Returner report preview | Complete |
 | P4 Full report generation | Returner, Legendary, and Build full report generation through entitlement-gated artifacts | Complete |
 | P4 Previous reports | Local report history | Complete |
@@ -109,7 +113,7 @@ graph TD
 
 ## Maturity Summary
 
-- Complete: 33 guide items.
+- Complete: 34 guide items.
 - Partial: 0 guide items.
 - Missing: 0 guide items.
 

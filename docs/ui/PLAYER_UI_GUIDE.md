@@ -26,6 +26,16 @@ http://127.0.0.1:8000/player
 
 For local development without a real GW2 API key, open `Connect` and use `Load demo graph` before testing Returner, Legendary, Build Fit, and Reports flows.
 
+For an automated local regression of the same player path, run:
+
+```bash
+python harness/run_player_ui_e2e_smoke.py
+```
+
+The harness verifies the cockpit shell, demo graph, build import, reviewed
+upgrade-rule import and enable gate, Build Fit KB evidence, paid report
+generation, and artifact retrieval.
+
 ## First Use
 
 1. Open `Welcome`.
