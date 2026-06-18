@@ -36,6 +36,19 @@ The harness verifies the cockpit shell, demo graph, build import, reviewed
 upgrade-rule import and enable gate, Build Fit KB evidence, paid report
 generation, and artifact retrieval.
 
+When a real API key appears to save successfully but no account-aware result
+appears, run:
+
+```bash
+python harness/run_account_connection_diagnostic.py
+```
+
+This diagnostic verifies key normalization, permission inspection, sync queue
+status, drain-one execution, private account snapshot writes, synced character
+snapshot exposure, and Build Fit gear conversion. A failing step points to the
+layer that needs investigation: key format, permissions, queue orchestration,
+private graph persistence, or UI snapshot bridging.
+
 ## First Use
 
 1. Open `Welcome`.

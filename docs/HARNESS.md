@@ -27,6 +27,18 @@ the reviewed `build_upgrade_effects` rule pack can be imported disabled and
 enabled through the review gate, Build Fit uses reviewed KB evidence, and a paid
 Build Fit report artifact can be generated and retrieved.
 
+## Account Connection Diagnostic Command
+
+```bash
+python harness/run_account_connection_diagnostic.py
+```
+
+This diagnostic path verifies the player account connection chain with a fake
+GW2 API gateway: pasted API key normalization, masked status, permission
+inspection, account sync enqueue/status/drain-one, private-layer graph writes,
+synced character snapshot exposure, Build Fit account-gear conversion, and raw
+key non-leakage.
+
 ## Smoke Harness Steps
 
 1. Load sample intake JSON.
@@ -54,6 +66,19 @@ Build Fit report artifact can be generated and retrieved.
 9. Generate a Markdown Build Fit report.
 10. Retrieve the generated artifact and verify Build Fit sections are present.
 11. Print PASS/FAIL and exit non-zero on failure.
+
+## Account Connection Diagnostic Steps
+
+1. Store a pasted API key containing whitespace and a zero-width character.
+2. Confirm only the masked key is returned.
+3. Inspect token permissions using the normalized stored key.
+4. Queue account sync and inspect endpoint-level queued progress.
+5. Drain one account sync job.
+6. Confirm private player-state entities and endpoint success are visible.
+7. Confirm synced official character snapshots precede manual samples.
+8. Convert the synced character snapshot into Build Fit account gear.
+9. Confirm armor, weapon, rune, and sigil categories are present.
+10. Confirm the raw API key never appears in responses.
 
 ## Required Checks
 
