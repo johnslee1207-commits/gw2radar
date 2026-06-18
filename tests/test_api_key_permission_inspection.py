@@ -70,6 +70,37 @@ def test_api_key_permission_endpoint_uses_stored_key_without_returning_it() -> N
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
+def test_api_key_permission_endpoint_normalizes_pasted_key_before_tokeninfo() -> None:
+    temp_dir = Path(".test_tmp") / f"api-key-permissions-normalized-{uuid4().hex}"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    clean_key = "12345678-1234-1234-1234-123456789abc-1234-1234-1234-123456789abc"
+    pasted_key = f"\n{clean_key[:36]} \u200b\n {clean_key[36:]}\t"
+
+    class FakeGateway:
+        def _fetch_tokeninfo(self, api_key: str, *, request_id: str) -> dict:
+            assert api_key == clean_key
+            return {"name": "Normalized Test Key", "permissions": ["account", "characters", "inventories", "progression", "wallet"]}
+
+    original_factory = account.permission_gateway_factory
+    try:
+        configure_database(f"sqlite:///{temp_dir / 'account.db'}")
+        account.permission_gateway_factory = FakeGateway
+        client = TestClient(app)
+
+        stored = client.put("/account/api-key", json={"api_key": pasted_key})
+        response = client.get("/account/api-key/permissions")
+
+        assert stored.status_code == 200
+        assert stored.json()["masked_key"] == "1234...9abc"
+        assert response.status_code == 200
+        assert response.json()["token_name"] == "Normalized Test Key"
+        assert clean_key not in str(response.json())
+    finally:
+        account.permission_gateway_factory = original_factory
+        close_database()
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
 def test_api_key_permission_endpoint_reports_limited_mode_without_key() -> None:
     temp_dir = Path(".test_tmp") / f"api-key-permissions-empty-{uuid4().hex}"
     temp_dir.mkdir(parents=True, exist_ok=True)

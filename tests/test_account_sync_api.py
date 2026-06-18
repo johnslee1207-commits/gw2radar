@@ -9,6 +9,7 @@ from gw2radar.api.main import app
 from gw2radar.api.routes import account_sync as account_sync_route
 from gw2radar.db.session import close_database, configure_database
 from gw2radar.ingest.gateway_status import GatewayStatus
+from gw2radar.ingest.gw2_api_client import Gw2ApiClientError
 from gw2radar.ingest.gw2_api_gateway import GatewayResult
 from gw2radar.ontology.entity_types import EntityType
 from gw2radar.ontology.graph_layers import GraphLayer
@@ -70,6 +71,11 @@ class MissingWalletScopeGateway(AccountSyncGateway):
         return {"name": "Unit Test", "permissions": ["account", "characters", "inventories", "progression"]}
 
 
+class TokeninfoClientErrorGateway(AccountSyncGateway):
+    def _fetch_tokeninfo(self, api_key, *, request_id):
+        raise Gw2ApiClientError("/v2/tokeninfo", 401, request_id)
+
+
 def test_account_sync_requires_configured_key() -> None:
     temp_dir, original_factory = _setup_temp_api("sync-no-key")
     try:
@@ -114,6 +120,22 @@ def test_account_sync_scope_validation_blocks_enqueue() -> None:
         assert response.status_code == 400
         assert response.json()["ok"] is False
         assert "wallet" in response.json()["error"]["message"]
+    finally:
+        _teardown_temp_api(temp_dir, original_factory)
+
+
+def test_account_sync_tokeninfo_client_error_returns_reviewable_400() -> None:
+    temp_dir, original_factory = _setup_temp_api("sync-tokeninfo-error", gateway_factory=TokeninfoClientErrorGateway)
+    raw_key = "12345678-abcdef-secret-key"
+    try:
+        client = TestClient(app)
+        assert client.put("/account/api-key", json={"api_key": raw_key}).status_code == 200
+        response = client.post("/api/v1/account/sync")
+
+        assert response.status_code == 400
+        assert response.json()["ok"] is False
+        assert "status_code=401" in response.json()["error"]["message"]
+        assert raw_key not in str(response.json())
     finally:
         _teardown_temp_api(temp_dir, original_factory)
 

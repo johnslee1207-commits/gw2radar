@@ -7,6 +7,7 @@ from urllib.request import Request, urlopen
 
 from gw2radar.config.settings import get_settings
 from gw2radar.ingest.security import mask_api_key
+from gw2radar.security.api_key_normalization import normalize_api_key
 
 
 class Gw2ApiRateLimitError(Exception):
@@ -87,7 +88,7 @@ class GW2ApiClient:
         if request_id:
             headers["X-GW2Radar-Request-ID"] = request_id
         if effective_key:
-            headers["Authorization"] = f"Bearer {effective_key}"
+            headers["Authorization"] = f"Bearer {normalize_api_key(effective_key)}"
         request = Request(url, headers=headers, method="GET")
         try:
             with self.opener(request, timeout=self.timeout_seconds) as response:

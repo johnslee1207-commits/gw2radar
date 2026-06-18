@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from gw2radar.config.settings import get_settings
 from gw2radar.db.models import ApiKeySecretModel
 from gw2radar.ingest.security import mask_api_key
+from gw2radar.security.api_key_normalization import normalize_api_key
 
 
 @dataclass(frozen=True)
@@ -23,9 +24,10 @@ class InMemoryApiKeyStore:
         self._api_key: str | None = None
 
     def set(self, api_key: str) -> ApiKeyStatus:
-        if not api_key or not api_key.strip():
+        clean_key = normalize_api_key(api_key) if api_key else ""
+        if not clean_key:
             raise ValueError("API key must not be empty.")
-        self._api_key = api_key.strip()
+        self._api_key = clean_key
         return self.status()
 
     def get(self) -> str | None:
@@ -53,9 +55,9 @@ class EncryptedApiKeyStore:
         self.fernet = Fernet(_derive_fernet_key(secret or get_settings().api_key_encryption_secret))
 
     def set(self, api_key: str) -> ApiKeyStatus:
-        if not api_key or not api_key.strip():
+        clean_key = normalize_api_key(api_key) if api_key else ""
+        if not clean_key:
             raise ValueError("API key must not be empty.")
-        clean_key = api_key.strip()
         encrypted = self.fernet.encrypt(clean_key.encode("utf-8")).decode("utf-8")
         masked = mask_api_key(clean_key) or "***"
         now = datetime.now(timezone.utc)

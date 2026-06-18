@@ -4,6 +4,7 @@ from gw2radar.api import state
 from gw2radar.db import session as db_session
 from gw2radar.db.init_db import init_db
 from gw2radar.ingest.account_sync_coordinator import AccountSyncCoordinator
+from gw2radar.ingest.gw2_api_client import Gw2ApiClientError, Gw2ApiRateLimitError
 from gw2radar.ingest.gw2_api_gateway import Gw2ApiGateway
 from gw2radar.ingest.permission_validator import Gw2PermissionError
 
@@ -38,5 +39,12 @@ def _with_coordinator(callback):
         )
         try:
             return callback(coordinator)
+        except Gw2ApiRateLimitError as error:
+            raise HTTPException(status_code=429, detail=f"GW2 API token check is rate limited; request_id={error.request_id}") from error
+        except Gw2ApiClientError as error:
+            raise HTTPException(
+                status_code=400,
+                detail=f"GW2 API token check failed with status_code={error.status_code}.",
+            ) from error
         except (Gw2PermissionError, ValueError) as error:
             raise HTTPException(status_code=400, detail=str(error)) from error

@@ -37,3 +37,24 @@ def test_encrypted_api_key_store_round_trips_without_plaintext() -> None:
     finally:
         engine.dispose()
         shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def test_encrypted_api_key_store_normalizes_wrapped_pasted_key() -> None:
+    temp_dir = Path(".test_tmp") / f"key-normalized-{uuid4().hex}"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    engine = create_engine(f"sqlite:///{temp_dir / 'key.db'}")
+    init_db(engine)
+    session_factory = sessionmaker(bind=engine)
+    clean_key = "12345678-1234-1234-1234-123456789abc-1234-1234-1234-123456789abc"
+    pasted_key = f"  {clean_key[:28]}\n{clean_key[28:52]} \u200b {clean_key[52:]}\t"
+    try:
+        with session_factory() as session:
+            store = EncryptedApiKeyStore(session, secret="unit-test-secret")
+            status = store.set(pasted_key)
+
+            assert store.get() == clean_key
+            assert status.masked_key == "1234...9abc"
+            assert pasted_key not in session.scalars(select(ApiKeySecretModel)).one().encrypted_value
+    finally:
+        engine.dispose()
+        shutil.rmtree(temp_dir, ignore_errors=True)
