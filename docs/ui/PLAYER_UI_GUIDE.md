@@ -48,6 +48,9 @@ status, drain-one execution, private account snapshot writes, synced character
 snapshot exposure, and Build Fit gear conversion. A failing step points to the
 layer that needs investigation: key format, permissions, queue orchestration,
 private graph persistence, or UI snapshot bridging.
+The Connect page also includes a read-only `Run connection diagnostic` action
+that surfaces the same lifecycle as PASS/WARN/FAIL checks without returning the
+raw API key or private item payloads.
 
 ## First Use
 
@@ -57,10 +60,11 @@ private graph persistence, or UI snapshot bridging.
 4. Paste a GW2 API key and save it.
 5. Check key status.
 6. Check permissions and review missing required or optional scopes.
-7. Queue account sync only after the permission grid is ready or you accept limited mode.
-8. Drain one sync job in local development.
-9. Open `Freshness`.
-10. Return to `Dashboard` and refresh status.
+7. Run connection diagnostic when the key appears stored but account-aware output is missing.
+8. Queue account sync only after the permission grid is ready or you accept limited mode.
+9. Drain one sync job in local development.
+10. Open `Freshness`.
+11. Return to `Dashboard` and refresh status.
 
 The API key is cleared from the browser input after submission. The backend status endpoint never returns the raw key.
 The permission inspection endpoint returns only token metadata, granted permissions, missing permissions, feature impact, and safety boundaries. It never returns the raw key.

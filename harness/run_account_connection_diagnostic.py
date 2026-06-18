@@ -111,6 +111,7 @@ def main() -> int:
         queued_status = client.get("/api/v1/account/sync/status")
         drained = client.post("/api/v1/account/sync/drain-one")
         synced_status = client.get("/api/v1/account/sync/status")
+        api_diagnostic = client.get("/account/diagnostic")
         snapshots = client.get("/api/v1/builds/character-snapshots")
         snapshot_payload = snapshots.json().get("data", {}).get("snapshots", []) if snapshots.status_code == 200 else []
         synced_snapshot = next((snapshot for snapshot in snapshot_payload if snapshot.get("source") == "synced_official_api"), None)
@@ -123,7 +124,7 @@ def main() -> int:
 
         all_payload_text = "\n".join(
             str(response.text)
-            for response in [stored, status, permissions, enqueue, queued_status, drained, synced_status, snapshots]
+            for response in [stored, status, permissions, enqueue, queued_status, drained, synced_status, api_diagnostic, snapshots]
         )
         if account_gear is not None:
             all_payload_text += str(account_gear.text)
@@ -135,6 +136,7 @@ def main() -> int:
         _add(checks, "queued sync status is visible", queued_status.status_code == 200 and queued_status.json().get("counts", {}).get("queued") == 1, queued_status.text)
         _add(checks, "drain-one succeeds and writes player state", drained.status_code == 200 and drained.json().get("status") == "succeeded" and drained.json().get("updated_player_state", 0) >= 5, drained.text)
         _add(checks, "post-drain status exposes succeeded endpoints", synced_status.status_code == 200 and synced_status.json().get("counts", {}).get("succeeded") == 1, synced_status.text)
+        _add(checks, "read-only API diagnostic reports ready lifecycle", api_diagnostic.status_code == 200 and api_diagnostic.json().get("summary_status") == "ready" and {check.get("status") for check in api_diagnostic.json().get("checks", [])} == {"pass"}, api_diagnostic.text)
         _add(checks, "private graph layer contains synced account", "gw2:account:Diagnostic.1234" in graph.entities and graph.entities["gw2:account:Diagnostic.1234"].graph_layer is GraphLayer.PRIVATE_PLAYER_STATE, "missing private account entity")
         _add(checks, "Build Fit sees synced character snapshot before manual fallback", snapshots.status_code == 200 and snapshot_payload and snapshot_payload[0].get("source") == "synced_official_api", snapshots.text)
         _add(checks, "synced account gear includes enriched item/stat metadata", account_gear is not None and account_gear.status_code == 200 and _gear_has_categories(account_gear.json(), {"armor", "weapon", "rune", "sigil"}), account_gear.text if account_gear is not None else "no synced snapshot")

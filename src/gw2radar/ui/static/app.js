@@ -121,6 +121,14 @@ function summarizeResult(target, payload) {
     return "Player intent selected. Connect and sync before trusting account-aware recommendations.";
   }
   if (target === "connect") {
+    if (data?.schema_version === "gw2radar.account_connection_diagnostic.v1") {
+      const failed = data.checks?.filter((check) => check.status === "fail").length || 0;
+      const warnings = data.checks?.filter((check) => check.status === "warn").length || 0;
+      if (data.summary_status === "ready") {
+        return "Connection diagnostic ready: key, permissions, sync snapshot, and Build Fit bridge are available.";
+      }
+      return `Connection diagnostic needs attention: ${failed} failed checks and ${warnings} warnings.`;
+    }
     if (data?.schema_version === "gw2radar.api_key_permissions.v1") {
       const missingRequired = data.missing_required_permissions?.length || 0;
       const mode = data.limited_mode ? "limited mode" : "ready";
@@ -401,6 +409,27 @@ function updateStatusFromSync(payload) {
   markStep("sync", String(label));
 }
 
+function renderConnectionDiagnostic(report) {
+  const grid = document.querySelector("#connection-diagnostic-grid");
+  if (!grid || !report) {
+    return;
+  }
+  grid.innerHTML = "";
+  for (const check of report.checks || []) {
+    const item = document.createElement("div");
+    const name = document.createElement("strong");
+    const status = document.createElement("span");
+    const message = document.createElement("span");
+    item.className = `diagnostic-check ${check.status}`;
+    name.textContent = check.label;
+    status.textContent = check.status;
+    message.textContent = check.player_message || "";
+    item.title = check.player_message || "";
+    item.append(name, status, message);
+    grid.appendChild(item);
+  }
+}
+
 function getNumber(selector) {
   return Number(document.querySelector(selector).value || 0);
 }
@@ -625,6 +654,19 @@ const actions = {
       const payload = await fetchJson("/account/api-key/permissions");
       renderPermissionReport(payload);
       markStep("connect", payload.limited_mode ? "Limited permissions" : "Permissions ready", !payload.limited_mode);
+      return payload;
+    }),
+  connectionDiagnostic: () =>
+    run("connect", async () => {
+      const payload = await fetchJson("/account/diagnostic");
+      updateStatusFromKey(payload.key_status || {});
+      renderPermissionReport(payload.permission_report || {});
+      updateStatusFromSync(payload.sync_status || {});
+      renderConnectionDiagnostic(payload);
+      markStep("connect", payload.summary_status === "ready" ? "Connection ready" : "Connection needs review", payload.summary_status === "ready");
+      if (payload.summary_status === "ready") {
+        markStep("plan", "Account bridge ready");
+      }
       return payload;
     }),
   deleteApiKey: () =>

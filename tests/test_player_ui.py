@@ -34,6 +34,8 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert "Check permissions" in response.text
     assert "Sync now" in response.text
     assert "Permission status not checked." in response.text
+    assert "Run connection diagnostic" in response.text
+    assert "Build Fit bridge status" in response.text
     assert "Today / this week" in response.text
     assert "Generate full report" in response.text
     assert "Mock returner checkout" in response.text
@@ -58,6 +60,7 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "applyAccountGearSnapshot" in js.text
     assert "/account/api-key" in js.text
     assert "/account/api-key/permissions" in js.text
+    assert "/account/diagnostic" in js.text
     assert "/api/v1/player/dashboard" in js.text
     assert "/api/v1/player/freshness-annotations" in js.text
     assert "/api/v1/legendary/goals/catalog" in js.text
@@ -65,9 +68,11 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "/api/v1/returner/report" in js.text
     assert "plan_returner_once" in js.text
     assert "renderPermissionReport" in js.text
+    assert "renderConnectionDiagnostic" in js.text
     assert "renderSyncProgress" in js.text
     assert "renderFreshnessAnnotations" in js.text
     assert "gw2radar.api_key_permissions.v1" in js.text
+    assert "gw2radar.account_connection_diagnostic.v1" in js.text
     assert "gw2radar.player.activeView" in js.text
     assert "summarizeResult" in js.text
     assert "artifactPath.split" in js.text
@@ -99,6 +104,8 @@ def test_player_ui_styles_cover_workflow_and_summaries() -> None:
     assert ".goal-choice-grid" in css.text
     assert ".permission-grid" in css.text
     assert ".permission-status-grid" in css.text
+    assert ".diagnostic-grid" in css.text
+    assert ".diagnostic-check.pass" in css.text
     assert ".permission-status.ready" in css.text
     assert ".freshness-annotation-grid" in css.text
     assert ".sync-checklist span.blocked" in css.text
@@ -132,3 +139,4 @@ def test_player_ui_docs_cover_required_flows() -> None:
     assert "build_upgrade_effects" in combined
     assert "reviewed and enabled KB rules" in combined
     assert "Delete all private data" in combined
+    assert "Run connection diagnostic" in combined

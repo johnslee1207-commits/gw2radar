@@ -12,7 +12,10 @@ graph TD
   Welcome --> Connect["Connect Account"]
   Connect --> AccountKey["API Key Status"]
   Connect --> PermissionInspection["Permission Inspection"]
+  Connect --> AccountConnectionDiagnostic["Account Connection Diagnostic"]
   Connect --> AccountSync["Account Sync"]
+  PermissionInspection --> AccountConnectionDiagnostic
+  AccountSync --> AccountConnectionDiagnostic
   AccountSync --> EndpointProgress["Endpoint Progress"]
   AccountSync --> Dashboard["Dashboard"]
   Dashboard --> BestActions["Account-Aware Best Actions"]
@@ -52,6 +55,7 @@ graph TD
 | PlayerIntent | Welcome intent buttons | Browser local UI state | Implemented |
 | AccountConnection | Connect key form and key status | `/account/api-key`, `/api/v1/security/api-key/status` | Implemented |
 | PermissionInspection | Connect permission status grid | `/account/api-key/permissions` | Implemented |
+| AccountConnectionDiagnostic | Connect read-only diagnostic PASS/WARN/FAIL cards | `/account/diagnostic`, `renderConnectionDiagnostic` | Implemented |
 | AccountSync | Sync controls and endpoint checklist | `/api/v1/account/sync` endpoint progress | Implemented |
 | DashboardAction | Today and this-week account-aware actions | `/api/v1/player/dashboard` | Implemented |
 | ReturnerDiagnosis | Returner view | `/goals`, `/goals/{goal_id}/gap`, actions, preview | Implemented |
@@ -78,6 +82,7 @@ graph TD
 | P0 Welcome page | `Welcome` view with player intent choices | Complete |
 | P0 API key connect page | `Connect` view with key form and safety notes | Complete |
 | P0 Permission check page | Required/optional chips, permission inspection action, granted/missing status, and limited-mode feature impacts | Complete |
+| P0 Connection diagnostic | Read-only Connect diagnostic for key, permissions, sync queue, private snapshot, synced character snapshot, and Build Fit bridge | Complete |
 | P0 Account sync progress | Sync controls and endpoint-level progress for account, characters, wallet, materials, bank, and achievements | Complete |
 | P0 Dashboard | Account status, actions, opportunity cards, do-not-sell warning | Complete |
 | P1 Returner onboarding questions | Last played and interest controls | Complete |
@@ -113,7 +118,7 @@ graph TD
 
 ## Maturity Summary
 
-- Complete: 34 guide items.
+- Complete: 35 guide items.
 - Partial: 0 guide items.
 - Missing: 0 guide items.
 

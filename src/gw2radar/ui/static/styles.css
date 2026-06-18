@@ -582,6 +582,55 @@ label + label {
   margin-bottom: 12px;
 }
 
+.diagnostic-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  min-height: 42px;
+  margin: 12px 0;
+  border: 1px dashed var(--line);
+  border-radius: 6px;
+  background: #fbfaf6;
+  color: var(--muted);
+  padding: 9px;
+}
+
+.diagnostic-check {
+  display: grid;
+  gap: 3px;
+  min-height: 58px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  padding: 8px 10px;
+  font-size: 0.86rem;
+}
+
+.diagnostic-check strong,
+.diagnostic-check span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diagnostic-check.pass {
+  border-color: rgba(47, 133, 90, 0.3);
+  background: #edf8f0;
+  color: #22543d;
+}
+
+.diagnostic-check.warn {
+  border-color: rgba(183, 121, 31, 0.32);
+  background: #fff8e6;
+  color: #744210;
+}
+
+.diagnostic-check.fail {
+  border-color: rgba(184, 50, 50, 0.32);
+  background: #fff0f0;
+  color: #742a2a;
+}
+
 .sync-checklist span.ready {
   border-color: rgba(47, 133, 90, 0.35);
   background: #edf8f0;
@@ -718,6 +767,7 @@ label + label {
   .permission-grid,
   .permission-status,
   .freshness-annotation-grid,
+  .diagnostic-grid,
   .sync-checklist {
     grid-template-columns: 1fr;
     justify-content: stretch;

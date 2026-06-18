@@ -231,11 +231,15 @@
               <div class="button-grid">
                 <button data-action="apiKeyStatus">Check key status</button>
                 <button data-action="apiKeyPermissions">Check permissions</button>
+                <button data-action="connectionDiagnostic">Run connection diagnostic</button>
                 <button data-action="enqueueSync">Sync now</button>
                 <button data-action="drainSync">Drain one job</button>
                 <button data-action="syncStatus">Sync status</button>
                 <button data-action="loadMock">Load demo graph</button>
                 <button class="danger-action" data-action="deleteSnapshot">Delete snapshot</button>
+              </div>
+              <div class="diagnostic-grid" id="connection-diagnostic-grid" aria-live="polite">
+                Run connection diagnostic to inspect key, permissions, sync, and Build Fit bridge status.
               </div>
               <pre id="connect-output" class="json-output" aria-live="polite">Connection and sync results appear here.</pre>
             </article>
