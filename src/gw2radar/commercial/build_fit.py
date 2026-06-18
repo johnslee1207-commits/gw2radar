@@ -133,6 +133,17 @@ class GearTransitionPlan(BaseModel):
     recommendation_boundary: str = "informational_manual_actions_only"
 
 
+class UpgradeEffectEvaluation(BaseModel):
+    item_name: str
+    slot: GearSlot
+    equipment_category: str
+    effect_family: str
+    fit_status: str
+    risk_level: str
+    explanation: str
+    manual_alternative: str
+
+
 class BudgetAlternative(BaseModel):
     build_id: str
     suggestion: str
@@ -145,6 +156,7 @@ class BuildFitResult(BaseModel):
     matches: list[GearMatchItem]
     score: BuildFitScore
     transition_plan: GearTransitionPlan
+    upgrade_effects: list[UpgradeEffectEvaluation] = Field(default_factory=list)
     budget_alternative: BudgetAlternative
 
 
@@ -285,12 +297,14 @@ def evaluate_build_fit(build: BuildRecord, account: AccountGearSnapshot) -> Buil
     matches = match_account_gear(build, account)
     score = calculate_build_fit_score(build, account, matches)
     plan = build_transition_plan(build, matches)
+    upgrade_effects = evaluate_upgrade_effects(build, account)
     alternative = recommend_budget_alternative(build, plan)
     return BuildFitResult(
         build=build,
         matches=matches,
         score=score,
         transition_plan=plan,
+        upgrade_effects=upgrade_effects,
         budget_alternative=alternative,
     )
 
@@ -380,6 +394,28 @@ def build_transition_plan(build: BuildRecord, matches: list[GearMatchItem]) -> G
     )
 
 
+def evaluate_upgrade_effects(build: BuildRecord, account: AccountGearSnapshot) -> list[UpgradeEffectEvaluation]:
+    evaluations: list[UpgradeEffectEvaluation] = []
+    for item in account.gear:
+        if item.equipment_category not in {"rune", "sigil", "relic"} and item.slot not in {GearSlot.RUNE, GearSlot.SIGIL, GearSlot.RELIC}:
+            continue
+        effect_family = _effect_family(item)
+        fit_status, risk_level = _upgrade_fit_status(build, item, effect_family)
+        evaluations.append(
+            UpgradeEffectEvaluation(
+                item_name=item.item_name,
+                slot=item.slot,
+                equipment_category=item.equipment_category,
+                effect_family=effect_family,
+                fit_status=fit_status,
+                risk_level=risk_level,
+                explanation=_upgrade_effect_explanation(build, item, effect_family, fit_status),
+                manual_alternative=_manual_upgrade_alternative(build, item, effect_family),
+            )
+        )
+    return evaluations
+
+
 def recommend_budget_alternative(build: BuildRecord, plan: GearTransitionPlan) -> BudgetAlternative:
     if plan.estimated_cost_gold <= 0:
         return BudgetAlternative(
@@ -398,6 +434,10 @@ def recommend_budget_alternative(build: BuildRecord, plan: GearTransitionPlan) -
 
 
 def render_build_fit_report(result: BuildFitResult) -> str:
+    upgrade_effect_lines = [
+        f"- {effect.item_name}: {effect.effect_family} / {effect.fit_status} ({effect.risk_level}). {effect.manual_alternative}"
+        for effect in result.upgrade_effects
+    ] or ["- No rune, sigil, or relic effect entries were available in the account snapshot."]
     lines = [
         "# Build Fit Report",
         "",
@@ -416,6 +456,9 @@ def render_build_fit_report(result: BuildFitResult) -> str:
         "## Transition Plan",
         *[f"- {step}" for step in result.transition_plan.manual_steps],
         f"- Estimated manual transition cost: {result.transition_plan.estimated_cost_gold:g} gold",
+        "",
+        "## Upgrade Effects",
+        *upgrade_effect_lines,
         "",
         "## Budget Alternative",
         f"- {result.budget_alternative.suggestion}",
@@ -527,3 +570,58 @@ def _category_from_slot(slot: GearSlot) -> str:
     if slot in {GearSlot.WEAPON_1, GearSlot.WEAPON_2}:
         return "weapon"
     return "armor"
+
+
+def _effect_family(item: AccountGearItem) -> str:
+    haystack = f"{item.item_name} {item.stat_combo}".lower()
+    groups = [
+        ("power_damage", ["scholar", "force", "impact", "power", "berserker", "ferocity", "precision"]),
+        ("condition_damage", ["afflicted", "nightmare", "trapper", "torment", "bleeding", "burning", "condition", "viper"]),
+        ("boon_support", ["leadership", "monk", "concentration", "quickness", "alacrity", "boon", "divinity"]),
+        ("healing_support", ["water", "monk", "healing", "magi", "harrier"]),
+        ("defensive_survival", ["durability", "soldier", "defense", "sanctuary", "protection", "vitality", "toughness"]),
+    ]
+    for family, keywords in groups:
+        if any(keyword in haystack for keyword in keywords):
+            return family
+    return "unknown"
+
+
+def _upgrade_fit_status(build: BuildRecord, item: AccountGearItem, effect_family: str) -> tuple[str, str]:
+    expected = _expected_effect_families(build)
+    if effect_family == "unknown":
+        return "needs_manual_review", "medium"
+    if effect_family in expected:
+        return "aligned", "low"
+    if item.slot is GearSlot.RELIC and effect_family in {"defensive_survival", "healing_support"} and build.role.lower() in {"dps", "quickness_dps"}:
+        return "possibly_misaligned", "medium"
+    return "possibly_misaligned", "medium"
+
+
+def _expected_effect_families(build: BuildRecord) -> set[str]:
+    text = f"{build.name} {build.role} {build.game_mode}".lower()
+    families: set[str] = set()
+    if any(token in text for token in ["heal", "healer", "support"]):
+        families.update({"healing_support", "boon_support", "defensive_survival"})
+    if any(token in text for token in ["quickness", "alacrity", "boon"]):
+        families.update({"boon_support", "power_damage", "condition_damage"})
+    if any(token in text for token in ["condition", "condi", "viper"]):
+        families.add("condition_damage")
+    if any(token in text for token in ["power", "dps", "strike", "raid", "fractals"]):
+        families.add("power_damage")
+    return families or {"power_damage", "condition_damage", "boon_support"}
+
+
+def _upgrade_effect_explanation(build: BuildRecord, item: AccountGearItem, effect_family: str, fit_status: str) -> str:
+    if fit_status == "aligned":
+        return f"{item.equipment_category} appears to match the broad {build.role} effect family for this structured build."
+    if effect_family == "unknown":
+        return f"{item.equipment_category} effect family could not be inferred from item name/stat text; verify in game or against the build source."
+    return f"{item.equipment_category} belongs to {effect_family}, which may not match this build's expected upgrade family."
+
+
+def _manual_upgrade_alternative(build: BuildRecord, item: AccountGearItem, effect_family: str) -> str:
+    expected = sorted(_expected_effect_families(build))
+    if effect_family in expected:
+        return "Keep as a reusable candidate, then verify exact rune/sigil/relic effect manually."
+    return f"Compare against build-source upgrades in {', '.join(expected)} before spending currency; do not auto-replace."

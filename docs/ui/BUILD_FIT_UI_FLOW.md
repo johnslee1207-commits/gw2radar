@@ -25,4 +25,5 @@ A player wants to know whether their account can play a build, what gear is reus
 - Synced official API snapshots must be labeled as synced private data and remain advisory.
 - Synced official API equipment should use public item/stat metadata enrichment when available and keep id/Unknown fallbacks when metadata is missing.
 - Official upgrade metadata should classify runes and sigils as separate advisory gear entries; relics should retain a relic category when the API exposes the slot/type.
+- Rune, sigil, and relic entries should receive conservative effect-family evaluation such as power damage, condition damage, boon support, healing support, defensive survival, or unknown. These labels are manual-review hints, not meta guarantees.
 - Manual sample character snapshots must keep assumptions visible and must not be represented as synced ArenaNet equipment.

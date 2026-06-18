@@ -70,6 +70,7 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "refreshFreshness" in js.text
     assert "/api/v1/returner/readiness" in js.text
     assert "updateReturnerScores" in js.text
+    assert "rune/sigil/relic effect checks" in js.text
     assert "payload?.is_configured" in js.text
     assert "Sync now queues one account snapshot job" in js.text
     assert "/api/v1/account/sync/drain-one" in js.text

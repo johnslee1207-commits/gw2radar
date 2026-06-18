@@ -186,7 +186,8 @@ function summarizeResult(target, payload) {
   if (target === "build") {
     const fit = data?.fit?.score?.score;
     if (typeof fit === "number") {
-      return `Build fit score is ${Math.round(fit * 100)}%. Review missing gear before converting equipment.`;
+      const upgradeCount = data.fit.upgrade_effects?.length || 0;
+      return `Build fit score is ${Math.round(fit * 100)}%. ${upgradeCount} rune/sigil/relic effect checks need manual review before converting equipment.`;
     }
     if (data?.transition_plan) {
       return "Transition plan updated with reusable gear, missing gear, and manual budget guidance.";
