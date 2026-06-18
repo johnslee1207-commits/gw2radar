@@ -90,8 +90,10 @@ failure causes without reading raw bundles. The remediation playbook maps top
 blockers to support steps, safe player reply templates, evidence paths, and
 product fix suggestions. The product backlog generator turns those product
 suggestions into ranked backlog items with affected case counts, support signal,
-and acceptance criteria. The review also rejects bundles that appear to contain
-sensitive fields outside the privacy-safe support boundary.
+and acceptance criteria. The backlog can be exported as Markdown for issue or
+roadmap drafting, or CSV for triage spreadsheets. The review also rejects bundles
+that appear to contain sensitive fields outside the privacy-safe support
+boundary.
 
 ## First Use
 

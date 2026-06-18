@@ -21,6 +21,8 @@ from gw2radar.support.account_debug_bundle_audit import (
     build_support_review_metrics,
     create_support_review_audit,
     list_support_review_audits,
+    render_support_review_backlog_csv,
+    render_support_review_backlog_markdown,
     render_support_review_audit_csv,
 )
 from gw2radar.support.account_debug_bundle_review import review_account_debug_bundle
@@ -256,8 +258,9 @@ def get_account_debug_bundle_review_audit_backlog(
     reviewer: str | None = None,
     created_from: str | None = None,
     created_to: str | None = None,
-) -> dict:
-    def read_backlog(store: EncryptedApiKeyStore) -> dict:
+    format: str = "json",
+):
+    def read_backlog(store: EncryptedApiKeyStore):
         records = list_support_review_audits(
             store.session,
             limit=limit,
@@ -270,6 +273,18 @@ def get_account_debug_bundle_review_audit_backlog(
         metrics = build_support_review_metrics(records)
         playbook = build_support_review_playbook(metrics)
         backlog = build_support_review_product_backlog(metrics, playbook)
+        if format == "csv":
+            return Response(
+                content=render_support_review_backlog_csv(backlog),
+                media_type="text/csv; charset=utf-8",
+                headers={"Content-Disposition": 'attachment; filename="support_review_backlog.csv"'},
+            )
+        if format == "markdown":
+            return Response(
+                content=render_support_review_backlog_markdown(backlog),
+                media_type="text/markdown; charset=utf-8",
+                headers={"Content-Disposition": 'attachment; filename="support_review_backlog.md"'},
+            )
         return {
             **backlog.model_dump(mode="json"),
             "filters": {

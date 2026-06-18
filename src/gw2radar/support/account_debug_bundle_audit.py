@@ -360,6 +360,66 @@ def build_support_review_product_backlog(
     )
 
 
+def render_support_review_backlog_csv(backlog: SupportReviewBacklogSummary) -> str:
+    output = StringIO()
+    fieldnames = [
+        "backlog_id",
+        "priority",
+        "blocker_id",
+        "title",
+        "affected_cases",
+        "product_fix_suggestion",
+        "support_signal",
+        "acceptance_criteria",
+    ]
+    writer = DictWriter(output, fieldnames=fieldnames, lineterminator="\n")
+    writer.writeheader()
+    for item in backlog.backlog_items:
+        writer.writerow(
+            {
+                "backlog_id": item.backlog_id,
+                "priority": item.priority,
+                "blocker_id": item.blocker_id,
+                "title": item.title,
+                "affected_cases": item.affected_cases,
+                "product_fix_suggestion": item.product_fix_suggestion,
+                "support_signal": item.support_signal,
+                "acceptance_criteria": " | ".join(item.acceptance_criteria),
+            }
+        )
+    return output.getvalue()
+
+
+def render_support_review_backlog_markdown(backlog: SupportReviewBacklogSummary) -> str:
+    lines = [
+        "# Support Review Product Backlog",
+        "",
+        f"Summary: {backlog.summary}",
+        "",
+        f"Boundary: {backlog.boundary}",
+        "",
+    ]
+    if not backlog.backlog_items:
+        lines.append("No product backlog items are available for the current filters.")
+        return "\n".join(lines) + "\n"
+    for item in backlog.backlog_items:
+        lines.extend(
+            [
+                f"## {item.priority} - {item.title}",
+                "",
+                f"- Backlog ID: `{item.backlog_id}`",
+                f"- Blocker: `{item.blocker_id}`",
+                f"- Affected cases: {item.affected_cases}",
+                f"- Support signal: {item.support_signal}",
+                f"- Product fix: {item.product_fix_suggestion}",
+                "- Acceptance criteria:",
+            ]
+        )
+        lines.extend(f"  - {criterion}" for criterion in item.acceptance_criteria)
+        lines.append("")
+    return "\n".join(lines)
+
+
 def _highest_severity(severities: list[str]) -> str:
     if not severities:
         return "info"

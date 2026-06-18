@@ -10,6 +10,8 @@ const exportAuditButton = document.querySelector("#export-audit-button");
 const refreshMetricsButton = document.querySelector("#refresh-metrics-button");
 const refreshPlaybookButton = document.querySelector("#refresh-playbook-button");
 const refreshBacklogButton = document.querySelector("#refresh-backlog-button");
+const exportBacklogMdButton = document.querySelector("#export-backlog-md-button");
+const exportBacklogCsvButton = document.querySelector("#export-backlog-csv-button");
 const summary = document.querySelector("#support-summary");
 const findingList = document.querySelector("#finding-list");
 const replyTemplate = document.querySelector("#reply-template");
@@ -287,6 +289,10 @@ function renderBacklog(backlog) {
   }
 }
 
+function exportBacklog(format) {
+  window.location.href = `/account/debug-bundle/review/audit/backlog?${auditQueryString(format)}`;
+}
+
 function renderAuditRecords(records) {
   auditList.innerHTML = "";
   if (!records.length) {
@@ -342,6 +348,10 @@ refreshMetricsButton?.addEventListener("click", refreshAuditMetrics);
 refreshPlaybookButton?.addEventListener("click", refreshPlaybook);
 
 refreshBacklogButton?.addEventListener("click", refreshBacklog);
+
+exportBacklogMdButton?.addEventListener("click", () => exportBacklog("markdown"));
+
+exportBacklogCsvButton?.addEventListener("click", () => exportBacklog("csv"));
 
 copyTemplateButton?.addEventListener("click", async () => {
   if (!replyTemplate.value) {

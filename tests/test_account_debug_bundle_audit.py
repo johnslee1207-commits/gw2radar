@@ -192,6 +192,36 @@ def test_support_review_backlog_prioritizes_product_fixes_from_playbook() -> Non
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
+def test_support_review_backlog_exports_markdown_and_csv() -> None:
+    temp_dir = Path(".test_tmp") / f"support-review-backlog-export-{uuid4().hex}"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        configure_database(f"sqlite:///{temp_dir / 'support-review-backlog-export.db'}")
+        state.reset_cached_graph()
+        client = TestClient(app)
+
+        client.post("/account/debug-bundle/review/audit", json={"bundle": _missing_key_bundle(), "reviewer": "export"})
+        markdown = client.get("/account/debug-bundle/review/audit/backlog?reviewer=export&format=markdown")
+        csv_response = client.get("/account/debug-bundle/review/audit/backlog?reviewer=export&format=csv")
+
+        assert markdown.status_code == 200
+        assert "text/markdown" in markdown.headers["content-type"]
+        assert "# Support Review Product Backlog" in markdown.text
+        assert "## P0 - API key is not connected" in markdown.text
+        assert "Acceptance criteria" in markdown.text
+        assert "Diagnostic Berserker Chest" not in markdown.text
+
+        assert csv_response.status_code == 200
+        assert "text/csv" in csv_response.headers["content-type"]
+        assert "backlog_id,priority,blocker_id,title,affected_cases" in csv_response.text
+        assert "support-backlog-needs_key" in csv_response.text
+        assert "Diagnostic Berserker Chest" not in csv_response.text
+    finally:
+        close_database()
+        state.reset_cached_graph()
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
 def _sample_bundle() -> dict:
     return {
         "schema_version": "gw2radar.account_debug_bundle.v1",

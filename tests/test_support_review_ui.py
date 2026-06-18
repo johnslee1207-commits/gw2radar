@@ -24,6 +24,7 @@ def test_support_review_page_serves_operator_workbench() -> None:
     assert "Refresh playbook" in response.text
     assert "Product Fix Backlog" in response.text
     assert "Refresh backlog" in response.text
+    assert "Export MD" in response.text
     assert "audit-severity-filter" in response.text
     assert "Do Not Request Secrets" in response.text
     assert "Do not ask for a raw GW2 API key" in response.text
@@ -49,6 +50,8 @@ def test_support_review_static_assets_include_review_workflow() -> None:
     assert "renderMetricList" in js.text
     assert "renderPlaybook" in js.text
     assert "renderBacklog" in js.text
+    assert "exportBacklog" in js.text
+    assert "markdown" in js.text
     assert 'params.set("format", format)' in js.text
     assert "privacy-boundary violations" not in js.text
     assert "Please do not send your raw GW2 API key" in js.text
