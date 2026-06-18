@@ -10,13 +10,18 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from gw2radar.db.models import SupportBacklogPromotionModel, SupportReviewAuditModel
+from gw2radar.db.models import (
+    SupportBacklogPromotionEventModel,
+    SupportBacklogPromotionModel,
+    SupportReviewAuditModel,
+)
 from gw2radar.support.account_debug_bundle_review import SupportReviewReport
 
 
 API_KEY_SHAPED_PATTERN = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){4,}-[0-9a-fA-F]{12,}")
 LONG_SECRET_PATTERN = re.compile(r"[A-Za-z0-9_=-]{48,}")
 SEVERITY_RANK = {"critical": 3, "warning": 2, "info": 1}
+PROMOTION_STATUSES = {"draft", "accepted", "linked", "closed"}
 
 
 class SupportReviewAuditRecord(BaseModel):
@@ -109,6 +114,24 @@ class SupportBacklogPromotionList(BaseModel):
     schema_version: str = "gw2radar.support_backlog_promotion_list.v1"
     promotions: list[SupportBacklogPromotionArtifact] = Field(default_factory=list)
     boundary: str = "Promotion artifacts contain product-planning summaries only; raw support bundles, API keys, and private account payloads are excluded."
+
+
+class SupportBacklogPromotionEvent(BaseModel):
+    event_id: str
+    promotion_id: str
+    action: str
+    previous_status: str | None = None
+    new_status: str | None = None
+    reviewer: str
+    note: str
+    properties: dict = Field(default_factory=dict)
+    created_at: datetime
+
+
+class SupportBacklogPromotionEventList(BaseModel):
+    schema_version: str = "gw2radar.support_backlog_promotion_events.v1"
+    events: list[SupportBacklogPromotionEvent] = Field(default_factory=list)
+    boundary: str = "Promotion event logs contain workflow metadata only and exclude raw support bundles, API keys, and private account payloads."
 
 
 PLAYBOOKS: dict[str, SupportReviewPlaybookItem] = {
@@ -476,6 +499,20 @@ def create_support_backlog_promotion(
         updated_at=now,
     )
     session.add(record)
+    session.flush()
+    session.add(
+        SupportBacklogPromotionEventModel(
+            event_id=f"support-promotion-event-{uuid4().hex}",
+            promotion_id=record.promotion_id,
+            action="created",
+            previous_status=None,
+            new_status=record.status,
+            reviewer=record.reviewer,
+            note="Promotion draft created from support backlog item.",
+            properties_json={"backlog_id": record.backlog_id, "blocker_id": record.blocker_id},
+            created_at=now,
+        )
+    )
     session.commit()
     session.refresh(record)
     return _to_promotion(record)
@@ -598,6 +635,125 @@ def render_support_backlog_promotions_csv(bundle: SupportBacklogPromotionList) -
     return output.getvalue()
 
 
+def update_support_backlog_promotion_status(
+    session: Session,
+    *,
+    promotion_id: str,
+    status: str,
+    reviewer: str | None = None,
+    note: str | None = None,
+    external_ref: str | None = None,
+) -> SupportBacklogPromotionArtifact | None:
+    safe_status = _safe_text(status, max_length=40)
+    if safe_status not in PROMOTION_STATUSES:
+        raise ValueError(f"Unsupported promotion status: {safe_status}")
+    record = session.get(SupportBacklogPromotionModel, _safe_identifier(promotion_id, max_length=160))
+    if record is None:
+        return None
+    previous = record.status
+    safe_reviewer = _safe_text(reviewer or "support", max_length=80)
+    safe_note = _safe_text(note or "", max_length=500)
+    now = datetime.now(timezone.utc)
+    properties = dict(record.properties_json or {})
+    if external_ref:
+        properties["external_ref"] = _safe_text(external_ref, max_length=240)
+    record.status = safe_status
+    record.reviewer = safe_reviewer
+    record.properties_json = properties
+    record.updated_at = now
+    session.add(
+        SupportBacklogPromotionEventModel(
+            event_id=f"support-promotion-event-{uuid4().hex}",
+            promotion_id=record.promotion_id,
+            action="status_changed",
+            previous_status=previous,
+            new_status=safe_status,
+            reviewer=safe_reviewer,
+            note=safe_note,
+            properties_json={
+                "external_ref": properties.get("external_ref"),
+                "stores_raw_bundle": False,
+                "stores_raw_api_key": False,
+                "stores_private_account_payload": False,
+            },
+            created_at=now,
+        )
+    )
+    session.commit()
+    session.refresh(record)
+    return _to_promotion(record)
+
+
+def list_support_backlog_promotion_events(
+    session: Session,
+    *,
+    promotion_id: str | None = None,
+    limit: int = 50,
+) -> SupportBacklogPromotionEventList:
+    safe_limit = min(max(int(limit or 50), 1), 100)
+    statement = select(SupportBacklogPromotionEventModel)
+    if promotion_id:
+        statement = statement.where(SupportBacklogPromotionEventModel.promotion_id == _safe_identifier(promotion_id, max_length=160))
+    rows = session.scalars(statement.order_by(SupportBacklogPromotionEventModel.created_at.desc()).limit(safe_limit)).all()
+    return SupportBacklogPromotionEventList(events=[_to_promotion_event(row) for row in rows])
+
+
+def render_support_backlog_promotion_events_markdown(bundle: SupportBacklogPromotionEventList) -> str:
+    lines = [
+        "# Support Backlog Promotion Events",
+        "",
+        f"Boundary: {bundle.boundary}",
+        "",
+    ]
+    if not bundle.events:
+        lines.append("No promotion events match the current filters.")
+        return "\n".join(lines) + "\n"
+    for event in bundle.events:
+        lines.extend(
+            [
+                f"## {event.action} - {event.promotion_id}",
+                "",
+                f"- Event ID: `{event.event_id}`",
+                f"- Status: `{event.previous_status or 'none'}` -> `{event.new_status or 'none'}`",
+                f"- Reviewer: `{event.reviewer}`",
+                f"- Note: {event.note or 'none'}",
+                f"- Created: {event.created_at.isoformat()}",
+                "",
+            ]
+        )
+    return "\n".join(lines)
+
+
+def render_support_backlog_promotion_events_csv(bundle: SupportBacklogPromotionEventList) -> str:
+    output = StringIO()
+    fieldnames = [
+        "event_id",
+        "promotion_id",
+        "action",
+        "previous_status",
+        "new_status",
+        "reviewer",
+        "note",
+        "created_at",
+    ]
+    writer = DictWriter(output, fieldnames=fieldnames, lineterminator="\n")
+    writer.writeheader()
+    for event in bundle.events:
+        writer.writerow(
+            {
+                "event_id": event.event_id,
+                "promotion_id": event.promotion_id,
+                "action": event.action,
+                "previous_status": event.previous_status or "",
+                "new_status": event.new_status or "",
+                "reviewer": event.reviewer,
+                "note": event.note,
+                "created_at": event.created_at.isoformat(),
+            }
+        )
+    return output.getvalue()
+
+
 def _highest_severity(severities: list[str]) -> str:
     if not severities:
         return "info"
@@ -609,6 +765,10 @@ def _safe_text(value: str, *, max_length: int) -> str:
     scrubbed = LONG_SECRET_PATTERN.sub("[redacted-long-token]", scrubbed)
     scrubbed = " ".join(scrubbed.split())
     return scrubbed[:max_length]
+
+
+def _safe_identifier(value: str, *, max_length: int) -> str:
+    return " ".join(str(value or "").split())[:max_length]
 
 
 def _evidence_refs(review: SupportReviewReport) -> list[str]:
@@ -712,4 +872,18 @@ def _to_promotion(row: SupportBacklogPromotionModel) -> SupportBacklogPromotionA
         properties=dict(row.properties_json or {}),
         created_at=row.created_at,
         updated_at=row.updated_at,
+    )
+
+
+def _to_promotion_event(row: SupportBacklogPromotionEventModel) -> SupportBacklogPromotionEvent:
+    return SupportBacklogPromotionEvent(
+        event_id=row.event_id,
+        promotion_id=row.promotion_id,
+        action=row.action,
+        previous_status=row.previous_status,
+        new_status=row.new_status,
+        reviewer=row.reviewer,
+        note=row.note,
+        properties=dict(row.properties_json or {}),
+        created_at=row.created_at,
     )

@@ -15,6 +15,9 @@ const exportBacklogCsvButton = document.querySelector("#export-backlog-csv-butto
 const refreshPromotionsButton = document.querySelector("#refresh-promotions-button");
 const exportPromotionsMdButton = document.querySelector("#export-promotions-md-button");
 const exportPromotionsCsvButton = document.querySelector("#export-promotions-csv-button");
+const refreshPromotionEventsButton = document.querySelector("#refresh-promotion-events-button");
+const exportPromotionEventsMdButton = document.querySelector("#export-promotion-events-md-button");
+const exportPromotionEventsCsvButton = document.querySelector("#export-promotion-events-csv-button");
 const summary = document.querySelector("#support-summary");
 const findingList = document.querySelector("#finding-list");
 const replyTemplate = document.querySelector("#reply-template");
@@ -33,6 +36,8 @@ const backlogSummary = document.querySelector("#backlog-summary");
 const backlogList = document.querySelector("#backlog-list");
 const promotionSummary = document.querySelector("#promotion-summary");
 const promotionList = document.querySelector("#promotion-list");
+const promotionEventSummary = document.querySelector("#promotion-event-summary");
+const promotionEventList = document.querySelector("#promotion-event-list");
 const output = document.querySelector("#support-output");
 let lastBundle = null;
 let lastReview = null;
@@ -222,6 +227,12 @@ async function refreshPromotions() {
   renderPromotions(bundle);
 }
 
+async function refreshPromotionEvents() {
+  const response = await fetch(`/account/debug-bundle/review/audit/backlog/promotions/events?${promotionEventQueryString()}`);
+  const bundle = await response.json();
+  renderPromotionEvents(bundle);
+}
+
 function renderAuditMetrics(metrics) {
   metricsSummary.textContent = `${metrics.total_records || 0} records. ${metrics.trend_summary || "No summary available."}`;
   renderMetricList(metricsStatusList, metrics.status_counts || []);
@@ -364,8 +375,75 @@ function renderPromotions(bundle) {
     meta.textContent = `${promotion.promotion_id} · backlog: ${promotion.backlog_id} · reviewer: ${promotion.reviewer}`;
     const body = document.createElement("pre");
     body.textContent = promotion.body_markdown || "";
-    item.append(title, meta, body);
+    const actions = document.createElement("div");
+    actions.className = "button-row";
+    for (const [status, label] of [
+      ["accepted", "Accept"],
+      ["linked", "Mark linked"],
+      ["closed", "Close"],
+    ]) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = label;
+      button.addEventListener("click", () => updatePromotionStatus(promotion.promotion_id, status));
+      actions.appendChild(button);
+    }
+    item.append(title, meta, actions, body);
     promotionList.appendChild(item);
+  }
+}
+
+async function updatePromotionStatus(promotionId, status) {
+  const response = await fetch(`/account/debug-bundle/review/audit/backlog/promotions/${promotionId}/status`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      status,
+      reviewer: reviewerName?.value || "support",
+      note: `Operator marked promotion ${status}.`,
+    }),
+  });
+  const payload = await response.json();
+  output.textContent = JSON.stringify(payload, null, 2);
+  if (payload.status === "updated") {
+    summary.textContent = `Promotion ${promotionId} marked ${status}.`;
+    await refreshPromotions();
+    await refreshPromotionEvents();
+  } else {
+    summary.textContent = `Promotion status not updated: ${payload.status || "unknown"}.`;
+  }
+}
+
+function promotionEventQueryString(format = "json") {
+  const params = new URLSearchParams();
+  params.set("limit", "20");
+  params.set("format", format);
+  return params.toString();
+}
+
+function exportPromotionEvents(format) {
+  window.location.href = `/account/debug-bundle/review/audit/backlog/promotions/events?${promotionEventQueryString(format)}`;
+}
+
+function renderPromotionEvents(bundle) {
+  const events = Array.isArray(bundle.events) ? bundle.events : [];
+  promotionEventSummary.textContent = `${events.length} promotion events loaded.`;
+  promotionEventList.innerHTML = "";
+  if (!events.length) {
+    promotionEventList.textContent = "No promotion events are available yet.";
+    return;
+  }
+  for (const event of events) {
+    const item = document.createElement("article");
+    item.className = "support-promotion-item";
+    const title = document.createElement("strong");
+    title.textContent = `${event.action} · ${event.previous_status || "none"} → ${event.new_status || "none"}`;
+    const meta = document.createElement("span");
+    meta.textContent = `${event.event_id} · ${event.promotion_id} · reviewer: ${event.reviewer}`;
+    const note = document.createElement("p");
+    note.textContent = event.note || "No note.";
+    item.append(title, meta, note);
+    promotionEventList.appendChild(item);
   }
 }
 
@@ -434,6 +512,12 @@ refreshPromotionsButton?.addEventListener("click", refreshPromotions);
 exportPromotionsMdButton?.addEventListener("click", () => exportPromotions("markdown"));
 
 exportPromotionsCsvButton?.addEventListener("click", () => exportPromotions("csv"));
+
+refreshPromotionEventsButton?.addEventListener("click", refreshPromotionEvents);
+
+exportPromotionEventsMdButton?.addEventListener("click", () => exportPromotionEvents("markdown"));
+
+exportPromotionEventsCsvButton?.addEventListener("click", () => exportPromotionEvents("csv"));
 
 copyTemplateButton?.addEventListener("click", async () => {
   if (!replyTemplate.value) {

@@ -46,6 +46,18 @@ def main() -> int:
     promotions = client.get("/account/debug-bundle/review/audit/backlog/promotions?reviewer=smoke")
     promotions_markdown = client.get("/account/debug-bundle/review/audit/backlog/promotions?reviewer=smoke&format=markdown")
     promotions_csv = client.get("/account/debug-bundle/review/audit/backlog/promotions?reviewer=smoke&format=csv")
+    promotion_id = promotion.json().get("promotion", {}).get("promotion_id", "")
+    promotion_status = client.post(
+        f"/account/debug-bundle/review/audit/backlog/promotions/{promotion_id}/status",
+        json={"status": "accepted", "reviewer": "smoke", "note": "Accepted during smoke."},
+    )
+    promotion_events = client.get(f"/account/debug-bundle/review/audit/backlog/promotions/events?promotion_id={promotion_id}")
+    promotion_events_markdown = client.get(
+        f"/account/debug-bundle/review/audit/backlog/promotions/events?promotion_id={promotion_id}&format=markdown"
+    )
+    promotion_events_csv = client.get(
+        f"/account/debug-bundle/review/audit/backlog/promotions/events?promotion_id={promotion_id}&format=csv"
+    )
 
     _add(checks, "support page is served", page.status_code == 200 and "Debug Bundle Support Review" in page.text, page.text)
     _add(checks, "support script is served", js.status_code == 200 and "/account/debug-bundle/review" in js.text, js.text)
@@ -64,6 +76,10 @@ def main() -> int:
     _add(checks, "support backlog promotion list is visible", promotions.status_code == 200 and promotions.json().get("promotions"), promotions.text)
     _add(checks, "support backlog promotions export markdown", promotions_markdown.status_code == 200 and "# Support Backlog Promotion Drafts" in promotions_markdown.text, promotions_markdown.text)
     _add(checks, "support backlog promotions export csv", promotions_csv.status_code == 200 and "promotion_id,backlog_id,blocker_id" in promotions_csv.text, promotions_csv.text)
+    _add(checks, "support backlog promotion status updates", promotion_status.status_code == 200 and promotion_status.json().get("status") == "updated", promotion_status.text)
+    _add(checks, "support backlog promotion events are visible", promotion_events.status_code == 200 and len(promotion_events.json().get("events", [])) >= 2, promotion_events.text)
+    _add(checks, "support backlog promotion events export markdown", promotion_events_markdown.status_code == 200 and "# Support Backlog Promotion Events" in promotion_events_markdown.text, promotion_events_markdown.text)
+    _add(checks, "support backlog promotion events export csv", promotion_events_csv.status_code == 200 and "event_id,promotion_id,action" in promotion_events_csv.text, promotion_events_csv.text)
     _add(checks, "no-secret boundary is visible", "Do not ask for a raw GW2 API key" in page.text and "Please do not send your raw GW2 API key" in js.text, "boundary missing")
 
     failed = [check for check in checks if not check[1]]

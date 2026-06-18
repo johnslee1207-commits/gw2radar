@@ -313,6 +313,78 @@ def test_support_review_backlog_promotion_reports_missing_backlog_id() -> None:
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
+def test_support_review_backlog_promotion_status_events_are_auditable() -> None:
+    temp_dir = Path(".test_tmp") / f"support-review-backlog-promotion-events-{uuid4().hex}"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        configure_database(f"sqlite:///{temp_dir / 'support-review-backlog-promotion-events.db'}")
+        state.reset_cached_graph()
+        client = TestClient(app)
+
+        client.post("/account/debug-bundle/review/audit", json={"bundle": _missing_key_bundle(), "reviewer": "events"})
+        created = client.post(
+            "/account/debug-bundle/review/audit/backlog/promotions",
+            json={"backlog_id": "support-backlog-needs_key", "reviewer": "product lead", "audit_reviewer": "events"},
+        ).json()
+        promotion_id = created["promotion"]["promotion_id"]
+
+        accepted = client.post(
+            f"/account/debug-bundle/review/audit/backlog/promotions/{promotion_id}/status",
+            json={"status": "accepted", "reviewer": "product lead", "note": "Accepted for next sprint."},
+        )
+        linked = client.post(
+            f"/account/debug-bundle/review/audit/backlog/promotions/{promotion_id}/status",
+            json={
+                "status": "linked",
+                "reviewer": "product lead",
+                "note": "Linked to local roadmap item.",
+                "external_ref": "ROADMAP-12",
+            },
+        )
+        events = client.get(f"/account/debug-bundle/review/audit/backlog/promotions/events?promotion_id={promotion_id}").json()
+        markdown = client.get(
+            f"/account/debug-bundle/review/audit/backlog/promotions/events?promotion_id={promotion_id}&format=markdown"
+        )
+        csv_response = client.get(
+            f"/account/debug-bundle/review/audit/backlog/promotions/events?promotion_id={promotion_id}&format=csv"
+        )
+        invalid = client.post(
+            f"/account/debug-bundle/review/audit/backlog/promotions/{promotion_id}/status",
+            json={"status": "shipping-now", "reviewer": "product lead"},
+        ).json()
+
+        assert accepted.status_code == 200
+        assert accepted.json()["status"] == "updated"
+        assert accepted.json()["promotion"]["status"] == "accepted"
+        assert linked.status_code == 200
+        assert linked.json()["promotion"]["status"] == "linked"
+        assert linked.json()["promotion"]["properties"]["external_ref"] == "ROADMAP-12"
+
+        assert events["schema_version"] == "gw2radar.support_backlog_promotion_events.v1"
+        assert len(events["events"]) == 3
+        assert events["events"][0]["new_status"] == "linked"
+        assert events["events"][1]["previous_status"] == "draft"
+        assert events["events"][2]["action"] == "created"
+        assert "raw support bundles" in events["boundary"]
+
+        assert "text/markdown" in markdown.headers["content-type"]
+        assert "# Support Backlog Promotion Events" in markdown.text
+        assert "Accepted for next sprint" in markdown.text
+        assert "Diagnostic Berserker Chest" not in markdown.text
+
+        assert "text/csv" in csv_response.headers["content-type"]
+        assert "event_id,promotion_id,action,previous_status,new_status" in csv_response.text
+        assert promotion_id in csv_response.text
+        assert "Diagnostic Berserker Chest" not in csv_response.text
+
+        assert invalid["status"] == "invalid_status"
+        assert invalid["allowed_statuses"] == ["draft", "accepted", "linked", "closed"]
+    finally:
+        close_database()
+        state.reset_cached_graph()
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
 def _sample_bundle() -> dict:
     return {
         "schema_version": "gw2radar.account_debug_bundle.v1",

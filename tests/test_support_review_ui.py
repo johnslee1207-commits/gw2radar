@@ -28,6 +28,9 @@ def test_support_review_page_serves_operator_workbench() -> None:
     assert "Roadmap Drafts" in response.text
     assert "Refresh drafts" in response.text
     assert "promotion-list" in response.text
+    assert "Promotion Events" in response.text
+    assert "Refresh events" in response.text
+    assert "promotion-event-list" in response.text
     assert "audit-severity-filter" in response.text
     assert "Do Not Request Secrets" in response.text
     assert "Do not ask for a raw GW2 API key" in response.text
@@ -56,8 +59,13 @@ def test_support_review_static_assets_include_review_workflow() -> None:
     assert "exportBacklog" in js.text
     assert "promoteBacklogItem" in js.text
     assert "renderPromotions" in js.text
+    assert "updatePromotionStatus" in js.text
+    assert "renderPromotionEvents" in js.text
+    assert "promotionEventQueryString" in js.text
     assert "/account/debug-bundle/review/audit/backlog/promotions" in js.text
+    assert "/account/debug-bundle/review/audit/backlog/promotions/events" in js.text
     assert "Promote draft" in js.text
+    assert "Mark linked" in js.text
     assert "markdown" in js.text
     assert 'params.set("format", format)' in js.text
     assert "privacy-boundary violations" not in js.text

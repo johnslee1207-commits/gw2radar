@@ -161,6 +161,20 @@ class SupportBacklogPromotionModel(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 
+class SupportBacklogPromotionEventModel(Base):
+    __tablename__ = "support_backlog_promotion_events"
+
+    event_id: Mapped[str] = mapped_column(String, primary_key=True)
+    promotion_id: Mapped[str] = mapped_column(String, nullable=False)
+    action: Mapped[str] = mapped_column(String, nullable=False)
+    previous_status: Mapped[str | None] = mapped_column(String, nullable=True)
+    new_status: Mapped[str | None] = mapped_column(String, nullable=True)
+    reviewer: Mapped[str] = mapped_column(String, default="support")
+    note: Mapped[str] = mapped_column(Text, default="")
+    properties_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
 class SecretModel(Base):
     __tablename__ = "secrets"
 
