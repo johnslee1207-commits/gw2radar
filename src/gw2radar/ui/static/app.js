@@ -125,6 +125,33 @@ function summarizeResult(target, payload) {
       const mode = data.limited_mode ? "limited mode" : "ready";
       return `${mode}: ${missingRequired} required permissions missing. Sync only after reviewing affected features.`;
     }
+    if (data?.drained) {
+      const status = data.drained.status || "unknown";
+      if (status === "succeeded") {
+        const updated = data.drained.updated_player_state || 0;
+        const snapshots = data.character_snapshots?.data?.snapshots?.length || 0;
+        return `Sync succeeded: ${updated} private account records updated and ${snapshots} character snapshots loaded.`;
+      }
+      if (status === "delayed") {
+        return "Sync was delayed. Check endpoint progress and retry after the GW2 API backoff window.";
+      }
+      if (status === "idle") {
+        return "No queued sync job was available. Queue sync again if you expected a refresh.";
+      }
+      return `Sync workflow completed with status: ${status}. Review the JSON output.`;
+    }
+    if (data?.status === "queued") {
+      return "Sync queued. In local development, run Sync now or Drain one job to write account data.";
+    }
+    if (data?.status === "succeeded") {
+      return `Sync succeeded: ${data.updated_player_state || 0} private account records updated.`;
+    }
+    if (data?.counts) {
+      return `Sync status checked. Queued: ${data.counts.queued || 0}, succeeded: ${data.counts.succeeded || 0}, delayed: ${data.counts.retry_scheduled || 0}.`;
+    }
+    if (typeof data?.is_configured === "boolean") {
+      return data.is_configured ? "API key is stored. Check permissions, then run Sync now." : "No API key stored.";
+    }
     return "Connection workflow updated. Run sync before trusting private account state.";
   }
   if (target === "returner") {
@@ -262,7 +289,13 @@ async function run(target, work) {
 
 function updateStatusFromKey(payload) {
   const status = document.querySelector("#account-status");
-  const hasKey = payload?.has_key || payload?.data?.has_key || payload?.status === "stored";
+  const hasKey = Boolean(
+    payload?.is_configured ??
+      payload?.has_key ??
+      payload?.data?.is_configured ??
+      payload?.data?.has_key ??
+      (payload?.status === "stored"),
+  );
   status.textContent = hasKey ? "Account key stored" : "No API key stored";
   status.className = `status-pill ${hasKey ? "good" : "warn"}`;
   document.querySelector("#metric-connection").textContent = hasKey ? "Connected" : "Not connected";
@@ -342,8 +375,10 @@ function renderSyncProgress(progress) {
 function updateStatusFromSync(payload) {
   const status = document.querySelector("#sync-status");
   const label = payload?.status || payload?.queue_status || "Sync status updated";
+  const goodStatuses = new Set(["ok", "queued", "succeeded"]);
+  const warnStatuses = new Set(["idle", "not_started", "delayed", "refresh_pending", "retry_scheduled"]);
   status.textContent = String(label);
-  status.className = "status-pill good";
+  status.className = `status-pill ${goodStatuses.has(label) ? "good" : warnStatuses.has(label) ? "warn" : "muted"}`;
   document.querySelector("#metric-sync").textContent = new Date().toLocaleString();
   document.querySelector("#freshness-account").textContent = "Checked just now";
   document.querySelector("#freshness-account-card").textContent = `Account sync state checked: ${label}`;
@@ -579,14 +614,42 @@ const actions = {
     }),
   enqueueSync: () =>
     run("connect", async () => {
-      const payload = await fetchJson("/api/v1/account/sync", { method: "POST" });
-      updateStatusFromSync(payload);
-      return payload;
+      const queued = await fetchJson("/api/v1/account/sync", { method: "POST" });
+      updateStatusFromSync(queued);
+      const drained = await fetchJson("/api/v1/account/sync/drain-one", { method: "POST" });
+      updateStatusFromSync(drained);
+      const status = await fetchJson("/api/v1/account/sync/status");
+      updateStatusFromSync(status);
+      let dashboard = null;
+      let characterSnapshots = null;
+      if (drained.status === "succeeded") {
+        dashboard = await fetchJson("/api/v1/player/dashboard");
+        renderDashboardPlan(dashboard?.data?.dashboard || {});
+        renderFreshnessAnnotations(dashboard?.data?.dashboard?.data_freshness || []);
+        characterSnapshots = await fetchJson("/api/v1/builds/character-snapshots");
+        state.characterSnapshots = characterSnapshots?.data?.snapshots || [];
+        renderCharacterSnapshots(state.characterSnapshots);
+        markStep("plan", "Account-aware data ready");
+      }
+      return {
+        queued,
+        drained,
+        status,
+        dashboard,
+        character_snapshots: characterSnapshots,
+        boundary: "Sync now queues one account snapshot job, drains one local worker job, then refreshes dashboard and Build Fit character snapshots when successful.",
+      };
     }),
   drainSync: () =>
     run("connect", async () => {
       const payload = await fetchJson("/api/v1/account/sync/drain-one", { method: "POST" });
       updateStatusFromSync(payload);
+      if (payload.status === "succeeded") {
+        const characterSnapshots = await fetchJson("/api/v1/builds/character-snapshots");
+        state.characterSnapshots = characterSnapshots?.data?.snapshots || [];
+        renderCharacterSnapshots(state.characterSnapshots);
+        return { drained: payload, character_snapshots: characterSnapshots };
+      }
       return payload;
     }),
   syncStatus: () =>
@@ -837,7 +900,7 @@ document.querySelector('[data-form="apiKey"]').addEventListener("submit", (event
       body: JSON.stringify({ api_key: input.value }),
     });
     input.value = "";
-    updateStatusFromKey({ has_key: true });
+    updateStatusFromKey(payload);
     return payload;
   });
 });

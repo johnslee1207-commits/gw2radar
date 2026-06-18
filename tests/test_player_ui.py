@@ -28,6 +28,7 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert "No dashboard summary yet." in response.text
     assert "Delete all private data" in response.text
     assert "Check permissions" in response.text
+    assert "Sync now" in response.text
     assert "Permission status not checked." in response.text
     assert "Today / this week" in response.text
     assert "Generate full report" in response.text
@@ -69,6 +70,9 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "refreshFreshness" in js.text
     assert "/api/v1/returner/readiness" in js.text
     assert "updateReturnerScores" in js.text
+    assert "payload?.is_configured" in js.text
+    assert "Sync now queues one account snapshot job" in js.text
+    assert "/api/v1/account/sync/drain-one" in js.text
 
 
 def test_player_ui_styles_cover_workflow_and_summaries() -> None:
