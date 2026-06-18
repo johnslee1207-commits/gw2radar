@@ -8,6 +8,7 @@ const saveAuditButton = document.querySelector("#save-audit-button");
 const refreshAuditButton = document.querySelector("#refresh-audit-button");
 const exportAuditButton = document.querySelector("#export-audit-button");
 const refreshMetricsButton = document.querySelector("#refresh-metrics-button");
+const refreshPlaybookButton = document.querySelector("#refresh-playbook-button");
 const summary = document.querySelector("#support-summary");
 const findingList = document.querySelector("#finding-list");
 const replyTemplate = document.querySelector("#reply-template");
@@ -20,6 +21,8 @@ const metricsSummary = document.querySelector("#metrics-summary");
 const metricsStatusList = document.querySelector("#metrics-status-list");
 const metricsSeverityList = document.querySelector("#metrics-severity-list");
 const metricsBlockerList = document.querySelector("#metrics-blocker-list");
+const playbookSummary = document.querySelector("#playbook-summary");
+const playbookList = document.querySelector("#playbook-list");
 const output = document.querySelector("#support-output");
 let lastBundle = null;
 let lastReview = null;
@@ -161,6 +164,7 @@ async function refreshAuditRecords() {
   const payload = await response.json();
   renderAuditRecords(payload.records || []);
   await refreshAuditMetrics();
+  await refreshPlaybook();
 }
 
 function auditQueryString(format = "json") {
@@ -189,6 +193,12 @@ async function refreshAuditMetrics() {
   renderAuditMetrics(metrics);
 }
 
+async function refreshPlaybook() {
+  const response = await fetch(`/account/debug-bundle/review/audit/playbook?${auditQueryString()}`);
+  const playbook = await response.json();
+  renderPlaybook(playbook);
+}
+
 function renderAuditMetrics(metrics) {
   metricsSummary.textContent = `${metrics.total_records || 0} records. ${metrics.trend_summary || "No summary available."}`;
   renderMetricList(metricsStatusList, metrics.status_counts || []);
@@ -208,6 +218,34 @@ function renderMetricList(target, rows) {
     const item = document.createElement("li");
     item.textContent = `${row.key}: ${row.count}`;
     target.appendChild(item);
+  }
+}
+
+function renderPlaybook(playbook) {
+  playbookSummary.textContent = playbook.summary || "No playbook summary available.";
+  playbookList.innerHTML = "";
+  const plays = Array.isArray(playbook.plays) ? playbook.plays : [];
+  if (!plays.length) {
+    playbookList.textContent = "No mapped remediation play is available for the current filters.";
+    return;
+  }
+  for (const play of plays) {
+    const item = document.createElement("article");
+    item.className = "support-playbook-item";
+    const title = document.createElement("strong");
+    title.textContent = `${play.priority || "P2"} · ${play.title || play.blocker_id}`;
+    const steps = document.createElement("ol");
+    for (const step of play.support_steps || []) {
+      const li = document.createElement("li");
+      li.textContent = step;
+      steps.appendChild(li);
+    }
+    const reply = document.createElement("p");
+    reply.textContent = `Player reply: ${play.player_reply_template || ""}`;
+    const product = document.createElement("p");
+    product.textContent = `Product fix: ${play.product_fix_suggestion || ""}`;
+    item.append(title, steps, reply, product);
+    playbookList.appendChild(item);
   }
 }
 
@@ -262,6 +300,8 @@ refreshAuditButton?.addEventListener("click", refreshAuditRecords);
 exportAuditButton?.addEventListener("click", exportAuditCsv);
 
 refreshMetricsButton?.addEventListener("click", refreshAuditMetrics);
+
+refreshPlaybookButton?.addEventListener("click", refreshPlaybook);
 
 copyTemplateButton?.addEventListener("click", async () => {
   if (!replyTemplate.value) {

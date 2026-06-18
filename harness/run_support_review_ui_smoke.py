@@ -31,6 +31,7 @@ def main() -> int:
     audit_filtered = client.get("/account/debug-bundle/review/audit?severity=info&reviewer=smoke&limit=3")
     audit_csv = client.get("/account/debug-bundle/review/audit?severity=info&reviewer=smoke&format=csv")
     audit_metrics = client.get("/account/debug-bundle/review/audit/metrics?reviewer=smoke&limit=10")
+    audit_playbook = client.get("/account/debug-bundle/review/audit/playbook?reviewer=smoke&limit=10")
 
     _add(checks, "support page is served", page.status_code == 200 and "Debug Bundle Support Review" in page.text, page.text)
     _add(checks, "support script is served", js.status_code == 200 and "/account/debug-bundle/review" in js.text, js.text)
@@ -41,6 +42,7 @@ def main() -> int:
     _add(checks, "support audit filters recent records", audit_filtered.status_code == 200 and audit_filtered.json().get("filters", {}).get("reviewer") == "smoke", audit_filtered.text)
     _add(checks, "support audit exports privacy-safe csv", audit_csv.status_code == 200 and "text/csv" in audit_csv.headers.get("content-type", "") and "case_id,created_at,overall_status" in audit_csv.text, audit_csv.text)
     _add(checks, "support audit metrics summarize blockers", audit_metrics.status_code == 200 and audit_metrics.json().get("total_records", 0) >= 1 and audit_metrics.json().get("schema_version") == "gw2radar.account_debug_bundle_review_metrics.v1", audit_metrics.text)
+    _add(checks, "support audit playbook maps blockers", audit_playbook.status_code == 200 and audit_playbook.json().get("schema_version") == "gw2radar.account_debug_bundle_review_playbook.v1" and audit_playbook.json().get("plays"), audit_playbook.text)
     _add(checks, "no-secret boundary is visible", "Do not ask for a raw GW2 API key" in page.text and "Please do not send your raw GW2 API key" in js.text, "boundary missing")
 
     failed = [check for check in checks if not check[1]]

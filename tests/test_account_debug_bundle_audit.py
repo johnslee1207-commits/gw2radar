@@ -129,6 +129,36 @@ def test_support_review_audit_metrics_summarize_top_blockers() -> None:
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
+def test_support_review_playbook_maps_blockers_to_remediation_steps() -> None:
+    temp_dir = Path(".test_tmp") / f"support-review-playbook-{uuid4().hex}"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        configure_database(f"sqlite:///{temp_dir / 'support-review-playbook.db'}")
+        state.reset_cached_graph()
+        client = TestClient(app)
+
+        client.post("/account/debug-bundle/review/audit", json={"bundle": _missing_key_bundle(), "reviewer": "playbook"})
+        client.post("/account/debug-bundle/review/audit", json={"bundle": _missing_permission_bundle(), "reviewer": "playbook"})
+
+        playbook = client.get("/account/debug-bundle/review/audit/playbook?reviewer=playbook&limit=10").json()
+        rendered = str(playbook)
+
+        assert playbook["schema_version"] == "gw2radar.account_debug_bundle_review_playbook.v1"
+        assert playbook["total_records"] == 2
+        assert len(playbook["plays"]) == 2
+        assert {play["blocker_id"] for play in playbook["plays"]} == {"needs_key", "needs_permissions"}
+        assert all(play["support_steps"] for play in playbook["plays"])
+        assert all("Do not send" in play["player_reply_template"] for play in playbook["plays"])
+        assert any("Paste key" in " ".join(play["support_steps"]) or "paste" in play["player_reply_template"].lower() for play in playbook["plays"])
+        assert "privacy-safe audit metadata" in playbook["boundary"]
+        assert "Diagnostic Berserker Chest" not in rendered
+        assert "12345678-1234-1234-1234-123456789abc" not in rendered
+    finally:
+        close_database()
+        state.reset_cached_graph()
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
 def _sample_bundle() -> dict:
     return {
         "schema_version": "gw2radar.account_debug_bundle.v1",

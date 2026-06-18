@@ -51,6 +51,146 @@ class SupportReviewMetricsSummary(BaseModel):
     boundary: str = "Metrics are aggregated from privacy-safe audit metadata only; raw bundles and raw API keys are not read."
 
 
+class SupportReviewPlaybookItem(BaseModel):
+    blocker_id: str
+    title: str
+    support_steps: list[str] = Field(default_factory=list)
+    player_reply_template: str
+    product_fix_suggestion: str
+    priority: str
+    evidence_needed: list[str] = Field(default_factory=list)
+
+
+class SupportReviewPlaybookSummary(BaseModel):
+    schema_version: str = "gw2radar.account_debug_bundle_review_playbook.v1"
+    total_records: int
+    plays: list[SupportReviewPlaybookItem] = Field(default_factory=list)
+    unmapped_blockers: list[str] = Field(default_factory=list)
+    summary: str
+    boundary: str = "Playbooks are derived from privacy-safe audit metadata and never require raw API keys or private account payloads."
+
+
+PLAYBOOKS: dict[str, SupportReviewPlaybookItem] = {
+    "needs_key": SupportReviewPlaybookItem(
+        blocker_id="needs_key",
+        title="API key is not connected",
+        support_steps=[
+            "Confirm the player is on the Connect page.",
+            "Ask them to paste a read-only GW2 API key and save it.",
+            "Ask them to run connection diagnostic again after saving.",
+        ],
+        player_reply_template="GW2Radar does not currently see a saved GW2 API key. Please paste a read-only key on Connect, save it, then run the connection diagnostic again. Do not send the raw key to support.",
+        product_fix_suggestion="Keep the key input visible after failed diagnostics and surface the Paste key fix action near the failed check.",
+        priority="P0",
+        evidence_needed=["key_status.is_configured", "diagnostic_summary.checks.api_key_stored"],
+    ),
+    "needs_permissions": SupportReviewPlaybookItem(
+        blocker_id="needs_permissions",
+        title="Required GW2 API permissions are missing",
+        support_steps=[
+            "Confirm the missing required permissions named in the review.",
+            "Ask the player to regenerate or update the GW2 API key with those scopes.",
+            "Ask them to save the key again and resync.",
+        ],
+        player_reply_template="Your key is saved, but it is missing required permissions. Please create or update the key with the permissions named in GW2Radar, save it again, and resync. Do not send the raw key to support.",
+        product_fix_suggestion="Add a one-click copy list for missing required scopes and keep limited-mode feature impact visible.",
+        priority="P0",
+        evidence_needed=["permission_summary.missing_required_permissions", "diagnostic_summary.checks.permissions_ready"],
+    ),
+    "sync_delayed": SupportReviewPlaybookItem(
+        blocker_id="sync_delayed",
+        title="Sync is delayed or waiting for retry",
+        support_steps=[
+            "Check endpoint progress for delayed or retry-scheduled work.",
+            "Ask the player to wait for the retry window or run drain-one in local development.",
+            "Re-run diagnostic after the queue advances.",
+        ],
+        player_reply_template="Your account sync appears delayed or waiting for retry. Please wait for the retry window, then run Sync again. In local development, run drain-one after queueing the job.",
+        product_fix_suggestion="Expose retry-after timing and endpoint-specific delay reasons in the Connect progress view.",
+        priority="P1",
+        evidence_needed=["sync_summary.counts", "sync_summary.endpoint_progress"],
+    ),
+    "needs_sync": SupportReviewPlaybookItem(
+        blocker_id="needs_sync",
+        title="No sync job is visible",
+        support_steps=[
+            "Confirm key and permissions are ready.",
+            "Ask the player to click Sync now.",
+            "Refresh sync status and diagnostic after queueing.",
+        ],
+        player_reply_template="Your key looks connected, but no account sync job is visible yet. Please click Sync now, then run the connection diagnostic again.",
+        product_fix_suggestion="Make Sync now the primary fix action when queue history is empty.",
+        priority="P1",
+        evidence_needed=["diagnostic_summary.checks.sync_job_visible"],
+    ),
+    "needs_drain": SupportReviewPlaybookItem(
+        blocker_id="needs_drain",
+        title="Private account snapshot was not written",
+        support_steps=[
+            "Confirm a sync job was queued.",
+            "Ask local developers to run drain-one, or ask players to wait for the worker.",
+            "Verify private player-state count after the worker finishes.",
+        ],
+        player_reply_template="A sync job is visible, but the private account snapshot has not been written yet. Please wait for the worker to finish, then run the diagnostic again.",
+        product_fix_suggestion="Show worker status and private snapshot write confirmation beside endpoint progress.",
+        priority="P1",
+        evidence_needed=["diagnostic_summary.checks.private_snapshot_written", "snapshot_summary.private_player_state_count"],
+    ),
+    "needs_character_sync": SupportReviewPlaybookItem(
+        blocker_id="needs_character_sync",
+        title="Synced character snapshot is missing",
+        support_steps=[
+            "Confirm the key includes character permission.",
+            "Ask the player to resync account data.",
+            "Ask them to load character snapshots in Build Fit.",
+        ],
+        player_reply_template="Build Fit can only see manual sample snapshots right now. Please resync with character permission enabled, then load character snapshots in Build Fit.",
+        product_fix_suggestion="Add a direct Connect-to-Build-Fit snapshot load prompt after character sync succeeds.",
+        priority="P1",
+        evidence_needed=["diagnostic_summary.checks.synced_character_snapshot", "snapshot_summary.synced_character_snapshot_count"],
+    ),
+    "needs_build_snapshot_load": SupportReviewPlaybookItem(
+        blocker_id="needs_build_snapshot_load",
+        title="Build Fit has not loaded synced gear",
+        support_steps=[
+            "Confirm a synced character snapshot exists.",
+            "Ask the player to open Build Fit.",
+            "Ask them to load the synced character snapshot and rerun Fit score.",
+        ],
+        player_reply_template="Your account snapshot exists, but Build Fit has not loaded the synced gear yet. Please open Build Fit, load the synced character snapshot, and rerun Fit score.",
+        product_fix_suggestion="Auto-suggest the newest synced character snapshot when Build Fit opens.",
+        priority="P2",
+        evidence_needed=["diagnostic_summary.checks.build_fit_bridge_ready", "snapshot_summary.synced_gear_count"],
+    ),
+    "frontend_flow_incomplete": SupportReviewPlaybookItem(
+        blocker_id="frontend_flow_incomplete",
+        title="Backend is ready; player UI flow is incomplete",
+        support_steps=[
+            "Confirm diagnostic status is ready.",
+            "Ask the player to open Build Fit.",
+            "Ask them to select or import a build, load account gear, and run the expected result action.",
+        ],
+        player_reply_template="The backend connection looks healthy. Please open Build Fit, select or import a build, load account gear, then run the fit check or report again.",
+        product_fix_suggestion="Add a guided next-step card when diagnostics are ready but the active view or build selection is incomplete.",
+        priority="P2",
+        evidence_needed=["diagnostic_summary.summary_status", "client_state.active_view", "client_state.active_build_id_present"],
+    ),
+    "privacy_boundary_violation": SupportReviewPlaybookItem(
+        blocker_id="privacy_boundary_violation",
+        title="Bundle violates support privacy boundary",
+        support_steps=[
+            "Discard the uploaded file.",
+            "Ask the player to export a fresh debug bundle from GW2Radar.",
+            "Remind them not to include raw keys or private payloads.",
+        ],
+        player_reply_template="Please discard that file and export a fresh debug bundle from GW2Radar. Do not send raw API keys, inventory, bank, wallet, material, achievement, equipment, or report payloads.",
+        product_fix_suggestion="Keep automated sensitive-field detection and add stronger UI copy before export.",
+        priority="P0",
+        evidence_needed=["privacy_boundary_violation evidence paths"],
+    ),
+}
+
+
 def create_support_review_audit(
     session: Session,
     *,
@@ -161,6 +301,20 @@ def build_support_review_metrics(records: list[SupportReviewAuditRecord]) -> Sup
     )
 
 
+def build_support_review_playbook(metrics: SupportReviewMetricsSummary) -> SupportReviewPlaybookSummary:
+    blocker_ids = [blocker.key for blocker in metrics.top_blockers]
+    if not blocker_ids:
+        blocker_ids = [count.key for count in metrics.status_counts if count.key != "ready"][:5]
+    plays = [PLAYBOOKS[blocker_id] for blocker_id in blocker_ids if blocker_id in PLAYBOOKS]
+    unmapped = [blocker_id for blocker_id in blocker_ids if blocker_id not in PLAYBOOKS]
+    return SupportReviewPlaybookSummary(
+        total_records=metrics.total_records,
+        plays=plays,
+        unmapped_blockers=unmapped,
+        summary=_playbook_summary(metrics.total_records, plays, unmapped),
+    )
+
+
 def _highest_severity(severities: list[str]) -> str:
     if not severities:
         return "info"
@@ -206,6 +360,14 @@ def _trend_summary(
         top_blocker = blockers[0].key
         return f"{total_records} reviewed cases; most common status is {top_status}, severity is {top_severity}, and top blocker is {top_blocker}."
     return f"{total_records} reviewed cases; most common status is {top_status}, severity is {top_severity}, with no finding-specific blocker recorded."
+
+
+def _playbook_summary(total_records: int, plays: list[SupportReviewPlaybookItem], unmapped: list[str]) -> str:
+    if total_records == 0:
+        return "No matching support cases; no remediation playbook is needed."
+    if plays:
+        return f"{len(plays)} remediation plays selected for {total_records} matching support cases."
+    return f"{total_records} matching support cases found, but no mapped playbook exists for: {', '.join(unmapped) or 'unknown'}."
 
 
 def _to_record(row: SupportReviewAuditModel) -> SupportReviewAuditRecord:

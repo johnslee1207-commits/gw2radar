@@ -66,8 +66,8 @@ python harness/run_support_review_ui_smoke.py
 
 This smoke path verifies the `/support` operator page, static support script,
 support-specific styles, the review API contract, safe audit write/list behavior,
-audit filtering, privacy-safe CSV export, metrics summary, and visible no-secret
-boundary copy.
+audit filtering, privacy-safe CSV export, metrics summary, remediation playbook,
+and visible no-secret boundary copy.
 
 ## Smoke Harness Steps
 
@@ -129,8 +129,9 @@ boundary copy.
 6. Filter audit records by severity and reviewer.
 7. Export a privacy-safe CSV audit view.
 8. Load metrics summary for total cases, status counts, severity counts, and top blockers.
-9. Confirm the UI-facing contract returns a support status and finding.
-10. Confirm the page tells reviewers not to request raw API keys or private account payloads.
+9. Load remediation playbook entries for mapped blockers.
+10. Confirm the UI-facing contract returns a support status and finding.
+11. Confirm the page tells reviewers not to request raw API keys or private account payloads.
 
 ## Required Checks
 

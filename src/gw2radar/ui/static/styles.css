@@ -761,7 +761,8 @@ label + label {
 }
 
 .support-finding,
-.support-audit-record {
+.support-audit-record,
+.support-playbook-item {
   display: grid;
   gap: 6px;
   border: 1px solid var(--line);
@@ -772,7 +773,8 @@ label + label {
 }
 
 .support-finding p,
-.support-audit-record p {
+.support-audit-record p,
+.support-playbook-item p {
   margin: 0;
 }
 
@@ -800,6 +802,21 @@ label + label {
 .support-audit-list {
   display: grid;
   gap: 10px;
+}
+
+.support-playbook-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.support-playbook-item {
+  border-left-color: var(--focus);
+}
+
+.support-playbook-item ol {
+  margin: 0;
+  padding-left: 22px;
 }
 
 .support-metrics-grid {

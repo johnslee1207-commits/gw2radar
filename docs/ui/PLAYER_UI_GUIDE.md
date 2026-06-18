@@ -86,8 +86,10 @@ status, severity, and reviewer, then export the same privacy-safe metadata as
 CSV for support trend analysis. The metrics summary aggregates matching audit
 records into total cases, status counts, severity counts, finding counts, top
 blockers, and a short trend sentence so support can prioritize real connection
-failure causes without reading raw bundles. The review also rejects bundles that
-appear to contain sensitive fields outside the privacy-safe support boundary.
+failure causes without reading raw bundles. The remediation playbook maps top
+blockers to support steps, safe player reply templates, evidence paths, and
+product fix suggestions. The review also rejects bundles that appear to contain
+sensitive fields outside the privacy-safe support boundary.
 
 ## First Use
 
