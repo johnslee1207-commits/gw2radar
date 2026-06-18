@@ -203,6 +203,9 @@
                 <span class="optional-permission">unlocks</span>
                 <span class="optional-permission">builds</span>
               </div>
+              <div class="permission-status-grid" id="permission-status-grid" aria-live="polite">
+                Permission status not checked.
+              </div>
               <label>API key
                 <input id="api-key-input" type="password" autocomplete="off" placeholder="Paste GW2 API key" />
               </label>
@@ -222,6 +225,7 @@
               </div>
               <div class="button-grid">
                 <button data-action="apiKeyStatus">Check key status</button>
+                <button data-action="apiKeyPermissions">Check permissions</button>
                 <button data-action="enqueueSync">Queue sync</button>
                 <button data-action="drainSync">Drain one job</button>
                 <button data-action="syncStatus">Sync status</button>

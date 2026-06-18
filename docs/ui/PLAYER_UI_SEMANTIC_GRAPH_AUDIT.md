@@ -11,6 +11,7 @@ graph TD
   PlayerIntent["PlayerIntent"] --> Welcome["Welcome View"]
   Welcome --> Connect["Connect Account"]
   Connect --> AccountKey["API Key Status"]
+  Connect --> PermissionInspection["Permission Inspection"]
   Connect --> AccountSync["Account Sync"]
   AccountSync --> Dashboard["Dashboard"]
   Dashboard --> Returner["Returner Diagnosis"]
@@ -36,6 +37,7 @@ graph TD
 | --- | --- | --- | --- |
 | PlayerIntent | Welcome intent buttons | Browser local UI state | Implemented |
 | AccountConnection | Connect key form and key status | `/account/api-key`, `/api/v1/security/api-key/status` | Implemented |
+| PermissionInspection | Connect permission status grid | `/account/api-key/permissions` | Implemented |
 | AccountSync | Sync controls and checklist | `/api/v1/account/sync` | Implemented |
 | DashboardAction | Today actions and opportunity cards | Static UI plus existing goal/build/market APIs | Partial |
 | ReturnerDiagnosis | Returner view | `/goals`, `/goals/{goal_id}/gap`, actions, preview | Implemented |
@@ -53,7 +55,7 @@ graph TD
 | --- | --- | --- |
 | P0 Welcome page | `Welcome` view with player intent choices | Complete |
 | P0 API key connect page | `Connect` view with key form and safety notes | Complete |
-| P0 Permission check page | Required/optional permission chips and key status action | Partial; backend does not expose granular permission list in this UI |
+| P0 Permission check page | Required/optional chips, permission inspection action, granted/missing status, and limited-mode feature impacts | Complete |
 | P0 Account sync progress | Sync controls and progress checklist | Partial; checklist is state-level, not per-endpoint progress |
 | P0 Dashboard | Account status, actions, opportunity cards, do-not-sell warning | Complete |
 | P1 Returner onboarding questions | Last played and interest controls | Complete |
@@ -87,8 +89,8 @@ graph TD
 
 ## Maturity Summary
 
-- Complete: 25 guide items.
-- Partial: 7 guide items.
+- Complete: 26 guide items.
+- Partial: 6 guide items.
 - Missing: 0 guide items.
 
-The largest remaining semantic gaps are now depth gaps rather than missing workflow nodes: granular permission inspection, per-endpoint sync progress, broader legendary goal selection, and replacing manual sample character snapshots with synced official character equipment when that private data path is available.
+The largest remaining semantic gaps are now depth gaps rather than missing workflow nodes: per-endpoint sync progress, broader legendary goal selection, returner full report product wiring, and replacing manual sample character snapshots with synced official character equipment when that private data path is available.

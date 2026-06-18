@@ -490,6 +490,55 @@ label + label {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.permission-status-grid {
+  display: grid;
+  gap: 8px;
+  min-height: 42px;
+  border: 1px dashed var(--line);
+  border-radius: 6px;
+  background: #fbfaf6;
+  color: var(--muted);
+  padding: 9px;
+}
+
+.permission-status {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  min-height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  padding: 7px 9px;
+  font-size: 0.86rem;
+}
+
+.permission-status strong,
+.permission-status span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.permission-status.ready {
+  border-color: rgba(47, 133, 90, 0.3);
+  background: #edf8f0;
+  color: #22543d;
+}
+
+.permission-status.limited {
+  border-color: rgba(183, 121, 31, 0.32);
+  background: #fff8e6;
+  color: #744210;
+}
+
+.permission-status.blocked {
+  border-color: rgba(184, 50, 50, 0.32);
+  background: #fff0f0;
+  color: #742a2a;
+}
+
 .permission-grid span,
 .sync-checklist span {
   min-height: 32px;
@@ -614,6 +663,7 @@ label + label {
   .nav-list,
   .goal-choice-grid,
   .permission-grid,
+  .permission-status,
   .sync-checklist {
     grid-template-columns: 1fr;
     justify-content: stretch;

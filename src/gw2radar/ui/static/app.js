@@ -103,6 +103,11 @@ function summarizeResult(target, payload) {
     return "Player intent selected. Connect and sync before trusting account-aware recommendations.";
   }
   if (target === "connect") {
+    if (data?.schema_version === "gw2radar.api_key_permissions.v1") {
+      const missingRequired = data.missing_required_permissions?.length || 0;
+      const mode = data.limited_mode ? "limited mode" : "ready";
+      return `${mode}: ${missingRequired} required permissions missing. Sync only after reviewing affected features.`;
+    }
     return "Connection workflow updated. Run sync before trusting private account state.";
   }
   if (target === "returner") {
@@ -239,6 +244,41 @@ function updateStatusFromKey(payload) {
   status.className = `status-pill ${hasKey ? "good" : "warn"}`;
   document.querySelector("#metric-connection").textContent = hasKey ? "Connected" : "Not connected";
   markStep("connect", hasKey ? "Key stored" : "No key stored", hasKey);
+}
+
+function renderPermissionReport(report) {
+  const grid = document.querySelector("#permission-status-grid");
+  if (!grid || !report) {
+    return;
+  }
+  grid.innerHTML = "";
+  const granted = new Set(report.granted_permissions || []);
+  const permissionRows = [
+    ...(report.required_permissions || []).map((permission) => ({ permission, type: "required" })),
+    ...(report.optional_permissions || []).map((permission) => ({ permission, type: "optional" })),
+  ];
+  for (const row of permissionRows) {
+    const status = granted.has(row.permission) ? "ready" : "limited";
+    const item = document.createElement("div");
+    const name = document.createElement("strong");
+    const label = document.createElement("span");
+    item.className = `permission-status ${status}`;
+    name.textContent = row.permission;
+    label.textContent = status === "ready" ? "granted" : `missing ${row.type}`;
+    item.append(name, label);
+    grid.appendChild(item);
+  }
+  for (const impact of report.feature_impacts || []) {
+    const item = document.createElement("div");
+    const name = document.createElement("strong");
+    const label = document.createElement("span");
+    item.className = `permission-status ${impact.status}`;
+    name.textContent = impact.label;
+    label.textContent = impact.status;
+    item.append(name, label);
+    item.title = impact.player_message || "";
+    grid.appendChild(item);
+  }
 }
 
 function updateStatusFromSync(payload) {
@@ -404,6 +444,13 @@ const actions = {
     run("connect", async () => {
       const payload = await fetchJson("/account/api-key/status");
       updateStatusFromKey(payload);
+      return payload;
+    }),
+  apiKeyPermissions: () =>
+    run("connect", async () => {
+      const payload = await fetchJson("/account/api-key/permissions");
+      renderPermissionReport(payload);
+      markStep("connect", payload.limited_mode ? "Limited permissions" : "Permissions ready", !payload.limited_mode);
       return payload;
     }),
   deleteApiKey: () =>
