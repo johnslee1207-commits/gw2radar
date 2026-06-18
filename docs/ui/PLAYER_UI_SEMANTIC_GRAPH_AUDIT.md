@@ -14,6 +14,7 @@ graph TD
   Connect --> PermissionInspection["Permission Inspection"]
   Connect --> AccountConnectionDiagnostic["Account Connection Diagnostic"]
   AccountConnectionDiagnostic --> DiagnosticFixAction["Diagnostic Fix Action"]
+  AccountConnectionDiagnostic --> AccountDebugBundle["Privacy-Safe Debug Bundle"]
   Connect --> AccountSync["Account Sync"]
   PermissionInspection --> AccountConnectionDiagnostic
   AccountSync --> AccountConnectionDiagnostic
@@ -58,6 +59,7 @@ graph TD
 | PermissionInspection | Connect permission status grid | `/account/api-key/permissions` | Implemented |
 | AccountConnectionDiagnostic | Connect read-only diagnostic PASS/WARN/FAIL cards with named missing scopes and fix actions | `/account/diagnostic`, `renderConnectionDiagnostic` | Implemented |
 | DiagnosticFixAction | Player-facing fix buttons for key update, sync, drain-one, and snapshot load | `runDiagnosticFix`, diagnostic `fix_action_id` | Implemented |
+| AccountDebugBundle | Exportable privacy-safe troubleshooting bundle | `/account/debug-bundle`, `debugBundleClientState`, `downloadJson` | Implemented |
 | AccountSync | Sync controls and endpoint checklist | `/api/v1/account/sync` endpoint progress | Implemented |
 | DashboardAction | Today and this-week account-aware actions | `/api/v1/player/dashboard` | Implemented |
 | ReturnerDiagnosis | Returner view | `/goals`, `/goals/{goal_id}/gap`, actions, preview | Implemented |
@@ -85,6 +87,7 @@ graph TD
 | P0 API key connect page | `Connect` view with key form and safety notes | Complete |
 | P0 Permission check page | Required/optional chips, permission inspection action, granted/missing status, and limited-mode feature impacts | Complete |
 | P0 Connection diagnostic | Read-only Connect diagnostic for key, permissions, sync queue, private snapshot, synced character snapshot, Build Fit bridge, and fix actions | Complete |
+| P0 Debug bundle export | Privacy-safe account troubleshooting export without raw key or private item payloads | Complete |
 | P0 Account sync progress | Sync controls and endpoint-level progress for account, characters, wallet, materials, bank, and achievements | Complete |
 | P0 Dashboard | Account status, actions, opportunity cards, do-not-sell warning | Complete |
 | P1 Returner onboarding questions | Last played and interest controls | Complete |
@@ -120,7 +123,7 @@ graph TD
 
 ## Maturity Summary
 
-- Complete: 35 guide items.
+- Complete: 36 guide items.
 - Partial: 0 guide items.
 - Missing: 0 guide items.
 

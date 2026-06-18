@@ -56,6 +56,11 @@ next step is available in the UI, such as updating the key, running sync,
 draining one local job, or loading Build Fit character snapshots. Missing
 required scopes are named directly, for example `characters`, so players can
 regenerate the key instead of guessing why no account-aware output appeared.
+Use `Export debug bundle` when you need to share a troubleshooting snapshot. The
+bundle includes key status, missing permissions, sync status, diagnostic checks,
+snapshot counts, and lightweight UI state. It excludes the raw API key, local
+build ids, private inventory/material/bank/wallet payloads, character equipment
+payloads, and report artifact contents.
 
 ## First Use
 

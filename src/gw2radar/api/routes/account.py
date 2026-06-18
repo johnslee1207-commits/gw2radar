@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from pydantic import BaseModel
 from fastapi import APIRouter
 
@@ -21,6 +23,13 @@ class ApiKeyRequest(BaseModel):
     api_key: str
 
 
+class DebugBundleRequest(BaseModel):
+    active_view: str | None = None
+    active_build_id: str | None = None
+    player_intent: str | None = None
+    report_history_count: int = 0
+
+
 @router.get("/api-key/status")
 def get_api_key_status() -> dict:
     return _with_key_store(lambda store: store.status().__dict__)
@@ -33,117 +42,53 @@ def get_api_key_permissions() -> dict:
 
 @router.get("/diagnostic")
 def get_account_connection_diagnostic() -> dict:
-    def diagnose(store: EncryptedApiKeyStore) -> dict:
-        key_status = store.status().__dict__
-        permission_report = _inspect_permissions(store)
-        graph = state.get_graph()
-        has_key = key_status["is_configured"]
-        sync_status = AccountSyncCoordinator(
-            session=store.session,
-            graph_loader=state.get_graph,
-            graph_saver=state.save_graph,
-            gateway=permission_gateway_factory(),
-        ).status()
-        snapshots = list_character_snapshots(graph)
-        synced_snapshots = [snapshot for snapshot in snapshots if snapshot.source == "synced_official_api"]
-        synced_gear_count = sum(len(snapshot.gear) for snapshot in synced_snapshots)
-        private_state_count = sum(1 for item in graph.player_state if item.graph_layer is GraphLayer.PRIVATE_PLAYER_STATE)
-        checks = [
-            _diagnostic_check(
-                "api_key_stored",
-                "API key stored",
-                key_status["is_configured"],
-                "API key is stored and masked.",
-                "No API key is stored. Save a read-only GW2 API key first.",
-                fix_action_id="focus_api_key_input",
-                fix_label="Paste key",
-                severity="critical",
-            ),
-            _diagnostic_check(
-                "permissions_ready",
-                "Required permissions ready",
-                key_status["is_configured"] and permission_report.get("limited_mode") is False,
-                "Required permissions are present for account-aware features.",
-                _permissions_failure_message(permission_report),
-                warn=_permission_check_is_temporarily_unavailable(permission_report),
-                fix_action_id="focus_api_key_input",
-                fix_label="Update key",
-                severity="critical",
-                details={
-                    "missing_required_permissions": permission_report.get("missing_required_permissions", []),
-                    "missing_optional_permissions": permission_report.get("missing_optional_permissions", []),
-                    "limited_mode": permission_report.get("limited_mode"),
-                },
-            ),
-            _diagnostic_check(
-                "sync_job_visible",
-                "Sync queue visible",
-                bool(sync_status.get("latest")) or sync_status.get("counts", {}).get("succeeded", 0) > 0,
-                "An account sync job is visible in queue history.",
-                "No account sync job is visible. Run Sync now, then re-run this diagnostic.",
-                warn=key_status["is_configured"],
-                fix_action_id="enqueueSync",
-                fix_label="Sync now",
-                severity="warning",
-            ),
-            _diagnostic_check(
-                "private_snapshot_written",
-                "Private account snapshot written",
-                private_state_count > 0,
-                f"{private_state_count} private player-state records are available.",
-                "No private account snapshot is available yet. Drain one sync job after queueing.",
-                warn=key_status["is_configured"],
-                fix_action_id="drainSync",
-                fix_label="Drain one job",
-                severity="warning",
-                details={"private_player_state_count": private_state_count},
-            ),
-            _diagnostic_check(
-                "synced_character_snapshot",
-                "Synced character snapshot available",
-                bool(synced_snapshots),
-                f"{len(synced_snapshots)} synced official character snapshots are available.",
-                "Build Fit only has manual sample snapshots. Sync character details before using account gear.",
-                warn=has_key,
-                fix_action_id="enqueueSync",
-                fix_label="Resync account",
-                severity="warning",
-                details={
-                    "synced_character_snapshot_count": len(synced_snapshots),
-                    "manual_snapshot_count": len(snapshots) - len(synced_snapshots),
-                },
-            ),
-            _diagnostic_check(
-                "build_fit_bridge_ready",
-                "Build Fit gear bridge ready",
-                synced_gear_count > 0,
-                f"{synced_gear_count} synced gear entries can be converted for Build Fit.",
-                "No synced gear entries are available for Build Fit conversion.",
-                warn=has_key,
-                fix_action_id="loadCharacterSnapshots",
-                fix_label="Load snapshots",
-                severity="warning",
-                details={"synced_gear_count": synced_gear_count},
-            ),
-        ]
+    return _with_key_store(_build_account_connection_diagnostic)
+
+
+@router.post("/debug-bundle")
+def post_account_debug_bundle(request: DebugBundleRequest) -> dict:
+    def build_bundle(store: EncryptedApiKeyStore) -> dict:
+        diagnostic = _build_account_connection_diagnostic(store)
         return {
-            "schema_version": "gw2radar.account_connection_diagnostic.v1",
-            "summary_status": _diagnostic_summary_status(checks),
-            "checks": checks,
-            "key_status": key_status,
-            "permission_report": permission_report,
-            "sync_status": sync_status,
-            "snapshot_summary": {
-                "private_player_state_count": private_state_count,
-                "synced_character_snapshot_count": len(synced_snapshots),
-                "manual_snapshot_count": len(snapshots) - len(synced_snapshots),
-                "synced_gear_count": synced_gear_count,
+            "schema_version": "gw2radar.account_debug_bundle.v1",
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "client_state": {
+                "active_view": request.active_view,
+                "active_build_id_present": bool(request.active_build_id),
+                "player_intent": request.player_intent,
+                "report_history_count": max(0, int(request.report_history_count or 0)),
             },
-            "next_actions": _diagnostic_next_actions(checks),
-            "boundary": "Read-only diagnostic. Raw API keys and private item payloads are not returned.",
+            "key_status": diagnostic["key_status"],
+            "permission_summary": {
+                "schema_version": diagnostic["permission_report"].get("schema_version"),
+                "key_configured": diagnostic["permission_report"].get("key_configured"),
+                "limited_mode": diagnostic["permission_report"].get("limited_mode"),
+                "missing_required_permissions": diagnostic["permission_report"].get("missing_required_permissions", []),
+                "missing_optional_permissions": diagnostic["permission_report"].get("missing_optional_permissions", []),
+                "feature_impacts": diagnostic["permission_report"].get("feature_impacts", []),
+                "assumptions": diagnostic["permission_report"].get("assumptions", []),
+            },
+            "sync_summary": {
+                "status": diagnostic["sync_status"].get("status"),
+                "counts": diagnostic["sync_status"].get("counts", {}),
+                "endpoint_progress": diagnostic["sync_status"].get("endpoint_progress", []),
+                "latest": diagnostic["sync_status"].get("latest", []),
+            },
+            "diagnostic_summary": {
+                "summary_status": diagnostic["summary_status"],
+                "checks": diagnostic["checks"],
+                "next_actions": diagnostic["next_actions"],
+            },
+            "snapshot_summary": diagnostic["snapshot_summary"],
+            "redaction_policy": [
+                "Raw API keys are excluded.",
+                "Private item, material, bank, wallet, achievement, and character equipment payloads are excluded.",
+                "Only counts, statuses, missing permissions, endpoint progress, and UI state flags are included.",
+            ],
+            "boundary": "Privacy-safe debug bundle for account connection troubleshooting.",
         }
 
-    return _with_key_store(diagnose)
+    return _with_key_store(build_bundle)
 
 
 @router.put("/api-key")
@@ -167,6 +112,117 @@ def _with_key_store(callback):
     init_db()
     with db_session.SessionLocal() as session:
         return callback(EncryptedApiKeyStore(session))
+
+
+def _build_account_connection_diagnostic(store: EncryptedApiKeyStore) -> dict:
+    key_status = store.status().__dict__
+    permission_report = _inspect_permissions(store)
+    graph = state.get_graph()
+    has_key = key_status["is_configured"]
+    sync_status = AccountSyncCoordinator(
+        session=store.session,
+        graph_loader=state.get_graph,
+        graph_saver=state.save_graph,
+        gateway=permission_gateway_factory(),
+    ).status()
+    snapshots = list_character_snapshots(graph)
+    synced_snapshots = [snapshot for snapshot in snapshots if snapshot.source == "synced_official_api"]
+    synced_gear_count = sum(len(snapshot.gear) for snapshot in synced_snapshots)
+    private_state_count = sum(1 for item in graph.player_state if item.graph_layer is GraphLayer.PRIVATE_PLAYER_STATE)
+    checks = [
+        _diagnostic_check(
+            "api_key_stored",
+            "API key stored",
+            key_status["is_configured"],
+            "API key is stored and masked.",
+            "No API key is stored. Save a read-only GW2 API key first.",
+            fix_action_id="focus_api_key_input",
+            fix_label="Paste key",
+            severity="critical",
+        ),
+        _diagnostic_check(
+            "permissions_ready",
+            "Required permissions ready",
+            key_status["is_configured"] and permission_report.get("limited_mode") is False,
+            "Required permissions are present for account-aware features.",
+            _permissions_failure_message(permission_report),
+            warn=_permission_check_is_temporarily_unavailable(permission_report),
+            fix_action_id="focus_api_key_input",
+            fix_label="Update key",
+            severity="critical",
+            details={
+                "missing_required_permissions": permission_report.get("missing_required_permissions", []),
+                "missing_optional_permissions": permission_report.get("missing_optional_permissions", []),
+                "limited_mode": permission_report.get("limited_mode"),
+            },
+        ),
+        _diagnostic_check(
+            "sync_job_visible",
+            "Sync queue visible",
+            bool(sync_status.get("latest")) or sync_status.get("counts", {}).get("succeeded", 0) > 0,
+            "An account sync job is visible in queue history.",
+            "No account sync job is visible. Run Sync now, then re-run this diagnostic.",
+            warn=key_status["is_configured"],
+            fix_action_id="enqueueSync",
+            fix_label="Sync now",
+            severity="warning",
+        ),
+        _diagnostic_check(
+            "private_snapshot_written",
+            "Private account snapshot written",
+            private_state_count > 0,
+            f"{private_state_count} private player-state records are available.",
+            "No private account snapshot is available yet. Drain one sync job after queueing.",
+            warn=key_status["is_configured"],
+            fix_action_id="drainSync",
+            fix_label="Drain one job",
+            severity="warning",
+            details={"private_player_state_count": private_state_count},
+        ),
+        _diagnostic_check(
+            "synced_character_snapshot",
+            "Synced character snapshot available",
+            bool(synced_snapshots),
+            f"{len(synced_snapshots)} synced official character snapshots are available.",
+            "Build Fit only has manual sample snapshots. Sync character details before using account gear.",
+            warn=has_key,
+            fix_action_id="enqueueSync",
+            fix_label="Resync account",
+            severity="warning",
+            details={
+                "synced_character_snapshot_count": len(synced_snapshots),
+                "manual_snapshot_count": len(snapshots) - len(synced_snapshots),
+            },
+        ),
+        _diagnostic_check(
+            "build_fit_bridge_ready",
+            "Build Fit gear bridge ready",
+            synced_gear_count > 0,
+            f"{synced_gear_count} synced gear entries can be converted for Build Fit.",
+            "No synced gear entries are available for Build Fit conversion.",
+            warn=has_key,
+            fix_action_id="loadCharacterSnapshots",
+            fix_label="Load snapshots",
+            severity="warning",
+            details={"synced_gear_count": synced_gear_count},
+        ),
+    ]
+    return {
+        "schema_version": "gw2radar.account_connection_diagnostic.v1",
+        "summary_status": _diagnostic_summary_status(checks),
+        "checks": checks,
+        "key_status": key_status,
+        "permission_report": permission_report,
+        "sync_status": sync_status,
+        "snapshot_summary": {
+            "private_player_state_count": private_state_count,
+            "synced_character_snapshot_count": len(synced_snapshots),
+            "manual_snapshot_count": len(snapshots) - len(synced_snapshots),
+            "synced_gear_count": synced_gear_count,
+        },
+        "next_actions": _diagnostic_next_actions(checks),
+        "boundary": "Read-only diagnostic. Raw API keys and private item payloads are not returned.",
+    }
 
 
 def _inspect_permissions(store: EncryptedApiKeyStore) -> dict:

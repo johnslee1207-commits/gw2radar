@@ -121,6 +121,11 @@ function summarizeResult(target, payload) {
     return "Player intent selected. Connect and sync before trusting account-aware recommendations.";
   }
   if (target === "connect") {
+    if (data?.schema_version === "gw2radar.account_debug_bundle.v1") {
+      const status = data.diagnostic_summary?.summary_status || "unknown";
+      const actionCount = data.diagnostic_summary?.next_actions?.length || 0;
+      return `Debug bundle exported: diagnostic status ${status}, ${actionCount} next actions included.`;
+    }
     if (data?.schema_version === "gw2radar.account_connection_diagnostic.v1") {
       const failed = data.checks?.filter((check) => check.status === "fail").length || 0;
       const warnings = data.checks?.filter((check) => check.status === "warn").length || 0;
@@ -259,6 +264,27 @@ function captureReportRefs(payload) {
       captured_at: new Date().toISOString(),
     });
   }
+}
+
+function downloadJson(filename, payload) {
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function debugBundleClientState() {
+  return {
+    active_view: readStorage(storageKeys.activeView),
+    active_build_id: state.activeBuildId || readStorage(storageKeys.activeBuildId),
+    player_intent: state.playerIntent || readStorage(storageKeys.playerIntent),
+    report_history_count: reportHistory().length,
+  };
 }
 
 function reportHistory() {
@@ -716,6 +742,16 @@ const actions = {
       if (payload.summary_status === "ready") {
         markStep("plan", "Account bridge ready");
       }
+      return payload;
+    }),
+  exportDebugBundle: () =>
+    run("connect", async () => {
+      const payload = await fetchJson("/account/debug-bundle", {
+        method: "POST",
+        body: JSON.stringify(debugBundleClientState()),
+      });
+      downloadJson(`gw2radar-account-debug-${new Date().toISOString().replace(/[:.]/g, "-")}.json`, payload);
+      renderConnectionDiagnostic({ checks: payload.diagnostic_summary?.checks || [] });
       return payload;
     }),
   deleteApiKey: () =>

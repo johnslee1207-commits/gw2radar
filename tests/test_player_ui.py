@@ -35,6 +35,7 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert "Sync now" in response.text
     assert "Permission status not checked." in response.text
     assert "Run connection diagnostic" in response.text
+    assert "Export debug bundle" in response.text
     assert "Build Fit bridge status" in response.text
     assert "Today / this week" in response.text
     assert "Generate full report" in response.text
@@ -61,6 +62,7 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "/account/api-key" in js.text
     assert "/account/api-key/permissions" in js.text
     assert "/account/diagnostic" in js.text
+    assert "/account/debug-bundle" in js.text
     assert "/api/v1/player/dashboard" in js.text
     assert "/api/v1/player/freshness-annotations" in js.text
     assert "/api/v1/legendary/goals/catalog" in js.text
@@ -71,6 +73,8 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "renderConnectionDiagnostic" in js.text
     assert "runDiagnosticFix" in js.text
     assert "diagnosticDetailsText" in js.text
+    assert "debugBundleClientState" in js.text
+    assert "downloadJson" in js.text
     assert "focus_api_key_input" in js.text
     assert "renderSyncProgress" in js.text
     assert "renderFreshnessAnnotations" in js.text
@@ -144,3 +148,4 @@ def test_player_ui_docs_cover_required_flows() -> None:
     assert "reviewed and enabled KB rules" in combined
     assert "Delete all private data" in combined
     assert "Run connection diagnostic" in combined
+    assert "Export debug bundle" in combined

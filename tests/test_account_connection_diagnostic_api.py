@@ -66,6 +66,54 @@ def test_account_connection_diagnostic_reports_sync_and_build_fit_bridge_without
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
+def test_account_debug_bundle_exports_privacy_safe_state_without_private_payloads() -> None:
+    temp_dir = Path(".test_tmp") / f"account-debug-bundle-{uuid4().hex}"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    original_permission_gateway = account_route.permission_gateway_factory
+    original_sync_gateway = account_sync_route.gateway_factory
+    try:
+        configure_database(f"sqlite:///{temp_dir / 'account.db'}")
+        state.reset_cached_graph()
+        account_route.permission_gateway_factory = DiagnosticAccountGateway
+        account_sync_route.gateway_factory = DiagnosticAccountGateway
+        client = TestClient(app)
+
+        assert client.put("/account/api-key", json={"api_key": CLEAN_KEY}).status_code == 200
+        assert client.post("/api/v1/account/sync").status_code == 200
+        assert client.post("/api/v1/account/sync/drain-one").status_code == 200
+        response = client.post(
+            "/account/debug-bundle",
+            json={
+                "active_view": "connect",
+                "active_build_id": "build_secret_local_id",
+                "player_intent": "build_fit",
+                "report_history_count": 3,
+            },
+        )
+        payload = response.json()
+        rendered = str(payload)
+
+        assert response.status_code == 200
+        assert payload["schema_version"] == "gw2radar.account_debug_bundle.v1"
+        assert payload["client_state"]["active_view"] == "connect"
+        assert payload["client_state"]["active_build_id_present"] is True
+        assert payload["client_state"]["report_history_count"] == 3
+        assert payload["diagnostic_summary"]["summary_status"] == "ready"
+        assert payload["snapshot_summary"]["synced_character_snapshot_count"] == 1
+        assert payload["snapshot_summary"]["synced_gear_count"] >= 4
+        assert CLEAN_KEY not in rendered
+        assert "build_secret_local_id" not in rendered
+        assert "Diagnostic Berserker Chest" not in rendered
+        assert "Superior Rune of the Scholar" not in rendered
+        assert "private item" in " ".join(payload["redaction_policy"]).lower()
+    finally:
+        account_route.permission_gateway_factory = original_permission_gateway
+        account_sync_route.gateway_factory = original_sync_gateway
+        close_database()
+        state.reset_cached_graph()
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
 def test_account_connection_diagnostic_names_missing_permission_and_fix_action() -> None:
     temp_dir = Path(".test_tmp") / f"account-diagnostic-permission-{uuid4().hex}"
     temp_dir.mkdir(parents=True, exist_ok=True)
