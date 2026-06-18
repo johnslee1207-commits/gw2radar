@@ -10,6 +10,8 @@ from gw2radar.commercial.report_engine import create_report_entitlement, ensure_
 from gw2radar.db import session as db_session
 from gw2radar.db.init_db import init_db
 from gw2radar.db.session import close_database, configure_database
+from gw2radar.kb.kb_models import KnowledgeDomain, KnowledgeReviewStatus, KnowledgeRuleInput
+from gw2radar.kb.kb_repository import create_rule
 from build_fit_helpers import matching_account_gear, sample_build_import
 
 
@@ -26,6 +28,24 @@ def test_build_fit_api_import_fit_transition_and_paid_report() -> None:
         imported = client.post("/api/v1/builds/import", json=sample_build_import().model_dump(mode="json"))
         assert imported.status_code == 200
         build_id = imported.json()["data"]["build"]["build_id"]
+
+        with db_session.SessionLocal() as session:
+            create_rule(
+                session,
+                KnowledgeRuleInput(
+                    name="Power relic upgrade effect evidence",
+                    domain=KnowledgeDomain.BUILD,
+                    condition="relic_effect_family:power_damage",
+                    recommendation="Power relic entries can support power_damage upgrade-effect explanations.",
+                    action_type="explain_upgrade_effect",
+                    priority_delta=0.0,
+                    explanation_template="Reviewed KB evidence maps power relic text to power_damage.",
+                    evidence_refs=["kb:manual:power-relic"],
+                    confidence=0.8,
+                    review_status=KnowledgeReviewStatus.REVIEWED,
+                    enabled=True,
+                ),
+            )
 
         listed = client.get("/api/v1/builds")
         fit = client.post(
@@ -44,6 +64,7 @@ def test_build_fit_api_import_fit_transition_and_paid_report() -> None:
         assert listed.status_code == 200
         assert fit.status_code == 200
         assert fit.json()["data"]["fit"]["score"]["playable_now"] is True
+        assert fit.json()["data"]["fit"]["upgrade_effects"][0]["evidence_source"] == "reviewed_kb_rule"
         assert transition.status_code == 200
         assert locked.status_code == 403
 

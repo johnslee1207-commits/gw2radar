@@ -1,5 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
+from typing import Any
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -7,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from gw2radar.db.models import BuildModel, utc_now
 from gw2radar.graph.graph_query import GraphData
+from gw2radar.kb.kb_models import KnowledgeReviewStatus, KnowledgeRule
 from gw2radar.ontology.entity_types import EntityType
 from gw2radar.ontology.graph_layers import GraphLayer
 
@@ -142,6 +144,8 @@ class UpgradeEffectEvaluation(BaseModel):
     risk_level: str
     explanation: str
     manual_alternative: str
+    evidence_source: str = "heuristic_keyword"
+    evidence_refs: list[str] = Field(default_factory=list)
 
 
 class BudgetAlternative(BaseModel):
@@ -293,11 +297,15 @@ def list_synced_character_snapshots(graph: GraphData | None) -> list[CharacterGe
     return snapshots
 
 
-def evaluate_build_fit(build: BuildRecord, account: AccountGearSnapshot) -> BuildFitResult:
+def evaluate_build_fit(
+    build: BuildRecord,
+    account: AccountGearSnapshot,
+    knowledge_rules: list[KnowledgeRule] | None = None,
+) -> BuildFitResult:
     matches = match_account_gear(build, account)
     score = calculate_build_fit_score(build, account, matches)
     plan = build_transition_plan(build, matches)
-    upgrade_effects = evaluate_upgrade_effects(build, account)
+    upgrade_effects = evaluate_upgrade_effects(build, account, knowledge_rules)
     alternative = recommend_budget_alternative(build, plan)
     return BuildFitResult(
         build=build,
@@ -394,13 +402,18 @@ def build_transition_plan(build: BuildRecord, matches: list[GearMatchItem]) -> G
     )
 
 
-def evaluate_upgrade_effects(build: BuildRecord, account: AccountGearSnapshot) -> list[UpgradeEffectEvaluation]:
+def evaluate_upgrade_effects(
+    build: BuildRecord,
+    account: AccountGearSnapshot,
+    knowledge_rules: list[KnowledgeRule] | None = None,
+) -> list[UpgradeEffectEvaluation]:
     evaluations: list[UpgradeEffectEvaluation] = []
     for item in account.gear:
         if item.equipment_category not in {"rune", "sigil", "relic"} and item.slot not in {GearSlot.RUNE, GearSlot.SIGIL, GearSlot.RELIC}:
             continue
         effect_family = _effect_family(item)
         fit_status, risk_level = _upgrade_fit_status(build, item, effect_family)
+        evidence_refs = _upgrade_effect_evidence_refs(item, effect_family, knowledge_rules or [])
         evaluations.append(
             UpgradeEffectEvaluation(
                 item_name=item.item_name,
@@ -409,8 +422,10 @@ def evaluate_upgrade_effects(build: BuildRecord, account: AccountGearSnapshot) -
                 effect_family=effect_family,
                 fit_status=fit_status,
                 risk_level=risk_level,
-                explanation=_upgrade_effect_explanation(build, item, effect_family, fit_status),
+                explanation=_upgrade_effect_explanation(build, item, effect_family, fit_status, evidence_refs),
                 manual_alternative=_manual_upgrade_alternative(build, item, effect_family),
+                evidence_source="reviewed_kb_rule" if evidence_refs else "heuristic_keyword",
+                evidence_refs=evidence_refs,
             )
         )
     return evaluations
@@ -435,7 +450,12 @@ def recommend_budget_alternative(build: BuildRecord, plan: GearTransitionPlan) -
 
 def render_build_fit_report(result: BuildFitResult) -> str:
     upgrade_effect_lines = [
-        f"- {effect.item_name}: {effect.effect_family} / {effect.fit_status} ({effect.risk_level}). {effect.manual_alternative}"
+        (
+            f"- {effect.item_name}: {effect.effect_family} / {effect.fit_status} ({effect.risk_level}). "
+            f"Evidence: {effect.evidence_source}"
+            f"{' [' + ', '.join(effect.evidence_refs) + ']' if effect.evidence_refs else ''}. "
+            f"{effect.manual_alternative}"
+        )
         for effect in result.upgrade_effects
     ] or ["- No rune, sigil, or relic effect entries were available in the account snapshot."]
     lines = [
@@ -574,15 +594,8 @@ def _category_from_slot(slot: GearSlot) -> str:
 
 def _effect_family(item: AccountGearItem) -> str:
     haystack = f"{item.item_name} {item.stat_combo}".lower()
-    groups = [
-        ("power_damage", ["scholar", "force", "impact", "power", "berserker", "ferocity", "precision"]),
-        ("condition_damage", ["afflicted", "nightmare", "trapper", "torment", "bleeding", "burning", "condition", "viper"]),
-        ("boon_support", ["leadership", "monk", "concentration", "quickness", "alacrity", "boon", "divinity"]),
-        ("healing_support", ["water", "monk", "healing", "magi", "harrier"]),
-        ("defensive_survival", ["durability", "soldier", "defense", "sanctuary", "protection", "vitality", "toughness"]),
-    ]
-    for family, keywords in groups:
-        if any(keyword in haystack for keyword in keywords):
+    for family in ["power_damage", "condition_damage", "boon_support", "healing_support", "defensive_survival"]:
+        if any(keyword in haystack for keyword in _effect_keywords(family)):
             return family
     return "unknown"
 
@@ -612,12 +625,88 @@ def _expected_effect_families(build: BuildRecord) -> set[str]:
     return families or {"power_damage", "condition_damage", "boon_support"}
 
 
-def _upgrade_effect_explanation(build: BuildRecord, item: AccountGearItem, effect_family: str, fit_status: str) -> str:
+def _upgrade_effect_explanation(
+    build: BuildRecord,
+    item: AccountGearItem,
+    effect_family: str,
+    fit_status: str,
+    evidence_refs: list[str] | None = None,
+) -> str:
+    evidence_note = f" Reviewed KB evidence: {', '.join(evidence_refs)}." if evidence_refs else ""
     if fit_status == "aligned":
-        return f"{item.equipment_category} appears to match the broad {build.role} effect family for this structured build."
+        return f"{item.equipment_category} appears to match the broad {build.role} effect family for this structured build.{evidence_note}"
     if effect_family == "unknown":
-        return f"{item.equipment_category} effect family could not be inferred from item name/stat text; verify in game or against the build source."
-    return f"{item.equipment_category} belongs to {effect_family}, which may not match this build's expected upgrade family."
+        return f"{item.equipment_category} effect family could not be inferred from item name/stat text; verify in game or against the build source.{evidence_note}"
+    return f"{item.equipment_category} belongs to {effect_family}, which may not match this build's expected upgrade family.{evidence_note}"
+
+
+def _upgrade_effect_evidence_refs(
+    item: AccountGearItem,
+    effect_family: str,
+    knowledge_rules: list[KnowledgeRule],
+) -> list[str]:
+    if effect_family == "unknown":
+        return []
+    item_terms = _upgrade_item_terms(item)
+    matches: list[str] = []
+    for rule in knowledge_rules:
+        if not _is_reviewed_enabled_rule(rule):
+            continue
+        rule_text = _rule_search_text(rule)
+        if effect_family not in rule_text and effect_family.replace("_", " ") not in rule_text:
+            continue
+        if not any(term in rule_text for term in item_terms):
+            continue
+        matches.append(f"{rule.rule_id}:{rule.name}")
+        if len(matches) >= 3:
+            break
+    return matches
+
+
+def _upgrade_item_terms(item: AccountGearItem) -> set[str]:
+    terms = {
+        item.slot.value.lower(),
+        item.equipment_category.lower(),
+        *_effect_keywords(_effect_family(item)),
+    }
+    for token in f"{item.item_name} {item.stat_combo}".lower().replace("-", " ").split():
+        if len(token) >= 4:
+            terms.add(token)
+    return terms
+
+
+def _is_reviewed_enabled_rule(rule: KnowledgeRule) -> bool:
+    return rule.enabled and rule.review_status == KnowledgeReviewStatus.REVIEWED
+
+
+def _rule_search_text(rule: KnowledgeRule) -> str:
+    values: list[Any] = [
+        rule.rule_id,
+        rule.name,
+        rule.domain,
+        rule.condition,
+        rule.recommendation,
+        rule.action_type,
+        rule.explanation_template,
+        rule.evidence_refs,
+    ]
+    return " ".join(_flatten_text(value) for value in values).lower()
+
+
+def _flatten_text(value: Any) -> str:
+    if isinstance(value, list):
+        return " ".join(_flatten_text(item) for item in value)
+    return str(value)
+
+
+def _effect_keywords(effect_family: str) -> list[str]:
+    return {
+        "power_damage": ["scholar", "force", "impact", "power", "berserker", "ferocity", "precision"],
+        "condition_damage": ["afflicted", "nightmare", "trapper", "torment", "bleeding", "burning", "condition", "viper"],
+        "boon_support": ["leadership", "monk", "concentration", "quickness", "alacrity", "boon", "divinity"],
+        "healing_support": ["water", "monk", "healing", "magi", "harrier"],
+        "defensive_survival": ["durability", "soldier", "defense", "sanctuary", "protection", "vitality", "toughness"],
+    }.get(effect_family, [])
 
 
 def _manual_upgrade_alternative(build: BuildRecord, item: AccountGearItem, effect_family: str) -> str:
