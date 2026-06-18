@@ -420,13 +420,62 @@ function renderConnectionDiagnostic(report) {
     const name = document.createElement("strong");
     const status = document.createElement("span");
     const message = document.createElement("span");
+    const details = document.createElement("span");
     item.className = `diagnostic-check ${check.status}`;
     name.textContent = check.label;
-    status.textContent = check.status;
+    status.textContent = check.severity && check.severity !== "none" ? `${check.status} / ${check.severity}` : check.status;
     message.textContent = check.player_message || "";
+    details.textContent = diagnosticDetailsText(check.details || {});
     item.title = check.player_message || "";
     item.append(name, status, message);
+    if (details.textContent) {
+      item.appendChild(details);
+    }
+    if (check.fix_action_id && check.fix_label) {
+      const fixButton = document.createElement("button");
+      fixButton.type = "button";
+      fixButton.className = "diagnostic-fix";
+      fixButton.textContent = check.fix_label;
+      fixButton.dataset.fixAction = check.fix_action_id;
+      fixButton.addEventListener("click", (event) => {
+        event.preventDefault();
+        runDiagnosticFix(check.fix_action_id);
+      });
+      item.appendChild(fixButton);
+    }
     grid.appendChild(item);
+  }
+}
+
+function diagnosticDetailsText(details) {
+  const parts = [];
+  if (details.missing_required_permissions?.length) {
+    parts.push(`Missing: ${details.missing_required_permissions.join(", ")}`);
+  }
+  if (typeof details.private_player_state_count === "number") {
+    parts.push(`Private records: ${details.private_player_state_count}`);
+  }
+  if (typeof details.synced_character_snapshot_count === "number") {
+    parts.push(`Synced snapshots: ${details.synced_character_snapshot_count}`);
+  }
+  if (typeof details.synced_gear_count === "number") {
+    parts.push(`Synced gear: ${details.synced_gear_count}`);
+  }
+  return parts.join(" | ");
+}
+
+function runDiagnosticFix(actionId) {
+  if (actionId === "focus_api_key_input") {
+    document.querySelector("#api-key-input")?.focus();
+    renderSummary("connect", "Paste or update a GW2 API key with account, characters, inventories, wallet, and progression permissions.");
+    return;
+  }
+  if (actionId === "loadCharacterSnapshots") {
+    showView("build");
+  }
+  const action = actions[actionId];
+  if (action) {
+    action();
   }
 }
 

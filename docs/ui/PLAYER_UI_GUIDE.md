@@ -51,6 +51,11 @@ private graph persistence, or UI snapshot bridging.
 The Connect page also includes a read-only `Run connection diagnostic` action
 that surfaces the same lifecycle as PASS/WARN/FAIL checks without returning the
 raw API key or private item payloads.
+Each failing or warning diagnostic card includes a concrete fix action when the
+next step is available in the UI, such as updating the key, running sync,
+draining one local job, or loading Build Fit character snapshots. Missing
+required scopes are named directly, for example `characters`, so players can
+regenerate the key instead of guessing why no account-aware output appeared.
 
 ## First Use
 

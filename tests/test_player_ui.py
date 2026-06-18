@@ -69,6 +69,9 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "plan_returner_once" in js.text
     assert "renderPermissionReport" in js.text
     assert "renderConnectionDiagnostic" in js.text
+    assert "runDiagnosticFix" in js.text
+    assert "diagnosticDetailsText" in js.text
+    assert "focus_api_key_input" in js.text
     assert "renderSyncProgress" in js.text
     assert "renderFreshnessAnnotations" in js.text
     assert "gw2radar.api_key_permissions.v1" in js.text
@@ -106,6 +109,7 @@ def test_player_ui_styles_cover_workflow_and_summaries() -> None:
     assert ".permission-status-grid" in css.text
     assert ".diagnostic-grid" in css.text
     assert ".diagnostic-check.pass" in css.text
+    assert ".diagnostic-fix" in css.text
     assert ".permission-status.ready" in css.text
     assert ".freshness-annotation-grid" in css.text
     assert ".sync-checklist span.blocked" in css.text

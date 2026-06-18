@@ -610,7 +610,21 @@ label + label {
 .diagnostic-check span {
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: normal;
+}
+
+.diagnostic-check strong {
   white-space: nowrap;
+}
+
+.diagnostic-fix {
+  justify-self: start;
+  min-height: 32px;
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  padding: 5px 9px;
+  font-size: 0.82rem;
 }
 
 .diagnostic-check.pass {

@@ -55,14 +55,25 @@ def get_account_connection_diagnostic() -> dict:
                 key_status["is_configured"],
                 "API key is stored and masked.",
                 "No API key is stored. Save a read-only GW2 API key first.",
+                fix_action_id="focus_api_key_input",
+                fix_label="Paste key",
+                severity="critical",
             ),
             _diagnostic_check(
                 "permissions_ready",
                 "Required permissions ready",
                 key_status["is_configured"] and permission_report.get("limited_mode") is False,
                 "Required permissions are present for account-aware features.",
-                "Required permissions are missing or could not be checked.",
-                warn=key_status["is_configured"] and permission_report.get("limited_mode") is True,
+                _permissions_failure_message(permission_report),
+                warn=_permission_check_is_temporarily_unavailable(permission_report),
+                fix_action_id="focus_api_key_input",
+                fix_label="Update key",
+                severity="critical",
+                details={
+                    "missing_required_permissions": permission_report.get("missing_required_permissions", []),
+                    "missing_optional_permissions": permission_report.get("missing_optional_permissions", []),
+                    "limited_mode": permission_report.get("limited_mode"),
+                },
             ),
             _diagnostic_check(
                 "sync_job_visible",
@@ -71,6 +82,9 @@ def get_account_connection_diagnostic() -> dict:
                 "An account sync job is visible in queue history.",
                 "No account sync job is visible. Run Sync now, then re-run this diagnostic.",
                 warn=key_status["is_configured"],
+                fix_action_id="enqueueSync",
+                fix_label="Sync now",
+                severity="warning",
             ),
             _diagnostic_check(
                 "private_snapshot_written",
@@ -79,6 +93,10 @@ def get_account_connection_diagnostic() -> dict:
                 f"{private_state_count} private player-state records are available.",
                 "No private account snapshot is available yet. Drain one sync job after queueing.",
                 warn=key_status["is_configured"],
+                fix_action_id="drainSync",
+                fix_label="Drain one job",
+                severity="warning",
+                details={"private_player_state_count": private_state_count},
             ),
             _diagnostic_check(
                 "synced_character_snapshot",
@@ -87,6 +105,13 @@ def get_account_connection_diagnostic() -> dict:
                 f"{len(synced_snapshots)} synced official character snapshots are available.",
                 "Build Fit only has manual sample snapshots. Sync character details before using account gear.",
                 warn=has_key,
+                fix_action_id="enqueueSync",
+                fix_label="Resync account",
+                severity="warning",
+                details={
+                    "synced_character_snapshot_count": len(synced_snapshots),
+                    "manual_snapshot_count": len(snapshots) - len(synced_snapshots),
+                },
             ),
             _diagnostic_check(
                 "build_fit_bridge_ready",
@@ -95,6 +120,10 @@ def get_account_connection_diagnostic() -> dict:
                 f"{synced_gear_count} synced gear entries can be converted for Build Fit.",
                 "No synced gear entries are available for Build Fit conversion.",
                 warn=has_key,
+                fix_action_id="loadCharacterSnapshots",
+                fix_label="Load snapshots",
+                severity="warning",
+                details={"synced_gear_count": synced_gear_count},
             ),
         ]
         return {
@@ -176,13 +205,21 @@ def _diagnostic_check(
     fail_message: str,
     *,
     warn: bool = False,
+    fix_action_id: str | None = None,
+    fix_label: str | None = None,
+    severity: str = "warning",
+    details: dict | None = None,
 ) -> dict:
     status = "pass" if passed else "warn" if warn else "fail"
     return {
         "check_id": check_id,
         "label": label,
         "status": status,
+        "severity": "none" if status == "pass" else severity,
         "player_message": pass_message if passed else fail_message,
+        "fix_action_id": None if status == "pass" else fix_action_id,
+        "fix_label": None if status == "pass" else fix_label,
+        "details": details or {},
     }
 
 
@@ -213,3 +250,19 @@ def _diagnostic_next_actions(checks: list[dict]) -> list[str]:
         elif check["check_id"] == "build_fit_bridge_ready":
             actions.append("Load character snapshots in Build Fit after sync completes.")
     return actions or ["Account connection, sync, and Build Fit bridge are ready."]
+
+
+def _permissions_failure_message(permission_report: dict) -> str:
+    missing = permission_report.get("missing_required_permissions", [])
+    if missing:
+        return f"Missing required GW2 API key permissions: {', '.join(missing)}."
+    assumptions = permission_report.get("assumptions", [])
+    if assumptions:
+        return str(assumptions[0])
+    return "Required permissions are missing or could not be checked."
+
+
+def _permission_check_is_temporarily_unavailable(permission_report: dict) -> bool:
+    return bool(permission_report.get("key_configured")) and not permission_report.get("missing_required_permissions") and bool(
+        permission_report.get("assumptions")
+    )

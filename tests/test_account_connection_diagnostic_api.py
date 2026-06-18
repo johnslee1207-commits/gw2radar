@@ -12,6 +12,14 @@ from gw2radar.db.session import close_database, configure_database
 from harness.run_account_connection_diagnostic import CLEAN_KEY, DiagnosticAccountGateway
 
 
+class MissingCharactersPermissionGateway(DiagnosticAccountGateway):
+    def _fetch_tokeninfo(self, api_key: str, *, request_id: str) -> dict:
+        return {
+            "name": "Missing Characters Test Key",
+            "permissions": ["account", "inventories", "progression", "wallet"],
+        }
+
+
 def test_account_connection_diagnostic_reports_sync_and_build_fit_bridge_without_key_leakage() -> None:
     temp_dir = Path(".test_tmp") / f"account-diagnostic-api-{uuid4().hex}"
     temp_dir.mkdir(parents=True, exist_ok=True)
@@ -31,6 +39,10 @@ def test_account_connection_diagnostic_reports_sync_and_build_fit_bridge_without
         assert before_payload["schema_version"] == "gw2radar.account_connection_diagnostic.v1"
         assert before_payload["summary_status"] == "needs_sync"
         assert before_payload["snapshot_summary"]["synced_character_snapshot_count"] == 0
+        queue_check = next(check for check in before_payload["checks"] if check["check_id"] == "sync_job_visible")
+        assert queue_check["status"] == "warn"
+        assert queue_check["fix_action_id"] == "enqueueSync"
+        assert queue_check["fix_label"] == "Sync now"
         assert CLEAN_KEY not in str(before_payload)
 
         assert client.post("/api/v1/account/sync").status_code == 200
@@ -49,6 +61,35 @@ def test_account_connection_diagnostic_reports_sync_and_build_fit_bridge_without
     finally:
         account_route.permission_gateway_factory = original_permission_gateway
         account_sync_route.gateway_factory = original_sync_gateway
+        close_database()
+        state.reset_cached_graph()
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def test_account_connection_diagnostic_names_missing_permission_and_fix_action() -> None:
+    temp_dir = Path(".test_tmp") / f"account-diagnostic-permission-{uuid4().hex}"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    original_permission_gateway = account_route.permission_gateway_factory
+    try:
+        configure_database(f"sqlite:///{temp_dir / 'account.db'}")
+        state.reset_cached_graph()
+        account_route.permission_gateway_factory = MissingCharactersPermissionGateway
+        client = TestClient(app)
+
+        assert client.put("/account/api-key", json={"api_key": CLEAN_KEY}).status_code == 200
+        payload = client.get("/account/diagnostic").json()
+        permission_check = next(check for check in payload["checks"] if check["check_id"] == "permissions_ready")
+
+        assert payload["summary_status"] == "blocked"
+        assert permission_check["status"] == "fail"
+        assert permission_check["severity"] == "critical"
+        assert permission_check["fix_action_id"] == "focus_api_key_input"
+        assert permission_check["fix_label"] == "Update key"
+        assert "characters" in permission_check["details"]["missing_required_permissions"]
+        assert "Missing required GW2 API key permissions: characters" in permission_check["player_message"]
+        assert CLEAN_KEY not in str(payload)
+    finally:
+        account_route.permission_gateway_factory = original_permission_gateway
         close_database()
         state.reset_cached_graph()
         shutil.rmtree(temp_dir, ignore_errors=True)
