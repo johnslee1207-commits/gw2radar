@@ -762,7 +762,8 @@ label + label {
 
 .support-finding,
 .support-audit-record,
-.support-playbook-item {
+.support-playbook-item,
+.support-backlog-item {
   display: grid;
   gap: 6px;
   border: 1px solid var(--line);
@@ -774,7 +775,8 @@ label + label {
 
 .support-finding p,
 .support-audit-record p,
-.support-playbook-item p {
+.support-playbook-item p,
+.support-backlog-item p {
   margin: 0;
 }
 
@@ -804,17 +806,20 @@ label + label {
   gap: 10px;
 }
 
-.support-playbook-list {
+.support-playbook-list,
+.support-backlog-list {
   display: grid;
   gap: 10px;
   margin-top: 14px;
 }
 
-.support-playbook-item {
+.support-playbook-item,
+.support-backlog-item {
   border-left-color: var(--focus);
 }
 
-.support-playbook-item ol {
+.support-playbook-item ol,
+.support-backlog-item ul {
   margin: 0;
   padding-left: 22px;
 }

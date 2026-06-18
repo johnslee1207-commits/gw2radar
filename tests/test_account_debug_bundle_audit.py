@@ -159,6 +159,39 @@ def test_support_review_playbook_maps_blockers_to_remediation_steps() -> None:
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
+def test_support_review_backlog_prioritizes_product_fixes_from_playbook() -> None:
+    temp_dir = Path(".test_tmp") / f"support-review-backlog-{uuid4().hex}"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        configure_database(f"sqlite:///{temp_dir / 'support-review-backlog.db'}")
+        state.reset_cached_graph()
+        client = TestClient(app)
+
+        client.post("/account/debug-bundle/review/audit", json={"bundle": _missing_key_bundle(), "reviewer": "backlog"})
+        client.post("/account/debug-bundle/review/audit", json={"bundle": _missing_key_bundle(), "reviewer": "backlog"})
+        client.post("/account/debug-bundle/review/audit", json={"bundle": _missing_permission_bundle(), "reviewer": "backlog"})
+
+        backlog = client.get("/account/debug-bundle/review/audit/backlog?reviewer=backlog&limit=10").json()
+        rendered = str(backlog)
+
+        assert backlog["schema_version"] == "gw2radar.account_debug_bundle_review_backlog.v1"
+        assert backlog["total_records"] == 3
+        assert len(backlog["backlog_items"]) == 2
+        first = backlog["backlog_items"][0]
+        assert first["blocker_id"] == "needs_key"
+        assert first["priority"] == "P0"
+        assert first["affected_cases"] == 2
+        assert "key input" in first["product_fix_suggestion"]
+        assert first["acceptance_criteria"]
+        assert "privacy-safe support metadata" in backlog["boundary"]
+        assert "Diagnostic Berserker Chest" not in rendered
+        assert "12345678-1234-1234-1234-123456789abc" not in rendered
+    finally:
+        close_database()
+        state.reset_cached_graph()
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
 def _sample_bundle() -> dict:
     return {
         "schema_version": "gw2radar.account_debug_bundle.v1",

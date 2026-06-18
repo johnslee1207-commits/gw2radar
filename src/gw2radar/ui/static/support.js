@@ -9,6 +9,7 @@ const refreshAuditButton = document.querySelector("#refresh-audit-button");
 const exportAuditButton = document.querySelector("#export-audit-button");
 const refreshMetricsButton = document.querySelector("#refresh-metrics-button");
 const refreshPlaybookButton = document.querySelector("#refresh-playbook-button");
+const refreshBacklogButton = document.querySelector("#refresh-backlog-button");
 const summary = document.querySelector("#support-summary");
 const findingList = document.querySelector("#finding-list");
 const replyTemplate = document.querySelector("#reply-template");
@@ -23,6 +24,8 @@ const metricsSeverityList = document.querySelector("#metrics-severity-list");
 const metricsBlockerList = document.querySelector("#metrics-blocker-list");
 const playbookSummary = document.querySelector("#playbook-summary");
 const playbookList = document.querySelector("#playbook-list");
+const backlogSummary = document.querySelector("#backlog-summary");
+const backlogList = document.querySelector("#backlog-list");
 const output = document.querySelector("#support-output");
 let lastBundle = null;
 let lastReview = null;
@@ -165,6 +168,7 @@ async function refreshAuditRecords() {
   renderAuditRecords(payload.records || []);
   await refreshAuditMetrics();
   await refreshPlaybook();
+  await refreshBacklog();
 }
 
 function auditQueryString(format = "json") {
@@ -197,6 +201,12 @@ async function refreshPlaybook() {
   const response = await fetch(`/account/debug-bundle/review/audit/playbook?${auditQueryString()}`);
   const playbook = await response.json();
   renderPlaybook(playbook);
+}
+
+async function refreshBacklog() {
+  const response = await fetch(`/account/debug-bundle/review/audit/backlog?${auditQueryString()}`);
+  const backlog = await response.json();
+  renderBacklog(backlog);
 }
 
 function renderAuditMetrics(metrics) {
@@ -246,6 +256,34 @@ function renderPlaybook(playbook) {
     product.textContent = `Product fix: ${play.product_fix_suggestion || ""}`;
     item.append(title, steps, reply, product);
     playbookList.appendChild(item);
+  }
+}
+
+function renderBacklog(backlog) {
+  backlogSummary.textContent = backlog.summary || "No backlog summary available.";
+  backlogList.innerHTML = "";
+  const items = Array.isArray(backlog.backlog_items) ? backlog.backlog_items : [];
+  if (!items.length) {
+    backlogList.textContent = "No product backlog items are available for the current filters.";
+    return;
+  }
+  for (const backlogItem of items) {
+    const item = document.createElement("article");
+    item.className = "support-backlog-item";
+    const title = document.createElement("strong");
+    title.textContent = `${backlogItem.priority} · ${backlogItem.title} · ${backlogItem.affected_cases} cases`;
+    const fix = document.createElement("p");
+    fix.textContent = `Fix: ${backlogItem.product_fix_suggestion}`;
+    const signal = document.createElement("p");
+    signal.textContent = `Signal: ${backlogItem.support_signal}`;
+    const criteria = document.createElement("ul");
+    for (const criterion of backlogItem.acceptance_criteria || []) {
+      const li = document.createElement("li");
+      li.textContent = criterion;
+      criteria.appendChild(li);
+    }
+    item.append(title, fix, signal, criteria);
+    backlogList.appendChild(item);
   }
 }
 
@@ -302,6 +340,8 @@ exportAuditButton?.addEventListener("click", exportAuditCsv);
 refreshMetricsButton?.addEventListener("click", refreshAuditMetrics);
 
 refreshPlaybookButton?.addEventListener("click", refreshPlaybook);
+
+refreshBacklogButton?.addEventListener("click", refreshBacklog);
 
 copyTemplateButton?.addEventListener("click", async () => {
   if (!replyTemplate.value) {

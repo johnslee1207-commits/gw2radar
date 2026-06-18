@@ -70,6 +70,25 @@ class SupportReviewPlaybookSummary(BaseModel):
     boundary: str = "Playbooks are derived from privacy-safe audit metadata and never require raw API keys or private account payloads."
 
 
+class SupportReviewBacklogItem(BaseModel):
+    backlog_id: str
+    blocker_id: str
+    title: str
+    priority: str
+    affected_cases: int
+    product_fix_suggestion: str
+    support_signal: str
+    acceptance_criteria: list[str] = Field(default_factory=list)
+
+
+class SupportReviewBacklogSummary(BaseModel):
+    schema_version: str = "gw2radar.account_debug_bundle_review_backlog.v1"
+    total_records: int
+    backlog_items: list[SupportReviewBacklogItem] = Field(default_factory=list)
+    summary: str
+    boundary: str = "Backlog items are generated from aggregated privacy-safe support metadata only."
+
+
 PLAYBOOKS: dict[str, SupportReviewPlaybookItem] = {
     "needs_key": SupportReviewPlaybookItem(
         blocker_id="needs_key",
@@ -315,6 +334,32 @@ def build_support_review_playbook(metrics: SupportReviewMetricsSummary) -> Suppo
     )
 
 
+def build_support_review_product_backlog(
+    metrics: SupportReviewMetricsSummary,
+    playbook: SupportReviewPlaybookSummary,
+) -> SupportReviewBacklogSummary:
+    blocker_counts = {item.key: item.count for item in metrics.finding_counts}
+    items = [
+        SupportReviewBacklogItem(
+            backlog_id=f"support-backlog-{play.blocker_id}",
+            blocker_id=play.blocker_id,
+            title=play.title,
+            priority=play.priority,
+            affected_cases=blocker_counts.get(play.blocker_id, 0),
+            product_fix_suggestion=play.product_fix_suggestion,
+            support_signal=_support_signal(play.blocker_id, blocker_counts.get(play.blocker_id, 0)),
+            acceptance_criteria=_acceptance_criteria(play),
+        )
+        for play in playbook.plays
+    ]
+    items.sort(key=lambda item: (_priority_rank(item.priority), -item.affected_cases, item.blocker_id))
+    return SupportReviewBacklogSummary(
+        total_records=metrics.total_records,
+        backlog_items=items,
+        summary=_backlog_summary(metrics.total_records, items),
+    )
+
+
 def _highest_severity(severities: list[str]) -> str:
     if not severities:
         return "info"
@@ -368,6 +413,32 @@ def _playbook_summary(total_records: int, plays: list[SupportReviewPlaybookItem]
     if plays:
         return f"{len(plays)} remediation plays selected for {total_records} matching support cases."
     return f"{total_records} matching support cases found, but no mapped playbook exists for: {', '.join(unmapped) or 'unknown'}."
+
+
+def _priority_rank(priority: str) -> int:
+    return {"P0": 0, "P1": 1, "P2": 2, "P3": 3}.get(priority, 9)
+
+
+def _support_signal(blocker_id: str, affected_cases: int) -> str:
+    case_text = "case" if affected_cases == 1 else "cases"
+    return f"{affected_cases} support {case_text} include blocker `{blocker_id}`."
+
+
+def _acceptance_criteria(play: SupportReviewPlaybookItem) -> list[str]:
+    return [
+        f"Support review for `{play.blocker_id}` still avoids raw API keys and private account payloads.",
+        "The UI presents the next player action without requiring support to inspect raw bundle JSON.",
+        f"Diagnostic evidence includes: {', '.join(play.evidence_needed) if play.evidence_needed else 'safe support metadata'}.",
+    ]
+
+
+def _backlog_summary(total_records: int, items: list[SupportReviewBacklogItem]) -> str:
+    if total_records == 0:
+        return "No matching support cases; no product backlog items generated."
+    if not items:
+        return f"{total_records} matching support cases found, but no mapped product fix suggestion is available."
+    top = items[0]
+    return f"{len(items)} product backlog items generated from {total_records} matching cases; top priority is {top.priority} `{top.blocker_id}`."
 
 
 def _to_record(row: SupportReviewAuditModel) -> SupportReviewAuditRecord:
