@@ -308,6 +308,21 @@ label + label {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.compact-fields {
+  align-items: end;
+  margin-bottom: 12px;
+}
+
+.rule-pack-status {
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-soft);
+  color: var(--ink);
+  padding: 8px 10px;
+  font-size: 0.9rem;
+}
+
 .readiness-grid {
   grid-template-columns: repeat(5, minmax(0, 1fr));
   margin-bottom: 16px;

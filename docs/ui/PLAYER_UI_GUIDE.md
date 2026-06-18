@@ -59,8 +59,9 @@ It does not store the GW2 API key. Deleting browser storage only resets UI conve
 3. Use `Returner` to inspect goal gaps, a short action plan, preview, and full report export.
 4. Use `Legendary` before selling materials.
 5. Use `Build Fit` before converting gear. Synced official API character snapshots appear first when account sync has character detail; item and stat names are enriched from public `/v2/items` and `/v2/itemstats` metadata when available. Manual samples remain available as fallback.
-6. Use `Freshness` before following account-aware or market-aware advice.
-7. Use `Reports` to preview, unlock, retrieve artifacts, and reopen local report history.
+6. In `Build Fit`, use `Preview upgrade pack`, `Import disabled rules`, `List upgrade rules`, and `Enable selected rule` when you want rune, sigil, and relic effect explanations to cite reviewed KB evidence. Re-run `Fit score` after enabling a rule.
+7. Use `Freshness` before following account-aware or market-aware advice.
+8. Use `Reports` to preview, unlock, retrieve artifacts, and reopen local report history.
 
 Each workflow displays a short result summary above the raw JSON output. The summary is for navigation only; the raw JSON and generated report remain the authoritative output.
 
@@ -81,6 +82,16 @@ Use `Today / this week` after loading or adding goals to compare cheap, fast, an
 ## Freshness And Confidence
 
 Dashboard, Freshness, preview reports, and full reports expose source confidence annotations. Treat stale account snapshots, manual market snapshots, old build sources, or unreviewed knowledge rules as manual-review signals.
+
+## Build Upgrade Evidence
+
+The Build Fit page can manage the `build_upgrade_effects` rule pack:
+
+1. `Preview upgrade pack` shows reviewed candidate rules without persisting them.
+2. `Import disabled rules` persists the reviewed candidates with `enabled=false`.
+3. `List upgrade rules` refreshes persisted build upgrade rules.
+4. `Enable selected rule` requires the backend reviewed-rule gate and records the reviewer name.
+5. `Fit score` then uses only reviewed and enabled KB rules as evidence; disabled rules remain invisible to Build Fit explanations.
 
 ## Data Management
 

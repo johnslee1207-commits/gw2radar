@@ -4,6 +4,7 @@ const state = {
   playerIntent: "",
   characterSnapshots: [],
   selectedAccountGear: null,
+  buildUpgradeRules: [],
 };
 
 const storageKeys = {
@@ -184,6 +185,19 @@ function summarizeResult(target, payload) {
     return "Legendary planning output updated. Market signals are observation-only.";
   }
   if (target === "build") {
+    if (data?.pack?.pack_id === "build_upgrade_effects") {
+      return `${data.pack.rules?.length || 0} upgrade evidence rules available for reviewed import.`;
+    }
+    if (data?.result?.pack_id === "build_upgrade_effects") {
+      return `${data.result.created_count || 0} disabled upgrade evidence rules imported. Enable reviewed rules before using them as evidence.`;
+    }
+    if (Array.isArray(data?.rules)) {
+      const enabled = data.rules.filter((rule) => rule.enabled).length;
+      return `${data.rules.length} build upgrade rules listed; ${enabled} enabled for reviewed evidence.`;
+    }
+    if (data?.rule) {
+      return `${data.rule.name} enabled. Re-run Fit score to see reviewed KB evidence.`;
+    }
     const fit = data?.fit?.score?.score;
     if (typeof fit === "number") {
       const upgradeCount = data.fit.upgrade_effects?.length || 0;
@@ -505,6 +519,31 @@ function renderFreshnessAnnotations(annotations) {
   }
 }
 
+function renderBuildUpgradeRules(rules) {
+  const select = document.querySelector("#build-upgrade-rule-id");
+  const status = document.querySelector("#build-rule-pack-status");
+  if (!select || !status || !Array.isArray(rules)) {
+    return;
+  }
+  state.buildUpgradeRules = rules;
+  select.innerHTML = '<option value="">Select disabled reviewed rule</option>';
+  let enabledCount = 0;
+  let disabledCount = 0;
+  for (const rule of rules) {
+    if (rule.enabled) {
+      enabledCount += 1;
+    } else {
+      disabledCount += 1;
+    }
+    const option = document.createElement("option");
+    option.value = rule.rule_id || "";
+    option.disabled = Boolean(rule.enabled || !rule.rule_id);
+    option.textContent = `${rule.enabled ? "enabled" : "disabled"} - ${rule.name}`;
+    select.appendChild(option);
+  }
+  status.textContent = `${rules.length} rules: ${enabledCount} enabled, ${disabledCount} disabled.`;
+}
+
 function applyAccountGearSnapshot(snapshot, accountGear) {
   state.selectedAccountGear = accountGear;
   document.querySelector("#build-profession").value = accountGear.profession || "";
@@ -796,6 +835,48 @@ const actions = {
       }),
     ),
   buildFreshness: () => run("build", () => fetchJson(`/api/v1/builds/${encodeURIComponent(requireActiveBuildId())}/patch-freshness`)),
+  previewBuildUpgradeRules: () =>
+    run("build", async () => {
+      const payload = await fetchJson("/api/v1/kb/rule-packs/build_upgrade_effects");
+      renderBuildUpgradeRules(payload?.data?.pack?.rules || []);
+      return payload;
+    }),
+  importBuildUpgradeRules: () =>
+    run("build", async () => {
+      const payload = await fetchJson("/api/v1/kb/rule-packs/build_upgrade_effects/import", {
+        method: "POST",
+        body: JSON.stringify({ confirmed: true }),
+      });
+      const rules = payload?.data?.result?.rules || [];
+      renderBuildUpgradeRules(rules);
+      return payload;
+    }),
+  listBuildUpgradeRules: () =>
+    run("build", async () => {
+      const payload = await fetchJson("/api/v1/kb/rules?domain=build&name_contains=Build%20upgrade");
+      renderBuildUpgradeRules(payload?.data?.rules || []);
+      return payload;
+    }),
+  enableBuildUpgradeRule: () =>
+    run("build", async () => {
+      let ruleId = document.querySelector("#build-upgrade-rule-id").value;
+      if (!ruleId) {
+        const rule = state.buildUpgradeRules.find((item) => item.rule_id && !item.enabled);
+        ruleId = rule?.rule_id || "";
+      }
+      if (!ruleId) {
+        throw new Error("Import or list disabled upgrade rules before enabling one.");
+      }
+      const payload = await fetchJson(`/api/v1/kb/rules/${encodeURIComponent(ruleId)}/enable`, {
+        method: "POST",
+        body: JSON.stringify({
+          confirmed_reviewed: true,
+          reviewer: document.querySelector("#build-rule-reviewer").value || "player_ui_reviewer",
+        }),
+      });
+      await actions.listBuildUpgradeRules();
+      return payload;
+    }),
   buildReport: () =>
     run("build", () =>
       fetchJson("/api/v1/builds/report", {

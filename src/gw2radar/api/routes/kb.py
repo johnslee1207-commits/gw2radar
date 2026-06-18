@@ -379,6 +379,31 @@ def post_kb_rule_pack_import(
     return ApiDataEnvelope(data={"result": result.model_dump(mode="json")})
 
 
+@router.get("/rules", response_model=ApiDataEnvelope)
+def get_kb_rules(
+    domain: KnowledgeDomain | None = None,
+    enabled: bool | None = None,
+    action_type: str | None = None,
+    name_contains: str | None = None,
+) -> ApiDataEnvelope:
+    init_db()
+    with db_session.SessionLocal() as session:
+        rules = list_rules(session, domain)
+    if enabled is not None:
+        rules = [rule for rule in rules if rule.enabled is enabled]
+    if action_type:
+        rules = [rule for rule in rules if rule.action_type == action_type]
+    if name_contains:
+        needle = name_contains.lower()
+        rules = [rule for rule in rules if needle in rule.name.lower()]
+    return ApiDataEnvelope(
+        data={
+            "count": len(rules),
+            "rules": [rule.model_dump(mode="json") for rule in rules],
+        }
+    )
+
+
 @router.get("/patch-impact/drafts", response_model=ApiDataEnvelope)
 def get_patch_impact_drafts(year: int | None = None, pending_only: bool = False) -> ApiDataEnvelope:
     drafts = (

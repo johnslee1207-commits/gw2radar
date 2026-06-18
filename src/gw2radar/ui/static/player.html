@@ -413,6 +413,20 @@
               </div>
             </article>
           </div>
+          <article class="panel wide build-evidence-panel">
+            <h3>Upgrade evidence rules</h3>
+            <div class="three-column compact-fields">
+              <label>Reviewer <input id="build-rule-reviewer" value="player_ui_reviewer" /></label>
+              <label>Rule <select id="build-upgrade-rule-id"><option value="">No imported rule selected</option></select></label>
+              <div class="rule-pack-status" id="build-rule-pack-status">No upgrade rule pack loaded.</div>
+            </div>
+            <div class="button-grid">
+              <button data-action="previewBuildUpgradeRules">Preview upgrade pack</button>
+              <button data-action="importBuildUpgradeRules">Import disabled rules</button>
+              <button data-action="listBuildUpgradeRules">List upgrade rules</button>
+              <button data-action="enableBuildUpgradeRule">Enable selected rule</button>
+            </div>
+          </article>
           <div class="result-summary" id="build-summary">No build fit summary yet.</div>
           <pre id="build-output" class="json-output tall" aria-live="polite">Build fit output appears here.</pre>
         </section>

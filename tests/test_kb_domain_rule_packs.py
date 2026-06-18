@@ -108,3 +108,36 @@ def test_domain_rule_pack_api_preview_and_import() -> None:
         assert all(rule["enabled"] is False for rule in imported.json()["data"]["result"]["rules"])
     finally:
         close_database()
+
+
+def test_kb_rules_api_filters_and_enables_build_upgrade_rules() -> None:
+    temp_dir = Path(".test_tmp") / f"kb-rules-api-{uuid4().hex}"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        configure_database(f"sqlite:///{temp_dir / 'kb.db'}")
+        init_db()
+        client = TestClient(app)
+
+        imported = client.post("/api/v1/kb/rule-packs/build_upgrade_effects/import", json={"confirmed": True})
+        listed = client.get("/api/v1/kb/rules?domain=build&name_contains=Build%20upgrade")
+        first_rule_id = listed.json()["data"]["rules"][0]["rule_id"]
+        blocked = client.post(
+            f"/api/v1/kb/rules/{first_rule_id}/enable",
+            json={"confirmed_reviewed": False, "reviewer": "test"},
+        )
+        enabled = client.post(
+            f"/api/v1/kb/rules/{first_rule_id}/enable",
+            json={"confirmed_reviewed": True, "reviewer": "test"},
+        )
+        enabled_list = client.get("/api/v1/kb/rules?domain=build&enabled=true&name_contains=Build%20upgrade")
+
+        assert imported.status_code == 200
+        assert listed.status_code == 200
+        assert listed.json()["data"]["count"] == 5
+        assert all(rule["enabled"] is False for rule in listed.json()["data"]["rules"])
+        assert blocked.status_code == 400
+        assert enabled.status_code == 200
+        assert enabled.json()["data"]["rule"]["enabled"] is True
+        assert enabled_list.json()["data"]["count"] == 1
+    finally:
+        close_database()

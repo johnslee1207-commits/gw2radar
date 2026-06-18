@@ -21,6 +21,10 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert "Build Fit Advisor" in response.text
     assert "Character snapshot" in response.text
     assert "Load character snapshots" in response.text
+    assert "Upgrade evidence rules" in response.text
+    assert "Preview upgrade pack" in response.text
+    assert "Import disabled rules" in response.text
+    assert "Enable selected rule" in response.text
     assert "Data Freshness" in response.text
     assert "Privacy & Safety" in response.text
     assert "No gameplay automation" in response.text
@@ -47,6 +51,10 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "/api/v1/legendary/recompute" in js.text
     assert "/api/v1/builds/transition-plan" in js.text
     assert "/api/v1/builds/character-snapshots" in js.text
+    assert "/api/v1/kb/rule-packs/build_upgrade_effects" in js.text
+    assert "/api/v1/kb/rules?domain=build&name_contains=Build%20upgrade" in js.text
+    assert "enableBuildUpgradeRule" in js.text
+    assert "confirmed_reviewed" in js.text
     assert "applyAccountGearSnapshot" in js.text
     assert "/account/api-key" in js.text
     assert "/account/api-key/permissions" in js.text
@@ -86,6 +94,8 @@ def test_player_ui_styles_cover_workflow_and_summaries() -> None:
     assert ".readiness-grid" in css.text
     assert ".score-card" in css.text
     assert ".gear-summary" in css.text
+    assert ".rule-pack-status" in css.text
+    assert ".compact-fields" in css.text
     assert ".goal-choice-grid" in css.text
     assert ".permission-grid" in css.text
     assert ".permission-status-grid" in css.text
@@ -119,4 +129,6 @@ def test_player_ui_docs_cover_required_flows() -> None:
     assert "gw2radar.player.activeBuildId" in combined
     assert "PlayerIntent" in combined
     assert "FreshnessSignal" in combined
+    assert "build_upgrade_effects" in combined
+    assert "reviewed and enabled KB rules" in combined
     assert "Delete all private data" in combined

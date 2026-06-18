@@ -14,7 +14,10 @@ A player wants to know whether their account can play a build, what gear is reus
 6. Run fit score.
 7. Run transition plan.
 8. Check patch freshness.
-9. Generate build report.
+9. Preview and import `build_upgrade_effects` when reviewed KB evidence should explain upgrade families.
+10. Enable selected reviewed upgrade rules.
+11. Re-run fit score and confirm reviewed KB evidence appears only for enabled rules.
+12. Generate build report.
 
 ## Output Expectations
 
@@ -27,4 +30,5 @@ A player wants to know whether their account can play a build, what gear is reus
 - Official upgrade metadata should classify runes and sigils as separate advisory gear entries; relics should retain a relic category when the API exposes the slot/type.
 - Rune, sigil, and relic entries should receive conservative effect-family evaluation such as power damage, condition damage, boon support, healing support, defensive survival, or unknown. These labels are manual-review hints, not meta guarantees.
 - Upgrade effect labels should cite reviewed and enabled KB rules when matching evidence exists. If no reviewed evidence matches, the output must explicitly remain heuristic instead of inventing a source.
+- The upgrade rule pack UI must keep imported rules disabled until a reviewer enables a selected rule.
 - Manual sample character snapshots must keep assumptions visible and must not be represented as synced ArenaNet equipment.

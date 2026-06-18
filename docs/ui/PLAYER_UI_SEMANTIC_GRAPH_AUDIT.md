@@ -25,6 +25,8 @@ graph TD
   SyncedCharacterGear --> PublicItemMetadata["Public Item/Stat Metadata"]
   PublicItemMetadata --> GearSemanticCategory["Rune/Sigil/Relic Category"]
   GearSemanticCategory --> UpgradeEffectEvaluation["Upgrade Effect Evaluation"]
+  BuildFit --> BuildUpgradeRulePack["build_upgrade_effects Rule Pack"]
+  BuildUpgradeRulePack --> KBRule
   KBRule["Reviewed Enabled KB Rule"] --> UpgradeEffectEvaluation
   Dashboard --> Freshness["Data Freshness"]
   Returner --> ReportCenter["Reports"]
@@ -60,6 +62,7 @@ graph TD
 | SyncedCharacterGear | Official API-derived character equipment snapshot | Account sync private character detail bridge | Implemented |
 | PublicItemMetadata | Public item and stat-name enrichment for synced equipment | `/v2/items`, `/v2/itemstats` best-effort batch metadata | Implemented |
 | GearSemanticCategory | Rune, sigil, relic, armor, and weapon category labels for Build Fit gear | Official item metadata, equipment upgrades, and Build Fit account gear snapshots | Implemented |
+| BuildUpgradeRulePack | Build Fit upgrade rule pack preview, import, list, and enable workflow | `/api/v1/kb/rule-packs/build_upgrade_effects`, `/api/v1/kb/rules` | Implemented |
 | UpgradeEffectEvaluation | Conservative rune, sigil, and relic effect-family review hints with reviewed KB evidence when available | Build Fit result `upgrade_effects`, `KnowledgeRule`, and Build Fit report Upgrade Effects section | Implemented |
 | ReportArtifact | Reports view | `/api/v1/reports/*`, local report history | Implemented |
 | FreshnessSignal | Freshness view, dashboard card, and source confidence annotations | `/api/v1/player/freshness-annotations` plus report artifacts | Implemented |
@@ -92,6 +95,7 @@ graph TD
 | P3 Transition cost | Transition plan output | Complete |
 | P3 Budget alternative | Transition plan output | Complete |
 | P3 Patch freshness warning | Patch freshness action | Complete |
+| P3 Upgrade evidence rule pack | Build Fit rule pack preview, disabled import, rule list, and enable gate | Complete |
 | P4 Free preview | Returner report preview | Complete |
 | P4 Full report generation | Returner, Legendary, and Build full report generation through entitlement-gated artifacts | Complete |
 | P4 Previous reports | Local report history | Complete |
@@ -105,8 +109,8 @@ graph TD
 
 ## Maturity Summary
 
-- Complete: 32 guide items.
+- Complete: 33 guide items.
 - Partial: 0 guide items.
 - Missing: 0 guide items.
 
-All player-guide checklist items are now implemented at MVP depth. Synced character equipment now bridges official character detail into Build Fit, enriches item/stat names through best-effort public item metadata, classifies armor, weapons, runes, sigils, and relics, and adds conservative upgrade effect-family review hints. Upgrade effect explanations now prefer reviewed and enabled KB rule evidence and fall back to explicit heuristic labeling when evidence is absent, so they do not invent source authority. Remaining post-MVP depth improvements are qualitative rather than checklist gaps: more domain-specific requirements for every seeded legendary goal, richer effect parsing from official descriptions and reviewed rule packs, and front-end polish for long-running sync worker timelines.
+All player-guide checklist items are now implemented at MVP depth. Synced character equipment now bridges official character detail into Build Fit, enriches item/stat names through best-effort public item metadata, classifies armor, weapons, runes, sigils, and relics, and adds conservative upgrade effect-family review hints. The Build Fit UI now exposes the `build_upgrade_effects` rule pack flow so reviewed rules can be previewed, imported as disabled, listed, and enabled through a reviewer gate before they become evidence. Upgrade effect explanations prefer reviewed and enabled KB rule evidence and fall back to explicit heuristic labeling when evidence is absent, so they do not invent source authority. Remaining post-MVP depth improvements are qualitative rather than checklist gaps: more domain-specific requirements for every seeded legendary goal, richer effect parsing from official descriptions and reviewed rule packs, and front-end polish for long-running sync worker timelines.
