@@ -104,6 +104,9 @@ function summarizeResult(target, payload) {
     return "Connection workflow updated. Run sync before trusting private account state.";
   }
   if (target === "returner") {
+    if (data?.readiness) {
+      return `Returner readiness is ${data.readiness.overall_score}/100 (${data.readiness.overall_status}). Review low dimensions before costly goals.`;
+    }
     if (Array.isArray(payload)) {
       return `${payload.length} goals loaded. Pick one goal before generating a short action plan.`;
     }
@@ -312,6 +315,30 @@ function accountGearPayload() {
   };
 }
 
+function updateReturnerScores(report) {
+  const idMap = {
+    travel: "travel",
+    combat: "combat",
+    progression: "progression",
+    legendary: "legendary",
+    group_pve: "group-pve",
+  };
+  for (const dimension of report.dimensions || []) {
+    const uiId = idMap[dimension.dimension_id];
+    if (!uiId) {
+      continue;
+    }
+    const score = document.querySelector(`#score-${uiId}`);
+    const status = document.querySelector(`#status-${uiId}`);
+    if (score) {
+      score.textContent = String(dimension.score);
+    }
+    if (status) {
+      status.textContent = dimension.status;
+    }
+  }
+}
+
 function activeBuildId() {
   return document.querySelector("#active-build-id").value || state.activeBuildId;
 }
@@ -394,6 +421,15 @@ const actions = {
     }),
   loadMock: () => run("connect", () => fetchJson("/mock/load", { method: "POST" })),
   loadGoals: () => run("returner", () => fetchJson("/goals")),
+  returnerReadiness: () =>
+    run("returner", async () => {
+      const payload = await fetchJson("/api/v1/returner/readiness?goal_id=gw2:goal:aurora");
+      updateReturnerScores(payload?.data?.readiness || {});
+      markStep("plan", "Returner readiness scored");
+      return payload;
+    }),
+  returnerReadinessExport: () =>
+    run("returner", () => fetch("/api/v1/returner/readiness/export?goal_id=gw2:goal:aurora").then((r) => r.text())),
   goalGap: () => run("returner", () => fetchJson("/goals/gw2:goal:aurora/gap")),
   generateActions: () =>
     run("returner", async () => {

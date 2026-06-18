@@ -240,7 +240,38 @@
               <p class="eyebrow">Opportunity 1</p>
               <h2 id="returner-title">Returner Diagnosis</h2>
             </div>
-            <button data-action="previewReturnerReport">Generate preview</button>
+            <div class="button-row">
+              <button data-action="returnerReadiness">Readiness score</button>
+              <button data-action="returnerReadinessExport">Export readiness</button>
+              <button data-action="previewReturnerReport">Generate preview</button>
+            </div>
+          </div>
+          <div class="readiness-grid" aria-label="Returner readiness scores">
+            <article class="score-card">
+              <span>Travel</span>
+              <strong id="score-travel">--</strong>
+              <em id="status-travel">Not checked</em>
+            </article>
+            <article class="score-card">
+              <span>Combat</span>
+              <strong id="score-combat">--</strong>
+              <em id="status-combat">Not checked</em>
+            </article>
+            <article class="score-card">
+              <span>Progression</span>
+              <strong id="score-progression">--</strong>
+              <em id="status-progression">Not checked</em>
+            </article>
+            <article class="score-card">
+              <span>Legendary</span>
+              <strong id="score-legendary">--</strong>
+              <em id="status-legendary">Not checked</em>
+            </article>
+            <article class="score-card">
+              <span>Group PvE</span>
+              <strong id="score-group-pve">--</strong>
+              <em id="status-group-pve">Not checked</em>
+            </article>
           </div>
           <div class="three-column">
             <article class="panel">

@@ -16,6 +16,7 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert "GW2Radar Player Dashboard" in response.text
     assert "Welcome to GW2Radar" in response.text
     assert "Returner Diagnosis" in response.text
+    assert "Readiness score" in response.text
     assert "Legendary Planner Pro" in response.text
     assert "Build Fit Advisor" in response.text
     assert "Data Freshness" in response.text
@@ -45,6 +46,8 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "gw2radar.player.reportHistory" in js.text
     assert "/api/v1/security/private-data" in js.text
     assert "refreshFreshness" in js.text
+    assert "/api/v1/returner/readiness" in js.text
+    assert "updateReturnerScores" in js.text
 
 
 def test_player_ui_styles_cover_workflow_and_summaries() -> None:
@@ -54,6 +57,8 @@ def test_player_ui_styles_cover_workflow_and_summaries() -> None:
     assert ".workflow-rail" in css.text
     assert ".workflow-step.ready" in css.text
     assert ".result-summary" in css.text
+    assert ".readiness-grid" in css.text
+    assert ".score-card" in css.text
     assert ".goal-choice-grid" in css.text
     assert ".permission-grid" in css.text
     assert ".sync-checklist" in css.text

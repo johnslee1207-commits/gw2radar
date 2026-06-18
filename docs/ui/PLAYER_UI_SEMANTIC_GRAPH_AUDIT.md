@@ -14,6 +14,7 @@ graph TD
   Connect --> AccountSync["Account Sync"]
   AccountSync --> Dashboard["Dashboard"]
   Dashboard --> Returner["Returner Diagnosis"]
+  Returner --> ReturnerReadiness["Returner Readiness Score"]
   Dashboard --> Legendary["Legendary Planner Pro"]
   Dashboard --> BuildFit["Build Fit Advisor"]
   Dashboard --> Freshness["Data Freshness"]
@@ -37,6 +38,7 @@ graph TD
 | AccountSync | Sync controls and checklist | `/api/v1/account/sync` | Implemented |
 | DashboardAction | Today actions and opportunity cards | Static UI plus existing goal/build/market APIs | Partial |
 | ReturnerDiagnosis | Returner view | `/goals`, `/goals/{goal_id}/gap`, actions, preview | Implemented |
+| ReturnerReadiness | Returner score cards | `/api/v1/returner/readiness` | Implemented |
 | LegendaryPlanning | Legendary view | `/api/v1/legendary/*`, `/api/v1/market/*` | Implemented |
 | BuildFit | Build Fit view | `/api/v1/builds/*` | Implemented |
 | ReportArtifact | Reports view | `/api/v1/reports/*`, local report history | Implemented |
@@ -53,7 +55,7 @@ graph TD
 | P0 Account sync progress | Sync controls and progress checklist | Partial; checklist is state-level, not per-endpoint progress |
 | P0 Dashboard | Account status, actions, opportunity cards, do-not-sell warning | Complete |
 | P1 Returner onboarding questions | Last played and interest controls | Complete |
-| P1 Account readiness score | Not yet a dedicated score model | Missing |
+| P1 Account readiness score | Travel, combat, progression, legendary, and group PvE score cards | Complete |
 | P1 What to do first | Today actions and generated action plan | Partial |
 | P1 7-day recovery plan | `7-day action plan` action | Complete |
 | P1 Report preview | `Generate preview` action | Complete |
@@ -83,8 +85,8 @@ graph TD
 
 ## Maturity Summary
 
-- Complete: 23 guide items.
+- Complete: 24 guide items.
 - Partial: 8 guide items.
-- Missing: 1 guide item.
+- Missing: 0 guide items.
 
-The largest remaining semantic gap is a dedicated Returner Readiness Score model that separates travel, combat, progression, legendary, and group readiness. The UI now has the right place for it, but the backend does not yet expose a first-class score object.
+The largest remaining semantic gaps are now depth gaps rather than missing workflow nodes: granular permission inspection, per-endpoint sync progress, broader legendary goal selection, and richer character-level Build Fit selection.

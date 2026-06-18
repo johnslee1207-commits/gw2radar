@@ -290,7 +290,8 @@ label + label {
 
 .dashboard-grid,
 .two-column,
-.three-column {
+.three-column,
+.readiness-grid {
   display: grid;
   gap: 16px;
 }
@@ -307,13 +308,40 @@ label + label {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.readiness-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin-bottom: 16px;
+}
+
 .panel,
-.opportunity-card {
+.opportunity-card,
+.score-card {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);
   padding: 18px;
   box-shadow: var(--shadow);
+}
+
+.score-card {
+  display: grid;
+  gap: 4px;
+  min-height: 112px;
+}
+
+.score-card span {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.score-card strong {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.score-card em {
+  color: var(--teal);
+  font-style: normal;
 }
 
 .panel h3,
@@ -548,7 +576,8 @@ label + label {
   .dashboard-grid,
   .two-column,
   .three-column,
-  .workflow-rail {
+  .workflow-rail,
+  .readiness-grid {
     grid-template-columns: 1fr;
   }
 

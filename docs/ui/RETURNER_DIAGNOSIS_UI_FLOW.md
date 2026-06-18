@@ -10,9 +10,10 @@ A returning player wants to know what to do first without relearning every syste
 2. Open `Returner`.
 3. Select last-played range and main interest.
 4. Load current goals.
-5. Inspect Aurora gap.
-6. Generate a 7-day action plan.
-7. Open KB-backed report preview when evidence context is needed.
+5. Run readiness score.
+6. Inspect Aurora gap.
+7. Generate a 7-day action plan.
+8. Open KB-backed report preview when evidence context is needed.
 
 ## Output Expectations
 
@@ -20,3 +21,5 @@ A returning player wants to know what to do first without relearning every syste
 - Assumptions remain visible.
 - Recommendations are manual actions only.
 - Stale or low-evidence guidance should be delayed rather than presented as certain.
+- Readiness score separates travel, combat, progression, legendary, and group PvE.
+- Missing account facts are shown as assumptions instead of invented character or unlock facts.
