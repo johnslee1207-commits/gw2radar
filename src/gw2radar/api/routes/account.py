@@ -14,6 +14,7 @@ from gw2radar.ingest.gw2_api_gateway import Gw2ApiGateway
 from gw2radar.ontology.graph_layers import GraphLayer
 from gw2radar.security.api_key_permissions import build_missing_key_permission_report, build_permission_report
 from gw2radar.security.api_key_store import EncryptedApiKeyStore
+from gw2radar.support.account_debug_bundle_review import review_account_debug_bundle
 
 router = APIRouter(prefix="/account", tags=["account"])
 permission_gateway_factory = Gw2ApiGateway
@@ -89,6 +90,11 @@ def post_account_debug_bundle(request: DebugBundleRequest) -> dict:
         }
 
     return _with_key_store(build_bundle)
+
+
+@router.post("/debug-bundle/review")
+def post_account_debug_bundle_review(bundle: dict) -> dict:
+    return review_account_debug_bundle(bundle).model_dump(mode="json")
 
 
 @router.put("/api-key")

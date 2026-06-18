@@ -61,6 +61,17 @@ bundle includes key status, missing permissions, sync status, diagnostic checks,
 snapshot counts, and lightweight UI state. It excludes the raw API key, local
 build ids, private inventory/material/bank/wallet payloads, character equipment
 payloads, and report artifact contents.
+Support or development reviewers can inspect an exported bundle locally with:
+
+```bash
+python harness/run_account_debug_bundle_review.py path/to/account_debug_bundle.json
+```
+
+The review classifies common "saved but no result" cases: missing key, missing
+permissions, delayed sync, sync not queued, private snapshot not written, synced
+character snapshot missing, Build Fit snapshot not loaded, or backend ready while
+the player UI flow is still incomplete. It also rejects bundles that appear to
+contain sensitive fields outside the privacy-safe support boundary.
 
 ## First Use
 
@@ -73,8 +84,9 @@ payloads, and report artifact contents.
 7. Run connection diagnostic when the key appears stored but account-aware output is missing.
 8. Queue account sync only after the permission grid is ready or you accept limited mode.
 9. Drain one sync job in local development.
-10. Open `Freshness`.
-11. Return to `Dashboard` and refresh status.
+10. Export a debug bundle and run the support review harness if no expected result appears after diagnostic PASS.
+11. Open `Freshness`.
+12. Return to `Dashboard` and refresh status.
 
 The API key is cleared from the browser input after submission. The backend status endpoint never returns the raw key.
 The permission inspection endpoint returns only token metadata, granted permissions, missing permissions, feature impact, and safety boundaries. It never returns the raw key.

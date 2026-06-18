@@ -39,6 +39,25 @@ inspection, account sync enqueue/status/drain-one, private-layer graph writes,
 synced character snapshot exposure, Build Fit account-gear conversion, and raw
 key non-leakage.
 
+## Account Debug Bundle Review Command
+
+```bash
+python harness/run_account_debug_bundle_review.py
+```
+
+Without arguments, this harness verifies the local support parser for privacy-safe
+debug bundles. It detects missing permissions, delayed sync, incomplete player UI
+flow after a ready backend, privacy-boundary violations, and a fully ready flow.
+
+To review a player-exported bundle:
+
+```bash
+python harness/run_account_debug_bundle_review.py path/to/account_debug_bundle.json
+```
+
+The review output is Markdown and must not contain raw API keys, private account
+payloads, local build ids, or report artifact contents.
+
 ## Smoke Harness Steps
 
 1. Load sample intake JSON.
@@ -79,6 +98,15 @@ key non-leakage.
 8. Convert the synced character snapshot into Build Fit account gear.
 9. Confirm armor, weapon, rune, and sigil categories are present.
 10. Confirm the raw API key never appears in responses.
+
+## Account Debug Bundle Review Steps
+
+1. Load a privacy-safe account debug bundle JSON file.
+2. Validate the bundle schema.
+3. Check for sensitive field names that violate the support boundary.
+4. Classify missing key, missing permissions, delayed sync, missing queue, missing private snapshot, missing character snapshot, Build Fit snapshot-load gaps, or incomplete UI flow.
+5. Render a Markdown support review with evidence paths and recommended actions.
+6. Exit non-zero only when the bundle cannot be read or the deterministic harness checks fail.
 
 ## Required Checks
 
