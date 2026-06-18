@@ -30,7 +30,8 @@ body {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
@@ -56,7 +57,8 @@ select:focus-visible {
 }
 
 input,
-select {
+select,
+textarea {
   width: 100%;
   min-height: 38px;
   margin-top: 5px;
@@ -65,6 +67,12 @@ select {
   background: #fff;
   color: var(--ink);
   padding: 7px 9px;
+}
+
+textarea {
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  line-height: 1.45;
 }
 
 label {
@@ -733,6 +741,60 @@ label + label {
   min-height: 310px;
 }
 
+.support-shell {
+  min-height: 100vh;
+}
+
+.support-workspace {
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.support-grid {
+  grid-template-columns: minmax(320px, 1.1fr) minmax(320px, 0.9fr);
+}
+
+.support-finding-list {
+  display: grid;
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.support-finding {
+  display: grid;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-left-width: 5px;
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 12px;
+}
+
+.support-finding p {
+  margin: 0;
+}
+
+.support-finding code {
+  overflow-wrap: anywhere;
+  color: var(--muted);
+}
+
+.support-finding.critical {
+  border-left-color: var(--red);
+}
+
+.support-finding.warning {
+  border-left-color: var(--amber);
+}
+
+.support-finding.info {
+  border-left-color: var(--teal);
+}
+
+.support-boundary ul {
+  margin-bottom: 0;
+}
+
 @media (max-width: 1020px) {
   .app-shell {
     grid-template-columns: 1fr;
@@ -750,6 +812,7 @@ label + label {
   .dashboard-grid,
   .two-column,
   .three-column,
+  .support-grid,
   .workflow-rail,
   .readiness-grid {
     grid-template-columns: 1fr;

@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>GW2Radar Support Review</title>
+    <link rel="stylesheet" href="/player-ui/styles.css" />
+  </head>
+  <body>
+    <div class="support-shell">
+      <main class="workspace support-workspace">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Privacy-safe operations</p>
+            <h1>Debug Bundle Support Review</h1>
+          </div>
+          <div class="status-strip" aria-label="Support review boundary">
+            <span class="status-pill good">No raw API key required</span>
+            <span class="status-pill muted">Local JSON review</span>
+          </div>
+        </header>
+
+        <section class="dashboard-grid support-grid" aria-label="Support review workflow">
+          <article class="panel priority-panel">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Input</p>
+                <h2>Load Debug Bundle</h2>
+              </div>
+              <button id="review-button" type="button">Review bundle</button>
+            </div>
+            <label>
+              Upload exported JSON
+              <input id="bundle-file" type="file" accept="application/json,.json" />
+            </label>
+            <label>
+              Or paste bundle JSON
+              <textarea id="bundle-json" rows="18" spellcheck="false" placeholder='{"schema_version":"gw2radar.account_debug_bundle.v1"}'></textarea>
+            </label>
+            <div class="button-row">
+              <button id="load-sample-button" type="button">Load sample</button>
+              <button id="clear-button" type="button">Clear</button>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Result</p>
+                <h2>Support Decision</h2>
+              </div>
+              <button id="copy-template-button" type="button">Copy reply</button>
+            </div>
+            <div id="support-summary" class="result-summary">No bundle reviewed yet.</div>
+            <div id="finding-list" class="support-finding-list" aria-live="polite"></div>
+            <label>
+              Player reply template
+              <textarea id="reply-template" rows="8" readonly></textarea>
+            </label>
+          </article>
+        </section>
+
+        <section class="panel support-boundary" aria-label="Privacy boundary">
+          <p class="eyebrow">Boundary</p>
+          <h2>Do Not Request Secrets</h2>
+          <ul>
+            <li>Do not ask for a raw GW2 API key.</li>
+            <li>Do not request private inventory, bank, wallet, material, achievement, or equipment payloads.</li>
+            <li>Use diagnostic status, missing permissions, sync progress, snapshot counts, and UI state flags only.</li>
+          </ul>
+        </section>
+
+        <section class="panel" aria-label="Raw review JSON">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Evidence</p>
+              <h2>Review JSON</h2>
+            </div>
+          </div>
+          <pre id="support-output" class="json-output">{}</pre>
+        </section>
+      </main>
+    </div>
+    <script src="/player-ui/support.js"></script>
+  </body>
+</html>

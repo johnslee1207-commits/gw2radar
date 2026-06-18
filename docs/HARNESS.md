@@ -58,6 +58,16 @@ python harness/run_account_debug_bundle_review.py path/to/account_debug_bundle.j
 The review output is Markdown and must not contain raw API keys, private account
 payloads, local build ids, or report artifact contents.
 
+## Support Review UI Smoke Command
+
+```bash
+python harness/run_support_review_ui_smoke.py
+```
+
+This smoke path verifies the `/support` operator page, static support script,
+support-specific styles, the review API contract, and visible no-secret boundary
+copy.
+
 ## Smoke Harness Steps
 
 1. Load sample intake JSON.
@@ -107,6 +117,14 @@ payloads, local build ids, or report artifact contents.
 4. Classify missing key, missing permissions, delayed sync, missing queue, missing private snapshot, missing character snapshot, Build Fit snapshot-load gaps, or incomplete UI flow.
 5. Render a Markdown support review with evidence paths and recommended actions.
 6. Exit non-zero only when the bundle cannot be read or the deterministic harness checks fail.
+
+## Support Review UI Steps
+
+1. Serve `/support`.
+2. Serve `/player-ui/support.js` and shared styles.
+3. Submit a privacy-safe sample bundle to `/account/debug-bundle/review`.
+4. Confirm the UI-facing contract returns a support status and finding.
+5. Confirm the page tells reviewers not to request raw API keys or private account payloads.
 
 ## Required Checks
 

@@ -67,11 +67,19 @@ Support or development reviewers can inspect an exported bundle locally with:
 python harness/run_account_debug_bundle_review.py path/to/account_debug_bundle.json
 ```
 
+They can also open the local support workbench after starting the API server:
+
+```text
+http://127.0.0.1:8000/support
+```
+
 The review classifies common "saved but no result" cases: missing key, missing
 permissions, delayed sync, sync not queued, private snapshot not written, synced
 character snapshot missing, Build Fit snapshot not loaded, or backend ready while
-the player UI flow is still incomplete. It also rejects bundles that appear to
-contain sensitive fields outside the privacy-safe support boundary.
+the player UI flow is still incomplete. The support page renders the same result,
+evidence paths, and a reply template that preserves the no-secret boundary. It
+also rejects bundles that appear to contain sensitive fields outside the
+privacy-safe support boundary.
 
 ## First Use
 

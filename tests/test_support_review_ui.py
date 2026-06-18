@@ -1,0 +1,70 @@
+from fastapi.testclient import TestClient
+
+from gw2radar.api.main import app
+
+
+client = TestClient(app)
+
+
+def test_support_review_page_serves_operator_workbench() -> None:
+    response = client.get("/support")
+
+    assert response.status_code == 200
+    assert "text/html" in response.headers["content-type"]
+    assert "Debug Bundle Support Review" in response.text
+    assert "Load Debug Bundle" in response.text
+    assert "Support Decision" in response.text
+    assert "Player reply template" in response.text
+    assert "Do Not Request Secrets" in response.text
+    assert "Do not ask for a raw GW2 API key" in response.text
+    assert "/player-ui/support.js" in response.text
+
+
+def test_support_review_static_assets_include_review_workflow() -> None:
+    js = client.get("/player-ui/support.js")
+    css = client.get("/player-ui/styles.css")
+
+    assert js.status_code == 200
+    assert "/account/debug-bundle/review" in js.text
+    assert "buildReplyTemplate" in js.text
+    assert "privacy-boundary violations" not in js.text
+    assert "Please do not send your raw GW2 API key" in js.text
+    assert "navigator.clipboard.writeText" in js.text
+    assert css.status_code == 200
+    assert ".support-grid" in css.text
+    assert ".support-finding.critical" in css.text
+    assert ".support-finding.warning" in css.text
+    assert ".support-finding.info" in css.text
+
+
+def test_support_review_api_contract_matches_ui_sample() -> None:
+    response = client.post("/account/debug-bundle/review", json=_ui_sample_bundle())
+    payload = response.json()
+
+    assert response.status_code == 200
+    assert payload["schema_version"] == "gw2radar.account_debug_bundle_review.v1"
+    assert payload["overall_status"] == "frontend_flow_incomplete"
+    assert payload["findings"][0]["finding_id"] == "frontend_flow_incomplete"
+    assert "Build Fit" in payload["findings"][0]["recommended_action"]
+
+
+def _ui_sample_bundle() -> dict:
+    return {
+        "schema_version": "gw2radar.account_debug_bundle.v1",
+        "client_state": {"active_view": "connect", "active_build_id_present": False},
+        "key_status": {"is_configured": True},
+        "permission_summary": {"missing_required_permissions": []},
+        "sync_summary": {"counts": {"retry_scheduled": 0}, "endpoint_progress": []},
+        "diagnostic_summary": {
+            "summary_status": "ready",
+            "checks": [
+                {"check_id": "api_key_stored", "status": "pass"},
+                {"check_id": "permissions_ready", "status": "pass"},
+                {"check_id": "sync_job_visible", "status": "pass"},
+                {"check_id": "private_snapshot_written", "status": "pass"},
+                {"check_id": "synced_character_snapshot", "status": "pass"},
+                {"check_id": "build_fit_bridge_ready", "status": "pass"},
+            ],
+        },
+        "snapshot_summary": {"synced_character_snapshot_count": 1, "synced_gear_count": 4},
+    }
