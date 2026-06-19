@@ -12,6 +12,7 @@ from gw2radar.commercial.achievement_route import (
     OfficialAchievementFetchPreviewRequest,
     OfficialAchievementRoutePreviewRequest,
     build_achievement_route_release_readiness,
+    build_achievement_route_source_quality_review,
     build_official_achievement_fetch_preview,
     build_achievement_route_plan,
     build_official_achievement_route_preview,
@@ -25,6 +26,8 @@ from gw2radar.commercial.achievement_route import (
     render_achievement_route_promotion_audit_markdown,
     render_achievement_route_release_readiness_csv,
     render_achievement_route_release_readiness_markdown,
+    render_achievement_route_source_quality_csv,
+    render_achievement_route_source_quality_markdown,
     render_official_achievement_fetch_preview_markdown,
     render_official_achievement_route_preview_markdown,
 )
@@ -184,6 +187,24 @@ def get_achievement_route_release_readiness(
             media_type="text/csv; charset=utf-8",
         )
     return ApiDataEnvelope(data={"readiness": readiness.model_dump(mode="json")})
+
+
+@router.get("/source-quality", response_model=None)
+def get_achievement_route_source_quality(
+    format: str = Query(default="json", pattern="^(json|markdown|csv)$"),
+):
+    review = build_achievement_route_source_quality_review(source_root, audit_root)
+    if format == "markdown":
+        return Response(
+            content=render_achievement_route_source_quality_markdown(review),
+            media_type="text/markdown; charset=utf-8",
+        )
+    if format == "csv":
+        return Response(
+            content=render_achievement_route_source_quality_csv(review),
+            media_type="text/csv; charset=utf-8",
+        )
+    return ApiDataEnvelope(data={"quality": review.model_dump(mode="json")})
 
 
 @router.post("/plan/export")

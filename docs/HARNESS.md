@@ -64,6 +64,9 @@ It also verifies the P8 release readiness gate:
 reviewed sources, promotion audit coverage, missing official achievement ids,
 planner ingestion evidence, blockers, warnings, next steps, and CSV/Markdown
 exports are aggregated into a release readiness summary.
+It also verifies the P9 source quality review:
+reviewed route sources and steps receive evidence completeness, map inference
+risk, time-gate risk, missing-id remediation, score, Markdown, and CSV output.
 
 ## Account Connection Diagnostic Command
 
@@ -158,7 +161,9 @@ readiness rollup, and visible no-secret boundary copy.
 17. Export the promotion audit as Markdown and CSV.
 18. Load release readiness and confirm reviewed steps plus promotion audit coverage are counted.
 19. Export release readiness as Markdown and CSV.
-20. Confirm the route planner ingests the promoted reviewed source.
+20. Load source quality and confirm missing official ids plus route review risks are flagged.
+21. Export source quality as Markdown and CSV.
+22. Confirm the route planner ingests the promoted reviewed source.
 
 ## Account Connection Diagnostic Steps
 

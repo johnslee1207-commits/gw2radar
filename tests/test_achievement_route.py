@@ -9,9 +9,12 @@ from gw2radar.api.routes import achievement_routes as achievement_route_routes
 from gw2radar.commercial.achievement_route import (
     AchievementRouteReviewedPromotionRequest,
     AchievementRouteRequest,
+    AchievementRouteSourceManifest,
+    AchievementRouteStep,
     OfficialAchievementFetchPreviewRequest,
     OfficialAchievementRoutePreviewRequest,
     build_achievement_route_release_readiness,
+    build_achievement_route_source_quality_review,
     build_official_achievement_fetch_preview,
     build_achievement_route_plan,
     build_official_achievement_route_preview,
@@ -23,6 +26,8 @@ from gw2radar.commercial.achievement_route import (
     render_achievement_route_promotion_audit_markdown,
     render_achievement_route_release_readiness_csv,
     render_achievement_route_release_readiness_markdown,
+    render_achievement_route_source_quality_csv,
+    render_achievement_route_source_quality_markdown,
     render_official_achievement_fetch_preview_markdown,
     render_achievement_route_csv,
     render_achievement_route_markdown,
@@ -186,6 +191,64 @@ def test_achievement_route_release_readiness_summarizes_sources_audit_and_missin
         rmtree(audit_root, ignore_errors=True)
 
 
+def test_achievement_route_source_quality_flags_evidence_map_gate_and_missing_id_risks() -> None:
+    temp_root = _temp_source_root("source-quality")
+    audit_root = _temp_source_root("source-quality-audit")
+    request = _official_fetch_request()
+    fetch_preview = build_official_achievement_fetch_preview(request, FetchPreviewGateway())
+    review = AchievementRouteReviewedPromotionRequest(
+        confirmed_reviewed=True,
+        reviewer="quality_operator",
+        reviewed_source_id="kb:achievement-routes:quality-official-fetch:v1",
+        review_notes=["Quality reviewer checked official ids."],
+    )
+
+    try:
+        promotion = promote_official_fetch_preview_to_reviewed_manifest(fetch_preview, review, temp_root)
+        record_achievement_route_promotion_audit(promotion, fetch_preview, review, audit_root)
+        low_quality = AchievementRouteSourceManifest(
+            source_id="kb:achievement-routes:quality-risk:v1",
+            title="Quality risk source",
+            source_status="reviewed",
+            reviewed_by="quality_operator",
+            reviewed_at="2026-06-19",
+            steps=[
+                AchievementRouteStep(
+                    step_id="quality-risk-unmapped-daily",
+                    title="Unmapped daily quality risk",
+                    step_type="achievement",
+                    map_name="Unmapped Achievement Review",
+                    region="Unknown",
+                    objective="Review a daily route candidate with missing evidence.",
+                    advances_goal_id="aurora_sample",
+                    time_gate="daily",
+                    estimated_minutes=10,
+                    official_achievement_id=404,
+                    assumptions=["Official achievement payload did not include an unambiguous map; review required."],
+                )
+            ],
+        )
+        (temp_root / "quality_risk.json").write_text(low_quality.model_dump_json(indent=2), encoding="utf-8")
+        quality = build_achievement_route_source_quality_review(temp_root, audit_root)
+        markdown = render_achievement_route_source_quality_markdown(quality)
+        csv_text = render_achievement_route_source_quality_csv(quality)
+        risk_step = next(item for item in quality.step_reviews if item.step_id == "quality-risk-unmapped-daily")
+
+        assert quality.schema_version == "gw2radar.achievement_route_source_quality.v1"
+        assert quality.maturity_label == "review_needed"
+        assert risk_step.evidence_complete is False
+        assert risk_step.map_inference_risk == "high"
+        assert risk_step.time_gate_risk == "medium"
+        assert risk_step.missing_official_id is True
+        assert "missing_official_achievement_id" in risk_step.review_flags
+        assert "Achievement Route Source Quality Review" in markdown
+        assert "step_id,source_id,quality_score" in csv_text
+        assert "secret-key" not in str(quality).lower()
+    finally:
+        rmtree(temp_root, ignore_errors=True)
+        rmtree(audit_root, ignore_errors=True)
+
+
 def test_achievement_route_groups_ready_blocked_and_time_gated_steps() -> None:
     plan = build_achievement_route_plan(
         AchievementRouteRequest(
@@ -338,6 +401,9 @@ def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
         readiness = client.get("/api/v1/achievement-routes/release-readiness")
         readiness_markdown = client.get("/api/v1/achievement-routes/release-readiness?format=markdown")
         readiness_csv = client.get("/api/v1/achievement-routes/release-readiness?format=csv")
+        quality = client.get("/api/v1/achievement-routes/source-quality")
+        quality_markdown = client.get("/api/v1/achievement-routes/source-quality?format=markdown")
+        quality_csv = client.get("/api/v1/achievement-routes/source-quality?format=csv")
 
         assert blocked.status_code == 400
         assert promoted.status_code == 200
@@ -359,6 +425,10 @@ def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
         assert readiness.json()["data"]["readiness"]["missing_achievement_ids"] == [404]
         assert "# Achievement Route Release Readiness" in readiness_markdown.text
         assert "ready,maturity_label,readiness_score" in readiness_csv.text
+        assert quality.status_code == 200
+        assert quality.json()["data"]["quality"]["source_reviews"][0]["source_id"] == "kb:achievement-routes:api-official-fetch:v1"
+        assert "# Achievement Route Source Quality Review" in quality_markdown.text
+        assert "step_id,source_id,quality_score" in quality_csv.text
     finally:
         achievement_route_routes.gateway_factory = original_factory
         achievement_route_routes.source_root = original_source_root

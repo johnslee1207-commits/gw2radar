@@ -238,6 +238,43 @@ class AchievementRouteReleaseReadiness(BaseModel):
     boundary: str = "Release readiness is an operator gate for manual planning content; it does not automate gameplay, trading, or account changes."
 
 
+class AchievementRouteStepQuality(BaseModel):
+    step_id: str
+    source_id: str
+    title: str
+    quality_score: float
+    evidence_complete: bool
+    map_inference_risk: Literal["low", "medium", "high"]
+    time_gate_risk: Literal["low", "medium", "high"]
+    missing_official_id: bool
+    review_flags: list[str] = Field(default_factory=list)
+    remediation: list[str] = Field(default_factory=list)
+
+
+class AchievementRouteSourceQuality(BaseModel):
+    source_id: str
+    title: str
+    reviewed_by: str | None = None
+    reviewed_at: str | None = None
+    step_count: int
+    average_quality_score: float
+    high_risk_step_count: int
+    evidence_gap_count: int
+    map_inference_risk_count: int
+    time_gate_risk_count: int
+
+
+class AchievementRouteSourceQualityReview(BaseModel):
+    schema_version: str = "gw2radar.achievement_route_source_quality.v1"
+    overall_score: float
+    maturity_label: Literal["blocked", "review_needed", "ready"]
+    source_reviews: list[AchievementRouteSourceQuality]
+    step_reviews: list[AchievementRouteStepQuality]
+    missing_achievement_ids: list[int]
+    remediation: list[str]
+    boundary: str = "Source quality review is advisory metadata for human route reviewers; it does not certify current in-game availability."
+
+
 class AchievementRouteGateway(Protocol):
     def get_batch(
         self,
@@ -1054,6 +1091,125 @@ def render_achievement_route_release_readiness_csv(readiness: AchievementRouteRe
     return buffer.getvalue()
 
 
+def build_achievement_route_source_quality_review(
+    source_root: Path = ACHIEVEMENT_ROUTE_SOURCE_ROOT,
+    audit_root: Path = ACHIEVEMENT_ROUTE_AUDIT_ROOT,
+) -> AchievementRouteSourceQualityReview:
+    manifests = [
+        manifest for manifest in load_achievement_route_source_manifests(source_root)
+        if isinstance(manifest, AchievementRouteSourceManifest) and manifest.source_status == "reviewed"
+    ]
+    audit_list = list_achievement_route_promotion_audits(audit_root, limit=200)
+    missing_ids = sorted({item for record in audit_list.records for item in record.missing_achievement_ids})
+    source_reviews: list[AchievementRouteSourceQuality] = []
+    step_reviews: list[AchievementRouteStepQuality] = []
+    remediation: list[str] = []
+
+    for manifest in manifests:
+        source_step_reviews = [_review_route_step_quality(step, manifest, missing_ids) for step in manifest.steps]
+        step_reviews.extend(source_step_reviews)
+        average = _average([item.quality_score for item in source_step_reviews])
+        high_risk_count = sum(1 for item in source_step_reviews if item.quality_score < 70)
+        evidence_gap_count = sum(1 for item in source_step_reviews if not item.evidence_complete)
+        map_risk_count = sum(1 for item in source_step_reviews if item.map_inference_risk != "low")
+        gate_risk_count = sum(1 for item in source_step_reviews if item.time_gate_risk != "low")
+        source_reviews.append(
+            AchievementRouteSourceQuality(
+                source_id=manifest.source_id,
+                title=manifest.title,
+                reviewed_by=manifest.reviewed_by,
+                reviewed_at=manifest.reviewed_at,
+                step_count=len(source_step_reviews),
+                average_quality_score=average,
+                high_risk_step_count=high_risk_count,
+                evidence_gap_count=evidence_gap_count,
+                map_inference_risk_count=map_risk_count,
+                time_gate_risk_count=gate_risk_count,
+            )
+        )
+    for step_review in step_reviews:
+        remediation.extend(step_review.remediation)
+    if missing_ids:
+        remediation.append("Resolve or remove missing official achievement ids before release: " + ", ".join(map(str, missing_ids)) + ".")
+    if not manifests:
+        remediation.append("Add at least one reviewed achievement route source manifest.")
+    overall = _average([item.quality_score for item in step_reviews])
+    if not step_reviews:
+        maturity = "blocked"
+    elif overall >= 85 and not missing_ids and not any(item.high_risk_step_count for item in source_reviews):
+        maturity = "ready"
+    else:
+        maturity = "review_needed"
+    return AchievementRouteSourceQualityReview(
+        overall_score=overall,
+        maturity_label=maturity,
+        source_reviews=source_reviews,
+        step_reviews=step_reviews,
+        missing_achievement_ids=missing_ids,
+        remediation=_unique(remediation),
+    )
+
+
+def render_achievement_route_source_quality_markdown(review: AchievementRouteSourceQualityReview) -> str:
+    lines = [
+        "# Achievement Route Source Quality Review",
+        "",
+        f"- Maturity: {review.maturity_label}",
+        f"- Overall score: {review.overall_score}/100",
+        f"- Sources: {len(review.source_reviews)}",
+        f"- Steps: {len(review.step_reviews)}",
+        f"- Boundary: {review.boundary}",
+        "",
+        "## Sources",
+        "| Source | Score | Steps | High Risk | Evidence Gaps | Map Risk | Time Gate Risk |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+    ]
+    for source in review.source_reviews:
+        lines.append(
+            f"| {source.source_id} | {source.average_quality_score} | {source.step_count} | "
+            f"{source.high_risk_step_count} | {source.evidence_gap_count} | "
+            f"{source.map_inference_risk_count} | {source.time_gate_risk_count} |"
+        )
+    if not review.source_reviews:
+        lines.append("| none | 0 | 0 | 0 | 0 | 0 | 0 |")
+    lines.extend(["", "## Remediation"])
+    lines.extend([f"- {item}" for item in review.remediation] or ["- None"])
+    return "\n".join(lines) + "\n"
+
+
+def render_achievement_route_source_quality_csv(review: AchievementRouteSourceQualityReview) -> str:
+    buffer = StringIO()
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow(
+        [
+            "step_id",
+            "source_id",
+            "quality_score",
+            "evidence_complete",
+            "map_inference_risk",
+            "time_gate_risk",
+            "missing_official_id",
+            "review_flags",
+            "remediation",
+        ]
+    )
+    for step in review.step_reviews:
+        writer.writerow(
+            [
+                step.step_id,
+                step.source_id,
+                step.quality_score,
+                step.evidence_complete,
+                step.map_inference_risk,
+                step.time_gate_risk,
+                step.missing_official_id,
+                ";".join(step.review_flags),
+                ";".join(step.remediation),
+            ]
+        )
+    return buffer.getvalue()
+
+
 def _build_segments(
     steps: list[AchievementRouteStep],
     ready: list[str],
@@ -1163,6 +1319,68 @@ def _unique(values: list[str]) -> list[str]:
             seen.add(value)
             result.append(value)
     return result
+
+
+def _review_route_step_quality(
+    step: AchievementRouteStep,
+    manifest: AchievementRouteSourceManifest,
+    missing_achievement_ids: list[int],
+) -> AchievementRouteStepQuality:
+    score = 100.0
+    flags: list[str] = []
+    remediation: list[str] = []
+    evidence_complete = bool(step.evidence_refs or manifest.source_refs)
+    if not evidence_complete:
+        score -= 25
+        flags.append("evidence_gap")
+        remediation.append(f"Add official source refs or reviewed evidence refs for {step.step_id}.")
+
+    map_risk: Literal["low", "medium", "high"] = "low"
+    assumption_text = " ".join([*manifest.assumptions, *step.assumptions]).lower()
+    if step.map_name == "Unmapped Achievement Review" or "unambiguous map" in assumption_text:
+        map_risk = "high"
+        score -= 20
+        flags.append("map_inference_high")
+        remediation.append(f"Review map inference for {step.step_id} before release.")
+    elif "inferred from official achievement text" in assumption_text:
+        map_risk = "medium"
+        score -= 10
+        flags.append("map_inference_medium")
+
+    gate_risk: Literal["low", "medium", "high"] = "low"
+    if step.time_gate in {"daily", "weekly"}:
+        gate_risk = "medium"
+        score -= 8
+        flags.append(f"{step.time_gate}_time_gate")
+        remediation.append(f"Confirm current {step.time_gate} reset or rotation context for {step.step_id}.")
+
+    missing_official_id = bool(step.official_achievement_id and step.official_achievement_id in missing_achievement_ids)
+    if missing_official_id:
+        score -= 30
+        flags.append("missing_official_achievement_id")
+        remediation.append(f"Resolve missing official achievement id {step.official_achievement_id} before release.")
+    if step.official_achievement_id is None:
+        score -= 5
+        flags.append("no_official_achievement_id")
+
+    return AchievementRouteStepQuality(
+        step_id=step.step_id,
+        source_id=manifest.source_id,
+        title=step.title,
+        quality_score=max(0.0, round(score, 1)),
+        evidence_complete=evidence_complete,
+        map_inference_risk=map_risk,
+        time_gate_risk=gate_risk,
+        missing_official_id=missing_official_id,
+        review_flags=_unique(flags),
+        remediation=_unique(remediation),
+    )
+
+
+def _average(values: list[float]) -> float:
+    if not values:
+        return 0.0
+    return round(sum(values) / len(values), 1)
 
 
 def _slug(value: str) -> str:

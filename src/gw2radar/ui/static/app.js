@@ -216,6 +216,9 @@ function summarizeResult(target, payload) {
     if (data?.readiness) {
       return `Route release readiness is ${data.readiness.maturity_label} at ${data.readiness.readiness_score}/100.`;
     }
+    if (data?.quality) {
+      return `Route source quality is ${data.quality.maturity_label} at ${data.quality.overall_score}/100 across ${data.quality.step_reviews?.length || 0} steps.`;
+    }
     if (Array.isArray(data?.sources)) {
       return `${data.sources.length} route source manifests loaded with ${data.reviewed_step_count || 0} reviewed steps.`;
     }
@@ -627,6 +630,12 @@ function renderRouteReleaseReadiness(readiness) {
   const label = readiness?.maturity_label || "unknown";
   const score = typeof readiness?.readiness_score === "number" ? readiness.readiness_score : "--";
   document.querySelector("#route-readiness-score").textContent = `${label} ${score}/100`;
+}
+
+function renderRouteSourceQuality(quality) {
+  const label = quality?.maturity_label || "unknown";
+  const score = typeof quality?.overall_score === "number" ? quality.overall_score : "--";
+  document.querySelector("#route-quality-score").textContent = `${label} ${score}/100`;
 }
 
 function buildImportPayload() {
@@ -1146,6 +1155,24 @@ const actions = {
   exportAchievementRouteReleaseReadiness: () =>
     run("routes", () =>
       fetch("/api/v1/achievement-routes/release-readiness?format=csv", {
+        headers: { "Accept": "text/csv" },
+      }).then(async (response) => {
+        const text = await response.text();
+        if (!response.ok) {
+          throw new Error(text || `HTTP ${response.status}`);
+        }
+        return text;
+      }),
+    ),
+  loadAchievementRouteSourceQuality: () =>
+    run("routes", async () => {
+      const payload = await fetchJson("/api/v1/achievement-routes/source-quality");
+      renderRouteSourceQuality(payload?.data?.quality || {});
+      return payload;
+    }),
+  exportAchievementRouteSourceQuality: () =>
+    run("routes", () =>
+      fetch("/api/v1/achievement-routes/source-quality?format=csv", {
         headers: { "Accept": "text/csv" },
       }).then(async (response) => {
         const text = await response.text();
