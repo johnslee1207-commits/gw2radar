@@ -67,6 +67,10 @@ exports are aggregated into a release readiness summary.
 It also verifies the P9 source quality review:
 reviewed route sources and steps receive evidence completeness, map inference
 risk, time-gate risk, missing-id remediation, score, Markdown, and CSV output.
+It also verifies the P10 remediation queue:
+source quality findings are converted into prioritized open reviewer tasks for
+official id backfill, evidence backfill, map review, time-gate review, and CSV /
+Markdown export.
 
 ## Account Connection Diagnostic Command
 
@@ -163,7 +167,9 @@ readiness rollup, and visible no-secret boundary copy.
 19. Export release readiness as Markdown and CSV.
 20. Load source quality and confirm missing official ids plus route review risks are flagged.
 21. Export source quality as Markdown and CSV.
-22. Confirm the route planner ingests the promoted reviewed source.
+22. Load remediation queue and confirm missing official ids become P0 reviewer tasks.
+23. Export remediation queue as Markdown and CSV.
+24. Confirm the route planner ingests the promoted reviewed source.
 
 ## Account Connection Diagnostic Steps
 

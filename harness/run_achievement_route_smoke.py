@@ -176,6 +176,17 @@ def main() -> int:
     quality_csv = client.get("/api/v1/achievement-routes/source-quality?format=csv")
     if quality_csv.status_code != 200 or "step_id,source_id,quality_score" not in quality_csv.text:
         failures.append("achievement route source quality csv export failed")
+    remediation_response = client.get("/api/v1/achievement-routes/source-quality/remediation-queue")
+    remediation_payload = _json_response(remediation_response, "achievement route remediation queue", failures)
+    remediation = (((remediation_payload or {}).get("data") or {}).get("remediation_queue") or {})
+    if remediation.get("p0_count", 0) < 1 or not remediation.get("items"):
+        failures.append("achievement route remediation queue did not expose missing official id repair items")
+    remediation_markdown = client.get("/api/v1/achievement-routes/source-quality/remediation-queue?format=markdown")
+    if remediation_markdown.status_code != 200 or "# Achievement Route Remediation Queue" not in remediation_markdown.text:
+        failures.append("achievement route remediation queue markdown export failed")
+    remediation_csv = client.get("/api/v1/achievement-routes/source-quality/remediation-queue?format=csv")
+    if remediation_csv.status_code != 200 or "item_id,priority,remediation_type" not in remediation_csv.text:
+        failures.append("achievement route remediation queue csv export failed")
     promoted_sources = client.get("/api/v1/achievement-routes/sources")
     promoted_sources_payload = _json_response(promoted_sources, "promoted route sources", failures)
     promoted_reviewed_step_count = (((promoted_sources_payload or {}).get("data") or {}).get("reviewed_step_count") or 0)

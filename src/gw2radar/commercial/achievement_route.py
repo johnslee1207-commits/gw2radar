@@ -242,6 +242,7 @@ class AchievementRouteStepQuality(BaseModel):
     step_id: str
     source_id: str
     title: str
+    official_achievement_id: int | None = None
     quality_score: float
     evidence_complete: bool
     map_inference_risk: Literal["low", "medium", "high"]
@@ -273,6 +274,40 @@ class AchievementRouteSourceQualityReview(BaseModel):
     missing_achievement_ids: list[int]
     remediation: list[str]
     boundary: str = "Source quality review is advisory metadata for human route reviewers; it does not certify current in-game availability."
+
+
+class AchievementRouteRemediationItem(BaseModel):
+    item_id: str
+    priority: Literal["P0", "P1", "P2"]
+    remediation_type: Literal[
+        "evidence_backfill",
+        "map_review",
+        "time_gate_review",
+        "official_id_backfill",
+        "source_manifest_backfill",
+    ]
+    status: Literal["open"] = "open"
+    source_id: str | None = None
+    step_id: str | None = None
+    title: str
+    problem: str
+    recommended_action: str
+    reviewer_prompt: str
+    evidence_refs: list[str] = Field(default_factory=list)
+    safety_boundary: str = "Operator remediation queue only; changes require separate human review and source manifest edits."
+
+
+class AchievementRouteRemediationQueue(BaseModel):
+    schema_version: str = "gw2radar.achievement_route_remediation_queue.v1"
+    maturity_label: Literal["blocked", "review_needed", "ready"]
+    open_item_count: int
+    p0_count: int
+    p1_count: int
+    p2_count: int
+    items: list[AchievementRouteRemediationItem]
+    next_actions: list[str]
+    evidence_chain: list[str]
+    boundary: str = "Remediation queue is a reviewer workflow aid; it does not persist source changes, enable rules, or certify live game state."
 
 
 class AchievementRouteGateway(Protocol):
@@ -1210,6 +1245,191 @@ def render_achievement_route_source_quality_csv(review: AchievementRouteSourceQu
     return buffer.getvalue()
 
 
+def build_achievement_route_remediation_queue(
+    source_root: Path = ACHIEVEMENT_ROUTE_SOURCE_ROOT,
+    audit_root: Path = ACHIEVEMENT_ROUTE_AUDIT_ROOT,
+) -> AchievementRouteRemediationQueue:
+    quality = build_achievement_route_source_quality_review(source_root, audit_root)
+    items: list[AchievementRouteRemediationItem] = []
+    for step in quality.step_reviews:
+        if "missing_official_achievement_id" in step.review_flags:
+            items.append(
+                _route_remediation_item(
+                    remediation_type="official_id_backfill",
+                    priority="P0",
+                    step=step,
+                    problem="The step references an official achievement id that the fetch audit reported missing.",
+                    action="Re-fetch or replace the official achievement id, then re-run promotion review before release.",
+                    prompt="Confirm whether the id was removed, renamed, region-locked, or entered incorrectly.",
+                )
+            )
+        if "evidence_gap" in step.review_flags:
+            items.append(
+                _route_remediation_item(
+                    remediation_type="evidence_backfill",
+                    priority="P1",
+                    step=step,
+                    problem="The reviewed route step has no step-level evidence refs and no source-level refs.",
+                    action="Add official wiki/API/patch evidence refs or remove the step from the reviewed manifest.",
+                    prompt="Attach at least one source ref that proves the objective and route context.",
+                )
+            )
+        if step.map_inference_risk == "high":
+            items.append(
+                _route_remediation_item(
+                    remediation_type="map_review",
+                    priority="P1",
+                    step=step,
+                    problem="The step map was not inferable from the official achievement payload.",
+                    action="Confirm the map manually and update map_name/region, or keep the step as draft-only.",
+                    prompt="Verify the achievement panel, official wiki page, or in-game map before promoting.",
+                )
+            )
+        elif step.map_inference_risk == "medium":
+            items.append(
+                _route_remediation_item(
+                    remediation_type="map_review",
+                    priority="P2",
+                    step=step,
+                    problem="The step map was inferred from text and should be checked before broad release.",
+                    action="Spot-check the inferred map and add the evidence ref used for the inference.",
+                    prompt="Confirm the inferred map is still accurate after the current patch.",
+                )
+            )
+        if step.time_gate_risk != "low":
+            items.append(
+                _route_remediation_item(
+                    remediation_type="time_gate_review",
+                    priority="P2",
+                    step=step,
+                    problem="The step is daily or weekly gated and may need current reset/rotation context.",
+                    action="Add current reset or rotation review notes before recommending the step in a session plan.",
+                    prompt="Confirm whether the gate is account-wide, daily, weekly, or event/patch dependent.",
+                )
+            )
+    covered_missing_ids = {item.official_achievement_id for item in quality.step_reviews if item.missing_official_id}
+    for missing_id in quality.missing_achievement_ids:
+        if missing_id in covered_missing_ids:
+            continue
+        items.append(
+            AchievementRouteRemediationItem(
+                item_id=f"p0:official-id-backfill:missing:{missing_id}",
+                priority="P0",
+                remediation_type="official_id_backfill",
+                title=f"Resolve missing official achievement id {missing_id}",
+                problem="The promotion audit reported a requested official achievement id that was not returned by the gateway.",
+                recommended_action="Re-fetch the id, replace it with the current official id, or document why it should be excluded before release.",
+                reviewer_prompt="Confirm whether the id is invalid, removed, region-dependent, or a data-entry issue.",
+                evidence_refs=[
+                    f"official-achievement-id:{missing_id}",
+                    "data/achievement_route_audit/promotion_audit.jsonl",
+                    "/api/v1/achievement-routes/promotion-audit",
+                ],
+            )
+        )
+    if not quality.source_reviews:
+        items.append(
+            AchievementRouteRemediationItem(
+                item_id="source-manifest-backfill",
+                priority="P0",
+                remediation_type="source_manifest_backfill",
+                title="Add reviewed achievement route source manifests",
+                problem="No reviewed achievement route source manifests are available.",
+                recommended_action="Promote reviewed official fetch previews or add reviewed source manifests before release.",
+                reviewer_prompt="Confirm at least one reviewed source has evidence refs, reviewer, reviewed_at, and route steps.",
+                evidence_refs=["docs/knowledge_base/achievement_routes/*.json"],
+            )
+        )
+    items = sorted(items, key=lambda item: ({"P0": 0, "P1": 1, "P2": 2}[item.priority], item.source_id or "", item.step_id or "", item.remediation_type))
+    return AchievementRouteRemediationQueue(
+        maturity_label=quality.maturity_label,
+        open_item_count=len(items),
+        p0_count=sum(1 for item in items if item.priority == "P0"),
+        p1_count=sum(1 for item in items if item.priority == "P1"),
+        p2_count=sum(1 for item in items if item.priority == "P2"),
+        items=items,
+        next_actions=_route_remediation_next_actions(items),
+        evidence_chain=[
+            "/api/v1/achievement-routes/source-quality",
+            "docs/knowledge_base/achievement_routes/*.json",
+            "data/achievement_route_audit/promotion_audit.jsonl",
+        ],
+    )
+
+
+def render_achievement_route_remediation_queue_markdown(queue: AchievementRouteRemediationQueue) -> str:
+    lines = [
+        "# Achievement Route Remediation Queue",
+        "",
+        f"- Maturity: {queue.maturity_label}",
+        f"- Open items: {queue.open_item_count}",
+        f"- P0: {queue.p0_count}",
+        f"- P1: {queue.p1_count}",
+        f"- P2: {queue.p2_count}",
+        f"- Boundary: {queue.boundary}",
+        "",
+        "## Items",
+    ]
+    for item in queue.items:
+        lines.extend(
+            [
+                f"### {item.priority} {item.title}",
+                f"- Type: {item.remediation_type}",
+                f"- Source: {item.source_id or 'n/a'}",
+                f"- Step: {item.step_id or 'n/a'}",
+                f"- Problem: {item.problem}",
+                f"- Action: {item.recommended_action}",
+                f"- Reviewer prompt: {item.reviewer_prompt}",
+                f"- Evidence: {', '.join(item.evidence_refs) if item.evidence_refs else 'pending'}",
+                "",
+            ]
+        )
+    if not queue.items:
+        lines.append("- None")
+    lines.extend(["", "## Next Actions"])
+    lines.extend([f"- {action}" for action in queue.next_actions] or ["- None"])
+    lines.extend(["", "## Evidence Chain"])
+    lines.extend([f"- {ref}" for ref in queue.evidence_chain])
+    return "\n".join(lines) + "\n"
+
+
+def render_achievement_route_remediation_queue_csv(queue: AchievementRouteRemediationQueue) -> str:
+    buffer = StringIO()
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow(
+        [
+            "item_id",
+            "priority",
+            "remediation_type",
+            "status",
+            "source_id",
+            "step_id",
+            "title",
+            "problem",
+            "recommended_action",
+            "reviewer_prompt",
+            "evidence_refs",
+        ]
+    )
+    for item in queue.items:
+        writer.writerow(
+            [
+                item.item_id,
+                item.priority,
+                item.remediation_type,
+                item.status,
+                item.source_id or "",
+                item.step_id or "",
+                item.title,
+                item.problem,
+                item.recommended_action,
+                item.reviewer_prompt,
+                ";".join(item.evidence_refs),
+            ]
+        )
+    return buffer.getvalue()
+
+
 def _build_segments(
     steps: list[AchievementRouteStep],
     ready: list[str],
@@ -1367,6 +1587,7 @@ def _review_route_step_quality(
         step_id=step.step_id,
         source_id=manifest.source_id,
         title=step.title,
+        official_achievement_id=step.official_achievement_id,
         quality_score=max(0.0, round(score, 1)),
         evidence_complete=evidence_complete,
         map_inference_risk=map_risk,
@@ -1381,6 +1602,49 @@ def _average(values: list[float]) -> float:
     if not values:
         return 0.0
     return round(sum(values) / len(values), 1)
+
+
+def _route_remediation_item(
+    *,
+    remediation_type: Literal["evidence_backfill", "map_review", "time_gate_review", "official_id_backfill"],
+    priority: Literal["P0", "P1", "P2"],
+    step: AchievementRouteStepQuality,
+    problem: str,
+    action: str,
+    prompt: str,
+) -> AchievementRouteRemediationItem:
+    return AchievementRouteRemediationItem(
+        item_id=f"{priority.lower()}:{remediation_type}:{_slug(step.source_id)}:{_slug(step.step_id)}",
+        priority=priority,
+        remediation_type=remediation_type,
+        source_id=step.source_id,
+        step_id=step.step_id,
+        title=step.title,
+        problem=problem,
+        recommended_action=action,
+        reviewer_prompt=prompt,
+        evidence_refs=[
+            f"source:{step.source_id}",
+            f"step:{step.step_id}",
+            "/api/v1/achievement-routes/source-quality",
+        ],
+    )
+
+
+def _route_remediation_next_actions(items: list[AchievementRouteRemediationItem]) -> list[str]:
+    if not items:
+        return ["No route source remediation is open; continue release readiness review."]
+    actions: list[str] = []
+    if any(item.priority == "P0" for item in items):
+        actions.append("Resolve P0 missing official id or missing source-manifest items before release.")
+    if any(item.remediation_type == "evidence_backfill" for item in items):
+        actions.append("Backfill official evidence refs for P1 evidence gaps and re-run source quality review.")
+    if any(item.remediation_type == "map_review" for item in items):
+        actions.append("Confirm inferred or unmapped route locations with official/in-game evidence.")
+    if any(item.remediation_type == "time_gate_review" for item in items):
+        actions.append("Review daily/weekly gate wording so player plans remain schedule-aware.")
+    actions.append("After edits, promote through the existing reviewed source gate and verify release readiness.")
+    return _unique(actions)
 
 
 def _slug(value: str) -> str:

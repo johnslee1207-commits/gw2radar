@@ -14,6 +14,7 @@ from gw2radar.commercial.achievement_route import (
     OfficialAchievementFetchPreviewRequest,
     OfficialAchievementRoutePreviewRequest,
     build_achievement_route_release_readiness,
+    build_achievement_route_remediation_queue,
     build_achievement_route_source_quality_review,
     build_official_achievement_fetch_preview,
     build_achievement_route_plan,
@@ -26,6 +27,8 @@ from gw2radar.commercial.achievement_route import (
     render_achievement_route_promotion_audit_markdown,
     render_achievement_route_release_readiness_csv,
     render_achievement_route_release_readiness_markdown,
+    render_achievement_route_remediation_queue_csv,
+    render_achievement_route_remediation_queue_markdown,
     render_achievement_route_source_quality_csv,
     render_achievement_route_source_quality_markdown,
     render_official_achievement_fetch_preview_markdown,
@@ -230,8 +233,11 @@ def test_achievement_route_source_quality_flags_evidence_map_gate_and_missing_id
         )
         (temp_root / "quality_risk.json").write_text(low_quality.model_dump_json(indent=2), encoding="utf-8")
         quality = build_achievement_route_source_quality_review(temp_root, audit_root)
+        queue = build_achievement_route_remediation_queue(temp_root, audit_root)
         markdown = render_achievement_route_source_quality_markdown(quality)
         csv_text = render_achievement_route_source_quality_csv(quality)
+        queue_markdown = render_achievement_route_remediation_queue_markdown(queue)
+        queue_csv = render_achievement_route_remediation_queue_csv(queue)
         risk_step = next(item for item in quality.step_reviews if item.step_id == "quality-risk-unmapped-daily")
 
         assert quality.schema_version == "gw2radar.achievement_route_source_quality.v1"
@@ -243,7 +249,16 @@ def test_achievement_route_source_quality_flags_evidence_map_gate_and_missing_id
         assert "missing_official_achievement_id" in risk_step.review_flags
         assert "Achievement Route Source Quality Review" in markdown
         assert "step_id,source_id,quality_score" in csv_text
+        assert queue.schema_version == "gw2radar.achievement_route_remediation_queue.v1"
+        assert queue.p0_count >= 1
+        assert any(item.remediation_type == "official_id_backfill" for item in queue.items)
+        assert any(item.remediation_type == "evidence_backfill" for item in queue.items)
+        assert any(item.remediation_type == "map_review" for item in queue.items)
+        assert any(item.remediation_type == "time_gate_review" for item in queue.items)
+        assert "Achievement Route Remediation Queue" in queue_markdown
+        assert "item_id,priority,remediation_type" in queue_csv
         assert "secret-key" not in str(quality).lower()
+        assert "secret-key" not in str(queue).lower()
     finally:
         rmtree(temp_root, ignore_errors=True)
         rmtree(audit_root, ignore_errors=True)
@@ -404,6 +419,9 @@ def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
         quality = client.get("/api/v1/achievement-routes/source-quality")
         quality_markdown = client.get("/api/v1/achievement-routes/source-quality?format=markdown")
         quality_csv = client.get("/api/v1/achievement-routes/source-quality?format=csv")
+        remediation_queue = client.get("/api/v1/achievement-routes/source-quality/remediation-queue")
+        remediation_markdown = client.get("/api/v1/achievement-routes/source-quality/remediation-queue?format=markdown")
+        remediation_csv = client.get("/api/v1/achievement-routes/source-quality/remediation-queue?format=csv")
 
         assert blocked.status_code == 400
         assert promoted.status_code == 200
@@ -429,6 +447,10 @@ def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
         assert quality.json()["data"]["quality"]["source_reviews"][0]["source_id"] == "kb:achievement-routes:api-official-fetch:v1"
         assert "# Achievement Route Source Quality Review" in quality_markdown.text
         assert "step_id,source_id,quality_score" in quality_csv.text
+        assert remediation_queue.status_code == 200
+        assert remediation_queue.json()["data"]["remediation_queue"]["p0_count"] >= 1
+        assert "# Achievement Route Remediation Queue" in remediation_markdown.text
+        assert "item_id,priority,remediation_type" in remediation_csv.text
     finally:
         achievement_route_routes.gateway_factory = original_factory
         achievement_route_routes.source_root = original_source_root

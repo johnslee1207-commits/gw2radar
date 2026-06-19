@@ -54,6 +54,9 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert "Source quality" in response.text
     assert "Export quality CSV" in response.text
     assert "Quality" in response.text
+    assert "Remediation queue" in response.text
+    assert "Export remediation CSV" in response.text
+    assert "Remediation" in response.text
 
 
 def test_player_ui_static_assets_are_served() -> None:
@@ -118,11 +121,14 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "exportAchievementRouteReleaseReadiness" in js.text
     assert "loadAchievementRouteSourceQuality" in js.text
     assert "exportAchievementRouteSourceQuality" in js.text
+    assert "loadAchievementRouteRemediationQueue" in js.text
+    assert "exportAchievementRouteRemediationQueue" in js.text
     assert "routeOfficialFetchPreviewPayload" in js.text
     assert "routeReviewPayload" in js.text
     assert "/api/v1/achievement-routes/promotion-audit" in js.text
     assert "/api/v1/achievement-routes/release-readiness" in js.text
     assert "/api/v1/achievement-routes/source-quality" in js.text
+    assert "/api/v1/achievement-routes/source-quality/remediation-queue" in js.text
 
 
 def test_player_ui_styles_cover_workflow_and_summaries() -> None:

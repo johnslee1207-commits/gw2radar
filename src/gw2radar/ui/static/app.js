@@ -219,6 +219,9 @@ function summarizeResult(target, payload) {
     if (data?.quality) {
       return `Route source quality is ${data.quality.maturity_label} at ${data.quality.overall_score}/100 across ${data.quality.step_reviews?.length || 0} steps.`;
     }
+    if (data?.remediation_queue) {
+      return `${data.remediation_queue.open_item_count || 0} route remediation items open, including ${data.remediation_queue.p0_count || 0} P0 blockers.`;
+    }
     if (Array.isArray(data?.sources)) {
       return `${data.sources.length} route source manifests loaded with ${data.reviewed_step_count || 0} reviewed steps.`;
     }
@@ -636,6 +639,12 @@ function renderRouteSourceQuality(quality) {
   const label = quality?.maturity_label || "unknown";
   const score = typeof quality?.overall_score === "number" ? quality.overall_score : "--";
   document.querySelector("#route-quality-score").textContent = `${label} ${score}/100`;
+}
+
+function renderRouteRemediationQueue(queue) {
+  const open = typeof queue?.open_item_count === "number" ? queue.open_item_count : "--";
+  const p0 = typeof queue?.p0_count === "number" ? queue.p0_count : "--";
+  document.querySelector("#route-remediation-count").textContent = `${open} open / ${p0} P0`;
 }
 
 function buildImportPayload() {
@@ -1173,6 +1182,24 @@ const actions = {
   exportAchievementRouteSourceQuality: () =>
     run("routes", () =>
       fetch("/api/v1/achievement-routes/source-quality?format=csv", {
+        headers: { "Accept": "text/csv" },
+      }).then(async (response) => {
+        const text = await response.text();
+        if (!response.ok) {
+          throw new Error(text || `HTTP ${response.status}`);
+        }
+        return text;
+      }),
+    ),
+  loadAchievementRouteRemediationQueue: () =>
+    run("routes", async () => {
+      const payload = await fetchJson("/api/v1/achievement-routes/source-quality/remediation-queue");
+      renderRouteRemediationQueue(payload?.data?.remediation_queue || {});
+      return payload;
+    }),
+  exportAchievementRouteRemediationQueue: () =>
+    run("routes", () =>
+      fetch("/api/v1/achievement-routes/source-quality/remediation-queue?format=csv", {
         headers: { "Accept": "text/csv" },
       }).then(async (response) => {
         const text = await response.text();
