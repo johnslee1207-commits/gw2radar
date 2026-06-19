@@ -210,6 +210,9 @@ function summarizeResult(target, payload) {
     if (data?.promotion) {
       return `${data.promotion.manifest?.steps?.length || 0} reviewed route steps promoted for planner ingestion.`;
     }
+    if (data?.audit) {
+      return `${data.audit.records?.length || 0} route promotion audit records loaded.`;
+    }
     if (Array.isArray(data?.sources)) {
       return `${data.sources.length} route source manifests loaded with ${data.reviewed_step_count || 0} reviewed steps.`;
     }
@@ -611,6 +614,10 @@ function renderRoutePromotion(promotion) {
   if (sourceId) {
     document.querySelector("#route-reviewed-source-id").value = sourceId;
   }
+}
+
+function renderRoutePromotionAudit(audit) {
+  document.querySelector("#route-audit-count").textContent = String(audit?.records?.length || 0);
 }
 
 function buildImportPayload() {
@@ -1098,6 +1105,28 @@ const actions = {
       const ingested = sourceId && plan.source_ids?.includes(sourceId);
       document.querySelector("#route-ingested-count").textContent = ingested ? "yes" : "no";
       return payload;
+    }),
+  loadAchievementRoutePromotionAudit: () =>
+    run("routes", async () => {
+      const reviewer = encodeURIComponent(document.querySelector("#route-reviewer").value.trim());
+      const suffix = reviewer ? `?reviewer=${reviewer}&limit=10` : "?limit=10";
+      const payload = await fetchJson(`/api/v1/achievement-routes/promotion-audit${suffix}`);
+      renderRoutePromotionAudit(payload?.data?.audit || {});
+      return payload;
+    }),
+  exportAchievementRoutePromotionAudit: () =>
+    run("routes", () => {
+      const reviewer = encodeURIComponent(document.querySelector("#route-reviewer").value.trim());
+      const suffix = reviewer ? `?reviewer=${reviewer}&format=csv` : "?format=csv";
+      return fetch(`/api/v1/achievement-routes/promotion-audit${suffix}`, {
+        headers: { "Accept": "text/csv" },
+      }).then(async (response) => {
+        const text = await response.text();
+        if (!response.ok) {
+          throw new Error(text || `HTTP ${response.status}`);
+        }
+        return text;
+      });
     }),
   importBuild: () =>
     run("build", async () => {

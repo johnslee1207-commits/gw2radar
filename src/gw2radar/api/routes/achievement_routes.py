@@ -4,6 +4,7 @@ from gw2radar.api.envelope import ApiDataEnvelope
 from gw2radar.db import session as db_session
 from gw2radar.db.init_db import init_db
 from gw2radar.commercial.achievement_route import (
+    ACHIEVEMENT_ROUTE_AUDIT_ROOT,
     ACHIEVEMENT_ROUTE_SOURCE_ROOT,
     AchievementRouteReviewedPromotionRequest,
     AchievementRouteRequest,
@@ -13,10 +14,14 @@ from gw2radar.commercial.achievement_route import (
     build_official_achievement_fetch_preview,
     build_achievement_route_plan,
     build_official_achievement_route_preview,
+    list_achievement_route_promotion_audits,
     load_reviewed_achievement_route_steps,
     promote_official_fetch_preview_to_reviewed_manifest,
+    record_achievement_route_promotion_audit,
     render_achievement_route_csv,
     render_achievement_route_markdown,
+    render_achievement_route_promotion_audit_csv,
+    render_achievement_route_promotion_audit_markdown,
     render_official_achievement_fetch_preview_markdown,
     render_official_achievement_route_preview_markdown,
 )
@@ -27,6 +32,7 @@ from gw2radar.security.api_key_store import EncryptedApiKeyStore
 router = APIRouter(prefix="/api/v1/achievement-routes", tags=["achievement-routes"])
 gateway_factory = Gw2ApiGateway
 source_root = ACHIEVEMENT_ROUTE_SOURCE_ROOT
+audit_root = ACHIEVEMENT_ROUTE_AUDIT_ROOT
 
 
 @router.post("/plan", response_model=ApiDataEnvelope)
@@ -129,7 +135,34 @@ def post_official_achievement_fetch_preview_promote_reviewed(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except FileExistsError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
-    return ApiDataEnvelope(data={"promotion": result.model_dump(mode="json")})
+    audit_record = record_achievement_route_promotion_audit(result, fetch_preview, review, audit_root)
+    return ApiDataEnvelope(data={"promotion": result.model_dump(mode="json"), "audit_record": audit_record.model_dump(mode="json")})
+
+
+@router.get("/promotion-audit", response_model=None)
+def get_achievement_route_promotion_audit(
+    reviewer: str | None = None,
+    source_id: str | None = None,
+    limit: int = Query(default=25, ge=1, le=200),
+    format: str = Query(default="json", pattern="^(json|markdown|csv)$"),
+):
+    audit_list = list_achievement_route_promotion_audits(
+        audit_root,
+        reviewer=reviewer,
+        source_id=source_id,
+        limit=limit,
+    )
+    if format == "markdown":
+        return Response(
+            content=render_achievement_route_promotion_audit_markdown(audit_list),
+            media_type="text/markdown; charset=utf-8",
+        )
+    if format == "csv":
+        return Response(
+            content=render_achievement_route_promotion_audit_csv(audit_list),
+            media_type="text/csv; charset=utf-8",
+        )
+    return ApiDataEnvelope(data={"audit": audit_list.model_dump(mode="json")})
 
 
 @router.post("/plan/export")

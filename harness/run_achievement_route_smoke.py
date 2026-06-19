@@ -22,6 +22,7 @@ from gw2radar.ingest.gw2_api_gateway import GatewayResult  # noqa: E402
 def main() -> int:
     original_gateway_factory = achievement_route_routes.gateway_factory
     original_source_root = achievement_route_routes.source_root
+    original_audit_root = achievement_route_routes.audit_root
     achievement_route_routes.gateway_factory = FetchPreviewGateway
     client = TestClient(app)
     failures: list[str] = []
@@ -104,10 +105,15 @@ def main() -> int:
         failures.append("official fetch preview markdown export failed content or safety checks")
 
     temp_source_root = ROOT / ".test_tmp" / "achievement-route-smoke-promotion"
+    temp_audit_root = ROOT / ".test_tmp" / "achievement-route-smoke-audit"
     if temp_source_root.exists():
         rmtree(temp_source_root)
+    if temp_audit_root.exists():
+        rmtree(temp_audit_root)
     temp_source_root.mkdir(parents=True, exist_ok=True)
+    temp_audit_root.mkdir(parents=True, exist_ok=True)
     achievement_route_routes.source_root = temp_source_root
+    achievement_route_routes.audit_root = temp_audit_root
     review = {
         "confirmed_reviewed": True,
         "reviewer": "achievement_route_smoke",
@@ -130,6 +136,20 @@ def main() -> int:
         failures.append("official fetch promotion did not create a reviewed manifest")
     if promotion.get("planner_ingestion_status") != "ready":
         failures.append("official fetch promotion was not marked ready for planner ingestion")
+    audit_record = (((promotion_payload or {}).get("data") or {}).get("audit_record") or {})
+    if audit_record.get("reviewer") != "achievement_route_smoke":
+        failures.append("official fetch promotion did not return a reviewer audit record")
+    audit_response = client.get("/api/v1/achievement-routes/promotion-audit?reviewer=achievement_route_smoke&limit=5")
+    audit_payload = _json_response(audit_response, "achievement route promotion audit", failures)
+    audit_records = ((((audit_payload or {}).get("data") or {}).get("audit") or {}).get("records") or [])
+    if not audit_records:
+        failures.append("achievement route promotion audit did not list the promotion event")
+    audit_markdown = client.get("/api/v1/achievement-routes/promotion-audit?reviewer=achievement_route_smoke&format=markdown")
+    if audit_markdown.status_code != 200 or "# Achievement Route Promotion Audit" not in audit_markdown.text:
+        failures.append("achievement route promotion audit markdown export failed")
+    audit_csv = client.get("/api/v1/achievement-routes/promotion-audit?reviewer=achievement_route_smoke&format=csv")
+    if audit_csv.status_code != 200 or "event_id,occurred_at,reviewer,source_id" not in audit_csv.text:
+        failures.append("achievement route promotion audit csv export failed")
     promoted_sources = client.get("/api/v1/achievement-routes/sources")
     promoted_sources_payload = _json_response(promoted_sources, "promoted route sources", failures)
     promoted_reviewed_step_count = (((promoted_sources_payload or {}).get("data") or {}).get("reviewed_step_count") or 0)
@@ -151,12 +171,14 @@ def main() -> int:
     if failures:
         achievement_route_routes.gateway_factory = original_gateway_factory
         achievement_route_routes.source_root = original_source_root
+        achievement_route_routes.audit_root = original_audit_root
         print("FAIL: GW2Radar achievement route smoke failed")
         for failure in failures:
             print(f"- {failure}")
         return 1
     achievement_route_routes.gateway_factory = original_gateway_factory
     achievement_route_routes.source_root = original_source_root
+    achievement_route_routes.audit_root = original_audit_root
     print("PASS: GW2Radar achievement route smoke succeeded")
     return 0
 

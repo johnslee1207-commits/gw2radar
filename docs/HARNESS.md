@@ -57,6 +57,9 @@ It also verifies the P6 operator review UI:
 the `/player` Routes view exposes official achievement ids, reviewer, reviewed
 source id, review notes, fetch preview, promote reviewed, and promoted-plan
 verification controls.
+It also verifies the P7 promotion audit trail:
+reviewed promotions write metadata-only audit records and export JSON,
+Markdown, and CSV without raw API keys or private account payloads.
 
 ## Account Connection Diagnostic Command
 
@@ -147,7 +150,9 @@ readiness rollup, and visible no-secret boundary copy.
 13. Export the fetch preview as Markdown and confirm review warnings are present.
 14. Confirm promotion without reviewed confirmation is rejected.
 15. Promote the fetch preview through the reviewed gate into a temporary source manifest.
-16. Confirm the route planner ingests the promoted reviewed source.
+16. Confirm the promotion audit lists the reviewer, source id, manifest path, and achievement id evidence.
+17. Export the promotion audit as Markdown and CSV.
+18. Confirm the route planner ingests the promoted reviewed source.
 
 ## Account Connection Diagnostic Steps
 

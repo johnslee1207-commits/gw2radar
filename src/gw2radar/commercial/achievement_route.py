@@ -17,6 +17,7 @@ RouteAccountProgressStatus = Literal["unknown", "not_started", "in_progress", "c
 
 
 ACHIEVEMENT_ROUTE_SOURCE_ROOT = Path("docs/knowledge_base/achievement_routes")
+ACHIEVEMENT_ROUTE_AUDIT_ROOT = Path("data/achievement_route_audit")
 
 
 class AchievementRouteRequest(BaseModel):
@@ -190,6 +191,32 @@ class AchievementRouteReviewedPromotionResult(BaseModel):
     source_summary: AchievementRouteSourceSummary
     planner_ingestion_status: Literal["ready", "blocked"]
     warnings: list[str]
+
+
+class AchievementRoutePromotionAuditRecord(BaseModel):
+    schema_version: str = "gw2radar.achievement_route_promotion_audit.v1"
+    event_id: str
+    action: Literal["promote_reviewed"]
+    occurred_at: datetime
+    reviewer: str
+    source_id: str
+    source_status: RouteSourceStatus
+    manifest_path: str
+    requested_achievement_ids: list[int]
+    fetched_achievement_ids: list[int]
+    missing_achievement_ids: list[int]
+    candidate_step_count: int
+    review_notes: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    planner_ingestion_status: Literal["ready", "blocked"]
+    safety_boundary: str = "Reviewed route promotion audit stores metadata only; no raw API key or private account payload is persisted."
+
+
+class AchievementRoutePromotionAuditList(BaseModel):
+    schema_version: str = "gw2radar.achievement_route_promotion_audit_list.v1"
+    records: list[AchievementRoutePromotionAuditRecord]
+    filters: dict[str, str | int | None]
+    boundary: str = "Promotion audit exports are metadata-only and must not contain raw API keys or private account payloads."
 
 
 class AchievementRouteGateway(Protocol):
@@ -753,6 +780,137 @@ def promote_official_fetch_preview_to_reviewed_manifest(
     )
 
 
+def record_achievement_route_promotion_audit(
+    promotion: AchievementRouteReviewedPromotionResult,
+    fetch_preview: OfficialAchievementFetchPreview,
+    review: AchievementRouteReviewedPromotionRequest,
+    audit_root: Path = ACHIEVEMENT_ROUTE_AUDIT_ROOT,
+) -> AchievementRoutePromotionAuditRecord:
+    occurred_at = datetime.now(UTC)
+    record = AchievementRoutePromotionAuditRecord(
+        event_id=f"achievement-route-promotion:{occurred_at.strftime('%Y%m%dT%H%M%S%fZ')}:{_safe_identifier(promotion.manifest.source_id)}",
+        action="promote_reviewed",
+        occurred_at=occurred_at,
+        reviewer=review.reviewer,
+        source_id=promotion.manifest.source_id,
+        source_status=promotion.manifest.source_status,
+        manifest_path=promotion.manifest_path,
+        requested_achievement_ids=fetch_preview.requested_achievement_ids,
+        fetched_achievement_ids=fetch_preview.fetched_achievement_ids,
+        missing_achievement_ids=fetch_preview.missing_achievement_ids,
+        candidate_step_count=len(promotion.manifest.steps),
+        review_notes=review.review_notes or ["Human reviewer confirmed this official fetch preview for planner ingestion."],
+        evidence_refs=_unique(
+            [
+                *promotion.manifest.source_refs,
+                *[ref for step in promotion.manifest.steps for ref in step.evidence_refs],
+                promotion.manifest.source_id,
+            ]
+        ),
+        planner_ingestion_status=promotion.planner_ingestion_status,
+    )
+    audit_root.mkdir(parents=True, exist_ok=True)
+    path = audit_root / "promotion_audit.jsonl"
+    with path.open("a", encoding="utf-8", newline="\n") as handle:
+        handle.write(record.model_dump_json() + "\n")
+    return record
+
+
+def list_achievement_route_promotion_audits(
+    audit_root: Path = ACHIEVEMENT_ROUTE_AUDIT_ROOT,
+    *,
+    reviewer: str | None = None,
+    source_id: str | None = None,
+    limit: int = 25,
+) -> AchievementRoutePromotionAuditList:
+    path = audit_root / "promotion_audit.jsonl"
+    records: list[AchievementRoutePromotionAuditRecord] = []
+    if path.exists():
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            try:
+                record = AchievementRoutePromotionAuditRecord.model_validate_json(line)
+            except ValidationError:
+                continue
+            if reviewer and record.reviewer != reviewer:
+                continue
+            if source_id and record.source_id != source_id:
+                continue
+            records.append(record)
+    records = sorted(records, key=lambda item: item.occurred_at, reverse=True)[: max(1, min(limit, 200))]
+    return AchievementRoutePromotionAuditList(
+        records=records,
+        filters={"reviewer": reviewer, "source_id": source_id, "limit": limit},
+    )
+
+
+def render_achievement_route_promotion_audit_markdown(audit_list: AchievementRoutePromotionAuditList) -> str:
+    lines = [
+        "# Achievement Route Promotion Audit",
+        "",
+        f"- Records: {len(audit_list.records)}",
+        f"- Boundary: {audit_list.boundary}",
+        "",
+        "| Occurred At | Reviewer | Source | Status | Steps | Missing IDs | Manifest |",
+        "| --- | --- | --- | --- | ---: | --- | --- |",
+    ]
+    for record in audit_list.records:
+        lines.append(
+            "| "
+            + " | ".join(
+                [
+                    record.occurred_at.isoformat(),
+                    record.reviewer,
+                    record.source_id,
+                    record.planner_ingestion_status,
+                    str(record.candidate_step_count),
+                    ",".join(map(str, record.missing_achievement_ids)) or "none",
+                    record.manifest_path,
+                ]
+            )
+            + " |"
+        )
+    if not audit_list.records:
+        lines.append("| none | none | none | none | 0 | none | none |")
+    return "\n".join(lines) + "\n"
+
+
+def render_achievement_route_promotion_audit_csv(audit_list: AchievementRoutePromotionAuditList) -> str:
+    buffer = StringIO()
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow(
+        [
+            "event_id",
+            "occurred_at",
+            "reviewer",
+            "source_id",
+            "planner_ingestion_status",
+            "candidate_step_count",
+            "requested_achievement_ids",
+            "fetched_achievement_ids",
+            "missing_achievement_ids",
+            "manifest_path",
+        ]
+    )
+    for record in audit_list.records:
+        writer.writerow(
+            [
+                record.event_id,
+                record.occurred_at.isoformat(),
+                record.reviewer,
+                record.source_id,
+                record.planner_ingestion_status,
+                record.candidate_step_count,
+                ";".join(map(str, record.requested_achievement_ids)),
+                ";".join(map(str, record.fetched_achievement_ids)),
+                ";".join(map(str, record.missing_achievement_ids)),
+                record.manifest_path,
+            ]
+        )
+    return buffer.getvalue()
+
+
 def _build_segments(
     steps: list[AchievementRouteStep],
     ready: list[str],
@@ -875,9 +1033,13 @@ def _reviewed_source_id(source_id: str) -> str:
 
 
 def _reviewed_manifest_path(source_root: Path, source_id: str) -> Path:
-    safe_name = "".join(char if char.isalnum() or char in ("-", "_") else "_" for char in source_id.lower())
-    safe_name = safe_name.strip("_") or "reviewed_achievement_route"
+    safe_name = _safe_identifier(source_id)
     return source_root / f"{safe_name}.json"
+
+
+def _safe_identifier(value: str) -> str:
+    safe_name = "".join(char if char.isalnum() or char in ("-", "_") else "_" for char in value.lower())
+    return safe_name.strip("_") or "achievement_route"
 
 
 def _official_progress_status(

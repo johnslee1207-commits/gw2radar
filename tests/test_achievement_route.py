@@ -14,8 +14,12 @@ from gw2radar.commercial.achievement_route import (
     build_official_achievement_fetch_preview,
     build_achievement_route_plan,
     build_official_achievement_route_preview,
+    list_achievement_route_promotion_audits,
     load_reviewed_achievement_route_steps,
     promote_official_fetch_preview_to_reviewed_manifest,
+    record_achievement_route_promotion_audit,
+    render_achievement_route_promotion_audit_csv,
+    render_achievement_route_promotion_audit_markdown,
     render_official_achievement_fetch_preview_markdown,
     render_achievement_route_csv,
     render_achievement_route_markdown,
@@ -106,6 +110,41 @@ def test_promote_official_fetch_preview_requires_reviewed_gate_and_loads_manifes
         assert all(step.source_status == "reviewed" for step in loaded_steps)
     finally:
         rmtree(temp_root, ignore_errors=True)
+
+
+def test_achievement_route_promotion_audit_records_metadata_only() -> None:
+    temp_root = _temp_source_root("promotion-audit-source")
+    audit_root = _temp_source_root("promotion-audit-events")
+    request = _official_fetch_request()
+    fetch_preview = build_official_achievement_fetch_preview(request, FetchPreviewGateway())
+    review = AchievementRouteReviewedPromotionRequest(
+        confirmed_reviewed=True,
+        reviewer="audit_operator",
+        reviewed_source_id="kb:achievement-routes:audit-official-fetch:v1",
+        review_notes=["Audit reviewer confirmed official ids and route assumptions."],
+    )
+
+    try:
+        promotion = promote_official_fetch_preview_to_reviewed_manifest(fetch_preview, review, temp_root)
+        record = record_achievement_route_promotion_audit(promotion, fetch_preview, review, audit_root)
+        audit_list = list_achievement_route_promotion_audits(audit_root, reviewer="audit_operator")
+        markdown = render_achievement_route_promotion_audit_markdown(audit_list)
+        csv_text = render_achievement_route_promotion_audit_csv(audit_list)
+
+        assert record.schema_version == "gw2radar.achievement_route_promotion_audit.v1"
+        assert record.reviewer == "audit_operator"
+        assert record.source_id == "kb:achievement-routes:audit-official-fetch:v1"
+        assert record.requested_achievement_ids == [1001, 1002, 404]
+        assert record.missing_achievement_ids == [404]
+        assert audit_list.schema_version == "gw2radar.achievement_route_promotion_audit_list.v1"
+        assert len(audit_list.records) == 1
+        assert "# Achievement Route Promotion Audit" in markdown
+        assert "event_id,occurred_at,reviewer,source_id" in csv_text
+        assert "secret-key" not in str(audit_list).lower()
+        assert "private account payload" in audit_list.boundary
+    finally:
+        rmtree(temp_root, ignore_errors=True)
+        rmtree(audit_root, ignore_errors=True)
 
 
 def test_achievement_route_groups_ready_blocked_and_time_gated_steps() -> None:
@@ -220,10 +259,13 @@ def test_official_achievement_fetch_preview_api_and_exports() -> None:
 
 def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
     temp_root = _temp_source_root("promotion-api")
+    audit_root = _temp_source_root("promotion-api-audit")
     original_factory = achievement_route_routes.gateway_factory
     original_source_root = achievement_route_routes.source_root
+    original_audit_root = achievement_route_routes.audit_root
     achievement_route_routes.gateway_factory = FetchPreviewGateway
     achievement_route_routes.source_root = temp_root
+    achievement_route_routes.audit_root = audit_root
     try:
         client = TestClient(app)
         request = _official_fetch_request().model_dump(mode="json")
@@ -251,19 +293,31 @@ def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
                 "unlocked_prerequisite_ids": ["achievement_api_access"],
             },
         )
+        audit = client.get("/api/v1/achievement-routes/promotion-audit?reviewer=api_review_operator&limit=5")
+        audit_markdown = client.get("/api/v1/achievement-routes/promotion-audit?reviewer=api_review_operator&format=markdown")
+        audit_csv = client.get("/api/v1/achievement-routes/promotion-audit?reviewer=api_review_operator&format=csv")
 
         assert blocked.status_code == 400
         assert promoted.status_code == 200
         promotion = promoted.json()["data"]["promotion"]
+        audit_record = promoted.json()["data"]["audit_record"]
         assert promotion["manifest"]["source_status"] == "reviewed"
         assert promotion["manifest"]["reviewed_by"] == "api_review_operator"
+        assert audit_record["reviewer"] == "api_review_operator"
+        assert audit_record["source_id"] == "kb:achievement-routes:api-official-fetch:v1"
         assert "secret-key" not in str(promotion).lower()
+        assert "secret-key" not in str(audit.json()).lower()
         assert sources.json()["data"]["reviewed_step_count"] == 2
         assert plan.json()["data"]["plan"]["source_ids"] == ["kb:achievement-routes:api-official-fetch:v1"]
+        assert audit.json()["data"]["audit"]["records"][0]["source_id"] == "kb:achievement-routes:api-official-fetch:v1"
+        assert "# Achievement Route Promotion Audit" in audit_markdown.text
+        assert "event_id,occurred_at,reviewer,source_id" in audit_csv.text
     finally:
         achievement_route_routes.gateway_factory = original_factory
         achievement_route_routes.source_root = original_source_root
+        achievement_route_routes.audit_root = original_audit_root
         rmtree(temp_root, ignore_errors=True)
+        rmtree(audit_root, ignore_errors=True)
 
 
 def _official_preview_request() -> OfficialAchievementRoutePreviewRequest:

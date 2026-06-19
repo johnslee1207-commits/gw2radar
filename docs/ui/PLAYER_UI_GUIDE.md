@@ -191,6 +191,8 @@ Operator review gate:
 - `Fetch preview` calls the official fetch preview API and updates fetched/missing counts while keeping the source draft-only.
 - `Promote reviewed` calls the reviewed gate and writes a planner-ingestible reviewed source manifest only after explicit reviewer confirmation.
 - `Verify promoted plan` re-runs route planning and shows whether the promoted source id is present in the plan source ids.
+- `Load audit` lists metadata-only promotion audit records filtered by reviewer.
+- `Export audit CSV` exports the same audit metadata for operator review. It does not include raw API keys or private account payloads.
 
 Advanced operator flow:
 
@@ -198,6 +200,7 @@ Advanced operator flow:
 - The preview converts achievement details into draft route source candidates with inferred map hints, account progress status, source refs, and review warnings.
 - `POST /api/v1/achievement-routes/official-fetch-preview` accepts achievement ids, batches public `/v2/achievements` through the gateway, merges safe account achievement progress summaries, and reports missing ids.
 - `POST /api/v1/achievement-routes/official-fetch-preview/promote-reviewed` requires `confirmed_reviewed=true`, a reviewer name, and optional review notes before writing a reviewed route source manifest under `docs/knowledge_base/achievement_routes`.
+- `GET /api/v1/achievement-routes/promotion-audit` lists reviewed promotion audit records and supports `format=markdown` or `format=csv`.
 - Draft previews are not used by the route planner until this reviewed promotion gate writes a `source_status=reviewed` manifest.
 
 ## Freshness And Confidence

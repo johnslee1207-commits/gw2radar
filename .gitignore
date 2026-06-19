@@ -15,6 +15,7 @@ env/
 *.log
 outputs/
 data/extracted/
+data/achievement_route_audit/
 docs/knowledge_base/_sources/pdf/
 docs/knowledge_base/official/*.pdf
 docs/knowledge_base/official/*.html
