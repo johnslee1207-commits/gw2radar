@@ -6,12 +6,14 @@ from gw2radar.db.init_db import init_db
 from gw2radar.commercial.achievement_route import (
     ACHIEVEMENT_ROUTE_AUDIT_ROOT,
     ACHIEVEMENT_ROUTE_SOURCE_ROOT,
+    AchievementRouteOperatorActionBundleRequest,
     AchievementRouteReviewedPromotionRequest,
     AchievementRouteRemediationReviewRequest,
     AchievementRouteRequest,
     OfficialAccountAchievementProgress,
     OfficialAchievementFetchPreviewRequest,
     OfficialAchievementRoutePreviewRequest,
+    build_achievement_route_operator_action_bundle,
     build_achievement_route_release_readiness,
     build_achievement_route_remediation_queue,
     build_achievement_route_remediation_readiness,
@@ -27,6 +29,8 @@ from gw2radar.commercial.achievement_route import (
     record_achievement_route_remediation_review,
     render_achievement_route_csv,
     render_achievement_route_markdown,
+    render_achievement_route_operator_action_bundle_csv,
+    render_achievement_route_operator_action_bundle_markdown,
     render_achievement_route_promotion_audit_csv,
     render_achievement_route_promotion_audit_markdown,
     render_achievement_route_release_readiness_csv,
@@ -289,6 +293,28 @@ def get_achievement_route_remediation_readiness(
             media_type="text/csv; charset=utf-8",
         )
     return ApiDataEnvelope(data={"remediation_readiness": readiness.model_dump(mode="json")})
+
+
+@router.post("/source-quality/remediation-queue/action-bundle", response_model=None)
+def post_achievement_route_operator_action_bundle(
+    request: AchievementRouteOperatorActionBundleRequest | None = None,
+    format: str = Query(default="json", pattern="^(json|markdown|csv)$"),
+):
+    try:
+        bundle = build_achievement_route_operator_action_bundle(request, source_root, audit_root)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if format == "markdown":
+        return Response(
+            content=render_achievement_route_operator_action_bundle_markdown(bundle),
+            media_type="text/markdown; charset=utf-8",
+        )
+    if format == "csv":
+        return Response(
+            content=render_achievement_route_operator_action_bundle_csv(bundle),
+            media_type="text/csv; charset=utf-8",
+        )
+    return ApiDataEnvelope(data={"operator_action_bundle": bundle.model_dump(mode="json")})
 
 
 @router.post("/plan/export")

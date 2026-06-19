@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from gw2radar.api.main import app
 from gw2radar.api.routes import achievement_routes as achievement_route_routes
 from gw2radar.commercial.achievement_route import (
+    AchievementRouteOperatorActionBundleRequest,
     AchievementRouteReviewedPromotionRequest,
     AchievementRouteRemediationReviewRequest,
     AchievementRouteRequest,
@@ -15,6 +16,7 @@ from gw2radar.commercial.achievement_route import (
     OfficialAchievementFetchPreviewRequest,
     OfficialAchievementRoutePreviewRequest,
     build_achievement_route_release_readiness,
+    build_achievement_route_operator_action_bundle,
     build_achievement_route_remediation_queue,
     build_achievement_route_remediation_readiness,
     build_achievement_route_source_quality_review,
@@ -29,6 +31,8 @@ from gw2radar.commercial.achievement_route import (
     record_achievement_route_remediation_review,
     render_achievement_route_promotion_audit_csv,
     render_achievement_route_promotion_audit_markdown,
+    render_achievement_route_operator_action_bundle_csv,
+    render_achievement_route_operator_action_bundle_markdown,
     render_achievement_route_release_readiness_csv,
     render_achievement_route_release_readiness_markdown,
     render_achievement_route_remediation_queue_csv,
@@ -354,6 +358,58 @@ def test_achievement_route_remediation_review_gate_records_metadata_only_audit()
         rmtree(audit_root, ignore_errors=True)
 
 
+def test_achievement_route_operator_action_bundle_aggregates_and_records_review() -> None:
+    temp_root = _temp_source_root("operator-action-bundle-source")
+    audit_root = _temp_source_root("operator-action-bundle-audit")
+    request = _official_fetch_request()
+    fetch_preview = build_official_achievement_fetch_preview(request, FetchPreviewGateway())
+    review = AchievementRouteReviewedPromotionRequest(
+        confirmed_reviewed=True,
+        reviewer="bundle_operator",
+        reviewed_source_id="kb:achievement-routes:operator-bundle:v1",
+        review_notes=["Bundle reviewer checked official ids."],
+    )
+
+    try:
+        promotion = promote_official_fetch_preview_to_reviewed_manifest(fetch_preview, review, temp_root)
+        record_achievement_route_promotion_audit(promotion, fetch_preview, review, audit_root)
+        queue = build_achievement_route_remediation_queue(temp_root, audit_root)
+        item_id = queue.items[0].item_id
+
+        initial = build_achievement_route_operator_action_bundle(None, temp_root, audit_root)
+        updated = build_achievement_route_operator_action_bundle(
+            AchievementRouteOperatorActionBundleRequest(
+                review=AchievementRouteRemediationReviewRequest(
+                    item_id=item_id,
+                    status="acknowledged",
+                    reviewer="bundle_operator",
+                    notes=["Acknowledged from operator bundle."],
+                    evidence_refs=["official:/v2/achievements"],
+                    confirmed_manual_review=True,
+                )
+            ),
+            temp_root,
+            audit_root,
+        )
+        markdown = render_achievement_route_operator_action_bundle_markdown(updated)
+        csv_text = render_achievement_route_operator_action_bundle_csv(updated)
+
+        assert initial.schema_version == "gw2radar.achievement_route_operator_action_bundle.v1"
+        assert initial.remediation_review is None
+        assert initial.remediation_queue.open_item_count >= 1
+        assert updated.remediation_review is not None
+        assert updated.remediation_review.item_id == item_id
+        assert updated.remediation_review.status == "acknowledged"
+        assert updated.remediation_review_audit.records[0].item_id == item_id
+        assert updated.remediation_readiness.open_p0_count >= 1
+        assert "Achievement Route Operator Action Bundle" in markdown
+        assert "quality_maturity,quality_score,queue_item_count" in csv_text
+        assert "secret-key" not in str(updated).lower()
+    finally:
+        rmtree(temp_root, ignore_errors=True)
+        rmtree(audit_root, ignore_errors=True)
+
+
 def test_achievement_route_groups_ready_blocked_and_time_gated_steps() -> None:
     plan = build_achievement_route_plan(
         AchievementRouteRequest(
@@ -569,6 +625,22 @@ def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
         remediation_readiness = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/readiness")
         remediation_readiness_markdown = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/readiness?format=markdown")
         remediation_readiness_csv = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/readiness?format=csv")
+        action_bundle = client.post("/api/v1/achievement-routes/source-quality/remediation-queue/action-bundle", json={})
+        action_bundle_review = client.post(
+            "/api/v1/achievement-routes/source-quality/remediation-queue/action-bundle",
+            json={
+                "review": {
+                    "item_id": remediation_item_id,
+                    "status": "resolved",
+                    "reviewer": "api_review_operator",
+                    "notes": ["Resolved through operator action bundle."],
+                    "evidence_refs": ["official:/v2/achievements?action-bundle"],
+                    "confirmed_manual_review": True,
+                }
+            },
+        )
+        action_bundle_markdown = client.post("/api/v1/achievement-routes/source-quality/remediation-queue/action-bundle?format=markdown", json={})
+        action_bundle_csv = client.post("/api/v1/achievement-routes/source-quality/remediation-queue/action-bundle?format=csv", json={})
 
         assert blocked_review.status_code == 400
         assert review_action.status_code == 200
@@ -582,6 +654,12 @@ def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
         assert remediation_readiness.json()["data"]["remediation_readiness"]["open_p0_count"] >= 1
         assert "# Achievement Route Remediation Readiness" in remediation_readiness_markdown.text
         assert "ready,maturity_label,readiness_score" in remediation_readiness_csv.text
+        assert action_bundle.status_code == 200
+        assert action_bundle.json()["data"]["operator_action_bundle"]["remediation_queue"]["open_item_count"] >= 1
+        assert action_bundle_review.status_code == 200
+        assert action_bundle_review.json()["data"]["operator_action_bundle"]["remediation_review"]["status"] == "resolved"
+        assert "# Achievement Route Operator Action Bundle" in action_bundle_markdown.text
+        assert "quality_maturity,quality_score,queue_item_count" in action_bundle_csv.text
     finally:
         achievement_route_routes.gateway_factory = original_factory
         achievement_route_routes.source_root = original_source_root

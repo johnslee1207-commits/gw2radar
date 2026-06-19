@@ -225,6 +225,34 @@ def main() -> int:
     remediation_readiness_csv = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/readiness?format=csv")
     if remediation_readiness_csv.status_code != 200 or "ready,maturity_label,readiness_score" not in remediation_readiness_csv.text:
         failures.append("achievement route remediation readiness csv export failed")
+    action_bundle = client.post("/api/v1/achievement-routes/source-quality/remediation-queue/action-bundle", json={})
+    action_bundle_payload = _json_response(action_bundle, "achievement route operator action bundle", failures)
+    bundle = (((action_bundle_payload or {}).get("data") or {}).get("operator_action_bundle") or {})
+    if not bundle.get("quality") or not bundle.get("remediation_queue") or not bundle.get("remediation_readiness"):
+        failures.append("achievement route operator action bundle did not aggregate quality, queue, and readiness")
+    bundle_review = client.post(
+        "/api/v1/achievement-routes/source-quality/remediation-queue/action-bundle",
+        json={
+            "review": {
+                "item_id": remediation_item_id,
+                "status": "resolved",
+                "reviewer": "smoke_operator",
+                "notes": ["Smoke resolved one remediation item through the operator action bundle."],
+                "evidence_refs": ["official:/v2/achievements?action-bundle"],
+                "confirmed_manual_review": True,
+            }
+        },
+    )
+    bundle_review_payload = _json_response(bundle_review, "achievement route operator action bundle review", failures)
+    bundle_review_record = ((((bundle_review_payload or {}).get("data") or {}).get("operator_action_bundle") or {}).get("remediation_review") or {})
+    if bundle_review_record.get("status") != "resolved":
+        failures.append("achievement route operator action bundle did not record bundled remediation review")
+    action_bundle_markdown = client.post("/api/v1/achievement-routes/source-quality/remediation-queue/action-bundle?format=markdown", json={})
+    if action_bundle_markdown.status_code != 200 or "# Achievement Route Operator Action Bundle" not in action_bundle_markdown.text:
+        failures.append("achievement route operator action bundle markdown export failed")
+    action_bundle_csv = client.post("/api/v1/achievement-routes/source-quality/remediation-queue/action-bundle?format=csv", json={})
+    if action_bundle_csv.status_code != 200 or "quality_maturity,quality_score,queue_item_count" not in action_bundle_csv.text:
+        failures.append("achievement route operator action bundle csv export failed")
     promoted_sources = client.get("/api/v1/achievement-routes/sources")
     promoted_sources_payload = _json_response(promoted_sources, "promoted route sources", failures)
     promoted_reviewed_step_count = (((promoted_sources_payload or {}).get("data") or {}).get("reviewed_step_count") or 0)

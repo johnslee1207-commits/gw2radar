@@ -366,6 +366,22 @@ class AchievementRouteRemediationReadiness(BaseModel):
     boundary: str = "Remediation readiness is an operator go/no-go gate; it does not edit source manifests or certify live game state."
 
 
+class AchievementRouteOperatorActionBundleRequest(BaseModel):
+    review: AchievementRouteRemediationReviewRequest | None = None
+
+
+class AchievementRouteOperatorActionBundle(BaseModel):
+    schema_version: str = "gw2radar.achievement_route_operator_action_bundle.v1"
+    quality: AchievementRouteSourceQualityReview
+    remediation_queue: AchievementRouteRemediationQueue
+    remediation_review: AchievementRouteRemediationReviewRecord | None = None
+    remediation_review_audit: AchievementRouteRemediationReviewAuditList
+    remediation_readiness: AchievementRouteRemediationReadiness
+    release_readiness: AchievementRouteReleaseReadiness
+    next_actions: list[str]
+    boundary: str = "Operator action bundle is a front-end workflow aggregator; it only writes remediation review audit records when an explicit confirmed review is supplied."
+
+
 class AchievementRouteGateway(Protocol):
     def get_batch(
         self,
@@ -1779,6 +1795,98 @@ def render_achievement_route_remediation_readiness_csv(readiness: AchievementRou
             ";".join(readiness.unresolved_item_ids),
             ";".join(readiness.deferred_item_ids),
             ";".join(readiness.resolved_without_extra_evidence_item_ids),
+        ]
+    )
+    return buffer.getvalue()
+
+
+def build_achievement_route_operator_action_bundle(
+    request: AchievementRouteOperatorActionBundleRequest | None = None,
+    source_root: Path = ACHIEVEMENT_ROUTE_SOURCE_ROOT,
+    audit_root: Path = ACHIEVEMENT_ROUTE_AUDIT_ROOT,
+) -> AchievementRouteOperatorActionBundle:
+    remediation_review: AchievementRouteRemediationReviewRecord | None = None
+    if request and request.review:
+        remediation_review = record_achievement_route_remediation_review(request.review, source_root, audit_root)
+    quality = build_achievement_route_source_quality_review(source_root, audit_root)
+    queue = build_achievement_route_remediation_queue(source_root, audit_root)
+    review_audit = list_achievement_route_remediation_review_audits(audit_root, limit=50)
+    remediation_readiness = build_achievement_route_remediation_readiness(source_root, audit_root)
+    release_readiness = build_achievement_route_release_readiness(source_root, audit_root)
+    next_actions = [
+        *remediation_readiness.next_steps,
+        *release_readiness.next_steps,
+    ]
+    if remediation_review:
+        next_actions.insert(0, f"Review action recorded for {remediation_review.item_id} as {remediation_review.status}.")
+    return AchievementRouteOperatorActionBundle(
+        quality=quality,
+        remediation_queue=queue,
+        remediation_review=remediation_review,
+        remediation_review_audit=review_audit,
+        remediation_readiness=remediation_readiness,
+        release_readiness=release_readiness,
+        next_actions=_unique(next_actions),
+    )
+
+
+def render_achievement_route_operator_action_bundle_markdown(bundle: AchievementRouteOperatorActionBundle) -> str:
+    lines = [
+        "# Achievement Route Operator Action Bundle",
+        "",
+        f"- Quality: {bundle.quality.maturity_label} {bundle.quality.overall_score}/100",
+        f"- Remediation queue items: {bundle.remediation_queue.open_item_count}",
+        f"- Review audit records: {len(bundle.remediation_review_audit.records)}",
+        f"- Remediation readiness: {bundle.remediation_readiness.maturity_label} {bundle.remediation_readiness.readiness_score}/100",
+        f"- Release readiness: {bundle.release_readiness.maturity_label} {bundle.release_readiness.readiness_score}/100",
+        f"- Boundary: {bundle.boundary}",
+        "",
+        "## Latest Review Action",
+    ]
+    if bundle.remediation_review:
+        lines.extend(
+            [
+                f"- Item: {bundle.remediation_review.item_id}",
+                f"- Status: {bundle.remediation_review.status}",
+                f"- Reviewer: {bundle.remediation_review.reviewer}",
+            ]
+        )
+    else:
+        lines.append("- None")
+    lines.extend(["", "## Next Actions"])
+    lines.extend([f"- {action}" for action in bundle.next_actions] or ["- None"])
+    return "\n".join(lines) + "\n"
+
+
+def render_achievement_route_operator_action_bundle_csv(bundle: AchievementRouteOperatorActionBundle) -> str:
+    buffer = StringIO()
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow(
+        [
+            "quality_maturity",
+            "quality_score",
+            "queue_item_count",
+            "review_audit_count",
+            "remediation_readiness_maturity",
+            "remediation_readiness_score",
+            "release_readiness_maturity",
+            "release_readiness_score",
+            "latest_review_item_id",
+            "latest_review_status",
+        ]
+    )
+    writer.writerow(
+        [
+            bundle.quality.maturity_label,
+            bundle.quality.overall_score,
+            bundle.remediation_queue.open_item_count,
+            len(bundle.remediation_review_audit.records),
+            bundle.remediation_readiness.maturity_label,
+            bundle.remediation_readiness.readiness_score,
+            bundle.release_readiness.maturity_label,
+            bundle.release_readiness.readiness_score,
+            bundle.remediation_review.item_id if bundle.remediation_review else "",
+            bundle.remediation_review.status if bundle.remediation_review else "",
         ]
     )
     return buffer.getvalue()

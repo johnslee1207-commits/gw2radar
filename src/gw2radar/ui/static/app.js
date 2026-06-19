@@ -232,6 +232,9 @@ function summarizeResult(target, payload) {
     if (data?.remediation_readiness) {
       return `Remediation readiness is ${data.remediation_readiness.maturity_label} at ${data.remediation_readiness.readiness_score}/100.`;
     }
+    if (data?.operator_action_bundle) {
+      return `Operator bundle loaded: quality ${data.operator_action_bundle.quality?.maturity_label}, remediation ${data.operator_action_bundle.remediation_readiness?.maturity_label}.`;
+    }
     if (Array.isArray(data?.sources)) {
       return `${data.sources.length} route source manifests loaded with ${data.reviewed_step_count || 0} reviewed steps.`;
     }
@@ -666,6 +669,14 @@ function renderRouteRemediationReadiness(readiness) {
   const label = readiness?.maturity_label || "unknown";
   const score = typeof readiness?.readiness_score === "number" ? readiness.readiness_score : "--";
   document.querySelector("#route-remediation-readiness-score").textContent = `${label} ${score}/100`;
+}
+
+function renderRouteOperatorActionBundle(bundle) {
+  renderRouteSourceQuality(bundle?.quality || {});
+  renderRouteRemediationQueue(bundle?.remediation_queue || {});
+  renderRouteRemediationReviewAudit(bundle?.remediation_review_audit || {});
+  renderRouteRemediationReadiness(bundle?.remediation_readiness || {});
+  renderRouteReleaseReadiness(bundle?.release_readiness || {});
 }
 
 function buildImportPayload() {
@@ -1292,6 +1303,40 @@ const actions = {
         return text;
       }),
     ),
+  loadAchievementRouteOperatorActionBundle: () =>
+    run("routes", async () => {
+      const payload = await fetchJson("/api/v1/achievement-routes/source-quality/remediation-queue/action-bundle", {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      renderRouteOperatorActionBundle(payload?.data?.operator_action_bundle || {});
+      return payload;
+    }),
+  reviewAchievementRouteRemediationViaBundle: () =>
+    run("routes", async () => {
+      if (!state.lastRouteRemediationItemId) {
+        const queuePayload = await fetchJson("/api/v1/achievement-routes/source-quality/remediation-queue");
+        renderRouteRemediationQueue(queuePayload?.data?.remediation_queue || {});
+      }
+      if (!state.lastRouteRemediationItemId) {
+        throw new Error("No remediation queue item is available for bundled review.");
+      }
+      const payload = await fetchJson("/api/v1/achievement-routes/source-quality/remediation-queue/action-bundle", {
+        method: "POST",
+        body: JSON.stringify({
+          review: {
+            item_id: state.lastRouteRemediationItemId,
+            status: document.querySelector("#route-remediation-status").value,
+            reviewer: document.querySelector("#route-reviewer").value.trim() || "player_ui_operator",
+            notes: document.querySelector("#route-review-notes").value.split("\n").map((line) => line.trim()).filter(Boolean),
+            evidence_refs: ["/api/v1/achievement-routes/source-quality/remediation-queue/action-bundle"],
+            confirmed_manual_review: true,
+          },
+        }),
+      });
+      renderRouteOperatorActionBundle(payload?.data?.operator_action_bundle || {});
+      return payload;
+    }),
   importBuild: () =>
     run("build", async () => {
       const payload = await fetchJson("/api/v1/builds/import", {

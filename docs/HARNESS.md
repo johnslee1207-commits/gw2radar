@@ -79,6 +79,10 @@ It also verifies the P12 remediation readiness rollup:
 queue items and review audit decisions are summarized into open P0/P1/P2 counts,
 resolved/acknowledged/deferred counts, blockers, warnings, next steps, and a
 go/no-go readiness export.
+It also verifies the P13 operator action bundle:
+source quality, remediation queue, remediation review action, review audit,
+remediation readiness, and release readiness are combined into one front-end
+workflow API with Markdown / CSV export.
 
 ## Account Connection Diagnostic Command
 
@@ -181,7 +185,10 @@ readiness rollup, and visible no-secret boundary copy.
 25. Export remediation review audit as Markdown and CSV.
 26. Load remediation readiness and confirm open P0/P1/P2 gate status.
 27. Export remediation readiness as Markdown and CSV.
-28. Confirm the route planner ingests the promoted reviewed source.
+28. Load operator action bundle and confirm quality, queue, audit, and readiness are aggregated.
+29. Record one remediation review through the action bundle.
+30. Export operator action bundle as Markdown and CSV.
+31. Confirm the route planner ingests the promoted reviewed source.
 
 ## Account Connection Diagnostic Steps
 
