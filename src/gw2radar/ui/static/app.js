@@ -238,6 +238,9 @@ function summarizeResult(target, payload) {
     if (data?.operator_release_packet) {
       return `Release packet is ${data.operator_release_packet.maturity_label} with ${data.operator_release_packet.blocker_count} blockers.`;
     }
+    if (data?.backfill_candidates) {
+      return `${data.backfill_candidates.candidate_count || 0} draft backfill candidates generated for manual source edits.`;
+    }
     if (Array.isArray(data?.sources)) {
       return `${data.sources.length} route source manifests loaded with ${data.reviewed_step_count || 0} reviewed steps.`;
     }
@@ -1364,6 +1367,20 @@ const actions = {
           throw new Error(text || `HTTP ${response.status}`);
         }
         return JSON.parse(text);
+      }),
+    ),
+  loadAchievementRouteBackfillCandidates: () =>
+    run("routes", () => fetchJson("/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates")),
+  exportAchievementRouteBackfillCandidates: () =>
+    run("routes", () =>
+      fetch("/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates?format=csv", {
+        headers: { "Accept": "text/csv" },
+      }).then(async (response) => {
+        const text = await response.text();
+        if (!response.ok) {
+          throw new Error(text || `HTTP ${response.status}`);
+        }
+        return text;
       }),
     ),
   importBuild: () =>

@@ -69,6 +69,8 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert "Release packet" in response.text
     assert "Export release packet CSV" in response.text
     assert "Export packet manifest" in response.text
+    assert "Backfill candidates" in response.text
+    assert "Export backfill CSV" in response.text
 
 
 def test_player_ui_static_assets_are_served() -> None:
@@ -145,6 +147,8 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "loadAchievementRouteOperatorReleasePacket" in js.text
     assert "exportAchievementRouteOperatorReleasePacket" in js.text
     assert "exportAchievementRouteOperatorReleasePacketManifest" in js.text
+    assert "loadAchievementRouteBackfillCandidates" in js.text
+    assert "exportAchievementRouteBackfillCandidates" in js.text
     assert "confirmed_manual_review" in js.text
     assert "routeOfficialFetchPreviewPayload" in js.text
     assert "routeReviewPayload" in js.text
@@ -157,6 +161,7 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "/api/v1/achievement-routes/source-quality/remediation-queue/readiness" in js.text
     assert "/api/v1/achievement-routes/source-quality/remediation-queue/action-bundle" in js.text
     assert "/api/v1/achievement-routes/source-quality/remediation-queue/release-packet" in js.text
+    assert "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates" in js.text
 
 
 def test_player_ui_styles_cover_workflow_and_summaries() -> None:

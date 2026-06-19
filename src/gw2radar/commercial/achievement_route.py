@@ -399,6 +399,28 @@ class AchievementRouteOperatorReleasePacket(BaseModel):
     boundary: str = "Operator release packet is a deterministic review artifact; it does not publish, edit manifests, automate gameplay, or certify live game state."
 
 
+class AchievementRouteBackfillCandidate(BaseModel):
+    candidate_id: str
+    item_id: str
+    priority: str
+    remediation_type: str
+    source_id: str | None = None
+    step_id: str | None = None
+    title: str
+    suggested_fields: dict[str, Any]
+    rationale: str
+    required_review: list[str]
+    evidence_refs: list[str] = Field(default_factory=list)
+
+
+class AchievementRouteBackfillCandidateExport(BaseModel):
+    schema_version: str = "gw2radar.achievement_route_backfill_candidates.v1"
+    candidate_count: int
+    candidates: list[AchievementRouteBackfillCandidate]
+    excluded_item_ids: list[str]
+    boundary: str = "Backfill candidates are draft edit suggestions only; they do not modify source manifests or bypass reviewer promotion gates."
+
+
 class AchievementRouteGateway(Protocol):
     def get_batch(
         self,
@@ -2020,6 +2042,93 @@ def render_achievement_route_operator_release_packet_csv(packet: AchievementRout
     return buffer.getvalue()
 
 
+def build_achievement_route_backfill_candidates(
+    source_root: Path = ACHIEVEMENT_ROUTE_SOURCE_ROOT,
+    audit_root: Path = ACHIEVEMENT_ROUTE_AUDIT_ROOT,
+) -> AchievementRouteBackfillCandidateExport:
+    queue = build_achievement_route_remediation_queue(source_root, audit_root)
+    readiness = build_achievement_route_remediation_readiness(source_root, audit_root)
+    unresolved_ids = set(readiness.unresolved_item_ids)
+    candidates: list[AchievementRouteBackfillCandidate] = []
+    excluded: list[str] = []
+    for item in queue.items:
+        if item.item_id not in unresolved_ids:
+            excluded.append(item.item_id)
+            continue
+        candidates.append(_route_backfill_candidate(item))
+    return AchievementRouteBackfillCandidateExport(
+        candidate_count=len(candidates),
+        candidates=candidates,
+        excluded_item_ids=_unique(excluded),
+    )
+
+
+def render_achievement_route_backfill_candidates_markdown(export: AchievementRouteBackfillCandidateExport) -> str:
+    lines = [
+        "# Achievement Route Backfill Candidates",
+        "",
+        f"- Candidates: {export.candidate_count}",
+        f"- Excluded resolved items: {len(export.excluded_item_ids)}",
+        f"- Boundary: {export.boundary}",
+        "",
+        "## Candidates",
+    ]
+    for candidate in export.candidates:
+        lines.extend(
+            [
+                f"### {candidate.priority} {candidate.title}",
+                f"- Candidate: {candidate.candidate_id}",
+                f"- Item: {candidate.item_id}",
+                f"- Type: {candidate.remediation_type}",
+                f"- Source: {candidate.source_id or 'n/a'}",
+                f"- Step: {candidate.step_id or 'n/a'}",
+                f"- Rationale: {candidate.rationale}",
+                f"- Suggested fields: {json.dumps(candidate.suggested_fields, sort_keys=True)}",
+                f"- Required review: {', '.join(candidate.required_review)}",
+                f"- Evidence: {', '.join(candidate.evidence_refs) if candidate.evidence_refs else 'pending'}",
+                "",
+            ]
+        )
+    if not export.candidates:
+        lines.append("- None")
+    return "\n".join(lines) + "\n"
+
+
+def render_achievement_route_backfill_candidates_csv(export: AchievementRouteBackfillCandidateExport) -> str:
+    buffer = StringIO()
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow(
+        [
+            "candidate_id",
+            "item_id",
+            "priority",
+            "remediation_type",
+            "source_id",
+            "step_id",
+            "title",
+            "suggested_fields",
+            "required_review",
+            "evidence_refs",
+        ]
+    )
+    for candidate in export.candidates:
+        writer.writerow(
+            [
+                candidate.candidate_id,
+                candidate.item_id,
+                candidate.priority,
+                candidate.remediation_type,
+                candidate.source_id or "",
+                candidate.step_id or "",
+                candidate.title,
+                json.dumps(candidate.suggested_fields, sort_keys=True),
+                ";".join(candidate.required_review),
+                ";".join(candidate.evidence_refs),
+            ]
+        )
+    return buffer.getvalue()
+
+
 def _build_segments(
     steps: list[AchievementRouteStep],
     ready: list[str],
@@ -2235,6 +2344,42 @@ def _route_remediation_next_actions(items: list[AchievementRouteRemediationItem]
         actions.append("Review daily/weekly gate wording so player plans remain schedule-aware.")
     actions.append("After edits, promote through the existing reviewed source gate and verify release readiness.")
     return _unique(actions)
+
+
+def _route_backfill_candidate(item: AchievementRouteRemediationItem) -> AchievementRouteBackfillCandidate:
+    suggested_fields: dict[str, Any] = {}
+    required_review = ["human_reviewer_confirmation", "source_manifest_manual_edit"]
+    if item.remediation_type == "official_id_backfill":
+        suggested_fields = {
+            "official_achievement_id": "replace_or_remove_missing_id",
+            "evidence_refs": ["official:/v2/achievements"],
+        }
+        required_review.append("official_api_refetch")
+    elif item.remediation_type == "evidence_backfill":
+        suggested_fields = {"evidence_refs": ["official_wiki_or_api_ref_required"]}
+        required_review.append("evidence_source_check")
+    elif item.remediation_type == "map_review":
+        suggested_fields = {"map_name": "review_required", "region": "review_required"}
+        required_review.append("in_game_or_official_location_check")
+    elif item.remediation_type == "time_gate_review":
+        suggested_fields = {"time_gate": "confirm_daily_weekly_or_none", "assumptions": ["reset_or_rotation_review_required"]}
+        required_review.append("current_reset_context_check")
+    elif item.remediation_type == "source_manifest_backfill":
+        suggested_fields = {"source_status": "reviewed", "source_refs": ["official_source_required"], "steps": "reviewed_steps_required"}
+        required_review.append("reviewed_source_manifest_creation")
+    return AchievementRouteBackfillCandidate(
+        candidate_id=f"backfill:{_slug(item.item_id)}",
+        item_id=item.item_id,
+        priority=item.priority,
+        remediation_type=item.remediation_type,
+        source_id=item.source_id,
+        step_id=item.step_id,
+        title=item.title,
+        suggested_fields=suggested_fields,
+        rationale=item.recommended_action,
+        required_review=_unique(required_review),
+        evidence_refs=item.evidence_refs,
+    )
 
 
 def _slug(value: str) -> str:

@@ -87,6 +87,10 @@ It also verifies the P14 operator release packet:
 the action bundle is packaged into deterministic Markdown, CSV, and manifest
 exports with readiness scores, blockers, warnings, source paths, API refs, and
 explicit safety boundaries.
+It also verifies the P15 backfill candidate export:
+unresolved remediation items become draft-only source edit candidates with
+suggested fields, required review checks, evidence refs, Markdown export, and
+CSV export without modifying source manifests.
 
 ## Account Connection Diagnostic Command
 
@@ -194,7 +198,9 @@ readiness rollup, and visible no-secret boundary copy.
 30. Export operator action bundle as Markdown and CSV.
 31. Load operator release packet and confirm manifest metadata.
 32. Export operator release packet as Markdown, CSV, and manifest JSON.
-33. Confirm the route planner ingests the promoted reviewed source.
+33. Load backfill candidates and confirm unresolved remediation becomes draft edit suggestions.
+34. Export backfill candidates as Markdown and CSV.
+35. Confirm the route planner ingests the promoted reviewed source.
 
 ## Account Connection Diagnostic Steps
 

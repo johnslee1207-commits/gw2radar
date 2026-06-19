@@ -203,6 +203,7 @@ Operator review gate:
 - `Remediation readiness` and `Export remediation readiness CSV` summarize queue plus review audit into a go/no-go gate with open P0/P1/P2 counts, resolved/acknowledged/deferred counts, blockers, warnings, and next steps.
 - `Action bundle` and `Review via bundle` combine quality, remediation queue, review action, review audit, remediation readiness, and release readiness into one front-end workflow request.
 - `Release packet`, `Export release packet CSV`, and `Export packet manifest` create a deterministic operator handoff artifact with readiness scores, blockers, warnings, source paths, API refs, and safety boundaries.
+- `Backfill candidates` and `Export backfill CSV` turn unresolved remediation items into draft source-edit suggestions with suggested fields, required review checks, and evidence refs.
 
 Advanced operator flow:
 
@@ -219,6 +220,7 @@ Advanced operator flow:
 - `GET /api/v1/achievement-routes/source-quality/remediation-queue/readiness` summarizes remediation review state with `format=markdown` and `format=csv`.
 - `POST /api/v1/achievement-routes/source-quality/remediation-queue/action-bundle` aggregates the operator workflow and optionally records one confirmed remediation review action.
 - `GET /api/v1/achievement-routes/source-quality/remediation-queue/release-packet` exports the operator release packet with `format=markdown`, `format=csv`, or `format=manifest`.
+- `GET /api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates` exports draft-only source edit candidates with `format=markdown` or `format=csv`.
 - Draft previews are not used by the route planner until this reviewed promotion gate writes a `source_status=reviewed` manifest.
 
 ## Freshness And Confidence

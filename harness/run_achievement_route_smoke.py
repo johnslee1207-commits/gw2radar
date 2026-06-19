@@ -267,6 +267,17 @@ def main() -> int:
     release_packet_manifest = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-packet?format=manifest")
     if release_packet_manifest.status_code != 200 or release_packet_manifest.json().get("packet_schema") != "gw2radar.achievement_route_operator_release_packet.v1":
         failures.append("achievement route operator release packet manifest export failed")
+    backfill_candidates = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates")
+    backfill_payload = _json_response(backfill_candidates, "achievement route backfill candidates", failures)
+    backfill = (((backfill_payload or {}).get("data") or {}).get("backfill_candidates") or {})
+    if backfill.get("candidate_count", 0) < 1 or "source manifests" not in backfill.get("boundary", ""):
+        failures.append("achievement route backfill candidate export did not expose draft-only candidates")
+    backfill_markdown = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates?format=markdown")
+    if backfill_markdown.status_code != 200 or "# Achievement Route Backfill Candidates" not in backfill_markdown.text:
+        failures.append("achievement route backfill candidate markdown export failed")
+    backfill_csv = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates?format=csv")
+    if backfill_csv.status_code != 200 or "candidate_id,item_id,priority" not in backfill_csv.text:
+        failures.append("achievement route backfill candidate csv export failed")
     promoted_sources = client.get("/api/v1/achievement-routes/sources")
     promoted_sources_payload = _json_response(promoted_sources, "promoted route sources", failures)
     promoted_reviewed_step_count = (((promoted_sources_payload or {}).get("data") or {}).get("reviewed_step_count") or 0)

@@ -15,6 +15,7 @@ from gw2radar.commercial.achievement_route import (
     AchievementRouteStep,
     OfficialAchievementFetchPreviewRequest,
     OfficialAchievementRoutePreviewRequest,
+    build_achievement_route_backfill_candidates,
     build_achievement_route_release_readiness,
     build_achievement_route_operator_action_bundle,
     build_achievement_route_operator_release_packet,
@@ -30,6 +31,8 @@ from gw2radar.commercial.achievement_route import (
     promote_official_fetch_preview_to_reviewed_manifest,
     record_achievement_route_promotion_audit,
     record_achievement_route_remediation_review,
+    render_achievement_route_backfill_candidates_csv,
+    render_achievement_route_backfill_candidates_markdown,
     render_achievement_route_promotion_audit_csv,
     render_achievement_route_promotion_audit_markdown,
     render_achievement_route_operator_action_bundle_csv,
@@ -399,6 +402,9 @@ def test_achievement_route_operator_action_bundle_aggregates_and_records_review(
         packet = build_achievement_route_operator_release_packet(temp_root, audit_root)
         packet_markdown = render_achievement_route_operator_release_packet_markdown(packet)
         packet_csv = render_achievement_route_operator_release_packet_csv(packet)
+        candidates = build_achievement_route_backfill_candidates(temp_root, audit_root)
+        candidates_markdown = render_achievement_route_backfill_candidates_markdown(candidates)
+        candidates_csv = render_achievement_route_backfill_candidates_csv(candidates)
 
         assert initial.schema_version == "gw2radar.achievement_route_operator_action_bundle.v1"
         assert initial.remediation_review is None
@@ -415,8 +421,14 @@ def test_achievement_route_operator_action_bundle_aggregates_and_records_review(
         assert "operator_release_packet_manifest.json" in packet.manifest["artifacts"]
         assert "Achievement Route Operator Release Packet" in packet_markdown
         assert "packet_id,ready,maturity_label" in packet_csv
+        assert candidates.schema_version == "gw2radar.achievement_route_backfill_candidates.v1"
+        assert candidates.candidate_count >= 1
+        assert candidates.candidates[0].suggested_fields
+        assert "Achievement Route Backfill Candidates" in candidates_markdown
+        assert "candidate_id,item_id,priority" in candidates_csv
         assert "secret-key" not in str(updated).lower()
         assert "secret-key" not in str(packet).lower()
+        assert "secret-key" not in str(candidates).lower()
     finally:
         rmtree(temp_root, ignore_errors=True)
         rmtree(audit_root, ignore_errors=True)
@@ -657,6 +669,9 @@ def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
         release_packet_markdown = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-packet?format=markdown")
         release_packet_csv = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-packet?format=csv")
         release_packet_manifest = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-packet?format=manifest")
+        backfill_candidates = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates")
+        backfill_candidates_markdown = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates?format=markdown")
+        backfill_candidates_csv = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates?format=csv")
 
         assert blocked_review.status_code == 400
         assert review_action.status_code == 200
@@ -681,6 +696,10 @@ def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
         assert "# Achievement Route Operator Release Packet" in release_packet_markdown.text
         assert "packet_id,ready,maturity_label" in release_packet_csv.text
         assert release_packet_manifest.json()["packet_schema"] == "gw2radar.achievement_route_operator_release_packet.v1"
+        assert backfill_candidates.status_code == 200
+        assert backfill_candidates.json()["data"]["backfill_candidates"]["candidate_count"] >= 1
+        assert "# Achievement Route Backfill Candidates" in backfill_candidates_markdown.text
+        assert "candidate_id,item_id,priority" in backfill_candidates_csv.text
     finally:
         achievement_route_routes.gateway_factory = original_factory
         achievement_route_routes.source_root = original_source_root

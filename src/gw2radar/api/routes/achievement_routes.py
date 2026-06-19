@@ -15,6 +15,7 @@ from gw2radar.commercial.achievement_route import (
     OfficialAccountAchievementProgress,
     OfficialAchievementFetchPreviewRequest,
     OfficialAchievementRoutePreviewRequest,
+    build_achievement_route_backfill_candidates,
     build_achievement_route_operator_action_bundle,
     build_achievement_route_operator_release_packet,
     build_achievement_route_release_readiness,
@@ -31,6 +32,8 @@ from gw2radar.commercial.achievement_route import (
     record_achievement_route_promotion_audit,
     record_achievement_route_remediation_review,
     render_achievement_route_csv,
+    render_achievement_route_backfill_candidates_csv,
+    render_achievement_route_backfill_candidates_markdown,
     render_achievement_route_markdown,
     render_achievement_route_operator_action_bundle_csv,
     render_achievement_route_operator_action_bundle_markdown,
@@ -343,6 +346,24 @@ def get_achievement_route_operator_release_packet(
             media_type="application/json; charset=utf-8",
         )
     return ApiDataEnvelope(data={"operator_release_packet": packet.model_dump(mode="json")})
+
+
+@router.get("/source-quality/remediation-queue/backfill-candidates", response_model=None)
+def get_achievement_route_backfill_candidates(
+    format: str = Query(default="json", pattern="^(json|markdown|csv)$"),
+):
+    export = build_achievement_route_backfill_candidates(source_root, audit_root)
+    if format == "markdown":
+        return Response(
+            content=render_achievement_route_backfill_candidates_markdown(export),
+            media_type="text/markdown; charset=utf-8",
+        )
+    if format == "csv":
+        return Response(
+            content=render_achievement_route_backfill_candidates_csv(export),
+            media_type="text/csv; charset=utf-8",
+        )
+    return ApiDataEnvelope(data={"backfill_candidates": export.model_dump(mode="json")})
 
 
 @router.post("/plan/export")
