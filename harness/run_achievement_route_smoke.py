@@ -37,6 +37,8 @@ def main() -> int:
         failures.append(f"player page returned HTTP {page.status_code}")
     elif "Achievement Route Planner" not in page.text:
         failures.append("player page does not expose Achievement Route Planner")
+    elif "Operator review gate" not in page.text or "Promote reviewed" not in page.text:
+        failures.append("player page does not expose the achievement route operator review gate")
 
     plan_response = client.post("/api/v1/achievement-routes/plan", json=request)
     plan_payload = _json_response(plan_response, "route plan", failures)

@@ -41,6 +41,11 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert "Generate full report" in response.text
     assert "Mock returner checkout" in response.text
     assert "Refresh freshness to load recommendation-level source confidence." in response.text
+    assert "Operator review gate" in response.text
+    assert "Official achievement ids" in response.text
+    assert "Fetch preview" in response.text
+    assert "Promote reviewed" in response.text
+    assert "Verify promoted plan" in response.text
 
 
 def test_player_ui_static_assets_are_served() -> None:
@@ -94,6 +99,13 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "payload?.is_configured" in js.text
     assert "Sync now queues one account snapshot job" in js.text
     assert "/api/v1/account/sync/drain-one" in js.text
+    assert "/api/v1/achievement-routes/official-fetch-preview" in js.text
+    assert "/api/v1/achievement-routes/official-fetch-preview/promote-reviewed" in js.text
+    assert "fetchOfficialAchievementRoutePreview" in js.text
+    assert "promoteOfficialAchievementRouteReviewed" in js.text
+    assert "verifyPromotedAchievementRoute" in js.text
+    assert "routeOfficialFetchPreviewPayload" in js.text
+    assert "routeReviewPayload" in js.text
 
 
 def test_player_ui_styles_cover_workflow_and_summaries() -> None:
@@ -149,3 +161,4 @@ def test_player_ui_docs_cover_required_flows() -> None:
     assert "Delete all private data" in combined
     assert "Run connection diagnostic" in combined
     assert "Export debug bundle" in combined
+    assert "promote-reviewed" in combined

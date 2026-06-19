@@ -53,6 +53,10 @@ It also verifies the P5 reviewed promotion gate:
 `/api/v1/achievement-routes/official-fetch-preview/promote-reviewed` requires
 explicit reviewer confirmation, writes a reviewed route source manifest, and
 makes the promoted source eligible for route planner ingestion.
+It also verifies the P6 operator review UI:
+the `/player` Routes view exposes official achievement ids, reviewer, reviewed
+source id, review notes, fetch preview, promote reviewed, and promoted-plan
+verification controls.
 
 ## Account Connection Diagnostic Command
 
@@ -129,20 +133,21 @@ readiness rollup, and visible no-secret boundary copy.
 ## Achievement Route Harness Steps
 
 1. Load `/player` and verify the Achievement Route Planner is present.
-2. Submit a sample route request with known unlocked prerequisites.
-3. Load reviewed route source manifests and confirm reviewed step count.
-4. Confirm the route plan schema, ready steps, blocked steps, source id, and safety boundary.
-5. Export Markdown and confirm assumptions are present with no guarantee wording.
-6. Export CSV and confirm the deterministic route header is present.
-7. Submit official achievement/account-achievement sample payloads.
-8. Confirm generated route source candidates remain `draft`.
-9. Export the official preview as Markdown and confirm review warnings are present.
-10. Submit achievement ids to the official fetch preview endpoint.
-11. Confirm fetched ids, missing ids, account progress, and draft-only status.
-12. Export the fetch preview as Markdown and confirm review warnings are present.
-13. Confirm promotion without reviewed confirmation is rejected.
-14. Promote the fetch preview through the reviewed gate into a temporary source manifest.
-15. Confirm the route planner ingests the promoted reviewed source.
+2. Confirm the Routes view exposes the operator review gate controls.
+3. Submit a sample route request with known unlocked prerequisites.
+4. Load reviewed route source manifests and confirm reviewed step count.
+5. Confirm the route plan schema, ready steps, blocked steps, source id, and safety boundary.
+6. Export Markdown and confirm assumptions are present with no guarantee wording.
+7. Export CSV and confirm the deterministic route header is present.
+8. Submit official achievement/account-achievement sample payloads.
+9. Confirm generated route source candidates remain `draft`.
+10. Export the official preview as Markdown and confirm review warnings are present.
+11. Submit achievement ids to the official fetch preview endpoint.
+12. Confirm fetched ids, missing ids, account progress, and draft-only status.
+13. Export the fetch preview as Markdown and confirm review warnings are present.
+14. Confirm promotion without reviewed confirmation is rejected.
+15. Promote the fetch preview through the reviewed gate into a temporary source manifest.
+16. Confirm the route planner ingests the promoted reviewed source.
 
 ## Account Connection Diagnostic Steps
 

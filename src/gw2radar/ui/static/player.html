@@ -435,6 +435,40 @@ achievement_api_access</textarea>
               </ol>
             </article>
           </div>
+          <div class="two-column">
+            <article class="panel form-panel">
+              <h3>Operator review gate</h3>
+              <label>Official achievement ids
+                <textarea id="route-official-achievement-ids" rows="3">2001
+2002
+9999</textarea>
+              </label>
+              <label>Reviewer
+                <input id="route-reviewer" value="player_ui_operator" />
+              </label>
+              <label>Reviewed source id
+                <input id="route-reviewed-source-id" value="kb:achievement-routes:player-ui-official-fetch:v1" />
+              </label>
+              <label>Review notes
+                <textarea id="route-review-notes" rows="3">Reviewer confirmed achievement ids, route assumptions, and source evidence before planner ingestion.</textarea>
+              </label>
+              <div class="button-grid">
+                <button data-action="fetchOfficialAchievementRoutePreview">Fetch preview</button>
+                <button data-action="promoteOfficialAchievementRouteReviewed">Promote reviewed</button>
+                <button data-action="verifyPromotedAchievementRoute">Verify promoted plan</button>
+              </div>
+            </article>
+            <article class="panel">
+              <h3>Review status</h3>
+              <dl class="metric-list">
+                <div><dt>Fetched</dt><dd id="route-fetch-count">--</dd></div>
+                <div><dt>Missing</dt><dd id="route-missing-count">--</dd></div>
+                <div><dt>Promoted</dt><dd id="route-promoted-count">--</dd></div>
+                <div><dt>Ingested</dt><dd id="route-ingested-count">--</dd></div>
+              </dl>
+              <p class="muted">Draft previews stay outside route planning until this reviewed gate writes a reviewed source manifest.</p>
+            </article>
+          </div>
           <div class="result-summary" id="routes-summary">No route plan yet.</div>
           <pre id="routes-output" class="json-output tall" aria-live="polite">Achievement route output appears here.</pre>
         </section>

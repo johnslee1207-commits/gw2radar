@@ -5,6 +5,8 @@ const state = {
   characterSnapshots: [],
   selectedAccountGear: null,
   buildUpgradeRules: [],
+  lastRouteFetchRequest: null,
+  lastRoutePromotionSourceId: "",
 };
 
 const storageKeys = {
@@ -200,6 +202,14 @@ function summarizeResult(target, payload) {
     return "Legendary planning output updated. Market signals are observation-only.";
   }
   if (target === "routes") {
+    if (data?.fetch_preview) {
+      const fetched = data.fetch_preview.fetched_achievement_ids?.length || 0;
+      const missing = data.fetch_preview.missing_achievement_ids?.length || 0;
+      return `${fetched} official achievements fetched, ${missing} missing. Preview remains draft until reviewed promotion.`;
+    }
+    if (data?.promotion) {
+      return `${data.promotion.manifest?.steps?.length || 0} reviewed route steps promoted for planner ingestion.`;
+    }
     if (Array.isArray(data?.sources)) {
       return `${data.sources.length} route source manifests loaded with ${data.reviewed_step_count || 0} reviewed steps.`;
     }
@@ -545,6 +555,41 @@ function routeRequestPayload() {
   };
 }
 
+function routeOfficialAchievementIds() {
+  return routeList("#route-official-achievement-ids")
+    .map((item) => Number(item))
+    .filter((item) => Number.isInteger(item) && item > 0);
+}
+
+function routeOfficialFetchPreviewPayload() {
+  const achievementIds = routeOfficialAchievementIds();
+  if (!achievementIds.length) {
+    throw new Error("Add at least one official achievement id before fetching a preview.");
+  }
+  return {
+    source_id: "official:achievement-route-fetch-preview:player-ui",
+    title: "Player UI official achievement fetch preview",
+    goal_id: document.querySelector("#route-goal").value,
+    reviewed_by: document.querySelector("#route-reviewer").value || "player_ui_operator",
+    achievement_ids: achievementIds,
+    account_achievements: [],
+    use_stored_account_progress: false,
+  };
+}
+
+function routeReviewPayload() {
+  const reviewer = document.querySelector("#route-reviewer").value.trim();
+  if (!reviewer) {
+    throw new Error("Reviewer is required before promoting a route source.");
+  }
+  return {
+    confirmed_reviewed: true,
+    reviewer,
+    reviewed_source_id: document.querySelector("#route-reviewed-source-id").value.trim() || null,
+    review_notes: routeList("#route-review-notes"),
+  };
+}
+
 function renderRoutePlan(plan) {
   document.querySelector("#route-ready-count").textContent = String(plan?.ready_step_ids?.length || 0);
   document.querySelector("#route-blocked-count").textContent = String(plan?.blocked_step_ids?.length || 0);
@@ -552,6 +597,20 @@ function renderRoutePlan(plan) {
   document.querySelector("#route-segment-count").textContent = String(plan?.segments?.length || 0);
   document.querySelector("#route-source-count").textContent = String(plan?.source_ids?.length || 0);
   renderActionList("#route-next-actions", plan?.next_actions || []);
+}
+
+function renderRouteFetchPreview(fetchPreview) {
+  document.querySelector("#route-fetch-count").textContent = String(fetchPreview?.fetched_achievement_ids?.length || 0);
+  document.querySelector("#route-missing-count").textContent = String(fetchPreview?.missing_achievement_ids?.length || 0);
+}
+
+function renderRoutePromotion(promotion) {
+  const sourceId = promotion?.manifest?.source_id || "";
+  state.lastRoutePromotionSourceId = sourceId;
+  document.querySelector("#route-promoted-count").textContent = String(promotion?.manifest?.steps?.length || 0);
+  if (sourceId) {
+    document.querySelector("#route-reviewed-source-id").value = sourceId;
+  }
 }
 
 function buildImportPayload() {
@@ -1001,6 +1060,45 @@ const actions = {
         return text;
       }),
     ),
+  fetchOfficialAchievementRoutePreview: () =>
+    run("routes", async () => {
+      const request = routeOfficialFetchPreviewPayload();
+      state.lastRouteFetchRequest = request;
+      const payload = await fetchJson("/api/v1/achievement-routes/official-fetch-preview", {
+        method: "POST",
+        body: JSON.stringify(request),
+      });
+      renderRouteFetchPreview(payload?.data?.fetch_preview || {});
+      return payload;
+    }),
+  promoteOfficialAchievementRouteReviewed: () =>
+    run("routes", async () => {
+      const request = state.lastRouteFetchRequest || routeOfficialFetchPreviewPayload();
+      state.lastRouteFetchRequest = request;
+      const payload = await fetchJson("/api/v1/achievement-routes/official-fetch-preview/promote-reviewed", {
+        method: "POST",
+        body: JSON.stringify({
+          request,
+          review: routeReviewPayload(),
+        }),
+      });
+      renderRoutePromotion(payload?.data?.promotion || {});
+      await actions.loadAchievementRouteSources();
+      return payload;
+    }),
+  verifyPromotedAchievementRoute: () =>
+    run("routes", async () => {
+      const sourceId = state.lastRoutePromotionSourceId || document.querySelector("#route-reviewed-source-id").value.trim();
+      const payload = await fetchJson("/api/v1/achievement-routes/plan", {
+        method: "POST",
+        body: JSON.stringify(routeRequestPayload()),
+      });
+      const plan = payload?.data?.plan || {};
+      renderRoutePlan(plan);
+      const ingested = sourceId && plan.source_ids?.includes(sourceId);
+      document.querySelector("#route-ingested-count").textContent = ingested ? "yes" : "no";
+      return payload;
+    }),
   importBuild: () =>
     run("build", async () => {
       const payload = await fetchJson("/api/v1/builds/import", {

@@ -184,6 +184,14 @@ The Routes view turns route planning into a manual checklist:
 
 Outputs separate ready, blocked, and time-gated steps. Every route export includes source ids, assumptions, and safety boundaries. The current reviewed seed is a planning scaffold backed by official API/source references, not a complete official achievement database.
 
+Operator review gate:
+
+- `Official achievement ids` lists the official ids to fetch for a draft preview.
+- `Reviewer`, `Reviewed source id`, and `Review notes` are required context before reviewed promotion.
+- `Fetch preview` calls the official fetch preview API and updates fetched/missing counts while keeping the source draft-only.
+- `Promote reviewed` calls the reviewed gate and writes a planner-ingestible reviewed source manifest only after explicit reviewer confirmation.
+- `Verify promoted plan` re-runs route planning and shows whether the promoted source id is present in the plan source ids.
+
 Advanced operator flow:
 
 - `POST /api/v1/achievement-routes/official-preview` accepts official `/v2/achievements` and `/v2/account/achievements` shaped payloads.
