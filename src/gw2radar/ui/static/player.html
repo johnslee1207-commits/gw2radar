@@ -483,6 +483,11 @@ achievement_api_access</textarea>
                 <button data-action="exportAchievementRouteOperatorReleasePacketManifest">Export packet manifest</button>
                 <button data-action="loadAchievementRouteBackfillCandidates">Backfill candidates</button>
                 <button data-action="exportAchievementRouteBackfillCandidates">Export backfill CSV</button>
+                <button data-action="reviewAchievementRouteBackfillCandidate">Review backfill candidate</button>
+                <button data-action="loadAchievementRouteBackfillCandidateReviewAudit">Load backfill audit</button>
+                <button data-action="exportAchievementRouteBackfillCandidateReviewAudit">Export backfill audit CSV</button>
+                <button data-action="loadAchievementRouteBackfillCandidateReadiness">Backfill readiness</button>
+                <button data-action="exportAchievementRouteBackfillCandidateReadiness">Export backfill readiness CSV</button>
               </div>
             </article>
             <article class="panel">
@@ -497,6 +502,9 @@ achievement_api_access</textarea>
                 <div><dt>Quality</dt><dd id="route-quality-score">--</dd></div>
                 <div><dt>Remediation</dt><dd id="route-remediation-count">--</dd></div>
                 <div><dt>Remediation gate</dt><dd id="route-remediation-readiness-score">--</dd></div>
+                <div><dt>Backfill candidates</dt><dd id="route-backfill-count">--</dd></div>
+                <div><dt>Backfill audit</dt><dd id="route-backfill-audit-count">--</dd></div>
+                <div><dt>Backfill gate</dt><dd id="route-backfill-readiness-score">--</dd></div>
               </dl>
               <p class="muted">Draft previews stay outside route planning until this reviewed gate writes a reviewed source manifest.</p>
             </article>

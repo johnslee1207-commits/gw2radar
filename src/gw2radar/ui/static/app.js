@@ -8,6 +8,7 @@ const state = {
   lastRouteFetchRequest: null,
   lastRoutePromotionSourceId: "",
   lastRouteRemediationItemId: "",
+  lastRouteBackfillCandidateId: "",
 };
 
 const storageKeys = {
@@ -240,6 +241,15 @@ function summarizeResult(target, payload) {
     }
     if (data?.backfill_candidates) {
       return `${data.backfill_candidates.candidate_count || 0} draft backfill candidates generated for manual source edits.`;
+    }
+    if (data?.backfill_candidate_review) {
+      return `Backfill candidate ${data.backfill_candidate_review.candidate_id} marked ${data.backfill_candidate_review.status} by ${data.backfill_candidate_review.reviewer}.`;
+    }
+    if (data?.backfill_candidate_review_audit) {
+      return `${data.backfill_candidate_review_audit.records?.length || 0} backfill candidate audit records loaded.`;
+    }
+    if (data?.backfill_candidate_readiness) {
+      return `Backfill candidate readiness is ${data.backfill_candidate_readiness.maturity_label} at ${data.backfill_candidate_readiness.readiness_score}/100.`;
     }
     if (Array.isArray(data?.sources)) {
       return `${data.sources.length} route source manifests loaded with ${data.reviewed_step_count || 0} reviewed steps.`;
@@ -675,6 +685,22 @@ function renderRouteRemediationReadiness(readiness) {
   const label = readiness?.maturity_label || "unknown";
   const score = typeof readiness?.readiness_score === "number" ? readiness.readiness_score : "--";
   document.querySelector("#route-remediation-readiness-score").textContent = `${label} ${score}/100`;
+}
+
+function renderRouteBackfillCandidates(exportPayload) {
+  state.lastRouteBackfillCandidateId = exportPayload?.candidates?.[0]?.candidate_id || "";
+  const count = typeof exportPayload?.candidate_count === "number" ? exportPayload.candidate_count : "--";
+  document.querySelector("#route-backfill-count").textContent = String(count);
+}
+
+function renderRouteBackfillCandidateReviewAudit(audit) {
+  document.querySelector("#route-backfill-audit-count").textContent = String(audit?.records?.length || 0);
+}
+
+function renderRouteBackfillCandidateReadiness(readiness) {
+  const label = readiness?.maturity_label || "unknown";
+  const score = typeof readiness?.readiness_score === "number" ? readiness.readiness_score : "--";
+  document.querySelector("#route-backfill-readiness-score").textContent = `${label} ${score}/100`;
 }
 
 function renderRouteOperatorActionBundle(bundle) {
@@ -1370,10 +1396,76 @@ const actions = {
       }),
     ),
   loadAchievementRouteBackfillCandidates: () =>
-    run("routes", () => fetchJson("/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates")),
+    run("routes", async () => {
+      const payload = await fetchJson("/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates");
+      renderRouteBackfillCandidates(payload?.data?.backfill_candidates || {});
+      return payload;
+    }),
   exportAchievementRouteBackfillCandidates: () =>
     run("routes", () =>
       fetch("/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates?format=csv", {
+        headers: { "Accept": "text/csv" },
+      }).then(async (response) => {
+        const text = await response.text();
+        if (!response.ok) {
+          throw new Error(text || `HTTP ${response.status}`);
+        }
+        return text;
+      }),
+    ),
+  reviewAchievementRouteBackfillCandidate: () =>
+    run("routes", async () => {
+      if (!state.lastRouteBackfillCandidateId) {
+        const candidatesPayload = await fetchJson("/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates");
+        renderRouteBackfillCandidates(candidatesPayload?.data?.backfill_candidates || {});
+      }
+      if (!state.lastRouteBackfillCandidateId) {
+        throw new Error("No backfill candidate is available for review.");
+      }
+      const payload = await fetchJson("/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/review", {
+        method: "POST",
+        body: JSON.stringify({
+          candidate_id: state.lastRouteBackfillCandidateId,
+          status: document.querySelector("#route-remediation-status").value,
+          reviewer: document.querySelector("#route-reviewer").value,
+          notes: [document.querySelector("#route-review-notes").value],
+          evidence_refs: ["/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates"],
+          confirmed_manual_review: true,
+        }),
+      });
+      return payload;
+    }),
+  loadAchievementRouteBackfillCandidateReviewAudit: () =>
+    run("routes", async () => {
+      const reviewer = encodeURIComponent(document.querySelector("#route-reviewer").value.trim());
+      const suffix = reviewer ? `?reviewer=${reviewer}` : "";
+      const payload = await fetchJson(`/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/review-audit${suffix}`);
+      renderRouteBackfillCandidateReviewAudit(payload?.data?.backfill_candidate_review_audit || {});
+      return payload;
+    }),
+  exportAchievementRouteBackfillCandidateReviewAudit: () =>
+    run("routes", () => {
+      const reviewer = encodeURIComponent(document.querySelector("#route-reviewer").value.trim());
+      const suffix = reviewer ? `&reviewer=${reviewer}` : "";
+      return fetch(`/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/review-audit?format=csv${suffix}`, {
+        headers: { "Accept": "text/csv" },
+      }).then(async (response) => {
+        const text = await response.text();
+        if (!response.ok) {
+          throw new Error(text || `HTTP ${response.status}`);
+        }
+        return text;
+      });
+    }),
+  loadAchievementRouteBackfillCandidateReadiness: () =>
+    run("routes", async () => {
+      const payload = await fetchJson("/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/readiness");
+      renderRouteBackfillCandidateReadiness(payload?.data?.backfill_candidate_readiness || {});
+      return payload;
+    }),
+  exportAchievementRouteBackfillCandidateReadiness: () =>
+    run("routes", () =>
+      fetch("/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/readiness?format=csv", {
         headers: { "Accept": "text/csv" },
       }).then(async (response) => {
         const text = await response.text();

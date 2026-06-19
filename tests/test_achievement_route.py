@@ -8,6 +8,7 @@ from gw2radar.api.main import app
 from gw2radar.api.routes import achievement_routes as achievement_route_routes
 from gw2radar.commercial.achievement_route import (
     AchievementRouteOperatorActionBundleRequest,
+    AchievementRouteBackfillCandidateReviewRequest,
     AchievementRouteReviewedPromotionRequest,
     AchievementRouteRemediationReviewRequest,
     AchievementRouteRequest,
@@ -16,6 +17,7 @@ from gw2radar.commercial.achievement_route import (
     OfficialAchievementFetchPreviewRequest,
     OfficialAchievementRoutePreviewRequest,
     build_achievement_route_backfill_candidates,
+    build_achievement_route_backfill_candidate_readiness,
     build_achievement_route_release_readiness,
     build_achievement_route_operator_action_bundle,
     build_achievement_route_operator_release_packet,
@@ -26,13 +28,19 @@ from gw2radar.commercial.achievement_route import (
     build_achievement_route_plan,
     build_official_achievement_route_preview,
     list_achievement_route_promotion_audits,
+    list_achievement_route_backfill_candidate_review_audits,
     list_achievement_route_remediation_review_audits,
     load_reviewed_achievement_route_steps,
     promote_official_fetch_preview_to_reviewed_manifest,
     record_achievement_route_promotion_audit,
+    record_achievement_route_backfill_candidate_review,
     record_achievement_route_remediation_review,
     render_achievement_route_backfill_candidates_csv,
     render_achievement_route_backfill_candidates_markdown,
+    render_achievement_route_backfill_candidate_readiness_csv,
+    render_achievement_route_backfill_candidate_readiness_markdown,
+    render_achievement_route_backfill_candidate_review_audit_csv,
+    render_achievement_route_backfill_candidate_review_audit_markdown,
     render_achievement_route_promotion_audit_csv,
     render_achievement_route_promotion_audit_markdown,
     render_achievement_route_operator_action_bundle_csv,
@@ -405,6 +413,43 @@ def test_achievement_route_operator_action_bundle_aggregates_and_records_review(
         candidates = build_achievement_route_backfill_candidates(temp_root, audit_root)
         candidates_markdown = render_achievement_route_backfill_candidates_markdown(candidates)
         candidates_csv = render_achievement_route_backfill_candidates_csv(candidates)
+        candidate_id = candidates.candidates[0].candidate_id
+        try:
+            record_achievement_route_backfill_candidate_review(
+                AchievementRouteBackfillCandidateReviewRequest(
+                    candidate_id=candidate_id,
+                    status="acknowledged",
+                    reviewer="bundle_operator",
+                    confirmed_manual_review=False,
+                ),
+                temp_root,
+                audit_root,
+            )
+        except ValueError as exc:
+            assert "confirmed_manual_review" in str(exc)
+        else:
+            raise AssertionError("unconfirmed backfill candidate review should fail")
+        candidate_record = record_achievement_route_backfill_candidate_review(
+            AchievementRouteBackfillCandidateReviewRequest(
+                candidate_id=candidate_id,
+                status="acknowledged",
+                reviewer="bundle_operator",
+                notes=["Candidate was acknowledged for manual source editing."],
+                evidence_refs=["operator-review:backfill-candidate"],
+                confirmed_manual_review=True,
+            ),
+            temp_root,
+            audit_root,
+        )
+        candidate_audit = list_achievement_route_backfill_candidate_review_audits(
+            audit_root,
+            reviewer="bundle_operator",
+        )
+        candidate_readiness = build_achievement_route_backfill_candidate_readiness(temp_root, audit_root)
+        candidate_audit_markdown = render_achievement_route_backfill_candidate_review_audit_markdown(candidate_audit)
+        candidate_audit_csv = render_achievement_route_backfill_candidate_review_audit_csv(candidate_audit)
+        candidate_readiness_markdown = render_achievement_route_backfill_candidate_readiness_markdown(candidate_readiness)
+        candidate_readiness_csv = render_achievement_route_backfill_candidate_readiness_csv(candidate_readiness)
 
         assert initial.schema_version == "gw2radar.achievement_route_operator_action_bundle.v1"
         assert initial.remediation_review is None
@@ -426,9 +471,21 @@ def test_achievement_route_operator_action_bundle_aggregates_and_records_review(
         assert candidates.candidates[0].suggested_fields
         assert "Achievement Route Backfill Candidates" in candidates_markdown
         assert "candidate_id,item_id,priority" in candidates_csv
+        assert candidate_record.schema_version == "gw2radar.achievement_route_backfill_candidate_review.v1"
+        assert candidate_record.candidate_id == candidate_id
+        assert candidate_record.status == "acknowledged"
+        assert candidate_audit.schema_version == "gw2radar.achievement_route_backfill_candidate_review_audit_list.v1"
+        assert candidate_audit.records[0].candidate_id == candidate_id
+        assert candidate_readiness.schema_version == "gw2radar.achievement_route_backfill_candidate_readiness.v1"
+        assert candidate_readiness.open_candidate_count >= 1
+        assert "Achievement Route Backfill Candidate Review Audit" in candidate_audit_markdown
+        assert "candidate_id,item_id" in candidate_audit_csv
+        assert "Achievement Route Backfill Candidate Readiness" in candidate_readiness_markdown
+        assert "ready,maturity_label,readiness_score" in candidate_readiness_csv
         assert "secret-key" not in str(updated).lower()
         assert "secret-key" not in str(packet).lower()
         assert "secret-key" not in str(candidates).lower()
+        assert "secret-key" not in str(candidate_audit).lower()
     finally:
         rmtree(temp_root, ignore_errors=True)
         rmtree(audit_root, ignore_errors=True)
@@ -672,6 +729,42 @@ def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
         backfill_candidates = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates")
         backfill_candidates_markdown = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates?format=markdown")
         backfill_candidates_csv = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates?format=csv")
+        backfill_candidate_id = backfill_candidates.json()["data"]["backfill_candidates"]["candidates"][0]["candidate_id"]
+        blocked_backfill_review = client.post(
+            "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/review",
+            json={
+                "candidate_id": backfill_candidate_id,
+                "status": "acknowledged",
+                "reviewer": "api_review_operator",
+                "notes": ["Reviewed from API test."],
+                "confirmed_manual_review": False,
+            },
+        )
+        backfill_review = client.post(
+            "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/review",
+            json={
+                "candidate_id": backfill_candidate_id,
+                "status": "acknowledged",
+                "reviewer": "api_review_operator",
+                "notes": ["Acknowledged candidate for manual source editing."],
+                "evidence_refs": ["official:/v2/achievements?backfill-candidate"],
+                "confirmed_manual_review": True,
+            },
+        )
+        backfill_audit = client.get(
+            "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/review-audit?reviewer=api_review_operator"
+        )
+        backfill_audit_markdown = client.get(
+            "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/review-audit?format=markdown"
+        )
+        backfill_audit_csv = client.get(
+            "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/review-audit?format=csv"
+        )
+        backfill_readiness = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/readiness")
+        backfill_readiness_markdown = client.get(
+            "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/readiness?format=markdown"
+        )
+        backfill_readiness_csv = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/readiness?format=csv")
 
         assert blocked_review.status_code == 400
         assert review_action.status_code == 200
@@ -700,6 +793,18 @@ def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
         assert backfill_candidates.json()["data"]["backfill_candidates"]["candidate_count"] >= 1
         assert "# Achievement Route Backfill Candidates" in backfill_candidates_markdown.text
         assert "candidate_id,item_id,priority" in backfill_candidates_csv.text
+        assert blocked_backfill_review.status_code == 400
+        assert backfill_review.status_code == 200
+        assert backfill_review.json()["data"]["backfill_candidate_review"]["candidate_id"] == backfill_candidate_id
+        assert backfill_review.json()["data"]["backfill_candidate_review"]["status"] == "acknowledged"
+        assert backfill_audit.status_code == 200
+        assert backfill_audit.json()["data"]["backfill_candidate_review_audit"]["records"][0]["candidate_id"] == backfill_candidate_id
+        assert "# Achievement Route Backfill Candidate Review Audit" in backfill_audit_markdown.text
+        assert "candidate_id,item_id" in backfill_audit_csv.text
+        assert backfill_readiness.status_code == 200
+        assert backfill_readiness.json()["data"]["backfill_candidate_readiness"]["open_candidate_count"] >= 1
+        assert "# Achievement Route Backfill Candidate Readiness" in backfill_readiness_markdown.text
+        assert "ready,maturity_label,readiness_score" in backfill_readiness_csv.text
     finally:
         achievement_route_routes.gateway_factory = original_factory
         achievement_route_routes.source_root = original_source_root

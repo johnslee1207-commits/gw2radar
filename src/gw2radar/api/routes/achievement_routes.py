@@ -9,6 +9,7 @@ from gw2radar.commercial.achievement_route import (
     ACHIEVEMENT_ROUTE_AUDIT_ROOT,
     ACHIEVEMENT_ROUTE_SOURCE_ROOT,
     AchievementRouteOperatorActionBundleRequest,
+    AchievementRouteBackfillCandidateReviewRequest,
     AchievementRouteReviewedPromotionRequest,
     AchievementRouteRemediationReviewRequest,
     AchievementRouteRequest,
@@ -16,6 +17,7 @@ from gw2radar.commercial.achievement_route import (
     OfficialAchievementFetchPreviewRequest,
     OfficialAchievementRoutePreviewRequest,
     build_achievement_route_backfill_candidates,
+    build_achievement_route_backfill_candidate_readiness,
     build_achievement_route_operator_action_bundle,
     build_achievement_route_operator_release_packet,
     build_achievement_route_release_readiness,
@@ -26,12 +28,18 @@ from gw2radar.commercial.achievement_route import (
     build_achievement_route_plan,
     build_official_achievement_route_preview,
     list_achievement_route_promotion_audits,
+    list_achievement_route_backfill_candidate_review_audits,
     list_achievement_route_remediation_review_audits,
     load_reviewed_achievement_route_steps,
     promote_official_fetch_preview_to_reviewed_manifest,
     record_achievement_route_promotion_audit,
+    record_achievement_route_backfill_candidate_review,
     record_achievement_route_remediation_review,
     render_achievement_route_csv,
+    render_achievement_route_backfill_candidate_readiness_csv,
+    render_achievement_route_backfill_candidate_readiness_markdown,
+    render_achievement_route_backfill_candidate_review_audit_csv,
+    render_achievement_route_backfill_candidate_review_audit_markdown,
     render_achievement_route_backfill_candidates_csv,
     render_achievement_route_backfill_candidates_markdown,
     render_achievement_route_markdown,
@@ -364,6 +372,61 @@ def get_achievement_route_backfill_candidates(
             media_type="text/csv; charset=utf-8",
         )
     return ApiDataEnvelope(data={"backfill_candidates": export.model_dump(mode="json")})
+
+
+@router.post("/source-quality/remediation-queue/backfill-candidates/review", response_model=None)
+def post_achievement_route_backfill_candidate_review(request: AchievementRouteBackfillCandidateReviewRequest):
+    try:
+        record = record_achievement_route_backfill_candidate_review(request, source_root, audit_root)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return ApiDataEnvelope(data={"backfill_candidate_review": record.model_dump(mode="json")})
+
+
+@router.get("/source-quality/remediation-queue/backfill-candidates/review-audit", response_model=None)
+def get_achievement_route_backfill_candidate_review_audit(
+    reviewer: str | None = None,
+    status: str | None = Query(default=None, pattern="^(acknowledged|resolved|deferred)$"),
+    candidate_id: str | None = None,
+    limit: int = Query(default=25, ge=1, le=200),
+    format: str = Query(default="json", pattern="^(json|markdown|csv)$"),
+):
+    audit = list_achievement_route_backfill_candidate_review_audits(
+        audit_root,
+        reviewer=reviewer,
+        status=status,
+        candidate_id=candidate_id,
+        limit=limit,
+    )
+    if format == "markdown":
+        return Response(
+            content=render_achievement_route_backfill_candidate_review_audit_markdown(audit),
+            media_type="text/markdown; charset=utf-8",
+        )
+    if format == "csv":
+        return Response(
+            content=render_achievement_route_backfill_candidate_review_audit_csv(audit),
+            media_type="text/csv; charset=utf-8",
+        )
+    return ApiDataEnvelope(data={"backfill_candidate_review_audit": audit.model_dump(mode="json")})
+
+
+@router.get("/source-quality/remediation-queue/backfill-candidates/readiness", response_model=None)
+def get_achievement_route_backfill_candidate_readiness(
+    format: str = Query(default="json", pattern="^(json|markdown|csv)$"),
+):
+    readiness = build_achievement_route_backfill_candidate_readiness(source_root, audit_root)
+    if format == "markdown":
+        return Response(
+            content=render_achievement_route_backfill_candidate_readiness_markdown(readiness),
+            media_type="text/markdown; charset=utf-8",
+        )
+    if format == "csv":
+        return Response(
+            content=render_achievement_route_backfill_candidate_readiness_csv(readiness),
+            media_type="text/csv; charset=utf-8",
+        )
+    return ApiDataEnvelope(data={"backfill_candidate_readiness": readiness.model_dump(mode="json")})
 
 
 @router.post("/plan/export")

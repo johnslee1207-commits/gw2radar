@@ -421,6 +421,60 @@ class AchievementRouteBackfillCandidateExport(BaseModel):
     boundary: str = "Backfill candidates are draft edit suggestions only; they do not modify source manifests or bypass reviewer promotion gates."
 
 
+class AchievementRouteBackfillCandidateReviewRequest(BaseModel):
+    candidate_id: str = Field(min_length=3)
+    status: RouteRemediationReviewStatus
+    reviewer: str = Field(min_length=2)
+    notes: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    confirmed_manual_review: bool = False
+
+
+class AchievementRouteBackfillCandidateReviewRecord(BaseModel):
+    schema_version: str = "gw2radar.achievement_route_backfill_candidate_review.v1"
+    event_id: str
+    candidate_id: str
+    item_id: str
+    status: RouteRemediationReviewStatus
+    occurred_at: datetime
+    reviewer: str
+    notes: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    source_id: str | None = None
+    step_id: str | None = None
+    remediation_type: str | None = None
+    priority: str | None = None
+    safety_boundary: str = "Backfill candidate review records operator decisions only; source manifests still require separate manual edits and reviewed promotion."
+
+
+class AchievementRouteBackfillCandidateReviewAuditList(BaseModel):
+    schema_version: str = "gw2radar.achievement_route_backfill_candidate_review_audit_list.v1"
+    records: list[AchievementRouteBackfillCandidateReviewRecord]
+    filters: dict[str, str | int | None]
+    boundary: str = "Backfill candidate audit exports are metadata-only and must not contain raw API keys or private account payloads."
+
+
+class AchievementRouteBackfillCandidateReadiness(BaseModel):
+    schema_version: str = "gw2radar.achievement_route_backfill_candidate_readiness.v1"
+    ready: bool
+    maturity_label: Literal["blocked", "review_needed", "ready"]
+    readiness_score: float
+    candidate_count: int
+    reviewed_candidate_count: int
+    resolved_count: int
+    acknowledged_count: int
+    deferred_count: int
+    open_candidate_count: int
+    unresolved_candidate_ids: list[str]
+    deferred_candidate_ids: list[str]
+    resolved_without_extra_evidence_candidate_ids: list[str]
+    blockers: list[str]
+    warnings: list[str]
+    next_steps: list[str]
+    evidence_chain: list[str]
+    boundary: str = "Backfill readiness is an operator review gate; it does not edit source manifests, enable rules, automate gameplay, or certify live game state."
+
+
 class AchievementRouteGateway(Protocol):
     def get_batch(
         self,
@@ -2126,6 +2180,314 @@ def render_achievement_route_backfill_candidates_csv(export: AchievementRouteBac
                 ";".join(candidate.evidence_refs),
             ]
         )
+    return buffer.getvalue()
+
+
+def record_achievement_route_backfill_candidate_review(
+    request: AchievementRouteBackfillCandidateReviewRequest,
+    source_root: Path = ACHIEVEMENT_ROUTE_SOURCE_ROOT,
+    audit_root: Path = ACHIEVEMENT_ROUTE_AUDIT_ROOT,
+) -> AchievementRouteBackfillCandidateReviewRecord:
+    if not request.confirmed_manual_review:
+        raise ValueError("Backfill candidate review requires confirmed_manual_review=true.")
+    export = build_achievement_route_backfill_candidates(source_root, audit_root)
+    candidate_by_id = {candidate.candidate_id: candidate for candidate in export.candidates}
+    candidate = candidate_by_id.get(request.candidate_id)
+    if candidate is None:
+        raise ValueError(f"Backfill candidate {request.candidate_id} is not present in the current review queue.")
+    record = AchievementRouteBackfillCandidateReviewRecord(
+        event_id=f"route-backfill-candidate-review:{datetime.now(UTC).strftime('%Y%m%d%H%M%S%f')}",
+        candidate_id=request.candidate_id,
+        item_id=candidate.item_id,
+        status=request.status,
+        occurred_at=datetime.now(UTC),
+        reviewer=request.reviewer,
+        notes=_unique([note.strip() for note in request.notes if note.strip()]),
+        evidence_refs=_unique([*candidate.evidence_refs, *[ref.strip() for ref in request.evidence_refs if ref.strip()]]),
+        source_id=candidate.source_id,
+        step_id=candidate.step_id,
+        remediation_type=candidate.remediation_type,
+        priority=candidate.priority,
+    )
+    audit_root.mkdir(parents=True, exist_ok=True)
+    path = audit_root / "backfill_candidate_review_audit.jsonl"
+    with path.open("a", encoding="utf-8", newline="\n") as handle:
+        handle.write(record.model_dump_json() + "\n")
+    return record
+
+
+def list_achievement_route_backfill_candidate_review_audits(
+    audit_root: Path = ACHIEVEMENT_ROUTE_AUDIT_ROOT,
+    *,
+    reviewer: str | None = None,
+    status: RouteRemediationReviewStatus | None = None,
+    candidate_id: str | None = None,
+    limit: int = 25,
+) -> AchievementRouteBackfillCandidateReviewAuditList:
+    path = audit_root / "backfill_candidate_review_audit.jsonl"
+    records: list[AchievementRouteBackfillCandidateReviewRecord] = []
+    if path.exists():
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            try:
+                record = AchievementRouteBackfillCandidateReviewRecord.model_validate_json(line)
+            except ValidationError:
+                continue
+            if reviewer and record.reviewer != reviewer:
+                continue
+            if status and record.status != status:
+                continue
+            if candidate_id and record.candidate_id != candidate_id:
+                continue
+            records.append(record)
+    records = sorted(records, key=lambda item: item.occurred_at, reverse=True)[: max(1, min(limit, 200))]
+    return AchievementRouteBackfillCandidateReviewAuditList(
+        records=records,
+        filters={"reviewer": reviewer, "status": status, "candidate_id": candidate_id, "limit": limit},
+    )
+
+
+def render_achievement_route_backfill_candidate_review_audit_markdown(
+    audit_list: AchievementRouteBackfillCandidateReviewAuditList,
+) -> str:
+    lines = [
+        "# Achievement Route Backfill Candidate Review Audit",
+        "",
+        f"- Records: {len(audit_list.records)}",
+        f"- Boundary: {audit_list.boundary}",
+        "",
+        "| Occurred At | Reviewer | Status | Priority | Type | Candidate | Item | Source | Step |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    for record in audit_list.records:
+        lines.append(
+            "| "
+            + " | ".join(
+                [
+                    record.occurred_at.isoformat(),
+                    record.reviewer,
+                    record.status,
+                    record.priority or "n/a",
+                    record.remediation_type or "n/a",
+                    record.candidate_id,
+                    record.item_id,
+                    record.source_id or "n/a",
+                    record.step_id or "n/a",
+                ]
+            )
+            + " |"
+        )
+    if not audit_list.records:
+        lines.append("| none | none | none | none | none | none | none | none | none |")
+    return "\n".join(lines) + "\n"
+
+
+def render_achievement_route_backfill_candidate_review_audit_csv(
+    audit_list: AchievementRouteBackfillCandidateReviewAuditList,
+) -> str:
+    buffer = StringIO()
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow(
+        [
+            "event_id",
+            "occurred_at",
+            "reviewer",
+            "status",
+            "priority",
+            "remediation_type",
+            "candidate_id",
+            "item_id",
+            "source_id",
+            "step_id",
+            "notes",
+            "evidence_refs",
+        ]
+    )
+    for record in audit_list.records:
+        writer.writerow(
+            [
+                record.event_id,
+                record.occurred_at.isoformat(),
+                record.reviewer,
+                record.status,
+                record.priority or "",
+                record.remediation_type or "",
+                record.candidate_id,
+                record.item_id,
+                record.source_id or "",
+                record.step_id or "",
+                ";".join(record.notes),
+                ";".join(record.evidence_refs),
+            ]
+        )
+    return buffer.getvalue()
+
+
+def build_achievement_route_backfill_candidate_readiness(
+    source_root: Path = ACHIEVEMENT_ROUTE_SOURCE_ROOT,
+    audit_root: Path = ACHIEVEMENT_ROUTE_AUDIT_ROOT,
+) -> AchievementRouteBackfillCandidateReadiness:
+    export = build_achievement_route_backfill_candidates(source_root, audit_root)
+    audit = list_achievement_route_backfill_candidate_review_audits(audit_root, limit=200)
+    latest_by_candidate: dict[str, AchievementRouteBackfillCandidateReviewRecord] = {}
+    for record in sorted(audit.records, key=lambda item: item.occurred_at):
+        latest_by_candidate[record.candidate_id] = record
+
+    unresolved_candidate_ids: list[str] = []
+    deferred_candidate_ids: list[str] = []
+    resolved_without_extra_evidence: list[str] = []
+    resolved_count = 0
+    acknowledged_count = 0
+    deferred_count = 0
+    reviewed_count = 0
+
+    for candidate in export.candidates:
+        record = latest_by_candidate.get(candidate.candidate_id)
+        if record is None:
+            unresolved_candidate_ids.append(candidate.candidate_id)
+            continue
+        reviewed_count += 1
+        if record.status == "resolved":
+            resolved_count += 1
+            extra_evidence = [ref for ref in record.evidence_refs if ref not in candidate.evidence_refs]
+            if not extra_evidence:
+                resolved_without_extra_evidence.append(candidate.candidate_id)
+        elif record.status == "acknowledged":
+            acknowledged_count += 1
+            unresolved_candidate_ids.append(candidate.candidate_id)
+        elif record.status == "deferred":
+            deferred_count += 1
+            deferred_candidate_ids.append(candidate.candidate_id)
+            unresolved_candidate_ids.append(candidate.candidate_id)
+
+    open_p0 = sum(1 for candidate in export.candidates if candidate.priority == "P0" and candidate.candidate_id in unresolved_candidate_ids)
+    open_p1 = sum(1 for candidate in export.candidates if candidate.priority == "P1" and candidate.candidate_id in unresolved_candidate_ids)
+    open_p2 = sum(1 for candidate in export.candidates if candidate.priority == "P2" and candidate.candidate_id in unresolved_candidate_ids)
+    blockers: list[str] = []
+    warnings: list[str] = []
+    next_steps: list[str] = []
+    if open_p0:
+        blockers.append(f"{open_p0} P0 backfill candidates remain unresolved.")
+        next_steps.append("Resolve P0 source-edit candidates before release packet approval.")
+    if open_p1:
+        blockers.append(f"{open_p1} P1 backfill candidates remain unresolved.")
+        next_steps.append("Resolve or explicitly defer P1 backfill candidates with reviewer notes.")
+    if deferred_candidate_ids:
+        warnings.append("Some backfill candidates are deferred and require release-owner acceptance.")
+        next_steps.append("Review deferred candidate risk before go/no-go.")
+    if resolved_without_extra_evidence:
+        warnings.append("Some resolved backfill candidates did not add evidence beyond draft candidate evidence refs.")
+        next_steps.append("Attach official API/wiki or source manifest evidence to resolved candidate reviews.")
+    if not export.candidates:
+        next_steps.append("No backfill candidates are open; continue release packet and patch freshness checks.")
+
+    score = 100.0
+    score -= open_p0 * 35
+    score -= open_p1 * 20
+    score -= min(open_p2 * 5, 20)
+    score -= min(len(deferred_candidate_ids) * 10, 30)
+    score -= min(len(resolved_without_extra_evidence) * 5, 20)
+    score = max(0.0, min(100.0, score))
+    ready = not blockers and not deferred_candidate_ids and not resolved_without_extra_evidence
+    if export.candidates and reviewed_count < len(export.candidates):
+        ready = False
+    maturity = "ready" if ready else "blocked" if blockers else "review_needed"
+    if not next_steps and ready:
+        next_steps.append("Backfill candidate readiness is ready; continue release packet and patch freshness review.")
+
+    return AchievementRouteBackfillCandidateReadiness(
+        ready=ready,
+        maturity_label=maturity,
+        readiness_score=round(score, 1),
+        candidate_count=len(export.candidates),
+        reviewed_candidate_count=reviewed_count,
+        resolved_count=resolved_count,
+        acknowledged_count=acknowledged_count,
+        deferred_count=deferred_count,
+        open_candidate_count=len(_unique(unresolved_candidate_ids)),
+        unresolved_candidate_ids=_unique(unresolved_candidate_ids),
+        deferred_candidate_ids=_unique(deferred_candidate_ids),
+        resolved_without_extra_evidence_candidate_ids=_unique(resolved_without_extra_evidence),
+        blockers=blockers,
+        warnings=warnings,
+        next_steps=_unique(next_steps),
+        evidence_chain=[
+            "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates",
+            "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/review-audit",
+            "data/achievement_route_audit/backfill_candidate_review_audit.jsonl",
+        ],
+    )
+
+
+def render_achievement_route_backfill_candidate_readiness_markdown(
+    readiness: AchievementRouteBackfillCandidateReadiness,
+) -> str:
+    lines = [
+        "# Achievement Route Backfill Candidate Readiness",
+        "",
+        f"- Ready: {readiness.ready}",
+        f"- Maturity: {readiness.maturity_label}",
+        f"- Score: {readiness.readiness_score}/100",
+        f"- Candidates: {readiness.candidate_count}",
+        f"- Reviewed candidates: {readiness.reviewed_candidate_count}",
+        f"- Open candidates: {readiness.open_candidate_count}",
+        f"- Resolved/Acknowledged/Deferred: {readiness.resolved_count}/{readiness.acknowledged_count}/{readiness.deferred_count}",
+        f"- Boundary: {readiness.boundary}",
+        "",
+        "## Blockers",
+    ]
+    lines.extend([f"- {item}" for item in readiness.blockers] or ["- None"])
+    lines.extend(["", "## Warnings"])
+    lines.extend([f"- {item}" for item in readiness.warnings] or ["- None"])
+    lines.extend(["", "## Next Steps"])
+    lines.extend([f"- {item}" for item in readiness.next_steps] or ["- None"])
+    lines.extend(["", "## Evidence Chain"])
+    lines.extend([f"- {item}" for item in readiness.evidence_chain])
+    return "\n".join(lines) + "\n"
+
+
+def render_achievement_route_backfill_candidate_readiness_csv(
+    readiness: AchievementRouteBackfillCandidateReadiness,
+) -> str:
+    buffer = StringIO()
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow(
+        [
+            "ready",
+            "maturity_label",
+            "readiness_score",
+            "candidate_count",
+            "reviewed_candidate_count",
+            "open_candidate_count",
+            "resolved_count",
+            "acknowledged_count",
+            "deferred_count",
+            "unresolved_candidate_ids",
+            "deferred_candidate_ids",
+            "blockers",
+            "warnings",
+            "next_steps",
+        ]
+    )
+    writer.writerow(
+        [
+            readiness.ready,
+            readiness.maturity_label,
+            readiness.readiness_score,
+            readiness.candidate_count,
+            readiness.reviewed_candidate_count,
+            readiness.open_candidate_count,
+            readiness.resolved_count,
+            readiness.acknowledged_count,
+            readiness.deferred_count,
+            ";".join(readiness.unresolved_candidate_ids),
+            ";".join(readiness.deferred_candidate_ids),
+            ";".join(readiness.blockers),
+            ";".join(readiness.warnings),
+            ";".join(readiness.next_steps),
+        ]
+    )
     return buffer.getvalue()
 
 

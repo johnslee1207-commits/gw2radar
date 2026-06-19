@@ -204,6 +204,7 @@ Operator review gate:
 - `Action bundle` and `Review via bundle` combine quality, remediation queue, review action, review audit, remediation readiness, and release readiness into one front-end workflow request.
 - `Release packet`, `Export release packet CSV`, and `Export packet manifest` create a deterministic operator handoff artifact with readiness scores, blockers, warnings, source paths, API refs, and safety boundaries.
 - `Backfill candidates` and `Export backfill CSV` turn unresolved remediation items into draft source-edit suggestions with suggested fields, required review checks, and evidence refs.
+- `Review backfill candidate`, `Load backfill audit`, `Export backfill audit CSV`, `Backfill readiness`, and `Export backfill readiness CSV` let operators acknowledge, resolve, or defer draft source-edit candidates before any separate source manifest edit.
 
 Advanced operator flow:
 
@@ -221,6 +222,9 @@ Advanced operator flow:
 - `POST /api/v1/achievement-routes/source-quality/remediation-queue/action-bundle` aggregates the operator workflow and optionally records one confirmed remediation review action.
 - `GET /api/v1/achievement-routes/source-quality/remediation-queue/release-packet` exports the operator release packet with `format=markdown`, `format=csv`, or `format=manifest`.
 - `GET /api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates` exports draft-only source edit candidates with `format=markdown` or `format=csv`.
+- `POST /api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/review` records a confirmed metadata-only candidate review action.
+- `GET /api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/review-audit` lists candidate review records and supports `format=markdown` or `format=csv`.
+- `GET /api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/readiness` summarizes candidate review state with `format=markdown` and `format=csv`.
 - Draft previews are not used by the route planner until this reviewed promotion gate writes a `source_status=reviewed` manifest.
 
 ## Freshness And Confidence

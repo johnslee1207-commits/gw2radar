@@ -71,6 +71,12 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert "Export packet manifest" in response.text
     assert "Backfill candidates" in response.text
     assert "Export backfill CSV" in response.text
+    assert "Review backfill candidate" in response.text
+    assert "Load backfill audit" in response.text
+    assert "Export backfill audit CSV" in response.text
+    assert "Backfill readiness" in response.text
+    assert "Export backfill readiness CSV" in response.text
+    assert "Backfill gate" in response.text
 
 
 def test_player_ui_static_assets_are_served() -> None:
@@ -149,6 +155,11 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "exportAchievementRouteOperatorReleasePacketManifest" in js.text
     assert "loadAchievementRouteBackfillCandidates" in js.text
     assert "exportAchievementRouteBackfillCandidates" in js.text
+    assert "reviewAchievementRouteBackfillCandidate" in js.text
+    assert "loadAchievementRouteBackfillCandidateReviewAudit" in js.text
+    assert "exportAchievementRouteBackfillCandidateReviewAudit" in js.text
+    assert "loadAchievementRouteBackfillCandidateReadiness" in js.text
+    assert "exportAchievementRouteBackfillCandidateReadiness" in js.text
     assert "confirmed_manual_review" in js.text
     assert "routeOfficialFetchPreviewPayload" in js.text
     assert "routeReviewPayload" in js.text
@@ -162,6 +173,9 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "/api/v1/achievement-routes/source-quality/remediation-queue/action-bundle" in js.text
     assert "/api/v1/achievement-routes/source-quality/remediation-queue/release-packet" in js.text
     assert "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates" in js.text
+    assert "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/review" in js.text
+    assert "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/review-audit" in js.text
+    assert "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/readiness" in js.text
 
 
 def test_player_ui_styles_cover_workflow_and_summaries() -> None:

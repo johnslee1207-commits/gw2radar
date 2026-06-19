@@ -91,6 +91,10 @@ It also verifies the P15 backfill candidate export:
 unresolved remediation items become draft-only source edit candidates with
 suggested fields, required review checks, evidence refs, Markdown export, and
 CSV export without modifying source manifests.
+It also verifies the P16 backfill candidate review gate:
+operators can mark draft backfill candidates acknowledged/resolved/deferred with
+manual confirmation, metadata-only audit records, Markdown / CSV audit exports,
+and a readiness rollup before any separate source manifest edit or promotion.
 
 ## Account Connection Diagnostic Command
 
@@ -200,7 +204,11 @@ readiness rollup, and visible no-secret boundary copy.
 32. Export operator release packet as Markdown, CSV, and manifest JSON.
 33. Load backfill candidates and confirm unresolved remediation becomes draft edit suggestions.
 34. Export backfill candidates as Markdown and CSV.
-35. Confirm the route planner ingests the promoted reviewed source.
+35. Mark one backfill candidate reviewed and confirm metadata-only audit output.
+36. Export backfill candidate audit as Markdown and CSV.
+37. Load backfill candidate readiness and confirm open candidate gate status.
+38. Export backfill candidate readiness as Markdown and CSV.
+39. Confirm the route planner ingests the promoted reviewed source.
 
 ## Account Connection Diagnostic Steps
 

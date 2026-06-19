@@ -278,6 +278,44 @@ def main() -> int:
     backfill_csv = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates?format=csv")
     if backfill_csv.status_code != 200 or "candidate_id,item_id,priority" not in backfill_csv.text:
         failures.append("achievement route backfill candidate csv export failed")
+    backfill_candidate_id = (backfill.get("candidates") or [{}])[0].get("candidate_id")
+    backfill_review = client.post(
+        "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/review",
+        json={
+            "candidate_id": backfill_candidate_id,
+            "status": "acknowledged",
+            "reviewer": "smoke_operator",
+            "notes": ["Smoke acknowledged one backfill candidate for manual source editing."],
+            "evidence_refs": ["official:/v2/achievements?smoke-backfill"],
+            "confirmed_manual_review": True,
+        },
+    )
+    backfill_review_payload = _json_response(backfill_review, "achievement route backfill candidate review", failures)
+    backfill_review_record = (((backfill_review_payload or {}).get("data") or {}).get("backfill_candidate_review") or {})
+    if backfill_review_record.get("candidate_id") != backfill_candidate_id:
+        failures.append("achievement route backfill candidate review did not write expected audit metadata")
+    backfill_audit = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/review-audit?reviewer=smoke_operator")
+    backfill_audit_payload = _json_response(backfill_audit, "achievement route backfill candidate review audit", failures)
+    backfill_audit_records = (((backfill_audit_payload or {}).get("data") or {}).get("backfill_candidate_review_audit") or {}).get("records", [])
+    if not backfill_audit_records:
+        failures.append("achievement route backfill candidate review audit did not list reviewed candidate")
+    backfill_audit_markdown = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/review-audit?format=markdown")
+    if backfill_audit_markdown.status_code != 200 or "# Achievement Route Backfill Candidate Review Audit" not in backfill_audit_markdown.text:
+        failures.append("achievement route backfill candidate review audit markdown export failed")
+    backfill_audit_csv = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/review-audit?format=csv")
+    if backfill_audit_csv.status_code != 200 or "candidate_id,item_id" not in backfill_audit_csv.text:
+        failures.append("achievement route backfill candidate review audit csv export failed")
+    backfill_readiness = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/readiness")
+    backfill_readiness_payload = _json_response(backfill_readiness, "achievement route backfill candidate readiness", failures)
+    backfill_gate = (((backfill_readiness_payload or {}).get("data") or {}).get("backfill_candidate_readiness") or {})
+    if backfill_gate.get("open_candidate_count", 0) < 1 or backfill_gate.get("maturity_label") not in {"blocked", "review_needed", "ready"}:
+        failures.append("achievement route backfill candidate readiness did not expose open candidate gate status")
+    backfill_readiness_markdown = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/readiness?format=markdown")
+    if backfill_readiness_markdown.status_code != 200 or "# Achievement Route Backfill Candidate Readiness" not in backfill_readiness_markdown.text:
+        failures.append("achievement route backfill candidate readiness markdown export failed")
+    backfill_readiness_csv = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/readiness?format=csv")
+    if backfill_readiness_csv.status_code != 200 or "ready,maturity_label,readiness_score" not in backfill_readiness_csv.text:
+        failures.append("achievement route backfill candidate readiness csv export failed")
     promoted_sources = client.get("/api/v1/achievement-routes/sources")
     promoted_sources_payload = _json_response(promoted_sources, "promoted route sources", failures)
     promoted_reviewed_step_count = (((promoted_sources_payload or {}).get("data") or {}).get("reviewed_step_count") or 0)
