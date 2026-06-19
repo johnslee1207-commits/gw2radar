@@ -219,6 +219,25 @@ class AchievementRoutePromotionAuditList(BaseModel):
     boundary: str = "Promotion audit exports are metadata-only and must not contain raw API keys or private account payloads."
 
 
+class AchievementRouteReleaseReadiness(BaseModel):
+    schema_version: str = "gw2radar.achievement_route_release_readiness.v1"
+    ready: bool
+    maturity_label: Literal["blocked", "review_needed", "ready"]
+    readiness_score: float
+    reviewed_source_count: int
+    reviewed_step_count: int
+    promotion_audit_count: int
+    promoted_source_count: int
+    audited_source_ids: list[str]
+    unaudited_reviewed_source_ids: list[str]
+    missing_achievement_ids: list[int]
+    blockers: list[str]
+    warnings: list[str]
+    next_steps: list[str]
+    evidence_chain: list[str]
+    boundary: str = "Release readiness is an operator gate for manual planning content; it does not automate gameplay, trading, or account changes."
+
+
 class AchievementRouteGateway(Protocol):
     def get_batch(
         self,
@@ -908,6 +927,130 @@ def render_achievement_route_promotion_audit_csv(audit_list: AchievementRoutePro
                 record.manifest_path,
             ]
         )
+    return buffer.getvalue()
+
+
+def build_achievement_route_release_readiness(
+    source_root: Path = ACHIEVEMENT_ROUTE_SOURCE_ROOT,
+    audit_root: Path = ACHIEVEMENT_ROUTE_AUDIT_ROOT,
+) -> AchievementRouteReleaseReadiness:
+    reviewed_steps, summaries = load_reviewed_achievement_route_steps(source_root)
+    audit_list = list_achievement_route_promotion_audits(audit_root, limit=200)
+    reviewed_sources = [
+        summary for summary in summaries if summary.source_status == "reviewed" and not summary.warning
+    ]
+    reviewed_source_ids = {summary.source_id for summary in reviewed_sources}
+    audit_source_ids = {record.source_id for record in audit_list.records}
+    audited_reviewed_ids = sorted(reviewed_source_ids & audit_source_ids)
+    unaudited_reviewed_ids = sorted(reviewed_source_ids - audit_source_ids)
+    missing_ids = sorted({item for record in audit_list.records for item in record.missing_achievement_ids})
+    blockers: list[str] = []
+    warnings: list[str] = []
+    next_steps: list[str] = []
+
+    if not reviewed_sources:
+        blockers.append("No reviewed achievement route source manifests are available.")
+        next_steps.append("Promote at least one official fetch preview through the reviewed gate.")
+    if not reviewed_steps:
+        blockers.append("No reviewed route steps are available for planner ingestion.")
+    if not audit_list.records:
+        warnings.append("No promotion audit records exist yet; seed manifests may predate the audit gate.")
+        next_steps.append("Run at least one reviewed promotion so release evidence includes reviewer metadata.")
+    if missing_ids:
+        warnings.append("Some promoted official fetch previews had missing achievement ids.")
+        next_steps.append("Review missing achievement ids before treating the route pack as release-ready.")
+    if unaudited_reviewed_ids:
+        warnings.append("Some reviewed source manifests do not have promotion audit records.")
+        next_steps.append("Backfill or re-promote reviewed source manifests through the audit gate where appropriate.")
+
+    score = 100.0
+    score -= len(blockers) * 35
+    score -= min(len(warnings) * 10, 30)
+    score += min(len(audited_reviewed_ids) * 5, 10)
+    score = max(0.0, min(100.0, score))
+    ready = not blockers and bool(reviewed_steps) and bool(audit_list.records) and not missing_ids
+    maturity = "ready" if ready else "blocked" if blockers else "review_needed"
+    if not next_steps and ready:
+        next_steps.append("Route source release gate is ready; continue monitoring patch freshness and audit coverage.")
+
+    return AchievementRouteReleaseReadiness(
+        ready=ready,
+        maturity_label=maturity,
+        readiness_score=round(score, 1),
+        reviewed_source_count=len(reviewed_sources),
+        reviewed_step_count=len(reviewed_steps),
+        promotion_audit_count=len(audit_list.records),
+        promoted_source_count=len(audited_reviewed_ids),
+        audited_source_ids=audited_reviewed_ids,
+        unaudited_reviewed_source_ids=unaudited_reviewed_ids,
+        missing_achievement_ids=missing_ids,
+        blockers=blockers,
+        warnings=warnings,
+        next_steps=_unique(next_steps),
+        evidence_chain=[
+            "docs/knowledge_base/achievement_routes/*.json",
+            "data/achievement_route_audit/promotion_audit.jsonl",
+            "/api/v1/achievement-routes/sources",
+            "/api/v1/achievement-routes/promotion-audit",
+        ],
+    )
+
+
+def render_achievement_route_release_readiness_markdown(readiness: AchievementRouteReleaseReadiness) -> str:
+    lines = [
+        "# Achievement Route Release Readiness",
+        "",
+        f"- Ready: {readiness.ready}",
+        f"- Maturity: {readiness.maturity_label}",
+        f"- Score: {readiness.readiness_score}/100",
+        f"- Reviewed sources: {readiness.reviewed_source_count}",
+        f"- Reviewed steps: {readiness.reviewed_step_count}",
+        f"- Promotion audit records: {readiness.promotion_audit_count}",
+        f"- Boundary: {readiness.boundary}",
+        "",
+        "## Blockers",
+    ]
+    lines.extend([f"- {item}" for item in readiness.blockers] or ["- None"])
+    lines.extend(["", "## Warnings"])
+    lines.extend([f"- {item}" for item in readiness.warnings] or ["- None"])
+    lines.extend(["", "## Next Steps"])
+    lines.extend([f"- {item}" for item in readiness.next_steps] or ["- None"])
+    lines.extend(["", "## Evidence Chain"])
+    lines.extend([f"- {item}" for item in readiness.evidence_chain])
+    return "\n".join(lines) + "\n"
+
+
+def render_achievement_route_release_readiness_csv(readiness: AchievementRouteReleaseReadiness) -> str:
+    buffer = StringIO()
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow(
+        [
+            "ready",
+            "maturity_label",
+            "readiness_score",
+            "reviewed_source_count",
+            "reviewed_step_count",
+            "promotion_audit_count",
+            "promoted_source_count",
+            "blocker_count",
+            "warning_count",
+            "missing_achievement_ids",
+        ]
+    )
+    writer.writerow(
+        [
+            readiness.ready,
+            readiness.maturity_label,
+            readiness.readiness_score,
+            readiness.reviewed_source_count,
+            readiness.reviewed_step_count,
+            readiness.promotion_audit_count,
+            readiness.promoted_source_count,
+            len(readiness.blockers),
+            len(readiness.warnings),
+            ";".join(map(str, readiness.missing_achievement_ids)),
+        ]
+    )
     return buffer.getvalue()
 
 

@@ -49,6 +49,8 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert "Load audit" in response.text
     assert "Export audit CSV" in response.text
     assert "Audit records" in response.text
+    assert "Release readiness" in response.text
+    assert "Export readiness CSV" in response.text
 
 
 def test_player_ui_static_assets_are_served() -> None:
@@ -109,9 +111,12 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "verifyPromotedAchievementRoute" in js.text
     assert "loadAchievementRoutePromotionAudit" in js.text
     assert "exportAchievementRoutePromotionAudit" in js.text
+    assert "loadAchievementRouteReleaseReadiness" in js.text
+    assert "exportAchievementRouteReleaseReadiness" in js.text
     assert "routeOfficialFetchPreviewPayload" in js.text
     assert "routeReviewPayload" in js.text
     assert "/api/v1/achievement-routes/promotion-audit" in js.text
+    assert "/api/v1/achievement-routes/release-readiness" in js.text
 
 
 def test_player_ui_styles_cover_workflow_and_summaries() -> None:

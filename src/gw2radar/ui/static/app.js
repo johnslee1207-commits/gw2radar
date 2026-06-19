@@ -213,6 +213,9 @@ function summarizeResult(target, payload) {
     if (data?.audit) {
       return `${data.audit.records?.length || 0} route promotion audit records loaded.`;
     }
+    if (data?.readiness) {
+      return `Route release readiness is ${data.readiness.maturity_label} at ${data.readiness.readiness_score}/100.`;
+    }
     if (Array.isArray(data?.sources)) {
       return `${data.sources.length} route source manifests loaded with ${data.reviewed_step_count || 0} reviewed steps.`;
     }
@@ -618,6 +621,12 @@ function renderRoutePromotion(promotion) {
 
 function renderRoutePromotionAudit(audit) {
   document.querySelector("#route-audit-count").textContent = String(audit?.records?.length || 0);
+}
+
+function renderRouteReleaseReadiness(readiness) {
+  const label = readiness?.maturity_label || "unknown";
+  const score = typeof readiness?.readiness_score === "number" ? readiness.readiness_score : "--";
+  document.querySelector("#route-readiness-score").textContent = `${label} ${score}/100`;
 }
 
 function buildImportPayload() {
@@ -1128,6 +1137,24 @@ const actions = {
         return text;
       });
     }),
+  loadAchievementRouteReleaseReadiness: () =>
+    run("routes", async () => {
+      const payload = await fetchJson("/api/v1/achievement-routes/release-readiness");
+      renderRouteReleaseReadiness(payload?.data?.readiness || {});
+      return payload;
+    }),
+  exportAchievementRouteReleaseReadiness: () =>
+    run("routes", () =>
+      fetch("/api/v1/achievement-routes/release-readiness?format=csv", {
+        headers: { "Accept": "text/csv" },
+      }).then(async (response) => {
+        const text = await response.text();
+        if (!response.ok) {
+          throw new Error(text || `HTTP ${response.status}`);
+        }
+        return text;
+      }),
+    ),
   importBuild: () =>
     run("build", async () => {
       const payload = await fetchJson("/api/v1/builds/import", {

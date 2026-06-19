@@ -150,6 +150,19 @@ def main() -> int:
     audit_csv = client.get("/api/v1/achievement-routes/promotion-audit?reviewer=achievement_route_smoke&format=csv")
     if audit_csv.status_code != 200 or "event_id,occurred_at,reviewer,source_id" not in audit_csv.text:
         failures.append("achievement route promotion audit csv export failed")
+    readiness_response = client.get("/api/v1/achievement-routes/release-readiness")
+    readiness_payload = _json_response(readiness_response, "achievement route release readiness", failures)
+    readiness = (((readiness_payload or {}).get("data") or {}).get("readiness") or {})
+    if readiness.get("promotion_audit_count", 0) < 1:
+        failures.append("achievement route release readiness did not include promotion audit coverage")
+    if readiness.get("reviewed_step_count", 0) < 2:
+        failures.append("achievement route release readiness did not count reviewed route steps")
+    readiness_markdown = client.get("/api/v1/achievement-routes/release-readiness?format=markdown")
+    if readiness_markdown.status_code != 200 or "# Achievement Route Release Readiness" not in readiness_markdown.text:
+        failures.append("achievement route release readiness markdown export failed")
+    readiness_csv = client.get("/api/v1/achievement-routes/release-readiness?format=csv")
+    if readiness_csv.status_code != 200 or "ready,maturity_label,readiness_score" not in readiness_csv.text:
+        failures.append("achievement route release readiness csv export failed")
     promoted_sources = client.get("/api/v1/achievement-routes/sources")
     promoted_sources_payload = _json_response(promoted_sources, "promoted route sources", failures)
     promoted_reviewed_step_count = (((promoted_sources_payload or {}).get("data") or {}).get("reviewed_step_count") or 0)

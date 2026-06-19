@@ -11,6 +11,7 @@ from gw2radar.commercial.achievement_route import (
     AchievementRouteRequest,
     OfficialAchievementFetchPreviewRequest,
     OfficialAchievementRoutePreviewRequest,
+    build_achievement_route_release_readiness,
     build_official_achievement_fetch_preview,
     build_achievement_route_plan,
     build_official_achievement_route_preview,
@@ -20,6 +21,8 @@ from gw2radar.commercial.achievement_route import (
     record_achievement_route_promotion_audit,
     render_achievement_route_promotion_audit_csv,
     render_achievement_route_promotion_audit_markdown,
+    render_achievement_route_release_readiness_csv,
+    render_achievement_route_release_readiness_markdown,
     render_official_achievement_fetch_preview_markdown,
     render_achievement_route_csv,
     render_achievement_route_markdown,
@@ -142,6 +145,42 @@ def test_achievement_route_promotion_audit_records_metadata_only() -> None:
         assert "event_id,occurred_at,reviewer,source_id" in csv_text
         assert "secret-key" not in str(audit_list).lower()
         assert "private account payload" in audit_list.boundary
+    finally:
+        rmtree(temp_root, ignore_errors=True)
+        rmtree(audit_root, ignore_errors=True)
+
+
+def test_achievement_route_release_readiness_summarizes_sources_audit_and_missing_ids() -> None:
+    temp_root = _temp_source_root("release-readiness-source")
+    audit_root = _temp_source_root("release-readiness-audit")
+    request = _official_fetch_request()
+    fetch_preview = build_official_achievement_fetch_preview(request, FetchPreviewGateway())
+    review = AchievementRouteReviewedPromotionRequest(
+        confirmed_reviewed=True,
+        reviewer="readiness_operator",
+        reviewed_source_id="kb:achievement-routes:readiness-official-fetch:v1",
+        review_notes=["Readiness reviewer confirmed official ids."],
+    )
+
+    try:
+        promotion = promote_official_fetch_preview_to_reviewed_manifest(fetch_preview, review, temp_root)
+        no_audit = build_achievement_route_release_readiness(temp_root, audit_root)
+        record_achievement_route_promotion_audit(promotion, fetch_preview, review, audit_root)
+        with_missing = build_achievement_route_release_readiness(temp_root, audit_root)
+        markdown = render_achievement_route_release_readiness_markdown(with_missing)
+        csv_text = render_achievement_route_release_readiness_csv(with_missing)
+
+        assert no_audit.ready is False
+        assert any("No promotion audit records" in warning for warning in no_audit.warnings)
+        assert with_missing.ready is False
+        assert with_missing.maturity_label == "review_needed"
+        assert with_missing.reviewed_source_count == 1
+        assert with_missing.reviewed_step_count == 2
+        assert with_missing.promotion_audit_count == 1
+        assert with_missing.missing_achievement_ids == [404]
+        assert "Achievement Route Release Readiness" in markdown
+        assert "ready,maturity_label,readiness_score" in csv_text
+        assert "secret-key" not in str(with_missing).lower()
     finally:
         rmtree(temp_root, ignore_errors=True)
         rmtree(audit_root, ignore_errors=True)
@@ -296,6 +335,9 @@ def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
         audit = client.get("/api/v1/achievement-routes/promotion-audit?reviewer=api_review_operator&limit=5")
         audit_markdown = client.get("/api/v1/achievement-routes/promotion-audit?reviewer=api_review_operator&format=markdown")
         audit_csv = client.get("/api/v1/achievement-routes/promotion-audit?reviewer=api_review_operator&format=csv")
+        readiness = client.get("/api/v1/achievement-routes/release-readiness")
+        readiness_markdown = client.get("/api/v1/achievement-routes/release-readiness?format=markdown")
+        readiness_csv = client.get("/api/v1/achievement-routes/release-readiness?format=csv")
 
         assert blocked.status_code == 400
         assert promoted.status_code == 200
@@ -312,6 +354,11 @@ def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
         assert audit.json()["data"]["audit"]["records"][0]["source_id"] == "kb:achievement-routes:api-official-fetch:v1"
         assert "# Achievement Route Promotion Audit" in audit_markdown.text
         assert "event_id,occurred_at,reviewer,source_id" in audit_csv.text
+        assert readiness.status_code == 200
+        assert readiness.json()["data"]["readiness"]["promotion_audit_count"] == 1
+        assert readiness.json()["data"]["readiness"]["missing_achievement_ids"] == [404]
+        assert "# Achievement Route Release Readiness" in readiness_markdown.text
+        assert "ready,maturity_label,readiness_score" in readiness_csv.text
     finally:
         achievement_route_routes.gateway_factory = original_factory
         achievement_route_routes.source_root = original_source_root

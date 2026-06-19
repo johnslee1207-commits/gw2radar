@@ -60,6 +60,10 @@ verification controls.
 It also verifies the P7 promotion audit trail:
 reviewed promotions write metadata-only audit records and export JSON,
 Markdown, and CSV without raw API keys or private account payloads.
+It also verifies the P8 release readiness gate:
+reviewed sources, promotion audit coverage, missing official achievement ids,
+planner ingestion evidence, blockers, warnings, next steps, and CSV/Markdown
+exports are aggregated into a release readiness summary.
 
 ## Account Connection Diagnostic Command
 
@@ -152,7 +156,9 @@ readiness rollup, and visible no-secret boundary copy.
 15. Promote the fetch preview through the reviewed gate into a temporary source manifest.
 16. Confirm the promotion audit lists the reviewer, source id, manifest path, and achievement id evidence.
 17. Export the promotion audit as Markdown and CSV.
-18. Confirm the route planner ingests the promoted reviewed source.
+18. Load release readiness and confirm reviewed steps plus promotion audit coverage are counted.
+19. Export release readiness as Markdown and CSV.
+20. Confirm the route planner ingests the promoted reviewed source.
 
 ## Account Connection Diagnostic Steps
 
