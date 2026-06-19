@@ -42,9 +42,9 @@ python harness/run_achievement_route_smoke.py
 ```
 
 It verifies the route UI marker, reviewed route source ingestion, official
-achievement detail draft preview, deterministic route API,
-ready/blocked/time-gated classification, Markdown assumptions, CSV export, and
-manual-planning boundary.
+achievement detail draft preview, official achievement id fetch orchestration,
+deterministic route API, ready/blocked/time-gated classification, Markdown
+assumptions, CSV export, and manual-planning boundary.
 
 When a real API key appears to save successfully but no account-aware result
 appears, run:
@@ -188,6 +188,7 @@ Advanced operator flow:
 
 - `POST /api/v1/achievement-routes/official-preview` accepts official `/v2/achievements` and `/v2/account/achievements` shaped payloads.
 - The preview converts achievement details into draft route source candidates with inferred map hints, account progress status, source refs, and review warnings.
+- `POST /api/v1/achievement-routes/official-fetch-preview` accepts achievement ids, batches public `/v2/achievements` through the gateway, merges safe account achievement progress summaries, and reports missing ids.
 - Draft previews are not used by the route planner until a human reviewer saves them as a reviewed manifest under `docs/knowledge_base/achievement_routes`.
 
 ## Freshness And Confidence

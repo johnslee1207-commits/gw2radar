@@ -13,9 +13,14 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from gw2radar.api.main import app  # noqa: E402
+from gw2radar.api.routes import achievement_routes as achievement_route_routes  # noqa: E402
+from gw2radar.ingest.gateway_status import GatewayStatus  # noqa: E402
+from gw2radar.ingest.gw2_api_gateway import GatewayResult  # noqa: E402
 
 
 def main() -> int:
+    original_gateway_factory = achievement_route_routes.gateway_factory
+    achievement_route_routes.gateway_factory = FetchPreviewGateway
     client = TestClient(app)
     failures: list[str] = []
     request = {
@@ -78,11 +83,29 @@ def main() -> int:
     elif "Official Achievement Route Preview" not in preview_markdown.text or "guaranteed" in preview_markdown.text.lower():
         failures.append("official preview markdown export failed content or safety checks")
 
+    fetch_request = _official_fetch_request()
+    fetch_response = client.post("/api/v1/achievement-routes/official-fetch-preview", json=fetch_request)
+    fetch_payload = _json_response(fetch_response, "official achievement fetch preview", failures)
+    fetch_preview = (((fetch_payload or {}).get("data") or {}).get("fetch_preview") or {})
+    if fetch_preview.get("preview", {}).get("manifest", {}).get("source_status") != "draft":
+        failures.append("official fetch preview did not remain draft-only")
+    if fetch_preview.get("fetched_achievement_ids") != [2001, 2002]:
+        failures.append("official fetch preview did not fetch expected achievement ids")
+    if fetch_preview.get("missing_achievement_ids") != [9999]:
+        failures.append("official fetch preview did not report missing ids")
+    fetch_markdown = client.post("/api/v1/achievement-routes/official-fetch-preview/export?format=markdown", json=fetch_request)
+    if fetch_markdown.status_code != 200:
+        failures.append(f"official fetch preview markdown export returned HTTP {fetch_markdown.status_code}")
+    elif "Official Achievement Fetch Preview" not in fetch_markdown.text or "guaranteed" in fetch_markdown.text.lower():
+        failures.append("official fetch preview markdown export failed content or safety checks")
+
     if failures:
+        achievement_route_routes.gateway_factory = original_gateway_factory
         print("FAIL: GW2Radar achievement route smoke failed")
         for failure in failures:
             print(f"- {failure}")
         return 1
+    achievement_route_routes.gateway_factory = original_gateway_factory
     print("PASS: GW2Radar achievement route smoke succeeded")
     return 0
 
@@ -125,6 +148,55 @@ def _official_preview_request() -> dict:
             {"id": 2002, "current": 1, "max": 1},
         ],
     }
+
+
+def _official_fetch_request() -> dict:
+    return {
+        "source_id": "official:achievement-route-fetch-preview:smoke",
+        "title": "Smoke official achievement fetch preview",
+        "goal_id": "aurora_sample",
+        "reviewed_by": "achievement_route_smoke",
+        "achievement_ids": [2001, 2002, 9999],
+        "account_achievements": [
+            {"id": 2001, "current": 1, "max": 3},
+            {"id": 2002, "current": 1, "max": 1},
+        ],
+    }
+
+
+class FetchPreviewGateway:
+    def get_batch(self, endpoint, *, ids, params=None, api_key=None, priority="P3"):
+        payload = [
+            {
+                "id": 2001,
+                "name": "Bloodstone Fen Smoke Fetch",
+                "description": "Complete a collection step in Bloodstone Fen.",
+                "requirement": "Review a Bloodstone Fen fetched route candidate.",
+            },
+            {
+                "id": 2002,
+                "name": "Daily Ember Bay Smoke Fetch",
+                "description": "Complete a daily checkpoint in Ember Bay.",
+                "requirement": "Daily Ember Bay fetched route candidate.",
+                "flags": ["Daily"],
+            },
+        ]
+        return GatewayResult(
+            status=GatewayStatus.OK,
+            endpoint=endpoint,
+            request_id="smoke:fetch-preview",
+            payload=payload,
+            evidence_id="evidence:smoke-fetch-preview",
+        )
+
+    def get(self, endpoint, *, params=None, api_key=None, priority="P3"):
+        return GatewayResult(
+            status=GatewayStatus.OK,
+            endpoint=endpoint,
+            request_id="smoke:account-achievements",
+            payload=[{"id": 2002, "current": 1, "max": 1}],
+            evidence_id="evidence:smoke-account-achievements",
+        )
 
 
 if __name__ == "__main__":

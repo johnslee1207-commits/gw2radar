@@ -1,18 +1,28 @@
 from fastapi import APIRouter, HTTPException, Query, Response
 
 from gw2radar.api.envelope import ApiDataEnvelope
+from gw2radar.db import session as db_session
+from gw2radar.db.init_db import init_db
 from gw2radar.commercial.achievement_route import (
     AchievementRouteRequest,
+    OfficialAccountAchievementProgress,
+    OfficialAchievementFetchPreviewRequest,
     OfficialAchievementRoutePreviewRequest,
+    build_official_achievement_fetch_preview,
     build_achievement_route_plan,
     build_official_achievement_route_preview,
     load_reviewed_achievement_route_steps,
     render_achievement_route_csv,
     render_achievement_route_markdown,
+    render_official_achievement_fetch_preview_markdown,
     render_official_achievement_route_preview_markdown,
 )
+from gw2radar.ingest.gateway_status import GatewayStatus
+from gw2radar.ingest.gw2_api_gateway import Gw2ApiGateway
+from gw2radar.security.api_key_store import EncryptedApiKeyStore
 
 router = APIRouter(prefix="/api/v1/achievement-routes", tags=["achievement-routes"])
+gateway_factory = Gw2ApiGateway
 
 
 @router.post("/plan", response_model=ApiDataEnvelope)
@@ -57,6 +67,45 @@ def post_official_achievement_route_preview_export(
     raise HTTPException(status_code=400, detail="Unsupported official achievement preview export format.")
 
 
+@router.post("/official-fetch-preview", response_model=ApiDataEnvelope)
+def post_official_achievement_fetch_preview(request: OfficialAchievementFetchPreviewRequest) -> ApiDataEnvelope:
+    gateway = gateway_factory()
+    progress, warnings = _load_account_progress_for_fetch_preview(request, gateway)
+    preview = build_official_achievement_fetch_preview(
+        request,
+        gateway,
+        account_achievements=progress,
+        extra_warnings=warnings,
+    )
+    return ApiDataEnvelope(data={"fetch_preview": preview.model_dump(mode="json")})
+
+
+@router.post("/official-fetch-preview/export")
+def post_official_achievement_fetch_preview_export(
+    request: OfficialAchievementFetchPreviewRequest,
+    format: str = Query(default="markdown", pattern="^(markdown|json)$"),
+) -> Response:
+    gateway = gateway_factory()
+    progress, warnings = _load_account_progress_for_fetch_preview(request, gateway)
+    preview = build_official_achievement_fetch_preview(
+        request,
+        gateway,
+        account_achievements=progress,
+        extra_warnings=warnings,
+    )
+    if format == "markdown":
+        return Response(
+            content=render_official_achievement_fetch_preview_markdown(preview),
+            media_type="text/markdown; charset=utf-8",
+        )
+    if format == "json":
+        return Response(
+            content=preview.preview.manifest.model_dump_json(indent=2),
+            media_type="application/json; charset=utf-8",
+        )
+    raise HTTPException(status_code=400, detail="Unsupported official achievement fetch preview export format.")
+
+
 @router.post("/plan/export")
 def post_achievement_route_export(
     request: AchievementRouteRequest,
@@ -74,3 +123,30 @@ def post_achievement_route_export(
             media_type="text/csv; charset=utf-8",
         )
     raise HTTPException(status_code=400, detail="Unsupported achievement route export format.")
+
+
+def _load_account_progress_for_fetch_preview(
+    request: OfficialAchievementFetchPreviewRequest,
+    gateway: Gw2ApiGateway,
+) -> tuple[list[OfficialAccountAchievementProgress], list[str]]:
+    if request.account_achievements:
+        return request.account_achievements, ["Using request-provided account achievement progress summary."]
+    if not request.use_stored_account_progress:
+        return [], ["Stored account achievement progress was not requested."]
+
+    init_db()
+    with db_session.SessionLocal() as session:
+        api_key = EncryptedApiKeyStore(session).get()
+    if not api_key:
+        return [], ["Stored account achievement progress requested, but no API key is configured."]
+
+    result = gateway.get("/v2/account/achievements", api_key=api_key, priority="P2")
+    status = getattr(result.status, "value", str(result.status))
+    if result.status not in {GatewayStatus.OK, GatewayStatus.CACHE_HIT}:
+        return [], [f"Stored account achievement progress fetch returned status {status}."]
+    progress = [
+        OfficialAccountAchievementProgress.model_validate(item)
+        for item in (result.payload or [])
+        if isinstance(item, dict)
+    ]
+    return progress, [f"Loaded {len(progress)} account achievement progress rows from stored API key."]

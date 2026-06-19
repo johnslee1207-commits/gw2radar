@@ -1,16 +1,22 @@
 from fastapi.testclient import TestClient
 
 from gw2radar.api.main import app
+from gw2radar.api.routes import achievement_routes as achievement_route_routes
 from gw2radar.commercial.achievement_route import (
     AchievementRouteRequest,
+    OfficialAchievementFetchPreviewRequest,
     OfficialAchievementRoutePreviewRequest,
+    build_official_achievement_fetch_preview,
     build_achievement_route_plan,
     build_official_achievement_route_preview,
     load_reviewed_achievement_route_steps,
+    render_official_achievement_fetch_preview_markdown,
     render_achievement_route_csv,
     render_achievement_route_markdown,
     render_official_achievement_route_preview_markdown,
 )
+from gw2radar.ingest.gateway_status import GatewayStatus
+from gw2radar.ingest.gw2_api_gateway import GatewayResult
 
 
 def test_achievement_route_loads_reviewed_source_manifest() -> None:
@@ -36,6 +42,23 @@ def test_official_achievement_preview_builds_draft_route_manifest() -> None:
     assert any(step.time_gate == "daily" for step in preview.manifest.steps)
     assert "Human review is required" in " ".join(preview.manifest.assumptions)
     assert "guaranteed" not in render_official_achievement_route_preview_markdown(preview).lower()
+
+
+def test_official_achievement_fetch_preview_orchestrates_gateway_batch() -> None:
+    request = _official_fetch_request()
+    gateway = FetchPreviewGateway()
+
+    fetch_preview = build_official_achievement_fetch_preview(request, gateway)
+
+    assert gateway.batch_calls == [("/v2/achievements", [1001, 1002, 404])]
+    assert fetch_preview.schema_version == "gw2radar.official_achievement_fetch_preview.v1"
+    assert fetch_preview.fetched_achievement_ids == [1001, 1002]
+    assert fetch_preview.missing_achievement_ids == [404]
+    assert fetch_preview.preview.manifest.source_status == "draft"
+    assert "official-achievement-1002" in fetch_preview.preview.completed_step_ids
+    markdown = render_official_achievement_fetch_preview_markdown(fetch_preview)
+    assert "Official Achievement Fetch Preview" in markdown
+    assert "guaranteed" not in markdown.lower()
 
 
 def test_achievement_route_groups_ready_blocked_and_time_gated_steps() -> None:
@@ -123,6 +146,31 @@ def test_official_achievement_preview_api_and_exports() -> None:
     assert "official:achievement-route-preview:test" in json_export.text
 
 
+def test_official_achievement_fetch_preview_api_and_exports() -> None:
+    original_factory = achievement_route_routes.gateway_factory
+    achievement_route_routes.gateway_factory = FetchPreviewGateway
+    try:
+        client = TestClient(app)
+        request = _official_fetch_request().model_dump(mode="json")
+
+        preview = client.post("/api/v1/achievement-routes/official-fetch-preview", json=request)
+        markdown = client.post("/api/v1/achievement-routes/official-fetch-preview/export?format=markdown", json=request)
+        json_export = client.post("/api/v1/achievement-routes/official-fetch-preview/export?format=json", json=request)
+
+        assert preview.status_code == 200
+        payload = preview.json()["data"]["fetch_preview"]
+        assert payload["preview"]["manifest"]["source_status"] == "draft"
+        assert payload["fetched_achievement_ids"] == [1001, 1002]
+        assert payload["missing_achievement_ids"] == [404]
+        assert "secret-key" not in str(payload).lower()
+        assert markdown.status_code == 200
+        assert "Official Achievement Fetch Preview" in markdown.text
+        assert json_export.status_code == 200
+        assert "official:achievement-route-fetch-preview:test" in json_export.text
+    finally:
+        achievement_route_routes.gateway_factory = original_factory
+
+
 def _official_preview_request() -> OfficialAchievementRoutePreviewRequest:
     return OfficialAchievementRoutePreviewRequest(
         source_id="official:achievement-route-preview:test",
@@ -156,3 +204,56 @@ def _official_preview_request() -> OfficialAchievementRoutePreviewRequest:
             {"id": 1002, "current": 1, "max": 1},
         ],
     )
+
+
+def _official_fetch_request() -> OfficialAchievementFetchPreviewRequest:
+    return OfficialAchievementFetchPreviewRequest(
+        source_id="official:achievement-route-fetch-preview:test",
+        title="Unit official fetch preview",
+        goal_id="aurora_sample",
+        reviewed_by="unit_test_operator",
+        achievement_ids=[1001, 1002, 404],
+        account_achievements=[
+            {"id": 1001, "current": 1, "max": 3},
+            {"id": 1002, "current": 1, "max": 1},
+        ],
+    )
+
+
+class FetchPreviewGateway:
+    def __init__(self) -> None:
+        self.batch_calls: list[tuple[str, list[int | str]]] = []
+
+    def get_batch(self, endpoint, *, ids, params=None, api_key=None, priority="P3"):
+        self.batch_calls.append((endpoint, list(ids)))
+        payload = [
+            {
+                "id": 1001,
+                "name": "Bloodstone Fen Gateway Collection",
+                "description": "Complete a collection step in Bloodstone Fen.",
+                "requirement": "Finish the Bloodstone Fen gateway route check.",
+            },
+            {
+                "id": 1002,
+                "name": "Daily Ember Bay Gateway",
+                "description": "Complete a daily checkpoint in Ember Bay.",
+                "requirement": "Daily Ember Bay gateway route review.",
+                "flags": ["Daily"],
+            },
+        ]
+        return GatewayResult(
+            status=GatewayStatus.OK,
+            endpoint=endpoint,
+            request_id="fetch-preview:test",
+            payload=payload,
+            evidence_id="evidence:fetch-preview",
+        )
+
+    def get(self, endpoint, *, params=None, api_key=None, priority="P3"):
+        return GatewayResult(
+            status=GatewayStatus.OK,
+            endpoint=endpoint,
+            request_id="fetch-preview:account",
+            payload=[{"id": 1002, "current": 1, "max": 1}],
+            evidence_id="evidence:account-achievements",
+        )

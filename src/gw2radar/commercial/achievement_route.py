@@ -5,7 +5,7 @@ import json
 from datetime import UTC, datetime
 from io import StringIO
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel, Field, ValidationError
 
@@ -153,6 +153,39 @@ class OfficialAchievementRoutePreview(BaseModel):
     candidate_step_count: int
     completed_step_ids: list[str]
     warnings: list[str]
+
+
+class OfficialAchievementFetchPreviewRequest(BaseModel):
+    source_id: str = "official:achievement-route-fetch-preview"
+    title: str = "Official achievement fetch preview"
+    goal_id: str = "custom_achievement_route"
+    reviewed_by: str = "operator_review_required"
+    achievement_ids: list[int] = Field(min_length=1, max_length=200)
+    account_achievements: list[OfficialAccountAchievementProgress] = Field(default_factory=list)
+    use_stored_account_progress: bool = False
+
+
+class OfficialAchievementFetchPreview(BaseModel):
+    schema_version: str = "gw2radar.official_achievement_fetch_preview.v1"
+    preview: OfficialAchievementRoutePreview
+    requested_achievement_ids: list[int]
+    fetched_achievement_ids: list[int]
+    missing_achievement_ids: list[int]
+    gateway_statuses: dict[str, str]
+    warnings: list[str]
+
+
+class AchievementRouteGateway(Protocol):
+    def get_batch(
+        self,
+        endpoint: str,
+        *,
+        ids: list[int | str],
+        params: dict[str, Any] | None = None,
+        api_key: str | None = None,
+        priority: str = "P3",
+    ):
+        ...
 
 
 SAMPLE_ROUTE_STEPS: tuple[AchievementRouteStep, ...] = (
@@ -535,6 +568,50 @@ def build_official_achievement_route_preview(
     )
 
 
+def build_official_achievement_fetch_preview(
+    request: OfficialAchievementFetchPreviewRequest,
+    gateway: AchievementRouteGateway,
+    *,
+    account_achievements: list[OfficialAccountAchievementProgress] | None = None,
+    extra_warnings: list[str] | None = None,
+) -> OfficialAchievementFetchPreview:
+    details_result = gateway.get_batch("/v2/achievements", ids=request.achievement_ids, priority="P2")
+    detail_status = _gateway_status_value(details_result)
+    warnings = list(extra_warnings or [])
+    details_payload = getattr(details_result, "payload", None)
+    achievement_details = _official_details_from_payload(details_payload)
+    fetched_ids = sorted({detail.id for detail in achievement_details})
+    missing_ids = [achievement_id for achievement_id in request.achievement_ids if achievement_id not in fetched_ids]
+    if detail_status not in {"ok", "cache_hit"}:
+        warnings.append(f"Official achievement detail fetch returned status {detail_status}.")
+    if missing_ids:
+        warnings.append(f"Official achievement detail payload did not include ids: {', '.join(map(str, missing_ids))}.")
+    progress = account_achievements if account_achievements is not None else request.account_achievements
+    if not progress:
+        warnings.append("No account achievement progress was available; candidate progress statuses remain unknown.")
+    preview_request = OfficialAchievementRoutePreviewRequest(
+        source_id=request.source_id,
+        title=request.title,
+        goal_id=request.goal_id,
+        reviewed_by=request.reviewed_by,
+        achievement_details=achievement_details,
+        account_achievements=progress,
+        source_refs=[
+            "official:/v2/achievements?ids=" + ",".join(str(item) for item in request.achievement_ids),
+            "official:/v2/account/achievements",
+        ],
+    )
+    preview = build_official_achievement_route_preview(preview_request)
+    return OfficialAchievementFetchPreview(
+        preview=preview,
+        requested_achievement_ids=request.achievement_ids,
+        fetched_achievement_ids=fetched_ids,
+        missing_achievement_ids=missing_ids,
+        gateway_statuses={"/v2/achievements": detail_status},
+        warnings=_unique([*warnings, *preview.warnings]),
+    )
+
+
 def render_official_achievement_route_preview_markdown(preview: OfficialAchievementRoutePreview) -> str:
     lines = [
         "# Official Achievement Route Preview",
@@ -560,6 +637,24 @@ def render_official_achievement_route_preview_markdown(preview: OfficialAchievem
     lines.extend([f"- {warning}" for warning in preview.warnings])
     lines.extend(["", "## Assumptions"])
     lines.extend([f"- {assumption}" for assumption in preview.manifest.assumptions])
+    return "\n".join(lines) + "\n"
+
+
+def render_official_achievement_fetch_preview_markdown(fetch_preview: OfficialAchievementFetchPreview) -> str:
+    lines = [
+        "# Official Achievement Fetch Preview",
+        "",
+        f"- Requested ids: {', '.join(map(str, fetch_preview.requested_achievement_ids))}",
+        f"- Fetched ids: {', '.join(map(str, fetch_preview.fetched_achievement_ids)) or 'none'}",
+        f"- Missing ids: {', '.join(map(str, fetch_preview.missing_achievement_ids)) or 'none'}",
+        f"- Achievement gateway status: {fetch_preview.gateway_statuses.get('/v2/achievements', 'unknown')}",
+        "",
+        "## Draft Route Preview",
+        render_official_achievement_route_preview_markdown(fetch_preview.preview).strip(),
+        "",
+        "## Fetch Warnings",
+    ]
+    lines.extend([f"- {warning}" for warning in fetch_preview.warnings] or ["- None"])
     return "\n".join(lines) + "\n"
 
 
@@ -748,3 +843,21 @@ def _official_objective(detail: OfficialAchievementDetail) -> str:
         if value and value.strip():
             return " ".join(value.strip().split())
     return "Review the official achievement detail and convert it into a player-verified route step."
+
+
+def _official_details_from_payload(payload: Any) -> list[OfficialAchievementDetail]:
+    rows = payload if isinstance(payload, list) else [payload] if isinstance(payload, dict) else []
+    details: list[OfficialAchievementDetail] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        try:
+            details.append(OfficialAchievementDetail.model_validate(row))
+        except ValidationError:
+            continue
+    return details
+
+
+def _gateway_status_value(result) -> str:
+    status = getattr(result, "status", "unknown")
+    return getattr(status, "value", str(status))

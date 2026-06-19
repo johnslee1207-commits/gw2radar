@@ -45,6 +45,10 @@ It also verifies the P3 official achievement detail adapter:
 official `/v2/achievements` and `/v2/account/achievements`-shaped payloads are
 converted into draft route source candidates with account progress, source refs,
 warnings, and Markdown export, without enabling them as reviewed guidance.
+It also verifies the P4 official achievement fetch orchestration:
+`/api/v1/achievement-routes/official-fetch-preview` batches `/v2/achievements`
+ids through the gateway, merges safe account achievement progress summaries,
+reports missing ids, and exports a draft-only preview.
 
 ## Account Connection Diagnostic Command
 
@@ -129,6 +133,9 @@ readiness rollup, and visible no-secret boundary copy.
 7. Submit official achievement/account-achievement sample payloads.
 8. Confirm generated route source candidates remain `draft`.
 9. Export the official preview as Markdown and confirm review warnings are present.
+10. Submit achievement ids to the official fetch preview endpoint.
+11. Confirm fetched ids, missing ids, account progress, and draft-only status.
+12. Export the fetch preview as Markdown and confirm review warnings are present.
 
 ## Account Connection Diagnostic Steps
 
