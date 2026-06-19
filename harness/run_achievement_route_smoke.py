@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+from shutil import rmtree
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -20,6 +21,7 @@ from gw2radar.ingest.gw2_api_gateway import GatewayResult  # noqa: E402
 
 def main() -> int:
     original_gateway_factory = achievement_route_routes.gateway_factory
+    original_source_root = achievement_route_routes.source_root
     achievement_route_routes.gateway_factory = FetchPreviewGateway
     client = TestClient(app)
     failures: list[str] = []
@@ -99,13 +101,60 @@ def main() -> int:
     elif "Official Achievement Fetch Preview" not in fetch_markdown.text or "guaranteed" in fetch_markdown.text.lower():
         failures.append("official fetch preview markdown export failed content or safety checks")
 
+    temp_source_root = ROOT / ".test_tmp" / "achievement-route-smoke-promotion"
+    if temp_source_root.exists():
+        rmtree(temp_source_root)
+    temp_source_root.mkdir(parents=True, exist_ok=True)
+    achievement_route_routes.source_root = temp_source_root
+    review = {
+        "confirmed_reviewed": True,
+        "reviewer": "achievement_route_smoke",
+        "reviewed_source_id": "kb:achievement-routes:smoke-official-fetch:v1",
+        "review_notes": ["Smoke reviewer confirmed fetched official achievement candidates."],
+    }
+    blocked_promotion = client.post(
+        "/api/v1/achievement-routes/official-fetch-preview/promote-reviewed",
+        json={"request": fetch_request, "review": {**review, "confirmed_reviewed": False}},
+    )
+    if blocked_promotion.status_code != 400:
+        failures.append("official fetch promotion did not require reviewed confirmation")
+    promotion_response = client.post(
+        "/api/v1/achievement-routes/official-fetch-preview/promote-reviewed",
+        json={"request": fetch_request, "review": review},
+    )
+    promotion_payload = _json_response(promotion_response, "official achievement reviewed promotion", failures)
+    promotion = (((promotion_payload or {}).get("data") or {}).get("promotion") or {})
+    if promotion.get("manifest", {}).get("source_status") != "reviewed":
+        failures.append("official fetch promotion did not create a reviewed manifest")
+    if promotion.get("planner_ingestion_status") != "ready":
+        failures.append("official fetch promotion was not marked ready for planner ingestion")
+    promoted_sources = client.get("/api/v1/achievement-routes/sources")
+    promoted_sources_payload = _json_response(promoted_sources, "promoted route sources", failures)
+    promoted_reviewed_step_count = (((promoted_sources_payload or {}).get("data") or {}).get("reviewed_step_count") or 0)
+    if promoted_reviewed_step_count != 2:
+        failures.append("promoted reviewed source did not expose expected route steps")
+    promoted_plan = client.post(
+        "/api/v1/achievement-routes/plan",
+        json={
+            "goal_id": "aurora_sample",
+            "available_minutes": 35,
+            "unlocked_prerequisite_ids": ["achievement_api_access"],
+        },
+    )
+    promoted_plan_payload = _json_response(promoted_plan, "promoted route plan", failures)
+    promoted_source_ids = (((promoted_plan_payload or {}).get("data") or {}).get("plan") or {}).get("source_ids", [])
+    if promoted_source_ids != ["kb:achievement-routes:smoke-official-fetch:v1"]:
+        failures.append("route planner did not ingest promoted reviewed source manifest")
+
     if failures:
         achievement_route_routes.gateway_factory = original_gateway_factory
+        achievement_route_routes.source_root = original_source_root
         print("FAIL: GW2Radar achievement route smoke failed")
         for failure in failures:
             print(f"- {failure}")
         return 1
     achievement_route_routes.gateway_factory = original_gateway_factory
+    achievement_route_routes.source_root = original_source_root
     print("PASS: GW2Radar achievement route smoke succeeded")
     return 0
 

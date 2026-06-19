@@ -4,6 +4,8 @@ from gw2radar.api.envelope import ApiDataEnvelope
 from gw2radar.db import session as db_session
 from gw2radar.db.init_db import init_db
 from gw2radar.commercial.achievement_route import (
+    ACHIEVEMENT_ROUTE_SOURCE_ROOT,
+    AchievementRouteReviewedPromotionRequest,
     AchievementRouteRequest,
     OfficialAccountAchievementProgress,
     OfficialAchievementFetchPreviewRequest,
@@ -12,6 +14,7 @@ from gw2radar.commercial.achievement_route import (
     build_achievement_route_plan,
     build_official_achievement_route_preview,
     load_reviewed_achievement_route_steps,
+    promote_official_fetch_preview_to_reviewed_manifest,
     render_achievement_route_csv,
     render_achievement_route_markdown,
     render_official_achievement_fetch_preview_markdown,
@@ -23,17 +26,18 @@ from gw2radar.security.api_key_store import EncryptedApiKeyStore
 
 router = APIRouter(prefix="/api/v1/achievement-routes", tags=["achievement-routes"])
 gateway_factory = Gw2ApiGateway
+source_root = ACHIEVEMENT_ROUTE_SOURCE_ROOT
 
 
 @router.post("/plan", response_model=ApiDataEnvelope)
 def post_achievement_route_plan(request: AchievementRouteRequest) -> ApiDataEnvelope:
-    plan = build_achievement_route_plan(request)
+    plan = build_achievement_route_plan(request, source_root)
     return ApiDataEnvelope(data={"plan": plan.model_dump(mode="json")})
 
 
 @router.get("/sources", response_model=ApiDataEnvelope)
 def get_achievement_route_sources() -> ApiDataEnvelope:
-    _steps, summaries = load_reviewed_achievement_route_steps()
+    _steps, summaries = load_reviewed_achievement_route_steps(source_root)
     return ApiDataEnvelope(
         data={
             "sources": [summary.model_dump(mode="json") for summary in summaries],
@@ -106,12 +110,34 @@ def post_official_achievement_fetch_preview_export(
     raise HTTPException(status_code=400, detail="Unsupported official achievement fetch preview export format.")
 
 
+@router.post("/official-fetch-preview/promote-reviewed", response_model=ApiDataEnvelope)
+def post_official_achievement_fetch_preview_promote_reviewed(
+    request: OfficialAchievementFetchPreviewRequest,
+    review: AchievementRouteReviewedPromotionRequest,
+) -> ApiDataEnvelope:
+    gateway = gateway_factory()
+    progress, warnings = _load_account_progress_for_fetch_preview(request, gateway)
+    fetch_preview = build_official_achievement_fetch_preview(
+        request,
+        gateway,
+        account_achievements=progress,
+        extra_warnings=warnings,
+    )
+    try:
+        result = promote_official_fetch_preview_to_reviewed_manifest(fetch_preview, review, source_root)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except FileExistsError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return ApiDataEnvelope(data={"promotion": result.model_dump(mode="json")})
+
+
 @router.post("/plan/export")
 def post_achievement_route_export(
     request: AchievementRouteRequest,
     format: str = Query(default="markdown", pattern="^(markdown|csv)$"),
 ) -> Response:
-    plan = build_achievement_route_plan(request)
+    plan = build_achievement_route_plan(request, source_root)
     if format == "markdown":
         return Response(
             content=render_achievement_route_markdown(plan),

@@ -189,7 +189,8 @@ Advanced operator flow:
 - `POST /api/v1/achievement-routes/official-preview` accepts official `/v2/achievements` and `/v2/account/achievements` shaped payloads.
 - The preview converts achievement details into draft route source candidates with inferred map hints, account progress status, source refs, and review warnings.
 - `POST /api/v1/achievement-routes/official-fetch-preview` accepts achievement ids, batches public `/v2/achievements` through the gateway, merges safe account achievement progress summaries, and reports missing ids.
-- Draft previews are not used by the route planner until a human reviewer saves them as a reviewed manifest under `docs/knowledge_base/achievement_routes`.
+- `POST /api/v1/achievement-routes/official-fetch-preview/promote-reviewed` requires `confirmed_reviewed=true`, a reviewer name, and optional review notes before writing a reviewed route source manifest under `docs/knowledge_base/achievement_routes`.
+- Draft previews are not used by the route planner until this reviewed promotion gate writes a `source_status=reviewed` manifest.
 
 ## Freshness And Confidence
 

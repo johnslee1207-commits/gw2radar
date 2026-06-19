@@ -1,8 +1,13 @@
+from pathlib import Path
+from shutil import rmtree
+from uuid import uuid4
+
 from fastapi.testclient import TestClient
 
 from gw2radar.api.main import app
 from gw2radar.api.routes import achievement_routes as achievement_route_routes
 from gw2radar.commercial.achievement_route import (
+    AchievementRouteReviewedPromotionRequest,
     AchievementRouteRequest,
     OfficialAchievementFetchPreviewRequest,
     OfficialAchievementRoutePreviewRequest,
@@ -10,6 +15,7 @@ from gw2radar.commercial.achievement_route import (
     build_achievement_route_plan,
     build_official_achievement_route_preview,
     load_reviewed_achievement_route_steps,
+    promote_official_fetch_preview_to_reviewed_manifest,
     render_official_achievement_fetch_preview_markdown,
     render_achievement_route_csv,
     render_achievement_route_markdown,
@@ -59,6 +65,47 @@ def test_official_achievement_fetch_preview_orchestrates_gateway_batch() -> None
     markdown = render_official_achievement_fetch_preview_markdown(fetch_preview)
     assert "Official Achievement Fetch Preview" in markdown
     assert "guaranteed" not in markdown.lower()
+
+
+def test_promote_official_fetch_preview_requires_reviewed_gate_and_loads_manifest() -> None:
+    temp_root = _temp_source_root("promotion-core")
+    request = _official_fetch_request()
+    fetch_preview = build_official_achievement_fetch_preview(request, FetchPreviewGateway())
+
+    try:
+        try:
+            promote_official_fetch_preview_to_reviewed_manifest(
+                fetch_preview,
+                AchievementRouteReviewedPromotionRequest(reviewer="unit_test_operator"),
+                temp_root,
+            )
+        except ValueError as exc:
+            assert "reviewed confirmation" in str(exc)
+        else:
+            raise AssertionError("unconfirmed official fetch preview promotion should fail")
+
+        result = promote_official_fetch_preview_to_reviewed_manifest(
+            fetch_preview,
+            AchievementRouteReviewedPromotionRequest(
+                confirmed_reviewed=True,
+                reviewer="unit_test_operator",
+                reviewed_source_id="kb:achievement-routes:unit-official-fetch:v1",
+                review_notes=["Reviewed achievement ids and route assumptions against official payload excerpts."],
+            ),
+            temp_root,
+        )
+        loaded_steps, summaries = load_reviewed_achievement_route_steps(temp_root)
+
+        assert result.schema_version == "gw2radar.achievement_route_reviewed_promotion.v1"
+        assert result.manifest.source_status == "reviewed"
+        assert result.manifest.reviewed_by == "unit_test_operator"
+        assert result.planner_ingestion_status == "ready"
+        assert result.manifest_path.endswith("kb_achievement-routes_unit-official-fetch_v1.json")
+        assert loaded_steps
+        assert summaries[0].source_id == "kb:achievement-routes:unit-official-fetch:v1"
+        assert all(step.source_status == "reviewed" for step in loaded_steps)
+    finally:
+        rmtree(temp_root, ignore_errors=True)
 
 
 def test_achievement_route_groups_ready_blocked_and_time_gated_steps() -> None:
@@ -171,6 +218,54 @@ def test_official_achievement_fetch_preview_api_and_exports() -> None:
         achievement_route_routes.gateway_factory = original_factory
 
 
+def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
+    temp_root = _temp_source_root("promotion-api")
+    original_factory = achievement_route_routes.gateway_factory
+    original_source_root = achievement_route_routes.source_root
+    achievement_route_routes.gateway_factory = FetchPreviewGateway
+    achievement_route_routes.source_root = temp_root
+    try:
+        client = TestClient(app)
+        request = _official_fetch_request().model_dump(mode="json")
+        review = {
+            "confirmed_reviewed": True,
+            "reviewer": "api_review_operator",
+            "reviewed_source_id": "kb:achievement-routes:api-official-fetch:v1",
+            "review_notes": ["API reviewer confirmed route candidate assumptions."],
+        }
+
+        blocked = client.post(
+            "/api/v1/achievement-routes/official-fetch-preview/promote-reviewed",
+            json={"request": request, "review": {**review, "confirmed_reviewed": False}},
+        )
+        promoted = client.post(
+            "/api/v1/achievement-routes/official-fetch-preview/promote-reviewed",
+            json={"request": request, "review": review},
+        )
+        sources = client.get("/api/v1/achievement-routes/sources")
+        plan = client.post(
+            "/api/v1/achievement-routes/plan",
+            json={
+                "goal_id": "aurora_sample",
+                "available_minutes": 40,
+                "unlocked_prerequisite_ids": ["achievement_api_access"],
+            },
+        )
+
+        assert blocked.status_code == 400
+        assert promoted.status_code == 200
+        promotion = promoted.json()["data"]["promotion"]
+        assert promotion["manifest"]["source_status"] == "reviewed"
+        assert promotion["manifest"]["reviewed_by"] == "api_review_operator"
+        assert "secret-key" not in str(promotion).lower()
+        assert sources.json()["data"]["reviewed_step_count"] == 2
+        assert plan.json()["data"]["plan"]["source_ids"] == ["kb:achievement-routes:api-official-fetch:v1"]
+    finally:
+        achievement_route_routes.gateway_factory = original_factory
+        achievement_route_routes.source_root = original_source_root
+        rmtree(temp_root, ignore_errors=True)
+
+
 def _official_preview_request() -> OfficialAchievementRoutePreviewRequest:
     return OfficialAchievementRoutePreviewRequest(
         source_id="official:achievement-route-preview:test",
@@ -257,3 +352,9 @@ class FetchPreviewGateway:
             payload=[{"id": 1002, "current": 1, "max": 1}],
             evidence_id="evidence:account-achievements",
         )
+
+
+def _temp_source_root(prefix: str) -> Path:
+    path = Path(".test_tmp") / f"achievement-route-{prefix}-{uuid4().hex}"
+    path.mkdir(parents=True, exist_ok=True)
+    return path

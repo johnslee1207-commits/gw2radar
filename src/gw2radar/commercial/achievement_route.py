@@ -175,6 +175,23 @@ class OfficialAchievementFetchPreview(BaseModel):
     warnings: list[str]
 
 
+class AchievementRouteReviewedPromotionRequest(BaseModel):
+    confirmed_reviewed: bool = False
+    reviewer: str = Field(min_length=2)
+    reviewed_source_id: str | None = None
+    review_notes: list[str] = Field(default_factory=list)
+    overwrite_existing: bool = False
+
+
+class AchievementRouteReviewedPromotionResult(BaseModel):
+    schema_version: str = "gw2radar.achievement_route_reviewed_promotion.v1"
+    manifest: AchievementRouteSourceManifest
+    manifest_path: str
+    source_summary: AchievementRouteSourceSummary
+    planner_ingestion_status: Literal["ready", "blocked"]
+    warnings: list[str]
+
+
 class AchievementRouteGateway(Protocol):
     def get_batch(
         self,
@@ -658,6 +675,84 @@ def render_official_achievement_fetch_preview_markdown(fetch_preview: OfficialAc
     return "\n".join(lines) + "\n"
 
 
+def promote_official_fetch_preview_to_reviewed_manifest(
+    fetch_preview: OfficialAchievementFetchPreview,
+    request: AchievementRouteReviewedPromotionRequest,
+    source_root: Path = ACHIEVEMENT_ROUTE_SOURCE_ROOT,
+) -> AchievementRouteReviewedPromotionResult:
+    if not request.confirmed_reviewed:
+        raise ValueError("Promoting an official achievement fetch preview requires reviewed confirmation.")
+    if not fetch_preview.preview.manifest.steps:
+        raise ValueError("Cannot promote an official achievement fetch preview with no candidate steps.")
+
+    reviewed_source_id = request.reviewed_source_id or _reviewed_source_id(fetch_preview.preview.manifest.source_id)
+    manifest_path = _reviewed_manifest_path(source_root, reviewed_source_id)
+    if manifest_path.exists() and not request.overwrite_existing:
+        raise FileExistsError(f"Reviewed achievement route manifest already exists: {manifest_path.as_posix()}")
+
+    review_notes = request.review_notes or ["Human reviewer confirmed this official fetch preview for planner ingestion."]
+    manifest = fetch_preview.preview.manifest.model_copy(
+        update={
+            "source_id": reviewed_source_id,
+            "source_status": "reviewed",
+            "reviewed_by": request.reviewer,
+            "reviewed_at": datetime.now(UTC).date().isoformat(),
+            "assumptions": _unique(
+                [
+                    *fetch_preview.preview.manifest.assumptions,
+                    "This manifest was promoted from an official fetch preview through the reviewed gate.",
+                    *review_notes,
+                    *fetch_preview.warnings,
+                ]
+            ),
+            "steps": [
+                step.model_copy(
+                    update={
+                        "source_id": reviewed_source_id,
+                        "source_status": "reviewed",
+                        "evidence_refs": _unique([*step.evidence_refs, reviewed_source_id]),
+                        "assumptions": _unique(
+                            [
+                                *step.assumptions,
+                                "Human reviewer promoted this official achievement candidate for route planning.",
+                            ]
+                        ),
+                    }
+                )
+                for step in fetch_preview.preview.manifest.steps
+            ],
+        }
+    )
+    source_root.mkdir(parents=True, exist_ok=True)
+    manifest_path.write_text(
+        manifest.model_dump_json(indent=2),
+        encoding="utf-8",
+    )
+    summary = AchievementRouteSourceSummary(
+        source_id=manifest.source_id,
+        title=manifest.title,
+        source_status=manifest.source_status,
+        source_url=manifest.source_url,
+        source_refs=manifest.source_refs,
+        reviewed_by=manifest.reviewed_by,
+        reviewed_at=manifest.reviewed_at,
+        step_count=len(manifest.steps),
+    )
+    warnings = _unique(
+        [
+            "Reviewed manifest is now eligible for route planner ingestion.",
+            *fetch_preview.warnings,
+        ]
+    )
+    return AchievementRouteReviewedPromotionResult(
+        manifest=manifest,
+        manifest_path=manifest_path.as_posix(),
+        source_summary=summary,
+        planner_ingestion_status="ready",
+        warnings=warnings,
+    )
+
+
 def _build_segments(
     steps: list[AchievementRouteStep],
     ready: list[str],
@@ -771,6 +866,18 @@ def _unique(values: list[str]) -> list[str]:
 
 def _slug(value: str) -> str:
     return value.lower().replace(" ", "-").replace(":", "")
+
+
+def _reviewed_source_id(source_id: str) -> str:
+    if source_id.startswith("kb:achievement-routes:"):
+        return source_id
+    return f"kb:achievement-routes:{_slug(source_id)}:reviewed"
+
+
+def _reviewed_manifest_path(source_root: Path, source_id: str) -> Path:
+    safe_name = "".join(char if char.isalnum() or char in ("-", "_") else "_" for char in source_id.lower())
+    safe_name = safe_name.strip("_") or "reviewed_achievement_route"
+    return source_root / f"{safe_name}.json"
 
 
 def _official_progress_status(

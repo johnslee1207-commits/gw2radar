@@ -49,6 +49,10 @@ It also verifies the P4 official achievement fetch orchestration:
 `/api/v1/achievement-routes/official-fetch-preview` batches `/v2/achievements`
 ids through the gateway, merges safe account achievement progress summaries,
 reports missing ids, and exports a draft-only preview.
+It also verifies the P5 reviewed promotion gate:
+`/api/v1/achievement-routes/official-fetch-preview/promote-reviewed` requires
+explicit reviewer confirmation, writes a reviewed route source manifest, and
+makes the promoted source eligible for route planner ingestion.
 
 ## Account Connection Diagnostic Command
 
@@ -136,6 +140,9 @@ readiness rollup, and visible no-secret boundary copy.
 10. Submit achievement ids to the official fetch preview endpoint.
 11. Confirm fetched ids, missing ids, account progress, and draft-only status.
 12. Export the fetch preview as Markdown and confirm review warnings are present.
+13. Confirm promotion without reviewed confirmation is rejected.
+14. Promote the fetch preview through the reviewed gate into a temporary source manifest.
+15. Confirm the route planner ingests the promoted reviewed source.
 
 ## Account Connection Diagnostic Steps
 
