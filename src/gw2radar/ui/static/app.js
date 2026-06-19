@@ -235,6 +235,9 @@ function summarizeResult(target, payload) {
     if (data?.operator_action_bundle) {
       return `Operator bundle loaded: quality ${data.operator_action_bundle.quality?.maturity_label}, remediation ${data.operator_action_bundle.remediation_readiness?.maturity_label}.`;
     }
+    if (data?.operator_release_packet) {
+      return `Release packet is ${data.operator_release_packet.maturity_label} with ${data.operator_release_packet.blocker_count} blockers.`;
+    }
     if (Array.isArray(data?.sources)) {
       return `${data.sources.length} route source manifests loaded with ${data.reviewed_step_count || 0} reviewed steps.`;
     }
@@ -1337,6 +1340,32 @@ const actions = {
       renderRouteOperatorActionBundle(payload?.data?.operator_action_bundle || {});
       return payload;
     }),
+  loadAchievementRouteOperatorReleasePacket: () =>
+    run("routes", () => fetchJson("/api/v1/achievement-routes/source-quality/remediation-queue/release-packet")),
+  exportAchievementRouteOperatorReleasePacket: () =>
+    run("routes", () =>
+      fetch("/api/v1/achievement-routes/source-quality/remediation-queue/release-packet?format=csv", {
+        headers: { "Accept": "text/csv" },
+      }).then(async (response) => {
+        const text = await response.text();
+        if (!response.ok) {
+          throw new Error(text || `HTTP ${response.status}`);
+        }
+        return text;
+      }),
+    ),
+  exportAchievementRouteOperatorReleasePacketManifest: () =>
+    run("routes", () =>
+      fetch("/api/v1/achievement-routes/source-quality/remediation-queue/release-packet?format=manifest", {
+        headers: { "Accept": "application/json" },
+      }).then(async (response) => {
+        const text = await response.text();
+        if (!response.ok) {
+          throw new Error(text || `HTTP ${response.status}`);
+        }
+        return JSON.parse(text);
+      }),
+    ),
   importBuild: () =>
     run("build", async () => {
       const payload = await fetchJson("/api/v1/builds/import", {

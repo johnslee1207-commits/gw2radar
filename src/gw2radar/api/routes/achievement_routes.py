@@ -1,3 +1,5 @@
+import json
+
 from fastapi import APIRouter, HTTPException, Query, Response
 
 from gw2radar.api.envelope import ApiDataEnvelope
@@ -14,6 +16,7 @@ from gw2radar.commercial.achievement_route import (
     OfficialAchievementFetchPreviewRequest,
     OfficialAchievementRoutePreviewRequest,
     build_achievement_route_operator_action_bundle,
+    build_achievement_route_operator_release_packet,
     build_achievement_route_release_readiness,
     build_achievement_route_remediation_queue,
     build_achievement_route_remediation_readiness,
@@ -31,6 +34,8 @@ from gw2radar.commercial.achievement_route import (
     render_achievement_route_markdown,
     render_achievement_route_operator_action_bundle_csv,
     render_achievement_route_operator_action_bundle_markdown,
+    render_achievement_route_operator_release_packet_csv,
+    render_achievement_route_operator_release_packet_markdown,
     render_achievement_route_promotion_audit_csv,
     render_achievement_route_promotion_audit_markdown,
     render_achievement_route_release_readiness_csv,
@@ -315,6 +320,29 @@ def post_achievement_route_operator_action_bundle(
             media_type="text/csv; charset=utf-8",
         )
     return ApiDataEnvelope(data={"operator_action_bundle": bundle.model_dump(mode="json")})
+
+
+@router.get("/source-quality/remediation-queue/release-packet", response_model=None)
+def get_achievement_route_operator_release_packet(
+    format: str = Query(default="json", pattern="^(json|markdown|csv|manifest)$"),
+):
+    packet = build_achievement_route_operator_release_packet(source_root, audit_root)
+    if format == "markdown":
+        return Response(
+            content=render_achievement_route_operator_release_packet_markdown(packet),
+            media_type="text/markdown; charset=utf-8",
+        )
+    if format == "csv":
+        return Response(
+            content=render_achievement_route_operator_release_packet_csv(packet),
+            media_type="text/csv; charset=utf-8",
+        )
+    if format == "manifest":
+        return Response(
+            content=json.dumps(packet.manifest, indent=2),
+            media_type="application/json; charset=utf-8",
+        )
+    return ApiDataEnvelope(data={"operator_release_packet": packet.model_dump(mode="json")})
 
 
 @router.post("/plan/export")

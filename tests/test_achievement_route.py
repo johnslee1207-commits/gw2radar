@@ -17,6 +17,7 @@ from gw2radar.commercial.achievement_route import (
     OfficialAchievementRoutePreviewRequest,
     build_achievement_route_release_readiness,
     build_achievement_route_operator_action_bundle,
+    build_achievement_route_operator_release_packet,
     build_achievement_route_remediation_queue,
     build_achievement_route_remediation_readiness,
     build_achievement_route_source_quality_review,
@@ -33,6 +34,8 @@ from gw2radar.commercial.achievement_route import (
     render_achievement_route_promotion_audit_markdown,
     render_achievement_route_operator_action_bundle_csv,
     render_achievement_route_operator_action_bundle_markdown,
+    render_achievement_route_operator_release_packet_csv,
+    render_achievement_route_operator_release_packet_markdown,
     render_achievement_route_release_readiness_csv,
     render_achievement_route_release_readiness_markdown,
     render_achievement_route_remediation_queue_csv,
@@ -393,6 +396,9 @@ def test_achievement_route_operator_action_bundle_aggregates_and_records_review(
         )
         markdown = render_achievement_route_operator_action_bundle_markdown(updated)
         csv_text = render_achievement_route_operator_action_bundle_csv(updated)
+        packet = build_achievement_route_operator_release_packet(temp_root, audit_root)
+        packet_markdown = render_achievement_route_operator_release_packet_markdown(packet)
+        packet_csv = render_achievement_route_operator_release_packet_csv(packet)
 
         assert initial.schema_version == "gw2radar.achievement_route_operator_action_bundle.v1"
         assert initial.remediation_review is None
@@ -404,7 +410,13 @@ def test_achievement_route_operator_action_bundle_aggregates_and_records_review(
         assert updated.remediation_readiness.open_p0_count >= 1
         assert "Achievement Route Operator Action Bundle" in markdown
         assert "quality_maturity,quality_score,queue_item_count" in csv_text
+        assert packet.schema_version == "gw2radar.achievement_route_operator_release_packet.v1"
+        assert packet.manifest["packet_schema"] == packet.schema_version
+        assert "operator_release_packet_manifest.json" in packet.manifest["artifacts"]
+        assert "Achievement Route Operator Release Packet" in packet_markdown
+        assert "packet_id,ready,maturity_label" in packet_csv
         assert "secret-key" not in str(updated).lower()
+        assert "secret-key" not in str(packet).lower()
     finally:
         rmtree(temp_root, ignore_errors=True)
         rmtree(audit_root, ignore_errors=True)
@@ -641,6 +653,10 @@ def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
         )
         action_bundle_markdown = client.post("/api/v1/achievement-routes/source-quality/remediation-queue/action-bundle?format=markdown", json={})
         action_bundle_csv = client.post("/api/v1/achievement-routes/source-quality/remediation-queue/action-bundle?format=csv", json={})
+        release_packet = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-packet")
+        release_packet_markdown = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-packet?format=markdown")
+        release_packet_csv = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-packet?format=csv")
+        release_packet_manifest = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-packet?format=manifest")
 
         assert blocked_review.status_code == 400
         assert review_action.status_code == 200
@@ -660,6 +676,11 @@ def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
         assert action_bundle_review.json()["data"]["operator_action_bundle"]["remediation_review"]["status"] == "resolved"
         assert "# Achievement Route Operator Action Bundle" in action_bundle_markdown.text
         assert "quality_maturity,quality_score,queue_item_count" in action_bundle_csv.text
+        assert release_packet.status_code == 200
+        assert release_packet.json()["data"]["operator_release_packet"]["manifest"]["packet_schema"] == "gw2radar.achievement_route_operator_release_packet.v1"
+        assert "# Achievement Route Operator Release Packet" in release_packet_markdown.text
+        assert "packet_id,ready,maturity_label" in release_packet_csv.text
+        assert release_packet_manifest.json()["packet_schema"] == "gw2radar.achievement_route_operator_release_packet.v1"
     finally:
         achievement_route_routes.gateway_factory = original_factory
         achievement_route_routes.source_root = original_source_root

@@ -83,6 +83,10 @@ It also verifies the P13 operator action bundle:
 source quality, remediation queue, remediation review action, review audit,
 remediation readiness, and release readiness are combined into one front-end
 workflow API with Markdown / CSV export.
+It also verifies the P14 operator release packet:
+the action bundle is packaged into deterministic Markdown, CSV, and manifest
+exports with readiness scores, blockers, warnings, source paths, API refs, and
+explicit safety boundaries.
 
 ## Account Connection Diagnostic Command
 
@@ -188,7 +192,9 @@ readiness rollup, and visible no-secret boundary copy.
 28. Load operator action bundle and confirm quality, queue, audit, and readiness are aggregated.
 29. Record one remediation review through the action bundle.
 30. Export operator action bundle as Markdown and CSV.
-31. Confirm the route planner ingests the promoted reviewed source.
+31. Load operator release packet and confirm manifest metadata.
+32. Export operator release packet as Markdown, CSV, and manifest JSON.
+33. Confirm the route planner ingests the promoted reviewed source.
 
 ## Account Connection Diagnostic Steps
 

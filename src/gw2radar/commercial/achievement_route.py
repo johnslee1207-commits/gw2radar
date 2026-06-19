@@ -382,6 +382,23 @@ class AchievementRouteOperatorActionBundle(BaseModel):
     boundary: str = "Operator action bundle is a front-end workflow aggregator; it only writes remediation review audit records when an explicit confirmed review is supplied."
 
 
+class AchievementRouteOperatorReleasePacket(BaseModel):
+    schema_version: str = "gw2radar.achievement_route_operator_release_packet.v1"
+    packet_id: str
+    generated_at: datetime
+    ready: bool
+    maturity_label: Literal["blocked", "review_needed", "ready"]
+    quality_score: float
+    remediation_score: float
+    release_score: float
+    open_remediation_items: int
+    blocker_count: int
+    warning_count: int
+    manifest: dict[str, Any]
+    bundle: AchievementRouteOperatorActionBundle
+    boundary: str = "Operator release packet is a deterministic review artifact; it does not publish, edit manifests, automate gameplay, or certify live game state."
+
+
 class AchievementRouteGateway(Protocol):
     def get_batch(
         self,
@@ -1887,6 +1904,117 @@ def render_achievement_route_operator_action_bundle_csv(bundle: AchievementRoute
             bundle.release_readiness.readiness_score,
             bundle.remediation_review.item_id if bundle.remediation_review else "",
             bundle.remediation_review.status if bundle.remediation_review else "",
+        ]
+    )
+    return buffer.getvalue()
+
+
+def build_achievement_route_operator_release_packet(
+    source_root: Path = ACHIEVEMENT_ROUTE_SOURCE_ROOT,
+    audit_root: Path = ACHIEVEMENT_ROUTE_AUDIT_ROOT,
+) -> AchievementRouteOperatorReleasePacket:
+    bundle = build_achievement_route_operator_action_bundle(None, source_root, audit_root)
+    blockers = [*bundle.remediation_readiness.blockers, *bundle.release_readiness.blockers]
+    warnings = [*bundle.remediation_readiness.warnings, *bundle.release_readiness.warnings, *bundle.quality.remediation]
+    ready = bundle.remediation_readiness.ready and bundle.release_readiness.ready and bundle.quality.maturity_label == "ready"
+    maturity = "ready" if ready else "blocked" if blockers else "review_needed"
+    generated_at = datetime.now(UTC)
+    manifest = {
+        "packet_schema": "gw2radar.achievement_route_operator_release_packet.v1",
+        "generated_at": generated_at.isoformat(),
+        "artifacts": [
+            "operator_release_packet.md",
+            "operator_release_packet.csv",
+            "operator_release_packet_manifest.json",
+        ],
+        "source_paths": [
+            "docs/knowledge_base/achievement_routes/*.json",
+            "data/achievement_route_audit/promotion_audit.jsonl",
+            "data/achievement_route_audit/remediation_review_audit.jsonl",
+        ],
+        "api_refs": [
+            "/api/v1/achievement-routes/source-quality/remediation-queue/action-bundle",
+            "/api/v1/achievement-routes/source-quality/remediation-queue/readiness",
+            "/api/v1/achievement-routes/release-readiness",
+        ],
+        "safety_boundaries": [
+            "No raw API keys or private account payloads are included.",
+            "No source manifests are edited by this packet.",
+            "No gameplay, trading, or publishing action is automated.",
+        ],
+    }
+    return AchievementRouteOperatorReleasePacket(
+        packet_id=f"achievement-route-release:{generated_at.strftime('%Y%m%d%H%M%S')}",
+        generated_at=generated_at,
+        ready=ready,
+        maturity_label=maturity,
+        quality_score=bundle.quality.overall_score,
+        remediation_score=bundle.remediation_readiness.readiness_score,
+        release_score=bundle.release_readiness.readiness_score,
+        open_remediation_items=bundle.remediation_queue.open_item_count,
+        blocker_count=len(blockers),
+        warning_count=len(warnings),
+        manifest=manifest,
+        bundle=bundle,
+    )
+
+
+def render_achievement_route_operator_release_packet_markdown(packet: AchievementRouteOperatorReleasePacket) -> str:
+    lines = [
+        "# Achievement Route Operator Release Packet",
+        "",
+        f"- Packet: {packet.packet_id}",
+        f"- Ready: {packet.ready}",
+        f"- Maturity: {packet.maturity_label}",
+        f"- Quality score: {packet.quality_score}/100",
+        f"- Remediation score: {packet.remediation_score}/100",
+        f"- Release score: {packet.release_score}/100",
+        f"- Open remediation items: {packet.open_remediation_items}",
+        f"- Blockers: {packet.blocker_count}",
+        f"- Warnings: {packet.warning_count}",
+        f"- Boundary: {packet.boundary}",
+        "",
+        "## Blockers",
+    ]
+    blockers = [*packet.bundle.remediation_readiness.blockers, *packet.bundle.release_readiness.blockers]
+    lines.extend([f"- {item}" for item in blockers] or ["- None"])
+    lines.extend(["", "## Warnings"])
+    warnings = [*packet.bundle.remediation_readiness.warnings, *packet.bundle.release_readiness.warnings]
+    lines.extend([f"- {item}" for item in warnings] or ["- None"])
+    lines.extend(["", "## Manifest Artifacts"])
+    lines.extend([f"- {item}" for item in packet.manifest.get("artifacts", [])])
+    lines.extend(["", "## Next Actions"])
+    lines.extend([f"- {item}" for item in packet.bundle.next_actions] or ["- None"])
+    return "\n".join(lines) + "\n"
+
+
+def render_achievement_route_operator_release_packet_csv(packet: AchievementRouteOperatorReleasePacket) -> str:
+    buffer = StringIO()
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow(
+        [
+            "packet_id",
+            "ready",
+            "maturity_label",
+            "quality_score",
+            "remediation_score",
+            "release_score",
+            "open_remediation_items",
+            "blocker_count",
+            "warning_count",
+        ]
+    )
+    writer.writerow(
+        [
+            packet.packet_id,
+            packet.ready,
+            packet.maturity_label,
+            packet.quality_score,
+            packet.remediation_score,
+            packet.release_score,
+            packet.open_remediation_items,
+            packet.blocker_count,
+            packet.warning_count,
         ]
     )
     return buffer.getvalue()

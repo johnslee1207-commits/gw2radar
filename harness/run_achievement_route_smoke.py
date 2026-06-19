@@ -253,6 +253,20 @@ def main() -> int:
     action_bundle_csv = client.post("/api/v1/achievement-routes/source-quality/remediation-queue/action-bundle?format=csv", json={})
     if action_bundle_csv.status_code != 200 or "quality_maturity,quality_score,queue_item_count" not in action_bundle_csv.text:
         failures.append("achievement route operator action bundle csv export failed")
+    release_packet = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-packet")
+    release_packet_payload = _json_response(release_packet, "achievement route operator release packet", failures)
+    packet = (((release_packet_payload or {}).get("data") or {}).get("operator_release_packet") or {})
+    if packet.get("schema_version") != "gw2radar.achievement_route_operator_release_packet.v1" or not packet.get("manifest"):
+        failures.append("achievement route operator release packet did not include manifest")
+    release_packet_markdown = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-packet?format=markdown")
+    if release_packet_markdown.status_code != 200 or "# Achievement Route Operator Release Packet" not in release_packet_markdown.text:
+        failures.append("achievement route operator release packet markdown export failed")
+    release_packet_csv = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-packet?format=csv")
+    if release_packet_csv.status_code != 200 or "packet_id,ready,maturity_label" not in release_packet_csv.text:
+        failures.append("achievement route operator release packet csv export failed")
+    release_packet_manifest = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-packet?format=manifest")
+    if release_packet_manifest.status_code != 200 or release_packet_manifest.json().get("packet_schema") != "gw2radar.achievement_route_operator_release_packet.v1":
+        failures.append("achievement route operator release packet manifest export failed")
     promoted_sources = client.get("/api/v1/achievement-routes/sources")
     promoted_sources_payload = _json_response(promoted_sources, "promoted route sources", failures)
     promoted_reviewed_step_count = (((promoted_sources_payload or {}).get("data") or {}).get("reviewed_step_count") or 0)
