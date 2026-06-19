@@ -37,6 +37,10 @@ This smoke path verifies the P1 Achievement & Collection Route Planner:
 the `/player` UI exposes the route planner, `/api/v1/achievement-routes/plan`
 returns deterministic ready/blocked/time-gated steps, and Markdown/CSV exports
 preserve assumptions plus the manual-planning safety boundary.
+It also verifies the P2 reviewed source ingestion layer:
+`/api/v1/achievement-routes/sources` exposes reviewed route source manifests and
+the generated plan cites the reviewed source id instead of relying only on the
+built-in fallback seed.
 
 ## Account Connection Diagnostic Command
 
@@ -114,9 +118,10 @@ readiness rollup, and visible no-secret boundary copy.
 
 1. Load `/player` and verify the Achievement Route Planner is present.
 2. Submit a sample route request with known unlocked prerequisites.
-3. Confirm the route plan schema, ready steps, blocked steps, and safety boundary.
-4. Export Markdown and confirm assumptions are present with no guarantee wording.
-5. Export CSV and confirm the deterministic route header is present.
+3. Load reviewed route source manifests and confirm reviewed step count.
+4. Confirm the route plan schema, ready steps, blocked steps, source id, and safety boundary.
+5. Export Markdown and confirm assumptions are present with no guarantee wording.
+6. Export CSV and confirm the deterministic route header is present.
 
 ## Account Connection Diagnostic Steps
 

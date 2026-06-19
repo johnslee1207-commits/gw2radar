@@ -1,0 +1,96 @@
+{
+  "schema_version": "gw2radar.achievement_route_source.v1",
+  "source_id": "kb:achievement-routes:reviewed-seed:v1",
+  "title": "Reviewed achievement and collection route seed",
+  "source_status": "reviewed",
+  "source_url": "docs/knowledge_base/official/api_endpoints/achievements.md",
+  "source_refs": [
+    "docs/knowledge_base/official/api_endpoints/achievements.md",
+    "docs/knowledge_base/official/api_endpoints/account_achievements.md",
+    "docs/knowledge_base/legendary/do_not_sell_policy.md"
+  ],
+  "reviewed_by": "codex_p2_route_ingestion",
+  "reviewed_at": "2026-06-19",
+  "assumptions": [
+    "Reviewed seed describes route-planning structure and source boundaries, not a complete official achievement checklist.",
+    "Official achievement and account-achievement endpoints can verify achievement ids and completion state when an ingestion adapter supplies them.",
+    "Players must confirm exact collection item names, map availability, and reset state in game before acting."
+  ],
+  "steps": [
+    {
+      "step_id": "aurora-bloodstone-fen-reviewed-sweep",
+      "title": "Bloodstone Fen reviewed collection sweep",
+      "step_type": "collection",
+      "map_name": "Bloodstone Fen",
+      "region": "Maguuma Wastes",
+      "objective": "Review account achievement progress, then batch local collection checks that share Bloodstone Fen travel.",
+      "advances_goal_id": "aurora_sample",
+      "prerequisite_ids": ["living_world_s3_access", "achievement_api_access"],
+      "time_gate": "none",
+      "estimated_minutes": 15,
+      "group_required": false,
+      "evidence_refs": ["achievement_endpoint", "account_achievement_endpoint"],
+      "assumptions": ["Route step is seeded from reviewed source structure; exact in-game collection rows remain player-verified."]
+    },
+    {
+      "step_id": "aurora-ember-bay-reviewed-daily",
+      "title": "Ember Bay reviewed daily checkpoint",
+      "step_type": "collection",
+      "map_name": "Ember Bay",
+      "region": "Ring of Fire",
+      "objective": "Schedule one short daily-gated collection or currency checkpoint after confirming current reset state.",
+      "advances_goal_id": "aurora_sample",
+      "prerequisite_ids": ["living_world_s3_access", "achievement_api_access"],
+      "time_gate": "daily",
+      "estimated_minutes": 12,
+      "group_required": false,
+      "evidence_refs": ["achievement_endpoint", "account_achievement_endpoint"],
+      "assumptions": ["Daily label is a planning constraint and not a guarantee that the step is available right now."]
+    },
+    {
+      "step_id": "aurora-bitterfrost-frontier-reviewed-loop",
+      "title": "Bitterfrost Frontier reviewed gathering loop",
+      "step_type": "collection",
+      "map_name": "Bitterfrost Frontier",
+      "region": "Shiverpeak Mountains",
+      "objective": "Group cold-region account progress checks into one route block before moving to another Living World map.",
+      "advances_goal_id": "aurora_sample",
+      "prerequisite_ids": ["living_world_s3_access", "achievement_api_access"],
+      "time_gate": "none",
+      "estimated_minutes": 18,
+      "group_required": false,
+      "evidence_refs": ["achievement_endpoint", "account_achievement_endpoint"],
+      "assumptions": ["Specific collection target names are intentionally omitted until official achievement details are ingested."]
+    },
+    {
+      "step_id": "vision-dragonfall-reviewed-meta-check",
+      "title": "Dragonfall reviewed group checkpoint",
+      "step_type": "achievement",
+      "map_name": "Dragonfall",
+      "region": "Crystal Desert",
+      "objective": "Reserve a group-content window only when the player opts into group/meta planning.",
+      "advances_goal_id": "vision_sample",
+      "prerequisite_ids": ["living_world_s4_access", "achievement_api_access"],
+      "time_gate": "weekly",
+      "estimated_minutes": 25,
+      "group_required": true,
+      "evidence_refs": ["achievement_endpoint", "account_achievement_endpoint"],
+      "assumptions": ["Group event timing, squad availability, and exact objective state must be confirmed outside GW2Radar."]
+    },
+    {
+      "step_id": "ad-infinitum-fractal-reviewed-check",
+      "title": "Fractal reviewed collection checkpoint",
+      "step_type": "achievement",
+      "map_name": "Fractals of the Mists",
+      "region": "Mistlock Observatory",
+      "objective": "Check whether the next collection blocker belongs in a short fractal session or should be postponed.",
+      "advances_goal_id": "ad_infinitum_sample",
+      "prerequisite_ids": ["fractal_access", "achievement_api_access"],
+      "time_gate": "none",
+      "estimated_minutes": 20,
+      "group_required": true,
+      "evidence_refs": ["achievement_endpoint", "account_achievement_endpoint"],
+      "assumptions": ["Fractal tier, instability, role readiness, and party expectations are outside the seed and must be player-provided."]
+    }
+  ]
+}

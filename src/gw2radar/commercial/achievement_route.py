@@ -1,15 +1,21 @@
 from __future__ import annotations
 
 import csv
+import json
 from datetime import UTC, datetime
 from io import StringIO
+from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 
 RouteStepType = Literal["achievement", "collection"]
 RouteTimeGate = Literal["daily", "weekly", "none"]
+RouteSourceStatus = Literal["reviewed", "draft", "disabled"]
+
+
+ACHIEVEMENT_ROUTE_SOURCE_ROOT = Path("docs/knowledge_base/achievement_routes")
 
 
 class AchievementRouteRequest(BaseModel):
@@ -35,6 +41,8 @@ class AchievementRouteStep(BaseModel):
     group_required: bool = False
     evidence_refs: list[str] = Field(default_factory=list)
     assumptions: list[str] = Field(default_factory=list)
+    source_id: str = "kb:seed:legendary-route:v1"
+    source_status: RouteSourceStatus = "reviewed"
 
 
 class AchievementRouteSegment(BaseModel):
@@ -70,8 +78,35 @@ class AchievementRoutePlan(BaseModel):
     blocked_step_ids: list[str]
     time_gated_step_ids: list[str]
     next_actions: list[AchievementRouteAction]
+    source_ids: list[str]
+    source_warnings: list[str]
     assumptions: list[str]
     safety_boundaries: list[str]
+
+
+class AchievementRouteSourceManifest(BaseModel):
+    schema_version: str = "gw2radar.achievement_route_source.v1"
+    source_id: str
+    title: str
+    source_status: RouteSourceStatus = "reviewed"
+    source_url: str | None = None
+    source_refs: list[str] = Field(default_factory=list)
+    reviewed_by: str
+    reviewed_at: str
+    assumptions: list[str] = Field(default_factory=list)
+    steps: list[AchievementRouteStep]
+
+
+class AchievementRouteSourceSummary(BaseModel):
+    source_id: str
+    title: str
+    source_status: RouteSourceStatus
+    source_url: str | None = None
+    source_refs: list[str] = Field(default_factory=list)
+    reviewed_by: str | None = None
+    reviewed_at: str | None = None
+    step_count: int = 0
+    warning: str | None = None
 
 
 SAMPLE_ROUTE_STEPS: tuple[AchievementRouteStep, ...] = (
@@ -87,6 +122,7 @@ SAMPLE_ROUTE_STEPS: tuple[AchievementRouteStep, ...] = (
         estimated_minutes=15,
         evidence_refs=["kb:seed:legendary-route:v1"],
         assumptions=["Sample route seed; verify the exact in-game achievement panel before execution."],
+        source_id="kb:seed:legendary-route:v1",
     ),
     AchievementRouteStep(
         step_id="aurora-ember-bay-daily-token",
@@ -101,6 +137,7 @@ SAMPLE_ROUTE_STEPS: tuple[AchievementRouteStep, ...] = (
         estimated_minutes=12,
         evidence_refs=["kb:seed:legendary-route:v1"],
         assumptions=["Daily availability is represented as a planning gate, not a guarantee of current rotation."],
+        source_id="kb:seed:legendary-route:v1",
     ),
     AchievementRouteStep(
         step_id="vision-dragonfall-meta",
@@ -116,6 +153,7 @@ SAMPLE_ROUTE_STEPS: tuple[AchievementRouteStep, ...] = (
         group_required=True,
         evidence_refs=["kb:seed:legendary-route:v1"],
         assumptions=["Group event timing must be confirmed in game or with the squad before committing the session."],
+        source_id="kb:seed:legendary-route:v1",
     ),
     AchievementRouteStep(
         step_id="fractals-ad-infinitum-check",
@@ -130,20 +168,32 @@ SAMPLE_ROUTE_STEPS: tuple[AchievementRouteStep, ...] = (
         group_required=True,
         evidence_refs=["kb:seed:legendary-route:v1"],
         assumptions=["Fractal tier, instability, and group readiness are player-provided facts until synced or entered."],
+        source_id="kb:seed:legendary-route:v1",
     ),
 )
 
 
-def build_achievement_route_plan(request: AchievementRouteRequest) -> AchievementRoutePlan:
+def build_achievement_route_plan(
+    request: AchievementRouteRequest,
+    source_root: Path = ACHIEVEMENT_ROUTE_SOURCE_ROOT,
+) -> AchievementRoutePlan:
+    source_steps, source_summaries = load_reviewed_achievement_route_steps(source_root)
+    route_steps = source_steps or list(SAMPLE_ROUTE_STEPS)
+    source_warnings = [
+        summary.warning for summary in source_summaries if summary.warning
+    ]
+    if not source_steps:
+        source_warnings.append("No reviewed achievement route source manifests were loaded; using built-in MVP fallback seed.")
+
     completed = set(request.completed_step_ids)
     unlocked = set(request.unlocked_prerequisite_ids)
     candidate_steps = [
         step
-        for step in SAMPLE_ROUTE_STEPS
+        for step in route_steps
         if step.step_id not in completed and (request.goal_id == "all" or step.advances_goal_id == request.goal_id)
     ]
     if not candidate_steps:
-        candidate_steps = [step for step in SAMPLE_ROUTE_STEPS if step.step_id not in completed]
+        candidate_steps = [step for step in route_steps if step.step_id not in completed]
 
     ready: list[str] = []
     blocked: list[str] = []
@@ -172,9 +222,11 @@ def build_achievement_route_plan(request: AchievementRouteRequest) -> Achievemen
         blocked_step_ids=blocked,
         time_gated_step_ids=time_gated,
         next_actions=actions,
+        source_ids=_unique([step.source_id for step in candidate_steps]),
+        source_warnings=_unique(source_warnings),
         assumptions=_unique(
             [
-                "This MVP planner uses reviewed seed structure plus player-provided prerequisite state.",
+                "This MVP planner uses reviewed KB route source manifests plus player-provided prerequisite state.",
                 "Exact achievement step completion must be checked in the in-game achievement panel.",
                 *[assumption for step in candidate_steps for assumption in step.assumptions],
             ]
@@ -196,6 +248,7 @@ def render_achievement_route_markdown(plan: AchievementRoutePlan) -> str:
         f"- Available minutes: {plan.available_minutes}",
         f"- Ready steps: {len(plan.ready_step_ids)}",
         f"- Blocked steps: {len(plan.blocked_step_ids)}",
+        f"- Sources: {', '.join(plan.source_ids) if plan.source_ids else 'none'}",
         "",
         "## Route Segments",
     ]
@@ -214,6 +267,8 @@ def render_achievement_route_markdown(plan: AchievementRoutePlan) -> str:
         lines.append("")
     lines.extend(["## Next Actions"])
     lines.extend([f"- {action.title}: {action.reason}" for action in plan.next_actions] or ["- No route actions available."])
+    lines.extend(["", "## Source Warnings"])
+    lines.extend([f"- {warning}" for warning in plan.source_warnings] or ["- None"])
     lines.extend(["", "## Assumptions"])
     lines.extend([f"- {assumption}" for assumption in plan.assumptions])
     lines.extend(["", "## Safety Boundaries"])
@@ -235,6 +290,7 @@ def render_achievement_route_csv(plan: AchievementRoutePlan) -> str:
             "estimated_minutes",
             "objective",
             "evidence_refs",
+            "source_id",
         ]
     )
     for step in plan.steps:
@@ -254,9 +310,102 @@ def render_achievement_route_csv(plan: AchievementRoutePlan) -> str:
                 step.estimated_minutes,
                 step.objective,
                 ";".join(step.evidence_refs),
+                step.source_id,
             ]
         )
     return buffer.getvalue()
+
+
+def load_reviewed_achievement_route_steps(
+    source_root: Path = ACHIEVEMENT_ROUTE_SOURCE_ROOT,
+) -> tuple[list[AchievementRouteStep], list[AchievementRouteSourceSummary]]:
+    manifests = load_achievement_route_source_manifests(source_root)
+    reviewed_steps: list[AchievementRouteStep] = []
+    summaries: list[AchievementRouteSourceSummary] = []
+    for manifest in manifests:
+        if isinstance(manifest, AchievementRouteSourceSummary):
+            summaries.append(manifest)
+            continue
+        if manifest.source_status != "reviewed":
+            summaries.append(
+                AchievementRouteSourceSummary(
+                    source_id=manifest.source_id,
+                    title=manifest.title,
+                    source_status=manifest.source_status,
+                    source_url=manifest.source_url,
+                    source_refs=manifest.source_refs,
+                    reviewed_by=manifest.reviewed_by,
+                    reviewed_at=manifest.reviewed_at,
+                    step_count=0,
+                    warning=f"{manifest.source_id} skipped because status is {manifest.source_status}.",
+                )
+            )
+            continue
+        steps = [
+            step.model_copy(
+                update={
+                    "source_id": manifest.source_id,
+                    "source_status": manifest.source_status,
+                    "evidence_refs": _unique([*step.evidence_refs, *manifest.source_refs, manifest.source_id]),
+                    "assumptions": _unique([*manifest.assumptions, *step.assumptions]),
+                }
+            )
+            for step in manifest.steps
+        ]
+        reviewed_steps.extend(steps)
+        summaries.append(
+            AchievementRouteSourceSummary(
+                source_id=manifest.source_id,
+                title=manifest.title,
+                source_status=manifest.source_status,
+                source_url=manifest.source_url,
+                source_refs=manifest.source_refs,
+                reviewed_by=manifest.reviewed_by,
+                reviewed_at=manifest.reviewed_at,
+                step_count=len(steps),
+            )
+        )
+    return reviewed_steps, summaries
+
+
+def load_achievement_route_source_manifests(
+    source_root: Path = ACHIEVEMENT_ROUTE_SOURCE_ROOT,
+) -> list[AchievementRouteSourceManifest | AchievementRouteSourceSummary]:
+    if not source_root.exists():
+        return [
+            AchievementRouteSourceSummary(
+                source_id="missing:achievement-route-source-root",
+                title="Achievement route source root",
+                source_status="disabled",
+                warning=f"Source root not found: {source_root.as_posix()}",
+            )
+        ]
+    manifests: list[AchievementRouteSourceManifest | AchievementRouteSourceSummary] = []
+    for path in sorted(source_root.glob("*.json")):
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            manifest = AchievementRouteSourceManifest.model_validate(payload)
+        except (OSError, json.JSONDecodeError, ValidationError) as exc:
+            manifests.append(
+                AchievementRouteSourceSummary(
+                    source_id=f"invalid:{path.name}",
+                    title=path.name,
+                    source_status="disabled",
+                    warning=f"{path.as_posix()} could not be loaded: {exc}",
+                )
+            )
+            continue
+        manifests.append(manifest)
+    if not manifests:
+        manifests.append(
+            AchievementRouteSourceSummary(
+                source_id="empty:achievement-route-source-root",
+                title="Achievement route source root",
+                source_status="disabled",
+                warning=f"No route manifest JSON files found in {source_root.as_posix()}",
+            )
+        )
+    return manifests
 
 
 def _build_segments(

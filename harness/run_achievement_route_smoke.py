@@ -21,7 +21,7 @@ def main() -> int:
     request = {
         "goal_id": "all",
         "available_minutes": 35,
-        "unlocked_prerequisite_ids": ["living_world_s3_access"],
+        "unlocked_prerequisite_ids": ["living_world_s3_access", "achievement_api_access"],
         "include_group_content": False,
     }
 
@@ -34,8 +34,15 @@ def main() -> int:
     plan_response = client.post("/api/v1/achievement-routes/plan", json=request)
     plan_payload = _json_response(plan_response, "route plan", failures)
     plan = (((plan_payload or {}).get("data") or {}).get("plan") or {})
+    sources_response = client.get("/api/v1/achievement-routes/sources")
+    sources_payload = _json_response(sources_response, "route sources", failures)
+    reviewed_step_count = (((sources_payload or {}).get("data") or {}).get("reviewed_step_count") or 0)
+    if reviewed_step_count < 5:
+        failures.append("route source registry did not expose reviewed route steps")
     if plan.get("schema_version") != "gw2radar.achievement_route_plan.v1":
         failures.append("route plan schema_version mismatch")
+    if "kb:achievement-routes:reviewed-seed:v1" not in plan.get("source_ids", []):
+        failures.append("route plan did not use reviewed source manifest")
     if not plan.get("ready_step_ids"):
         failures.append("route plan did not include ready steps")
     if not plan.get("blocked_step_ids"):

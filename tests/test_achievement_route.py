@@ -4,9 +4,20 @@ from gw2radar.api.main import app
 from gw2radar.commercial.achievement_route import (
     AchievementRouteRequest,
     build_achievement_route_plan,
+    load_reviewed_achievement_route_steps,
     render_achievement_route_csv,
     render_achievement_route_markdown,
 )
+
+
+def test_achievement_route_loads_reviewed_source_manifest() -> None:
+    steps, summaries = load_reviewed_achievement_route_steps()
+
+    assert len(steps) >= 5
+    assert summaries[0].source_status == "reviewed"
+    assert summaries[0].step_count >= 5
+    assert steps[0].source_id == "kb:achievement-routes:reviewed-seed:v1"
+    assert "docs/knowledge_base/official/api_endpoints/achievements.md" in steps[0].evidence_refs
 
 
 def test_achievement_route_groups_ready_blocked_and_time_gated_steps() -> None:
@@ -14,14 +25,15 @@ def test_achievement_route_groups_ready_blocked_and_time_gated_steps() -> None:
         AchievementRouteRequest(
             goal_id="all",
             available_minutes=30,
-            unlocked_prerequisite_ids=["living_world_s3_access"],
+            unlocked_prerequisite_ids=["living_world_s3_access", "achievement_api_access"],
             include_group_content=False,
         )
     )
 
-    assert "aurora-bloodstone-fen-check" in plan.ready_step_ids
-    assert "aurora-ember-bay-daily-token" in plan.time_gated_step_ids
-    assert "vision-dragonfall-meta" in plan.blocked_step_ids
+    assert "aurora-bloodstone-fen-reviewed-sweep" in plan.ready_step_ids
+    assert "aurora-ember-bay-reviewed-daily" in plan.time_gated_step_ids
+    assert "vision-dragonfall-reviewed-meta-check" in plan.blocked_step_ids
+    assert plan.source_ids == ["kb:achievement-routes:reviewed-seed:v1"]
     assert plan.segments[0].ready_step_ids
     assert all(action.manual_only for action in plan.next_actions)
     assert any("in-game achievement panel" in assumption for assumption in plan.assumptions)
@@ -33,7 +45,7 @@ def test_achievement_route_markdown_and_csv_exports_are_deterministic() -> None:
         AchievementRouteRequest(
             goal_id="aurora_sample",
             available_minutes=45,
-            unlocked_prerequisite_ids=["living_world_s3_access"],
+            unlocked_prerequisite_ids=["living_world_s3_access", "achievement_api_access"],
         )
     )
 
@@ -42,9 +54,11 @@ def test_achievement_route_markdown_and_csv_exports_are_deterministic() -> None:
 
     assert "# Achievement & Collection Route Plan" in markdown
     assert "## Assumptions" in markdown
+    assert "## Source Warnings" in markdown
     assert "Manual planning only" in markdown
     assert csv_text.splitlines()[0].startswith("step_id,title,map_name")
-    assert "aurora-ember-bay-daily-token" in csv_text
+    assert "aurora-ember-bay-reviewed-daily" in csv_text
+    assert "kb:achievement-routes:reviewed-seed:v1" in csv_text
 
 
 def test_achievement_route_api_plan_and_exports() -> None:
@@ -52,16 +66,20 @@ def test_achievement_route_api_plan_and_exports() -> None:
     request = {
         "goal_id": "all",
         "available_minutes": 40,
-        "unlocked_prerequisite_ids": ["living_world_s3_access", "living_world_s4_access"],
+        "unlocked_prerequisite_ids": ["living_world_s3_access", "living_world_s4_access", "achievement_api_access"],
         "include_group_content": True,
     }
 
+    sources = client.get("/api/v1/achievement-routes/sources")
     planned = client.post("/api/v1/achievement-routes/plan", json=request)
     markdown = client.post("/api/v1/achievement-routes/plan/export?format=markdown", json=request)
     csv_response = client.post("/api/v1/achievement-routes/plan/export?format=csv", json=request)
 
+    assert sources.status_code == 200
+    assert sources.json()["data"]["reviewed_step_count"] >= 5
     assert planned.status_code == 200
     assert planned.json()["data"]["plan"]["schema_version"] == "gw2radar.achievement_route_plan.v1"
+    assert planned.json()["data"]["plan"]["source_ids"] == ["kb:achievement-routes:reviewed-seed:v1"]
     assert markdown.status_code == 200
     assert "Route Segments" in markdown.text
     assert csv_response.status_code == 200

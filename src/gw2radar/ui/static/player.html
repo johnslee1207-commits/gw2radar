@@ -389,6 +389,7 @@
               <h2 id="routes-title">Achievement Route Planner</h2>
             </div>
             <div class="button-row">
+              <button data-action="loadAchievementRouteSources">Load route sources</button>
               <button data-action="planAchievementRoute">Plan route</button>
               <button data-action="exportAchievementRouteMarkdown">Export Markdown</button>
               <button data-action="exportAchievementRouteCsv">Export CSV</button>
@@ -412,7 +413,8 @@
                 <textarea id="route-completed" rows="3" placeholder="One step id per line"></textarea>
               </label>
               <label>Unlocked prerequisite ids
-                <textarea id="route-prereqs" rows="3">living_world_s3_access</textarea>
+                <textarea id="route-prereqs" rows="3">living_world_s3_access
+achievement_api_access</textarea>
               </label>
               <label class="checkbox-label">
                 <input id="route-include-group" type="checkbox" />
@@ -426,6 +428,7 @@
                 <div><dt>Blocked</dt><dd id="route-blocked-count">--</dd></div>
                 <div><dt>Time gated</dt><dd id="route-gated-count">--</dd></div>
                 <div><dt>Segments</dt><dd id="route-segment-count">--</dd></div>
+                <div><dt>Sources</dt><dd id="route-source-count">--</dd></div>
               </dl>
               <ol class="action-list route-action-list" id="route-next-actions">
                 <li>Plan a route to load map-grouped actions.</li>

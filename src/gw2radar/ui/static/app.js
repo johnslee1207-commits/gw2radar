@@ -200,6 +200,9 @@ function summarizeResult(target, payload) {
     return "Legendary planning output updated. Market signals are observation-only.";
   }
   if (target === "routes") {
+    if (Array.isArray(data?.sources)) {
+      return `${data.sources.length} route source manifests loaded with ${data.reviewed_step_count || 0} reviewed steps.`;
+    }
     if (data?.plan) {
       const plan = data.plan;
       return `${plan.ready_step_ids?.length || 0} ready steps, ${plan.blocked_step_ids?.length || 0} blockers, ${plan.segments?.length || 0} map segments loaded.`;
@@ -547,6 +550,7 @@ function renderRoutePlan(plan) {
   document.querySelector("#route-blocked-count").textContent = String(plan?.blocked_step_ids?.length || 0);
   document.querySelector("#route-gated-count").textContent = String(plan?.time_gated_step_ids?.length || 0);
   document.querySelector("#route-segment-count").textContent = String(plan?.segments?.length || 0);
+  document.querySelector("#route-source-count").textContent = String(plan?.source_ids?.length || 0);
   renderActionList("#route-next-actions", plan?.next_actions || []);
 }
 
@@ -953,6 +957,12 @@ const actions = {
     ),
   goalCostIndex: () => run("legendary", () => fetchJson("/api/v1/market/goal-cost-index?goal_id=gw2:goal:aurora")),
   marketSignals: () => run("legendary", () => fetchJson("/api/v1/market/signals?goal_id=gw2:goal:aurora")),
+  loadAchievementRouteSources: () =>
+    run("routes", async () => {
+      const payload = await fetchJson("/api/v1/achievement-routes/sources");
+      document.querySelector("#route-source-count").textContent = String(payload?.data?.sources?.length || 0);
+      return payload;
+    }),
   planAchievementRoute: () =>
     run("routes", async () => {
       const payload = await fetchJson("/api/v1/achievement-routes/plan", {

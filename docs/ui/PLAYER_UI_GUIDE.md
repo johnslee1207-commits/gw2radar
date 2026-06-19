@@ -41,8 +41,9 @@ generation, and artifact retrieval. The route planner has a focused smoke path:
 python harness/run_achievement_route_smoke.py
 ```
 
-It verifies the route UI marker, deterministic route API, ready/blocked/time-gated
-classification, Markdown assumptions, CSV export, and manual-planning boundary.
+It verifies the route UI marker, reviewed route source ingestion, deterministic
+route API, ready/blocked/time-gated classification, Markdown assumptions, CSV
+export, and manual-planning boundary.
 
 When a real API key appears to save successfully but no account-aware result
 appears, run:
@@ -146,8 +147,8 @@ It does not store the GW2 API key. Deleting browser storage only resets UI conve
 2. Review `This Week` actions and source confidence before committing to longer routes.
 3. Use `Returner` to inspect goal gaps, a short action plan, preview, and full report export.
 4. Use `Legendary` before selling materials.
-5. Use `Routes` when the next problem is achievement or collection execution. Select a goal, enter available minutes, list completed step ids, list unlocked prerequisites such as `living_world_s3_access`, and decide whether to include group-content steps.
-6. In `Routes`, use `Plan route` first. Ready steps are grouped by map, blocked steps show missing prerequisites or group opt-in, and daily/weekly gates are marked as scheduling checks rather than guarantees. Export Markdown for a readable route plan or CSV for spreadsheet review.
+5. Use `Routes` when the next problem is achievement or collection execution. Start with `Load route sources`, then select a goal, enter available minutes, list completed step ids, list unlocked prerequisites such as `living_world_s3_access` and `achievement_api_access`, and decide whether to include group-content steps.
+6. In `Routes`, use `Plan route` after confirming sources. Ready steps are grouped by map, blocked steps show missing prerequisites or group opt-in, and daily/weekly gates are marked as scheduling checks rather than guarantees. Export Markdown for a readable route plan or CSV for spreadsheet review.
 7. Use `Build Fit` before converting gear. Synced official API character snapshots appear first when account sync has character detail; item and stat names are enriched from public `/v2/items` and `/v2/itemstats` metadata when available. Manual samples remain available as fallback.
 8. In `Build Fit`, use `Preview upgrade pack`, `Import disabled rules`, `List upgrade rules`, and `Enable selected rule` when you want rune, sigil, and relic effect explanations to cite reviewed KB evidence. Re-run `Fit score` after enabling a rule.
 9. Use `Freshness` before following account-aware or market-aware advice.
@@ -173,13 +174,14 @@ Use `Today / this week` after loading or adding goals to compare cheap, fast, an
 
 The Routes view turns route planning into a manual checklist:
 
+- Source manifests: reviewed route step files loaded from `docs/knowledge_base/achievement_routes`.
 - Goal: `aurora_sample`, `vision_sample`, `ad_infinitum_sample`, or all seeded sample goals.
 - Available minutes: the session window used to fit ready steps.
 - Completed step ids: skipped from the next plan.
 - Unlocked prerequisite ids: player-provided facts that move steps from blocked to ready.
 - Include group-content steps: opt-in before group/meta/fractal steps are considered ready.
 
-Outputs separate ready, blocked, and time-gated steps. Every route export includes assumptions and safety boundaries, because the MVP seed is a planning scaffold and not a complete official achievement database.
+Outputs separate ready, blocked, and time-gated steps. Every route export includes source ids, assumptions, and safety boundaries. The current reviewed seed is a planning scaffold backed by official API/source references, not a complete official achievement database.
 
 ## Freshness And Confidence
 
