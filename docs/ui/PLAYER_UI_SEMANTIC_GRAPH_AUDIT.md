@@ -38,6 +38,7 @@ graph TD
   Dashboard --> Legendary["Legendary Planner Pro"]
   Dashboard --> AchievementRoute["Achievement Route Planner"]
   AchievementRoute --> RouteSourceManifest["Reviewed Route Source Manifest"]
+  AchievementRoute --> OfficialAchievementPreview["Official Achievement Draft Preview"]
   AchievementRoute --> RoutePrerequisite["Prerequisite State"]
   AchievementRoute --> RouteSegment["Map-Grouped Segment"]
   AchievementRoute --> RouteTimeGate["Daily/Weekly Time Gate"]
@@ -99,6 +100,7 @@ graph TD
 | LegendaryWeeklyRoute | Today and this-week route comparison | `/api/v1/legendary/actions` | Implemented |
 | AchievementRoutePlanning | Routes view with goal, minutes, completed steps, prerequisites, and group-content opt-in | `/api/v1/achievement-routes/plan`, `build_achievement_route_plan` | Implemented |
 | RouteSourceManifest | Reviewed achievement route source manifests with official source refs, reviewer, assumptions, and step count | `docs/knowledge_base/achievement_routes/*.json`, `/api/v1/achievement-routes/sources` | Implemented |
+| OfficialAchievementPreview | Official achievement/account-achievement payloads converted into draft route source candidates with account progress and review warnings | `/api/v1/achievement-routes/official-preview`, `build_official_achievement_route_preview` | Implemented |
 | RoutePrerequisiteState | Player-provided prerequisite ids separate ready from blocked route steps | `AchievementRouteRequest.unlocked_prerequisite_ids` | Implemented |
 | RouteSegment | Map-grouped ready, blocked, and time-gated route segments | `AchievementRouteSegment` | Implemented |
 | RouteExport | Deterministic Markdown/CSV route export with assumptions and manual boundary | `/api/v1/achievement-routes/plan/export`, `harness/run_achievement_route_smoke.py` | Implemented |
@@ -151,6 +153,7 @@ graph TD
 | P2 Achievement route planner | Routes view groups achievement and collection seed steps by map, prerequisites, time gates, and available session length | Complete |
 | P2 Reviewed route source ingestion | Route planner loads reviewed source manifests, exposes source summaries, and cites source ids in generated plans | Complete |
 | P2 Route export | Markdown and CSV route exports preserve assumptions, evidence refs, and manual-planning boundaries | Complete |
+| P3 Official achievement draft preview | Official achievement details and account progress can generate draft route source candidates without bypassing reviewed source ingestion | Complete |
 | P3 Build import | Manual structured build import | Complete |
 | P3 Character selection | Synced official API character snapshots, manual samples, and manual fields mode | Complete |
 | P3 Fit score | Fit score action | Complete |
@@ -173,8 +176,8 @@ graph TD
 
 ## Maturity Summary
 
-- Complete: 51 guide items.
+- Complete: 52 guide items.
 - Partial: 0 guide items.
 - Missing: 0 guide items.
 
-All player-guide checklist items are now implemented at MVP depth. Achievement route planning now adds a manual collection route loop: reviewed route source manifests, player-provided prerequisite state, map-grouped segments, daily/weekly gate labeling, blocked group-content handling, source ids, and deterministic Markdown/CSV exports with assumptions. Synced character equipment now bridges official character detail into Build Fit, enriches item/stat names through best-effort public item metadata, classifies armor, weapons, runes, sigils, and relics, and adds conservative upgrade effect-family review hints. The Build Fit UI now exposes the `build_upgrade_effects` rule pack flow so reviewed rules can be previewed, imported as disabled, listed, and enabled through a reviewer gate before they become evidence. Upgrade effect explanations prefer reviewed and enabled KB rule evidence and fall back to explicit heuristic labeling when evidence is absent, so they do not invent source authority. Account connection troubleshooting now has a full privacy-safe loop: UI diagnostic, debug bundle export, local/API support review, `/support` workbench, evidence-path recommendations, copyable support reply, safe audit metadata, filtered CSV export, metrics summary, remediation playbook, product backlog generation, backlog export, backlog-to-roadmap draft promotion, promotion lifecycle events, promotion readiness rollup, promotion export, and boundary violation detection. Remaining post-MVP depth improvements are qualitative rather than checklist gaps: live official achievement detail ingestion for every seeded route, more domain-specific requirements for every seeded legendary goal, richer effect parsing from official descriptions and reviewed rule packs, and front-end polish for long-running sync worker timelines.
+All player-guide checklist items are now implemented at MVP depth. Achievement route planning now adds a manual collection route loop: reviewed route source manifests, official achievement draft previews, player-provided prerequisite state, map-grouped segments, daily/weekly gate labeling, blocked group-content handling, source ids, and deterministic Markdown/CSV exports with assumptions. Official achievement/account-achievement payloads can generate draft route source candidates, but they remain outside planner ingestion until human review marks a manifest reviewed. Synced character equipment now bridges official character detail into Build Fit, enriches item/stat names through best-effort public item metadata, classifies armor, weapons, runes, sigils, and relics, and adds conservative upgrade effect-family review hints. The Build Fit UI now exposes the `build_upgrade_effects` rule pack flow so reviewed rules can be previewed, imported as disabled, listed, and enabled through a reviewer gate before they become evidence. Upgrade effect explanations prefer reviewed and enabled KB rule evidence and fall back to explicit heuristic labeling when evidence is absent, so they do not invent source authority. Account connection troubleshooting now has a full privacy-safe loop: UI diagnostic, debug bundle export, local/API support review, `/support` workbench, evidence-path recommendations, copyable support reply, safe audit metadata, filtered CSV export, metrics summary, remediation playbook, product backlog generation, backlog export, backlog-to-roadmap draft promotion, promotion lifecycle events, promotion readiness rollup, promotion export, and boundary violation detection. Remaining post-MVP depth improvements are qualitative rather than checklist gaps: live fetch orchestration from official achievement ids, more domain-specific requirements for every seeded legendary goal, richer effect parsing from official descriptions and reviewed rule packs, and front-end polish for long-running sync worker timelines.

@@ -3,10 +3,13 @@ from fastapi.testclient import TestClient
 from gw2radar.api.main import app
 from gw2radar.commercial.achievement_route import (
     AchievementRouteRequest,
+    OfficialAchievementRoutePreviewRequest,
     build_achievement_route_plan,
+    build_official_achievement_route_preview,
     load_reviewed_achievement_route_steps,
     render_achievement_route_csv,
     render_achievement_route_markdown,
+    render_official_achievement_route_preview_markdown,
 )
 
 
@@ -18,6 +21,21 @@ def test_achievement_route_loads_reviewed_source_manifest() -> None:
     assert summaries[0].step_count >= 5
     assert steps[0].source_id == "kb:achievement-routes:reviewed-seed:v1"
     assert "docs/knowledge_base/official/api_endpoints/achievements.md" in steps[0].evidence_refs
+
+
+def test_official_achievement_preview_builds_draft_route_manifest() -> None:
+    preview = build_official_achievement_route_preview(_official_preview_request())
+
+    assert preview.schema_version == "gw2radar.official_achievement_route_preview.v1"
+    assert preview.manifest.source_status == "draft"
+    assert preview.candidate_step_count == 3
+    assert "official-achievement-1002" in preview.completed_step_ids
+    assert preview.manifest.steps[0].source_status == "draft"
+    assert preview.manifest.steps[0].prerequisite_ids == ["achievement_api_access"]
+    assert any(step.map_name == "Bloodstone Fen" for step in preview.manifest.steps)
+    assert any(step.time_gate == "daily" for step in preview.manifest.steps)
+    assert "Human review is required" in " ".join(preview.manifest.assumptions)
+    assert "guaranteed" not in render_official_achievement_route_preview_markdown(preview).lower()
 
 
 def test_achievement_route_groups_ready_blocked_and_time_gated_steps() -> None:
@@ -84,3 +102,57 @@ def test_achievement_route_api_plan_and_exports() -> None:
     assert "Route Segments" in markdown.text
     assert csv_response.status_code == 200
     assert "status,time_gate" in csv_response.text
+
+
+def test_official_achievement_preview_api_and_exports() -> None:
+    client = TestClient(app)
+    request = _official_preview_request().model_dump(mode="json")
+
+    preview = client.post("/api/v1/achievement-routes/official-preview", json=request)
+    markdown = client.post("/api/v1/achievement-routes/official-preview/export?format=markdown", json=request)
+    json_export = client.post("/api/v1/achievement-routes/official-preview/export?format=json", json=request)
+
+    assert preview.status_code == 200
+    payload = preview.json()["data"]["preview"]
+    assert payload["manifest"]["source_status"] == "draft"
+    assert payload["candidate_step_count"] == 3
+    assert payload["manifest"]["steps"][0]["evidence_refs"]
+    assert markdown.status_code == 200
+    assert "Official Achievement Route Preview" in markdown.text
+    assert json_export.status_code == 200
+    assert "official:achievement-route-preview:test" in json_export.text
+
+
+def _official_preview_request() -> OfficialAchievementRoutePreviewRequest:
+    return OfficialAchievementRoutePreviewRequest(
+        source_id="official:achievement-route-preview:test",
+        title="Unit official achievement preview",
+        goal_id="aurora_sample",
+        reviewed_by="unit_test_operator",
+        achievement_details=[
+            {
+                "id": 1001,
+                "name": "Bloodstone Fen Sample Collection",
+                "description": "Complete a collection step in Bloodstone Fen.",
+                "requirement": "Finish the Bloodstone Fen collection check.",
+                "bits": [{"type": "Text", "text": "Sample bit"}],
+            },
+            {
+                "id": 1002,
+                "name": "Daily Ember Bay Sample",
+                "description": "Complete a daily checkpoint in Ember Bay.",
+                "requirement": "Daily Ember Bay route review.",
+                "flags": ["Daily"],
+            },
+            {
+                "id": 1003,
+                "name": "Fractal Sample Collection",
+                "description": "Complete a Fractal collection step with a group.",
+                "requirement": "Finish a Fractal route checkpoint.",
+            },
+        ],
+        account_achievements=[
+            {"id": 1001, "current": 1, "max": 3},
+            {"id": 1002, "current": 1, "max": 1},
+        ],
+    )

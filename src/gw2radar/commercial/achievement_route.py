@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field, ValidationError
 RouteStepType = Literal["achievement", "collection"]
 RouteTimeGate = Literal["daily", "weekly", "none"]
 RouteSourceStatus = Literal["reviewed", "draft", "disabled"]
+RouteAccountProgressStatus = Literal["unknown", "not_started", "in_progress", "complete"]
 
 
 ACHIEVEMENT_ROUTE_SOURCE_ROOT = Path("docs/knowledge_base/achievement_routes")
@@ -43,6 +44,9 @@ class AchievementRouteStep(BaseModel):
     assumptions: list[str] = Field(default_factory=list)
     source_id: str = "kb:seed:legendary-route:v1"
     source_status: RouteSourceStatus = "reviewed"
+    official_achievement_id: int | None = None
+    account_progress_status: RouteAccountProgressStatus = "unknown"
+    account_progress_note: str | None = None
 
 
 class AchievementRouteSegment(BaseModel):
@@ -107,6 +111,48 @@ class AchievementRouteSourceSummary(BaseModel):
     reviewed_at: str | None = None
     step_count: int = 0
     warning: str | None = None
+
+
+class OfficialAchievementDetail(BaseModel):
+    id: int
+    name: str
+    description: str | None = None
+    requirement: str | None = None
+    locked_text: str | None = None
+    type: str | None = None
+    flags: list[str] = Field(default_factory=list)
+    bits: list[dict] = Field(default_factory=list)
+
+
+class OfficialAccountAchievementProgress(BaseModel):
+    id: int
+    current: int | None = None
+    max: int | None = None
+    done: bool | None = None
+
+
+class OfficialAchievementRoutePreviewRequest(BaseModel):
+    source_id: str = "official:achievement-route-preview"
+    title: str = "Official achievement route preview"
+    goal_id: str = "custom_achievement_route"
+    reviewed_by: str = "operator_review_required"
+    achievement_details: list[OfficialAchievementDetail]
+    account_achievements: list[OfficialAccountAchievementProgress] = Field(default_factory=list)
+    source_refs: list[str] = Field(
+        default_factory=lambda: [
+            "official:/v2/achievements",
+            "official:/v2/account/achievements",
+        ]
+    )
+
+
+class OfficialAchievementRoutePreview(BaseModel):
+    schema_version: str = "gw2radar.official_achievement_route_preview.v1"
+    manifest: AchievementRouteSourceManifest
+    source_summary: AchievementRouteSourceSummary
+    candidate_step_count: int
+    completed_step_ids: list[str]
+    warnings: list[str]
 
 
 SAMPLE_ROUTE_STEPS: tuple[AchievementRouteStep, ...] = (
@@ -408,6 +454,115 @@ def load_achievement_route_source_manifests(
     return manifests
 
 
+def build_official_achievement_route_preview(
+    request: OfficialAchievementRoutePreviewRequest,
+) -> OfficialAchievementRoutePreview:
+    progress_by_id = {item.id: item for item in request.account_achievements}
+    steps: list[AchievementRouteStep] = []
+    warnings = [
+        "Generated preview is draft-only. Save it as a reviewed source manifest only after human verification.",
+        "Official achievement details do not always contain map or route order; inferred map fields must be reviewed.",
+    ]
+    for detail in sorted(request.achievement_details, key=lambda item: (item.name.lower(), item.id)):
+        progress = progress_by_id.get(detail.id)
+        progress_status, progress_note = _official_progress_status(progress)
+        map_name, region, map_assumption = _infer_official_route_location(detail)
+        time_gate = _infer_official_time_gate(detail)
+        group_required = _infer_official_group_required(detail)
+        step_id = f"official-achievement-{detail.id}"
+        objective = _official_objective(detail)
+        assumptions = _unique(
+            [
+                "Official achievement detail imported as a draft route candidate, not reviewed guidance.",
+                map_assumption,
+                "Route order, waypoint choice, and collection substeps require human review.",
+            ]
+        )
+        steps.append(
+            AchievementRouteStep(
+                step_id=step_id,
+                title=detail.name,
+                step_type="achievement",
+                map_name=map_name,
+                region=region,
+                objective=objective,
+                advances_goal_id=request.goal_id,
+                prerequisite_ids=["achievement_api_access"],
+                time_gate=time_gate,
+                estimated_minutes=_estimate_official_minutes(detail, group_required),
+                group_required=group_required,
+                evidence_refs=_unique([*request.source_refs, f"official:/v2/achievements/{detail.id}"]),
+                assumptions=assumptions,
+                source_id=request.source_id,
+                source_status="draft",
+                official_achievement_id=detail.id,
+                account_progress_status=progress_status,
+                account_progress_note=progress_note,
+            )
+        )
+    manifest = AchievementRouteSourceManifest(
+        source_id=request.source_id,
+        title=request.title,
+        source_status="draft",
+        source_url="official:/v2/achievements",
+        source_refs=request.source_refs,
+        reviewed_by=request.reviewed_by,
+        reviewed_at=datetime.now(UTC).date().isoformat(),
+        assumptions=[
+            "This draft source was generated from official achievement/account-achievement payloads.",
+            "Human review is required before changing source_status to reviewed.",
+            "No raw API key or private account payload is stored in this manifest.",
+        ],
+        steps=steps,
+    )
+    summary = AchievementRouteSourceSummary(
+        source_id=manifest.source_id,
+        title=manifest.title,
+        source_status=manifest.source_status,
+        source_url=manifest.source_url,
+        source_refs=manifest.source_refs,
+        reviewed_by=manifest.reviewed_by,
+        reviewed_at=manifest.reviewed_at,
+        step_count=len(steps),
+        warning="Draft official preview requires human review before route planner ingestion.",
+    )
+    return OfficialAchievementRoutePreview(
+        manifest=manifest,
+        source_summary=summary,
+        candidate_step_count=len(steps),
+        completed_step_ids=[step.step_id for step in steps if step.account_progress_status == "complete"],
+        warnings=warnings,
+    )
+
+
+def render_official_achievement_route_preview_markdown(preview: OfficialAchievementRoutePreview) -> str:
+    lines = [
+        "# Official Achievement Route Preview",
+        "",
+        f"- Source: {preview.manifest.source_id}",
+        f"- Status: {preview.manifest.source_status}",
+        f"- Candidate steps: {preview.candidate_step_count}",
+        f"- Completed from account progress: {len(preview.completed_step_ids)}",
+        "",
+        "## Candidate Steps",
+    ]
+    for step in preview.manifest.steps:
+        lines.extend(
+            [
+                f"- {step.title}",
+                f"  - Achievement id: {step.official_achievement_id}",
+                f"  - Map: {step.map_name}",
+                f"  - Progress: {step.account_progress_status} ({step.account_progress_note or 'no account progress supplied'})",
+                f"  - Evidence: {', '.join(step.evidence_refs)}",
+            ]
+        )
+    lines.extend(["", "## Warnings"])
+    lines.extend([f"- {warning}" for warning in preview.warnings])
+    lines.extend(["", "## Assumptions"])
+    lines.extend([f"- {assumption}" for assumption in preview.manifest.assumptions])
+    return "\n".join(lines) + "\n"
+
+
 def _build_segments(
     steps: list[AchievementRouteStep],
     ready: list[str],
@@ -521,3 +676,75 @@ def _unique(values: list[str]) -> list[str]:
 
 def _slug(value: str) -> str:
     return value.lower().replace(" ", "-").replace(":", "")
+
+
+def _official_progress_status(
+    progress: OfficialAccountAchievementProgress | None,
+) -> tuple[RouteAccountProgressStatus, str | None]:
+    if progress is None:
+        return "unknown", "No account achievement progress payload supplied."
+    if progress.done is True:
+        return "complete", "Official account achievement payload marks this achievement complete."
+    if progress.max and progress.current is not None:
+        if progress.current >= progress.max:
+            return "complete", f"Official account progress is {progress.current}/{progress.max}."
+        if progress.current > 0:
+            return "in_progress", f"Official account progress is {progress.current}/{progress.max}."
+        return "not_started", f"Official account progress is {progress.current}/{progress.max}."
+    if progress.current:
+        return "in_progress", f"Official account progress current value is {progress.current}."
+    return "not_started", "Official account progress has no completed value."
+
+
+def _infer_official_route_location(detail: OfficialAchievementDetail) -> tuple[str, str, str]:
+    text = f"{detail.name} {detail.description or ''} {detail.requirement or ''} {detail.locked_text or ''}".lower()
+    known_locations = [
+        ("bloodstone fen", "Bloodstone Fen", "Maguuma Wastes"),
+        ("ember bay", "Ember Bay", "Ring of Fire"),
+        ("bitterfrost", "Bitterfrost Frontier", "Shiverpeak Mountains"),
+        ("dragonfall", "Dragonfall", "Crystal Desert"),
+        ("fractals", "Fractals of the Mists", "Mistlock Observatory"),
+        ("fractal", "Fractals of the Mists", "Mistlock Observatory"),
+    ]
+    for marker, map_name, region in known_locations:
+        if marker in text:
+            return (
+                map_name,
+                region,
+                f"Map inferred from official achievement text keyword: {map_name}.",
+            )
+    return (
+        "Unmapped Achievement Review",
+        "Unknown",
+        "Official achievement payload did not include an unambiguous map; review required.",
+    )
+
+
+def _infer_official_time_gate(detail: OfficialAchievementDetail) -> RouteTimeGate:
+    text = f"{detail.name} {detail.description or ''} {detail.requirement or ''}".lower()
+    flags = {flag.lower() for flag in detail.flags}
+    if "weekly" in text or "weekly" in flags:
+        return "weekly"
+    if "daily" in text or "daily" in flags:
+        return "daily"
+    return "none"
+
+
+def _infer_official_group_required(detail: OfficialAchievementDetail) -> bool:
+    text = f"{detail.name} {detail.description or ''} {detail.requirement or ''}".lower()
+    return any(marker in text for marker in ("fractal", "raid", "strike", "meta-event", "meta event", "squad"))
+
+
+def _estimate_official_minutes(detail: OfficialAchievementDetail, group_required: bool) -> int:
+    if group_required:
+        return 25
+    if detail.bits:
+        return min(max(len(detail.bits) * 5, 10), 45)
+    return 15
+
+
+def _official_objective(detail: OfficialAchievementDetail) -> str:
+    for value in (detail.requirement, detail.description, detail.locked_text):
+        if value and value.strip():
+            return " ".join(value.strip().split())
+    return "Review the official achievement detail and convert it into a player-verified route step."

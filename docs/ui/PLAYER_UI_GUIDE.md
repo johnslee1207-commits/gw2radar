@@ -41,9 +41,10 @@ generation, and artifact retrieval. The route planner has a focused smoke path:
 python harness/run_achievement_route_smoke.py
 ```
 
-It verifies the route UI marker, reviewed route source ingestion, deterministic
-route API, ready/blocked/time-gated classification, Markdown assumptions, CSV
-export, and manual-planning boundary.
+It verifies the route UI marker, reviewed route source ingestion, official
+achievement detail draft preview, deterministic route API,
+ready/blocked/time-gated classification, Markdown assumptions, CSV export, and
+manual-planning boundary.
 
 When a real API key appears to save successfully but no account-aware result
 appears, run:
@@ -182,6 +183,12 @@ The Routes view turns route planning into a manual checklist:
 - Include group-content steps: opt-in before group/meta/fractal steps are considered ready.
 
 Outputs separate ready, blocked, and time-gated steps. Every route export includes source ids, assumptions, and safety boundaries. The current reviewed seed is a planning scaffold backed by official API/source references, not a complete official achievement database.
+
+Advanced operator flow:
+
+- `POST /api/v1/achievement-routes/official-preview` accepts official `/v2/achievements` and `/v2/account/achievements` shaped payloads.
+- The preview converts achievement details into draft route source candidates with inferred map hints, account progress status, source refs, and review warnings.
+- Draft previews are not used by the route planner until a human reviewer saves them as a reviewed manifest under `docs/knowledge_base/achievement_routes`.
 
 ## Freshness And Confidence
 

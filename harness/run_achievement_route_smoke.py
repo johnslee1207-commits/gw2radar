@@ -62,6 +62,22 @@ def main() -> int:
     elif "step_id,title,map_name" not in csv_response.text:
         failures.append("route csv export header mismatch")
 
+    preview_request = _official_preview_request()
+    preview_response = client.post("/api/v1/achievement-routes/official-preview", json=preview_request)
+    preview_payload = _json_response(preview_response, "official achievement route preview", failures)
+    preview = (((preview_payload or {}).get("data") or {}).get("preview") or {})
+    if preview.get("manifest", {}).get("source_status") != "draft":
+        failures.append("official achievement preview did not remain draft-only")
+    if preview.get("candidate_step_count", 0) < 2:
+        failures.append("official achievement preview did not create candidate route steps")
+    if "official-achievement-2002" not in preview.get("completed_step_ids", []):
+        failures.append("official achievement preview did not reflect account completion progress")
+    preview_markdown = client.post("/api/v1/achievement-routes/official-preview/export?format=markdown", json=preview_request)
+    if preview_markdown.status_code != 200:
+        failures.append(f"official preview markdown export returned HTTP {preview_markdown.status_code}")
+    elif "Official Achievement Route Preview" not in preview_markdown.text or "guaranteed" in preview_markdown.text.lower():
+        failures.append("official preview markdown export failed content or safety checks")
+
     if failures:
         print("FAIL: GW2Radar achievement route smoke failed")
         for failure in failures:
@@ -80,6 +96,35 @@ def _json_response(response, label: str, failures: list[str]) -> dict | None:
     except ValueError:
         failures.append(f"{label} did not return JSON")
         return None
+
+
+def _official_preview_request() -> dict:
+    return {
+        "source_id": "official:achievement-route-preview:smoke",
+        "title": "Smoke official achievement preview",
+        "goal_id": "aurora_sample",
+        "reviewed_by": "achievement_route_smoke",
+        "achievement_details": [
+            {
+                "id": 2001,
+                "name": "Bloodstone Fen Smoke Collection",
+                "description": "Complete a collection step in Bloodstone Fen.",
+                "requirement": "Review a Bloodstone Fen collection route candidate.",
+                "bits": [{"type": "Text", "text": "Smoke bit"}],
+            },
+            {
+                "id": 2002,
+                "name": "Daily Ember Bay Smoke",
+                "description": "Complete a daily checkpoint in Ember Bay.",
+                "requirement": "Daily Ember Bay route candidate.",
+                "flags": ["Daily"],
+            },
+        ],
+        "account_achievements": [
+            {"id": 2001, "current": 1, "max": 3},
+            {"id": 2002, "current": 1, "max": 1},
+        ],
+    }
 
 
 if __name__ == "__main__":

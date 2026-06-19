@@ -41,6 +41,10 @@ It also verifies the P2 reviewed source ingestion layer:
 `/api/v1/achievement-routes/sources` exposes reviewed route source manifests and
 the generated plan cites the reviewed source id instead of relying only on the
 built-in fallback seed.
+It also verifies the P3 official achievement detail adapter:
+official `/v2/achievements` and `/v2/account/achievements`-shaped payloads are
+converted into draft route source candidates with account progress, source refs,
+warnings, and Markdown export, without enabling them as reviewed guidance.
 
 ## Account Connection Diagnostic Command
 
@@ -122,6 +126,9 @@ readiness rollup, and visible no-secret boundary copy.
 4. Confirm the route plan schema, ready steps, blocked steps, source id, and safety boundary.
 5. Export Markdown and confirm assumptions are present with no guarantee wording.
 6. Export CSV and confirm the deterministic route header is present.
+7. Submit official achievement/account-achievement sample payloads.
+8. Confirm generated route source candidates remain `draft`.
+9. Export the official preview as Markdown and confirm review warnings are present.
 
 ## Account Connection Diagnostic Steps
 
