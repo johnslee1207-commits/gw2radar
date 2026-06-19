@@ -16,6 +16,7 @@ from gw2radar.commercial.achievement_route import (
     OfficialAchievementRoutePreviewRequest,
     build_achievement_route_release_readiness,
     build_achievement_route_remediation_queue,
+    build_achievement_route_remediation_readiness,
     build_achievement_route_source_quality_review,
     build_official_achievement_fetch_preview,
     build_achievement_route_plan,
@@ -32,6 +33,8 @@ from gw2radar.commercial.achievement_route import (
     render_achievement_route_release_readiness_markdown,
     render_achievement_route_remediation_queue_csv,
     render_achievement_route_remediation_queue_markdown,
+    render_achievement_route_remediation_readiness_csv,
+    render_achievement_route_remediation_readiness_markdown,
     render_achievement_route_remediation_review_audit_csv,
     render_achievement_route_remediation_review_audit_markdown,
     render_achievement_route_source_quality_csv,
@@ -303,35 +306,47 @@ def test_achievement_route_remediation_review_gate_records_metadata_only_audit()
         else:
             raise AssertionError("unconfirmed remediation review should fail")
 
-        record = record_achievement_route_remediation_review(
-            AchievementRouteRemediationReviewRequest(
-                item_id=item_id,
-                status="resolved",
-                reviewer="remediation_operator",
-                notes=["Official id was replaced in the reviewed source follow-up task."],
-                evidence_refs=["official:/v2/achievements?ids=1001"],
-                confirmed_manual_review=True,
-            ),
-            temp_root,
-            audit_root,
-        )
+        record = None
+        for item in queue.items:
+            record = record_achievement_route_remediation_review(
+                AchievementRouteRemediationReviewRequest(
+                    item_id=item.item_id,
+                    status="resolved",
+                    reviewer="remediation_operator",
+                    notes=["Official id and route remediation were handled in the reviewed source follow-up task."],
+                    evidence_refs=[f"operator-reviewed:{item.item_id}"],
+                    confirmed_manual_review=True,
+                ),
+                temp_root,
+                audit_root,
+            )
         audit_list = list_achievement_route_remediation_review_audits(
             audit_root,
             reviewer="remediation_operator",
             status="resolved",
         )
+        readiness = build_achievement_route_remediation_readiness(temp_root, audit_root)
         markdown = render_achievement_route_remediation_review_audit_markdown(audit_list)
         csv_text = render_achievement_route_remediation_review_audit_csv(audit_list)
+        readiness_markdown = render_achievement_route_remediation_readiness_markdown(readiness)
+        readiness_csv = render_achievement_route_remediation_readiness_csv(readiness)
 
+        assert record is not None
         assert record.schema_version == "gw2radar.achievement_route_remediation_review.v1"
         assert record.status == "resolved"
-        assert record.item_id == item_id
-        assert record.priority == "P0"
-        assert "official:/v2/achievements?ids=1001" in record.evidence_refs
+        assert any(item.item_id == item_id and item.priority == "P0" for item in queue.items)
+        assert record.evidence_refs
         assert audit_list.schema_version == "gw2radar.achievement_route_remediation_review_audit_list.v1"
-        assert len(audit_list.records) == 1
+        assert len(audit_list.records) == len(queue.items)
         assert "# Achievement Route Remediation Review Audit" in markdown
         assert "event_id,occurred_at,reviewer,status" in csv_text
+        assert readiness.schema_version == "gw2radar.achievement_route_remediation_readiness.v1"
+        assert readiness.ready is True
+        assert readiness.maturity_label == "ready"
+        assert readiness.open_p0_count == 0
+        assert readiness.resolved_count == len(queue.items)
+        assert "# Achievement Route Remediation Readiness" in readiness_markdown
+        assert "ready,maturity_label,readiness_score" in readiness_csv
         assert "secret-key" not in str(audit_list).lower()
         assert "private account payload" in audit_list.boundary
     finally:
@@ -551,6 +566,9 @@ def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
         review_audit = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/review-audit?reviewer=api_review_operator")
         review_audit_markdown = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/review-audit?format=markdown")
         review_audit_csv = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/review-audit?format=csv")
+        remediation_readiness = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/readiness")
+        remediation_readiness_markdown = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/readiness?format=markdown")
+        remediation_readiness_csv = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/readiness?format=csv")
 
         assert blocked_review.status_code == 400
         assert review_action.status_code == 200
@@ -560,6 +578,10 @@ def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
         assert review_audit.json()["data"]["remediation_review_audit"]["records"][0]["reviewer"] == "api_review_operator"
         assert "# Achievement Route Remediation Review Audit" in review_audit_markdown.text
         assert "event_id,occurred_at,reviewer,status" in review_audit_csv.text
+        assert remediation_readiness.status_code == 200
+        assert remediation_readiness.json()["data"]["remediation_readiness"]["open_p0_count"] >= 1
+        assert "# Achievement Route Remediation Readiness" in remediation_readiness_markdown.text
+        assert "ready,maturity_label,readiness_score" in remediation_readiness_csv.text
     finally:
         achievement_route_routes.gateway_factory = original_factory
         achievement_route_routes.source_root = original_source_root

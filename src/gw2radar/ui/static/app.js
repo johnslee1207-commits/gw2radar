@@ -229,6 +229,9 @@ function summarizeResult(target, payload) {
     if (data?.remediation_review_audit) {
       return `${data.remediation_review_audit.records?.length || 0} remediation review audit records loaded.`;
     }
+    if (data?.remediation_readiness) {
+      return `Remediation readiness is ${data.remediation_readiness.maturity_label} at ${data.remediation_readiness.readiness_score}/100.`;
+    }
     if (Array.isArray(data?.sources)) {
       return `${data.sources.length} route source manifests loaded with ${data.reviewed_step_count || 0} reviewed steps.`;
     }
@@ -657,6 +660,12 @@ function renderRouteRemediationQueue(queue) {
 
 function renderRouteRemediationReviewAudit(audit) {
   document.querySelector("#route-audit-count").textContent = String(audit?.records?.length || 0);
+}
+
+function renderRouteRemediationReadiness(readiness) {
+  const label = readiness?.maturity_label || "unknown";
+  const score = typeof readiness?.readiness_score === "number" ? readiness.readiness_score : "--";
+  document.querySelector("#route-remediation-readiness-score").textContent = `${label} ${score}/100`;
 }
 
 function buildImportPayload() {
@@ -1265,6 +1274,24 @@ const actions = {
         return text;
       });
     }),
+  loadAchievementRouteRemediationReadiness: () =>
+    run("routes", async () => {
+      const payload = await fetchJson("/api/v1/achievement-routes/source-quality/remediation-queue/readiness");
+      renderRouteRemediationReadiness(payload?.data?.remediation_readiness || {});
+      return payload;
+    }),
+  exportAchievementRouteRemediationReadiness: () =>
+    run("routes", () =>
+      fetch("/api/v1/achievement-routes/source-quality/remediation-queue/readiness?format=csv", {
+        headers: { "Accept": "text/csv" },
+      }).then(async (response) => {
+        const text = await response.text();
+        if (!response.ok) {
+          throw new Error(text || `HTTP ${response.status}`);
+        }
+        return text;
+      }),
+    ),
   importBuild: () =>
     run("build", async () => {
       const payload = await fetchJson("/api/v1/builds/import", {

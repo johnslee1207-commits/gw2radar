@@ -214,6 +214,17 @@ def main() -> int:
     review_audit_csv = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/review-audit?format=csv")
     if review_audit_csv.status_code != 200 or "event_id,occurred_at,reviewer,status" not in review_audit_csv.text:
         failures.append("achievement route remediation review audit csv export failed")
+    remediation_readiness = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/readiness")
+    readiness_payload = _json_response(remediation_readiness, "achievement route remediation readiness", failures)
+    remediation_gate = (((readiness_payload or {}).get("data") or {}).get("remediation_readiness") or {})
+    if remediation_gate.get("open_p0_count", 0) < 1 or remediation_gate.get("maturity_label") not in {"blocked", "review_needed", "ready"}:
+        failures.append("achievement route remediation readiness did not expose open P0 gate status")
+    remediation_readiness_markdown = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/readiness?format=markdown")
+    if remediation_readiness_markdown.status_code != 200 or "# Achievement Route Remediation Readiness" not in remediation_readiness_markdown.text:
+        failures.append("achievement route remediation readiness markdown export failed")
+    remediation_readiness_csv = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/readiness?format=csv")
+    if remediation_readiness_csv.status_code != 200 or "ready,maturity_label,readiness_score" not in remediation_readiness_csv.text:
+        failures.append("achievement route remediation readiness csv export failed")
     promoted_sources = client.get("/api/v1/achievement-routes/sources")
     promoted_sources_payload = _json_response(promoted_sources, "promoted route sources", failures)
     promoted_reviewed_step_count = (((promoted_sources_payload or {}).get("data") or {}).get("reviewed_step_count") or 0)

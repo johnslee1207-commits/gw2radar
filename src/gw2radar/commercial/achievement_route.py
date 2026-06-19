@@ -343,6 +343,29 @@ class AchievementRouteRemediationReviewAuditList(BaseModel):
     boundary: str = "Remediation review audit exports are metadata-only and must not contain raw API keys or private account payloads."
 
 
+class AchievementRouteRemediationReadiness(BaseModel):
+    schema_version: str = "gw2radar.achievement_route_remediation_readiness.v1"
+    ready: bool
+    maturity_label: Literal["blocked", "review_needed", "ready"]
+    readiness_score: float
+    queue_item_count: int
+    open_p0_count: int
+    open_p1_count: int
+    open_p2_count: int
+    reviewed_item_count: int
+    resolved_count: int
+    acknowledged_count: int
+    deferred_count: int
+    unresolved_item_ids: list[str]
+    deferred_item_ids: list[str]
+    resolved_without_extra_evidence_item_ids: list[str]
+    blockers: list[str]
+    warnings: list[str]
+    next_steps: list[str]
+    evidence_chain: list[str]
+    boundary: str = "Remediation readiness is an operator go/no-go gate; it does not edit source manifests or certify live game state."
+
+
 class AchievementRouteGateway(Protocol):
     def get_batch(
         self,
@@ -1593,6 +1616,171 @@ def render_achievement_route_remediation_review_audit_csv(audit_list: Achievemen
                 ";".join(record.evidence_refs),
             ]
         )
+    return buffer.getvalue()
+
+
+def build_achievement_route_remediation_readiness(
+    source_root: Path = ACHIEVEMENT_ROUTE_SOURCE_ROOT,
+    audit_root: Path = ACHIEVEMENT_ROUTE_AUDIT_ROOT,
+) -> AchievementRouteRemediationReadiness:
+    queue = build_achievement_route_remediation_queue(source_root, audit_root)
+    audit = list_achievement_route_remediation_review_audits(audit_root, limit=200)
+    latest_by_item: dict[str, AchievementRouteRemediationReviewRecord] = {}
+    for record in sorted(audit.records, key=lambda item: item.occurred_at):
+        latest_by_item[record.item_id] = record
+
+    unresolved_item_ids: list[str] = []
+    deferred_item_ids: list[str] = []
+    resolved_without_extra_evidence: list[str] = []
+    resolved_count = 0
+    acknowledged_count = 0
+    deferred_count = 0
+    reviewed_count = 0
+
+    for item in queue.items:
+        record = latest_by_item.get(item.item_id)
+        if record is None:
+            unresolved_item_ids.append(item.item_id)
+            continue
+        reviewed_count += 1
+        if record.status == "resolved":
+            resolved_count += 1
+            extra_evidence = [ref for ref in record.evidence_refs if ref not in item.evidence_refs]
+            if not extra_evidence:
+                resolved_without_extra_evidence.append(item.item_id)
+        elif record.status == "acknowledged":
+            acknowledged_count += 1
+            unresolved_item_ids.append(item.item_id)
+        elif record.status == "deferred":
+            deferred_count += 1
+            deferred_item_ids.append(item.item_id)
+            unresolved_item_ids.append(item.item_id)
+
+    open_p0 = sum(1 for item in queue.items if item.priority == "P0" and item.item_id in unresolved_item_ids)
+    open_p1 = sum(1 for item in queue.items if item.priority == "P1" and item.item_id in unresolved_item_ids)
+    open_p2 = sum(1 for item in queue.items if item.priority == "P2" and item.item_id in unresolved_item_ids)
+    blockers: list[str] = []
+    warnings: list[str] = []
+    next_steps: list[str] = []
+    if open_p0:
+        blockers.append(f"{open_p0} P0 remediation items remain unresolved.")
+        next_steps.append("Resolve all P0 remediation items before release.")
+    if open_p1:
+        blockers.append(f"{open_p1} P1 remediation items remain unresolved.")
+        next_steps.append("Resolve or explicitly defer P1 remediation items with reviewer notes.")
+    if deferred_item_ids:
+        warnings.append("Some remediation items are deferred and require release-owner acceptance.")
+        next_steps.append("Review deferred item risk before go/no-go.")
+    if resolved_without_extra_evidence:
+        warnings.append("Some resolved remediation reviews did not add evidence beyond queue evidence refs.")
+        next_steps.append("Add explicit evidence refs to resolved remediation reviews where possible.")
+    if not queue.items:
+        next_steps.append("No remediation queue items are open; continue source quality and release readiness checks.")
+
+    score = 100.0
+    score -= open_p0 * 35
+    score -= open_p1 * 20
+    score -= min(open_p2 * 5, 20)
+    score -= min(len(deferred_item_ids) * 10, 30)
+    score -= min(len(resolved_without_extra_evidence) * 5, 20)
+    score = max(0.0, min(100.0, score))
+    ready = not blockers and not deferred_item_ids and not resolved_without_extra_evidence
+    if queue.items and reviewed_count < len(queue.items):
+        ready = False
+    maturity = "ready" if ready else "blocked" if blockers else "review_needed"
+    if not next_steps and ready:
+        next_steps.append("Remediation readiness is ready; continue release readiness and patch freshness review.")
+
+    return AchievementRouteRemediationReadiness(
+        ready=ready,
+        maturity_label=maturity,
+        readiness_score=round(score, 1),
+        queue_item_count=len(queue.items),
+        open_p0_count=open_p0,
+        open_p1_count=open_p1,
+        open_p2_count=open_p2,
+        reviewed_item_count=reviewed_count,
+        resolved_count=resolved_count,
+        acknowledged_count=acknowledged_count,
+        deferred_count=deferred_count,
+        unresolved_item_ids=_unique(unresolved_item_ids),
+        deferred_item_ids=_unique(deferred_item_ids),
+        resolved_without_extra_evidence_item_ids=_unique(resolved_without_extra_evidence),
+        blockers=blockers,
+        warnings=warnings,
+        next_steps=_unique(next_steps),
+        evidence_chain=[
+            "/api/v1/achievement-routes/source-quality/remediation-queue",
+            "/api/v1/achievement-routes/source-quality/remediation-queue/review-audit",
+            "data/achievement_route_audit/remediation_review_audit.jsonl",
+        ],
+    )
+
+
+def render_achievement_route_remediation_readiness_markdown(readiness: AchievementRouteRemediationReadiness) -> str:
+    lines = [
+        "# Achievement Route Remediation Readiness",
+        "",
+        f"- Ready: {readiness.ready}",
+        f"- Maturity: {readiness.maturity_label}",
+        f"- Score: {readiness.readiness_score}/100",
+        f"- Queue items: {readiness.queue_item_count}",
+        f"- Reviewed items: {readiness.reviewed_item_count}",
+        f"- Open P0/P1/P2: {readiness.open_p0_count}/{readiness.open_p1_count}/{readiness.open_p2_count}",
+        f"- Resolved/Acknowledged/Deferred: {readiness.resolved_count}/{readiness.acknowledged_count}/{readiness.deferred_count}",
+        f"- Boundary: {readiness.boundary}",
+        "",
+        "## Blockers",
+    ]
+    lines.extend([f"- {item}" for item in readiness.blockers] or ["- None"])
+    lines.extend(["", "## Warnings"])
+    lines.extend([f"- {item}" for item in readiness.warnings] or ["- None"])
+    lines.extend(["", "## Next Steps"])
+    lines.extend([f"- {item}" for item in readiness.next_steps] or ["- None"])
+    lines.extend(["", "## Evidence Chain"])
+    lines.extend([f"- {item}" for item in readiness.evidence_chain])
+    return "\n".join(lines) + "\n"
+
+
+def render_achievement_route_remediation_readiness_csv(readiness: AchievementRouteRemediationReadiness) -> str:
+    buffer = StringIO()
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow(
+        [
+            "ready",
+            "maturity_label",
+            "readiness_score",
+            "queue_item_count",
+            "open_p0_count",
+            "open_p1_count",
+            "open_p2_count",
+            "reviewed_item_count",
+            "resolved_count",
+            "acknowledged_count",
+            "deferred_count",
+            "unresolved_item_ids",
+            "deferred_item_ids",
+            "resolved_without_extra_evidence_item_ids",
+        ]
+    )
+    writer.writerow(
+        [
+            readiness.ready,
+            readiness.maturity_label,
+            readiness.readiness_score,
+            readiness.queue_item_count,
+            readiness.open_p0_count,
+            readiness.open_p1_count,
+            readiness.open_p2_count,
+            readiness.reviewed_item_count,
+            readiness.resolved_count,
+            readiness.acknowledged_count,
+            readiness.deferred_count,
+            ";".join(readiness.unresolved_item_ids),
+            ";".join(readiness.deferred_item_ids),
+            ";".join(readiness.resolved_without_extra_evidence_item_ids),
+        ]
+    )
     return buffer.getvalue()
 
 

@@ -14,6 +14,7 @@ from gw2radar.commercial.achievement_route import (
     OfficialAchievementRoutePreviewRequest,
     build_achievement_route_release_readiness,
     build_achievement_route_remediation_queue,
+    build_achievement_route_remediation_readiness,
     build_achievement_route_source_quality_review,
     build_official_achievement_fetch_preview,
     build_achievement_route_plan,
@@ -32,6 +33,8 @@ from gw2radar.commercial.achievement_route import (
     render_achievement_route_release_readiness_markdown,
     render_achievement_route_remediation_queue_csv,
     render_achievement_route_remediation_queue_markdown,
+    render_achievement_route_remediation_readiness_csv,
+    render_achievement_route_remediation_readiness_markdown,
     render_achievement_route_remediation_review_audit_csv,
     render_achievement_route_remediation_review_audit_markdown,
     render_achievement_route_source_quality_csv,
@@ -268,6 +271,24 @@ def get_achievement_route_remediation_review_audit(
             media_type="text/csv; charset=utf-8",
         )
     return ApiDataEnvelope(data={"remediation_review_audit": audit_list.model_dump(mode="json")})
+
+
+@router.get("/source-quality/remediation-queue/readiness", response_model=None)
+def get_achievement_route_remediation_readiness(
+    format: str = Query(default="json", pattern="^(json|markdown|csv)$"),
+):
+    readiness = build_achievement_route_remediation_readiness(source_root, audit_root)
+    if format == "markdown":
+        return Response(
+            content=render_achievement_route_remediation_readiness_markdown(readiness),
+            media_type="text/markdown; charset=utf-8",
+        )
+    if format == "csv":
+        return Response(
+            content=render_achievement_route_remediation_readiness_csv(readiness),
+            media_type="text/csv; charset=utf-8",
+        )
+    return ApiDataEnvelope(data={"remediation_readiness": readiness.model_dump(mode="json")})
 
 
 @router.post("/plan/export")

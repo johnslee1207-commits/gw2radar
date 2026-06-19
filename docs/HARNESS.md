@@ -75,6 +75,10 @@ It also verifies the P11 remediation review gate:
 operators can mark remediation items acknowledged/resolved/deferred with manual
 confirmation, reviewer notes, evidence refs, metadata-only audit listing, and
 Markdown / CSV export.
+It also verifies the P12 remediation readiness rollup:
+queue items and review audit decisions are summarized into open P0/P1/P2 counts,
+resolved/acknowledged/deferred counts, blockers, warnings, next steps, and a
+go/no-go readiness export.
 
 ## Account Connection Diagnostic Command
 
@@ -175,7 +179,9 @@ readiness rollup, and visible no-secret boundary copy.
 23. Export remediation queue as Markdown and CSV.
 24. Mark a remediation item reviewed and confirm metadata-only review audit.
 25. Export remediation review audit as Markdown and CSV.
-26. Confirm the route planner ingests the promoted reviewed source.
+26. Load remediation readiness and confirm open P0/P1/P2 gate status.
+27. Export remediation readiness as Markdown and CSV.
+28. Confirm the route planner ingests the promoted reviewed source.
 
 ## Account Connection Diagnostic Steps
 

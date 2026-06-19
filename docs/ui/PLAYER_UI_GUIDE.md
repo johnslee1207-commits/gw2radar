@@ -200,6 +200,7 @@ Operator review gate:
 - `Remediation queue` turns source quality findings into prioritized open reviewer tasks for official id backfill, evidence backfill, map review, and time-gate review.
 - `Export remediation CSV` exports the remediation task queue for operator handoff without raw account payloads or API keys.
 - `Remediation status`, `Review selected remediation`, `Load remediation audit`, and `Export remediation audit CSV` let an operator mark the current queue item acknowledged, resolved, or deferred with reviewer notes and metadata-only audit export.
+- `Remediation readiness` and `Export remediation readiness CSV` summarize queue plus review audit into a go/no-go gate with open P0/P1/P2 counts, resolved/acknowledged/deferred counts, blockers, warnings, and next steps.
 
 Advanced operator flow:
 
@@ -213,6 +214,7 @@ Advanced operator flow:
 - `GET /api/v1/achievement-routes/source-quality/remediation-queue` produces prioritized reviewer tasks with `format=markdown` and `format=csv`.
 - `POST /api/v1/achievement-routes/source-quality/remediation-queue/review` records a manual remediation decision after `confirmed_manual_review=true`.
 - `GET /api/v1/achievement-routes/source-quality/remediation-queue/review-audit` lists remediation review records and supports `format=markdown` or `format=csv`.
+- `GET /api/v1/achievement-routes/source-quality/remediation-queue/readiness` summarizes remediation review state with `format=markdown` and `format=csv`.
 - Draft previews are not used by the route planner until this reviewed promotion gate writes a `source_status=reviewed` manifest.
 
 ## Freshness And Confidence
