@@ -14,6 +14,7 @@ RouteStepType = Literal["achievement", "collection"]
 RouteTimeGate = Literal["daily", "weekly", "none"]
 RouteSourceStatus = Literal["reviewed", "draft", "disabled"]
 RouteAccountProgressStatus = Literal["unknown", "not_started", "in_progress", "complete"]
+RouteRemediationReviewStatus = Literal["acknowledged", "resolved", "deferred"]
 
 
 ACHIEVEMENT_ROUTE_SOURCE_ROOT = Path("docs/knowledge_base/achievement_routes")
@@ -308,6 +309,38 @@ class AchievementRouteRemediationQueue(BaseModel):
     next_actions: list[str]
     evidence_chain: list[str]
     boundary: str = "Remediation queue is a reviewer workflow aid; it does not persist source changes, enable rules, or certify live game state."
+
+
+class AchievementRouteRemediationReviewRequest(BaseModel):
+    item_id: str = Field(min_length=3)
+    status: RouteRemediationReviewStatus
+    reviewer: str = Field(min_length=2)
+    notes: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    confirmed_manual_review: bool = False
+
+
+class AchievementRouteRemediationReviewRecord(BaseModel):
+    schema_version: str = "gw2radar.achievement_route_remediation_review.v1"
+    event_id: str
+    item_id: str
+    status: RouteRemediationReviewStatus
+    occurred_at: datetime
+    reviewer: str
+    notes: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    source_id: str | None = None
+    step_id: str | None = None
+    remediation_type: str | None = None
+    priority: str | None = None
+    safety_boundary: str = "Remediation review audit records operator decisions only; source manifests still require separate human edits and promotion review."
+
+
+class AchievementRouteRemediationReviewAuditList(BaseModel):
+    schema_version: str = "gw2radar.achievement_route_remediation_review_audit_list.v1"
+    records: list[AchievementRouteRemediationReviewRecord]
+    filters: dict[str, str | int | None]
+    boundary: str = "Remediation review audit exports are metadata-only and must not contain raw API keys or private account payloads."
 
 
 class AchievementRouteGateway(Protocol):
@@ -1425,6 +1458,139 @@ def render_achievement_route_remediation_queue_csv(queue: AchievementRouteRemedi
                 item.recommended_action,
                 item.reviewer_prompt,
                 ";".join(item.evidence_refs),
+            ]
+        )
+    return buffer.getvalue()
+
+
+def record_achievement_route_remediation_review(
+    request: AchievementRouteRemediationReviewRequest,
+    source_root: Path = ACHIEVEMENT_ROUTE_SOURCE_ROOT,
+    audit_root: Path = ACHIEVEMENT_ROUTE_AUDIT_ROOT,
+) -> AchievementRouteRemediationReviewRecord:
+    if not request.confirmed_manual_review:
+        raise ValueError("Remediation review requires confirmed_manual_review=true.")
+    queue = build_achievement_route_remediation_queue(source_root, audit_root)
+    item_by_id = {item.item_id: item for item in queue.items}
+    item = item_by_id.get(request.item_id)
+    if item is None:
+        raise ValueError(f"Remediation item {request.item_id} is not present in the current review queue.")
+    record = AchievementRouteRemediationReviewRecord(
+        event_id=f"route-remediation-review:{datetime.now(UTC).strftime('%Y%m%d%H%M%S%f')}",
+        item_id=request.item_id,
+        status=request.status,
+        occurred_at=datetime.now(UTC),
+        reviewer=request.reviewer,
+        notes=_unique([note.strip() for note in request.notes if note.strip()]),
+        evidence_refs=_unique([*item.evidence_refs, *[ref.strip() for ref in request.evidence_refs if ref.strip()]]),
+        source_id=item.source_id,
+        step_id=item.step_id,
+        remediation_type=item.remediation_type,
+        priority=item.priority,
+    )
+    audit_root.mkdir(parents=True, exist_ok=True)
+    path = audit_root / "remediation_review_audit.jsonl"
+    with path.open("a", encoding="utf-8", newline="\n") as handle:
+        handle.write(record.model_dump_json() + "\n")
+    return record
+
+
+def list_achievement_route_remediation_review_audits(
+    audit_root: Path = ACHIEVEMENT_ROUTE_AUDIT_ROOT,
+    *,
+    reviewer: str | None = None,
+    status: RouteRemediationReviewStatus | None = None,
+    item_id: str | None = None,
+    limit: int = 25,
+) -> AchievementRouteRemediationReviewAuditList:
+    path = audit_root / "remediation_review_audit.jsonl"
+    records: list[AchievementRouteRemediationReviewRecord] = []
+    if path.exists():
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            try:
+                record = AchievementRouteRemediationReviewRecord.model_validate_json(line)
+            except ValidationError:
+                continue
+            if reviewer and record.reviewer != reviewer:
+                continue
+            if status and record.status != status:
+                continue
+            if item_id and record.item_id != item_id:
+                continue
+            records.append(record)
+    records = sorted(records, key=lambda item: item.occurred_at, reverse=True)[: max(1, min(limit, 200))]
+    return AchievementRouteRemediationReviewAuditList(
+        records=records,
+        filters={"reviewer": reviewer, "status": status, "item_id": item_id, "limit": limit},
+    )
+
+
+def render_achievement_route_remediation_review_audit_markdown(audit_list: AchievementRouteRemediationReviewAuditList) -> str:
+    lines = [
+        "# Achievement Route Remediation Review Audit",
+        "",
+        f"- Records: {len(audit_list.records)}",
+        f"- Boundary: {audit_list.boundary}",
+        "",
+        "| Occurred At | Reviewer | Status | Priority | Type | Item | Source | Step |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    for record in audit_list.records:
+        lines.append(
+            "| "
+            + " | ".join(
+                [
+                    record.occurred_at.isoformat(),
+                    record.reviewer,
+                    record.status,
+                    record.priority or "n/a",
+                    record.remediation_type or "n/a",
+                    record.item_id,
+                    record.source_id or "n/a",
+                    record.step_id or "n/a",
+                ]
+            )
+            + " |"
+        )
+    if not audit_list.records:
+        lines.append("| none | none | none | none | none | none | none | none |")
+    return "\n".join(lines) + "\n"
+
+
+def render_achievement_route_remediation_review_audit_csv(audit_list: AchievementRouteRemediationReviewAuditList) -> str:
+    buffer = StringIO()
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow(
+        [
+            "event_id",
+            "occurred_at",
+            "reviewer",
+            "status",
+            "priority",
+            "remediation_type",
+            "item_id",
+            "source_id",
+            "step_id",
+            "notes",
+            "evidence_refs",
+        ]
+    )
+    for record in audit_list.records:
+        writer.writerow(
+            [
+                record.event_id,
+                record.occurred_at.isoformat(),
+                record.reviewer,
+                record.status,
+                record.priority or "",
+                record.remediation_type or "",
+                record.item_id,
+                record.source_id or "",
+                record.step_id or "",
+                ";".join(record.notes),
+                ";".join(record.evidence_refs),
             ]
         )
     return buffer.getvalue()

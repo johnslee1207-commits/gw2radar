@@ -7,6 +7,7 @@ const state = {
   buildUpgradeRules: [],
   lastRouteFetchRequest: null,
   lastRoutePromotionSourceId: "",
+  lastRouteRemediationItemId: "",
 };
 
 const storageKeys = {
@@ -221,6 +222,12 @@ function summarizeResult(target, payload) {
     }
     if (data?.remediation_queue) {
       return `${data.remediation_queue.open_item_count || 0} route remediation items open, including ${data.remediation_queue.p0_count || 0} P0 blockers.`;
+    }
+    if (data?.remediation_review) {
+      return `Remediation item ${data.remediation_review.item_id} marked ${data.remediation_review.status} by ${data.remediation_review.reviewer}.`;
+    }
+    if (data?.remediation_review_audit) {
+      return `${data.remediation_review_audit.records?.length || 0} remediation review audit records loaded.`;
     }
     if (Array.isArray(data?.sources)) {
       return `${data.sources.length} route source manifests loaded with ${data.reviewed_step_count || 0} reviewed steps.`;
@@ -644,7 +651,12 @@ function renderRouteSourceQuality(quality) {
 function renderRouteRemediationQueue(queue) {
   const open = typeof queue?.open_item_count === "number" ? queue.open_item_count : "--";
   const p0 = typeof queue?.p0_count === "number" ? queue.p0_count : "--";
+  state.lastRouteRemediationItemId = queue?.items?.[0]?.item_id || "";
   document.querySelector("#route-remediation-count").textContent = `${open} open / ${p0} P0`;
+}
+
+function renderRouteRemediationReviewAudit(audit) {
+  document.querySelector("#route-audit-count").textContent = String(audit?.records?.length || 0);
 }
 
 function buildImportPayload() {
@@ -1209,6 +1221,50 @@ const actions = {
         return text;
       }),
     ),
+  reviewAchievementRouteRemediation: () =>
+    run("routes", async () => {
+      if (!state.lastRouteRemediationItemId) {
+        const queuePayload = await fetchJson("/api/v1/achievement-routes/source-quality/remediation-queue");
+        renderRouteRemediationQueue(queuePayload?.data?.remediation_queue || {});
+      }
+      if (!state.lastRouteRemediationItemId) {
+        throw new Error("No remediation queue item is available for review.");
+      }
+      const payload = await fetchJson("/api/v1/achievement-routes/source-quality/remediation-queue/review", {
+        method: "POST",
+        body: JSON.stringify({
+          item_id: state.lastRouteRemediationItemId,
+          status: document.querySelector("#route-remediation-status").value,
+          reviewer: document.querySelector("#route-reviewer").value.trim() || "player_ui_operator",
+          notes: document.querySelector("#route-review-notes").value.split("\n").map((line) => line.trim()).filter(Boolean),
+          evidence_refs: ["/api/v1/achievement-routes/source-quality/remediation-queue"],
+          confirmed_manual_review: true,
+        }),
+      });
+      return payload;
+    }),
+  loadAchievementRouteRemediationReviewAudit: () =>
+    run("routes", async () => {
+      const reviewer = encodeURIComponent(document.querySelector("#route-reviewer").value.trim());
+      const suffix = reviewer ? `?reviewer=${reviewer}&limit=10` : "?limit=10";
+      const payload = await fetchJson(`/api/v1/achievement-routes/source-quality/remediation-queue/review-audit${suffix}`);
+      renderRouteRemediationReviewAudit(payload?.data?.remediation_review_audit || {});
+      return payload;
+    }),
+  exportAchievementRouteRemediationReviewAudit: () =>
+    run("routes", () => {
+      const reviewer = encodeURIComponent(document.querySelector("#route-reviewer").value.trim());
+      const suffix = reviewer ? `?reviewer=${reviewer}&format=csv` : "?format=csv";
+      return fetch(`/api/v1/achievement-routes/source-quality/remediation-queue/review-audit${suffix}`, {
+        headers: { "Accept": "text/csv" },
+      }).then(async (response) => {
+        const text = await response.text();
+        if (!response.ok) {
+          throw new Error(text || `HTTP ${response.status}`);
+        }
+        return text;
+      });
+    }),
   importBuild: () =>
     run("build", async () => {
       const payload = await fetchJson("/api/v1/builds/import", {

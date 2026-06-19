@@ -8,6 +8,7 @@ from gw2radar.api.main import app
 from gw2radar.api.routes import achievement_routes as achievement_route_routes
 from gw2radar.commercial.achievement_route import (
     AchievementRouteReviewedPromotionRequest,
+    AchievementRouteRemediationReviewRequest,
     AchievementRouteRequest,
     AchievementRouteSourceManifest,
     AchievementRouteStep,
@@ -20,15 +21,19 @@ from gw2radar.commercial.achievement_route import (
     build_achievement_route_plan,
     build_official_achievement_route_preview,
     list_achievement_route_promotion_audits,
+    list_achievement_route_remediation_review_audits,
     load_reviewed_achievement_route_steps,
     promote_official_fetch_preview_to_reviewed_manifest,
     record_achievement_route_promotion_audit,
+    record_achievement_route_remediation_review,
     render_achievement_route_promotion_audit_csv,
     render_achievement_route_promotion_audit_markdown,
     render_achievement_route_release_readiness_csv,
     render_achievement_route_release_readiness_markdown,
     render_achievement_route_remediation_queue_csv,
     render_achievement_route_remediation_queue_markdown,
+    render_achievement_route_remediation_review_audit_csv,
+    render_achievement_route_remediation_review_audit_markdown,
     render_achievement_route_source_quality_csv,
     render_achievement_route_source_quality_markdown,
     render_official_achievement_fetch_preview_markdown,
@@ -264,6 +269,76 @@ def test_achievement_route_source_quality_flags_evidence_map_gate_and_missing_id
         rmtree(audit_root, ignore_errors=True)
 
 
+def test_achievement_route_remediation_review_gate_records_metadata_only_audit() -> None:
+    temp_root = _temp_source_root("remediation-review-source")
+    audit_root = _temp_source_root("remediation-review-audit")
+    request = _official_fetch_request()
+    fetch_preview = build_official_achievement_fetch_preview(request, FetchPreviewGateway())
+    review = AchievementRouteReviewedPromotionRequest(
+        confirmed_reviewed=True,
+        reviewer="remediation_operator",
+        reviewed_source_id="kb:achievement-routes:remediation-review:v1",
+        review_notes=["Remediation reviewer checked official ids."],
+    )
+
+    try:
+        promotion = promote_official_fetch_preview_to_reviewed_manifest(fetch_preview, review, temp_root)
+        record_achievement_route_promotion_audit(promotion, fetch_preview, review, audit_root)
+        queue = build_achievement_route_remediation_queue(temp_root, audit_root)
+        item_id = next(item.item_id for item in queue.items if item.priority == "P0")
+
+        try:
+            record_achievement_route_remediation_review(
+                AchievementRouteRemediationReviewRequest(
+                    item_id=item_id,
+                    status="acknowledged",
+                    reviewer="remediation_operator",
+                    notes=["Will re-fetch official id before release."],
+                ),
+                temp_root,
+                audit_root,
+            )
+        except ValueError as exc:
+            assert "confirmed_manual_review" in str(exc)
+        else:
+            raise AssertionError("unconfirmed remediation review should fail")
+
+        record = record_achievement_route_remediation_review(
+            AchievementRouteRemediationReviewRequest(
+                item_id=item_id,
+                status="resolved",
+                reviewer="remediation_operator",
+                notes=["Official id was replaced in the reviewed source follow-up task."],
+                evidence_refs=["official:/v2/achievements?ids=1001"],
+                confirmed_manual_review=True,
+            ),
+            temp_root,
+            audit_root,
+        )
+        audit_list = list_achievement_route_remediation_review_audits(
+            audit_root,
+            reviewer="remediation_operator",
+            status="resolved",
+        )
+        markdown = render_achievement_route_remediation_review_audit_markdown(audit_list)
+        csv_text = render_achievement_route_remediation_review_audit_csv(audit_list)
+
+        assert record.schema_version == "gw2radar.achievement_route_remediation_review.v1"
+        assert record.status == "resolved"
+        assert record.item_id == item_id
+        assert record.priority == "P0"
+        assert "official:/v2/achievements?ids=1001" in record.evidence_refs
+        assert audit_list.schema_version == "gw2radar.achievement_route_remediation_review_audit_list.v1"
+        assert len(audit_list.records) == 1
+        assert "# Achievement Route Remediation Review Audit" in markdown
+        assert "event_id,occurred_at,reviewer,status" in csv_text
+        assert "secret-key" not in str(audit_list).lower()
+        assert "private account payload" in audit_list.boundary
+    finally:
+        rmtree(temp_root, ignore_errors=True)
+        rmtree(audit_root, ignore_errors=True)
+
+
 def test_achievement_route_groups_ready_blocked_and_time_gated_steps() -> None:
     plan = build_achievement_route_plan(
         AchievementRouteRequest(
@@ -451,6 +526,40 @@ def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
         assert remediation_queue.json()["data"]["remediation_queue"]["p0_count"] >= 1
         assert "# Achievement Route Remediation Queue" in remediation_markdown.text
         assert "item_id,priority,remediation_type" in remediation_csv.text
+        remediation_item_id = remediation_queue.json()["data"]["remediation_queue"]["items"][0]["item_id"]
+        blocked_review = client.post(
+            "/api/v1/achievement-routes/source-quality/remediation-queue/review",
+            json={
+                "item_id": remediation_item_id,
+                "status": "acknowledged",
+                "reviewer": "api_review_operator",
+                "notes": ["Reviewed from API test."],
+                "confirmed_manual_review": False,
+            },
+        )
+        review_action = client.post(
+            "/api/v1/achievement-routes/source-quality/remediation-queue/review",
+            json={
+                "item_id": remediation_item_id,
+                "status": "acknowledged",
+                "reviewer": "api_review_operator",
+                "notes": ["Acknowledged missing official id remediation."],
+                "evidence_refs": ["official:/v2/achievements"],
+                "confirmed_manual_review": True,
+            },
+        )
+        review_audit = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/review-audit?reviewer=api_review_operator")
+        review_audit_markdown = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/review-audit?format=markdown")
+        review_audit_csv = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/review-audit?format=csv")
+
+        assert blocked_review.status_code == 400
+        assert review_action.status_code == 200
+        assert review_action.json()["data"]["remediation_review"]["item_id"] == remediation_item_id
+        assert review_action.json()["data"]["remediation_review"]["status"] == "acknowledged"
+        assert review_audit.status_code == 200
+        assert review_audit.json()["data"]["remediation_review_audit"]["records"][0]["reviewer"] == "api_review_operator"
+        assert "# Achievement Route Remediation Review Audit" in review_audit_markdown.text
+        assert "event_id,occurred_at,reviewer,status" in review_audit_csv.text
     finally:
         achievement_route_routes.gateway_factory = original_factory
         achievement_route_routes.source_root = original_source_root

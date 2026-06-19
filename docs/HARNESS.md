@@ -71,6 +71,10 @@ It also verifies the P10 remediation queue:
 source quality findings are converted into prioritized open reviewer tasks for
 official id backfill, evidence backfill, map review, time-gate review, and CSV /
 Markdown export.
+It also verifies the P11 remediation review gate:
+operators can mark remediation items acknowledged/resolved/deferred with manual
+confirmation, reviewer notes, evidence refs, metadata-only audit listing, and
+Markdown / CSV export.
 
 ## Account Connection Diagnostic Command
 
@@ -169,7 +173,9 @@ readiness rollup, and visible no-secret boundary copy.
 21. Export source quality as Markdown and CSV.
 22. Load remediation queue and confirm missing official ids become P0 reviewer tasks.
 23. Export remediation queue as Markdown and CSV.
-24. Confirm the route planner ingests the promoted reviewed source.
+24. Mark a remediation item reviewed and confirm metadata-only review audit.
+25. Export remediation review audit as Markdown and CSV.
+26. Confirm the route planner ingests the promoted reviewed source.
 
 ## Account Connection Diagnostic Steps
 

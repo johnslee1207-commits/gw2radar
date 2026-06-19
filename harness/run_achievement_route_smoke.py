@@ -187,6 +187,33 @@ def main() -> int:
     remediation_csv = client.get("/api/v1/achievement-routes/source-quality/remediation-queue?format=csv")
     if remediation_csv.status_code != 200 or "item_id,priority,remediation_type" not in remediation_csv.text:
         failures.append("achievement route remediation queue csv export failed")
+    remediation_item_id = (remediation.get("items") or [{}])[0].get("item_id")
+    review_response = client.post(
+        "/api/v1/achievement-routes/source-quality/remediation-queue/review",
+        json={
+            "item_id": remediation_item_id,
+            "status": "acknowledged",
+            "reviewer": "smoke_operator",
+            "notes": ["Smoke acknowledged missing official id remediation before release."],
+            "evidence_refs": ["official:/v2/achievements"],
+            "confirmed_manual_review": True,
+        },
+    )
+    review_payload = _json_response(review_response, "achievement route remediation review", failures)
+    review_record = (((review_payload or {}).get("data") or {}).get("remediation_review") or {})
+    if review_record.get("status") != "acknowledged" or review_record.get("reviewer") != "smoke_operator":
+        failures.append("achievement route remediation review action did not write expected audit metadata")
+    review_audit = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/review-audit?reviewer=smoke_operator")
+    review_audit_payload = _json_response(review_audit, "achievement route remediation review audit", failures)
+    review_records = (((review_audit_payload or {}).get("data") or {}).get("remediation_review_audit") or {}).get("records", [])
+    if not review_records:
+        failures.append("achievement route remediation review audit did not list reviewed item")
+    review_audit_markdown = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/review-audit?format=markdown")
+    if review_audit_markdown.status_code != 200 or "# Achievement Route Remediation Review Audit" not in review_audit_markdown.text:
+        failures.append("achievement route remediation review audit markdown export failed")
+    review_audit_csv = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/review-audit?format=csv")
+    if review_audit_csv.status_code != 200 or "event_id,occurred_at,reviewer,status" not in review_audit_csv.text:
+        failures.append("achievement route remediation review audit csv export failed")
     promoted_sources = client.get("/api/v1/achievement-routes/sources")
     promoted_sources_payload = _json_response(promoted_sources, "promoted route sources", failures)
     promoted_reviewed_step_count = (((promoted_sources_payload or {}).get("data") or {}).get("reviewed_step_count") or 0)

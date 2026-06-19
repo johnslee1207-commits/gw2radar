@@ -57,6 +57,10 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert "Remediation queue" in response.text
     assert "Export remediation CSV" in response.text
     assert "Remediation" in response.text
+    assert "Remediation status" in response.text
+    assert "Review selected remediation" in response.text
+    assert "Load remediation audit" in response.text
+    assert "Export remediation audit CSV" in response.text
 
 
 def test_player_ui_static_assets_are_served() -> None:
@@ -123,12 +127,18 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "exportAchievementRouteSourceQuality" in js.text
     assert "loadAchievementRouteRemediationQueue" in js.text
     assert "exportAchievementRouteRemediationQueue" in js.text
+    assert "reviewAchievementRouteRemediation" in js.text
+    assert "loadAchievementRouteRemediationReviewAudit" in js.text
+    assert "exportAchievementRouteRemediationReviewAudit" in js.text
+    assert "confirmed_manual_review" in js.text
     assert "routeOfficialFetchPreviewPayload" in js.text
     assert "routeReviewPayload" in js.text
     assert "/api/v1/achievement-routes/promotion-audit" in js.text
     assert "/api/v1/achievement-routes/release-readiness" in js.text
     assert "/api/v1/achievement-routes/source-quality" in js.text
     assert "/api/v1/achievement-routes/source-quality/remediation-queue" in js.text
+    assert "/api/v1/achievement-routes/source-quality/remediation-queue/review" in js.text
+    assert "/api/v1/achievement-routes/source-quality/remediation-queue/review-audit" in js.text
 
 
 def test_player_ui_styles_cover_workflow_and_summaries() -> None:

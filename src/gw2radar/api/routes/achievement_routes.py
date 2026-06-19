@@ -7,6 +7,7 @@ from gw2radar.commercial.achievement_route import (
     ACHIEVEMENT_ROUTE_AUDIT_ROOT,
     ACHIEVEMENT_ROUTE_SOURCE_ROOT,
     AchievementRouteReviewedPromotionRequest,
+    AchievementRouteRemediationReviewRequest,
     AchievementRouteRequest,
     OfficialAccountAchievementProgress,
     OfficialAchievementFetchPreviewRequest,
@@ -18,9 +19,11 @@ from gw2radar.commercial.achievement_route import (
     build_achievement_route_plan,
     build_official_achievement_route_preview,
     list_achievement_route_promotion_audits,
+    list_achievement_route_remediation_review_audits,
     load_reviewed_achievement_route_steps,
     promote_official_fetch_preview_to_reviewed_manifest,
     record_achievement_route_promotion_audit,
+    record_achievement_route_remediation_review,
     render_achievement_route_csv,
     render_achievement_route_markdown,
     render_achievement_route_promotion_audit_csv,
@@ -29,6 +32,8 @@ from gw2radar.commercial.achievement_route import (
     render_achievement_route_release_readiness_markdown,
     render_achievement_route_remediation_queue_csv,
     render_achievement_route_remediation_queue_markdown,
+    render_achievement_route_remediation_review_audit_csv,
+    render_achievement_route_remediation_review_audit_markdown,
     render_achievement_route_source_quality_csv,
     render_achievement_route_source_quality_markdown,
     render_official_achievement_fetch_preview_markdown,
@@ -226,6 +231,43 @@ def get_achievement_route_remediation_queue(
             media_type="text/csv; charset=utf-8",
         )
     return ApiDataEnvelope(data={"remediation_queue": queue.model_dump(mode="json")})
+
+
+@router.post("/source-quality/remediation-queue/review", response_model=ApiDataEnvelope)
+def post_achievement_route_remediation_review(request: AchievementRouteRemediationReviewRequest) -> ApiDataEnvelope:
+    try:
+        record = record_achievement_route_remediation_review(request, source_root, audit_root)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return ApiDataEnvelope(data={"remediation_review": record.model_dump(mode="json")})
+
+
+@router.get("/source-quality/remediation-queue/review-audit", response_model=None)
+def get_achievement_route_remediation_review_audit(
+    reviewer: str | None = None,
+    status: str | None = Query(default=None, pattern="^(acknowledged|resolved|deferred)$"),
+    item_id: str | None = None,
+    limit: int = Query(default=25, ge=1, le=200),
+    format: str = Query(default="json", pattern="^(json|markdown|csv)$"),
+):
+    audit_list = list_achievement_route_remediation_review_audits(
+        audit_root,
+        reviewer=reviewer,
+        status=status,
+        item_id=item_id,
+        limit=limit,
+    )
+    if format == "markdown":
+        return Response(
+            content=render_achievement_route_remediation_review_audit_markdown(audit_list),
+            media_type="text/markdown; charset=utf-8",
+        )
+    if format == "csv":
+        return Response(
+            content=render_achievement_route_remediation_review_audit_csv(audit_list),
+            media_type="text/csv; charset=utf-8",
+        )
+    return ApiDataEnvelope(data={"remediation_review_audit": audit_list.model_dump(mode="json")})
 
 
 @router.post("/plan/export")
