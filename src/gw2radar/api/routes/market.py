@@ -12,6 +12,7 @@ from gw2radar.commercial.market_radar import (
     infer_market_signals,
     list_watchlist,
     record_price_snapshot,
+    refresh_official_price_snapshots_for_account,
     render_market_report,
 )
 from gw2radar.commercial.patch_freshness import (
@@ -22,11 +23,13 @@ from gw2radar.commercial.patch_freshness import (
 from gw2radar.commercial.report_engine import ReportExportFormat, generate_report_job
 from gw2radar.db import session as db_session
 from gw2radar.db.init_db import init_db
+from gw2radar.ingest.gw2_api_gateway import Gw2ApiGateway
 from gw2radar.kb.kb_repository import list_rules
 from gw2radar.kb.kb_source_semantics import build_source_semantic_report
 from gw2radar.kb.patch_impact_review import build_patch_review_dashboard
 
 router = APIRouter(prefix="/api/v1/market", tags=["market"])
+gateway_factory = Gw2ApiGateway
 
 
 class WatchlistRequest(BaseModel):
@@ -68,6 +71,20 @@ def post_market_snapshot(request: PriceSnapshotInput) -> ApiDataEnvelope:
     with db_session.SessionLocal() as session:
         snapshot = record_price_snapshot(session, request)
     return ApiDataEnvelope(data={"snapshot": snapshot.model_dump(mode="json")})
+
+
+@router.post("/snapshots/official-refresh", response_model=ApiDataEnvelope)
+def post_market_official_price_refresh(chunk_size: int = 200) -> ApiDataEnvelope:
+    graph = get_graph()
+    init_db()
+    with db_session.SessionLocal() as session:
+        result = refresh_official_price_snapshots_for_account(
+            session,
+            graph,
+            gateway_factory(),
+            chunk_size=chunk_size,
+        )
+    return ApiDataEnvelope(data={"official_price_refresh": result.model_dump(mode="json")})
 
 
 @router.get("/goal-cost-index", response_model=ApiDataEnvelope)

@@ -7,7 +7,8 @@ from sqlalchemy.orm import Session
 
 from gw2radar.db.models import MarketSnapshotModel, MarketWatchlistModel, utc_now
 from gw2radar.graph.graph_query import GraphData
-from gw2radar.commercial.account_value import build_account_value_snapshot, build_goal_reservation_index
+from gw2radar.commercial.account_value import build_account_holding_index, build_account_value_snapshot, build_goal_reservation_index
+from gw2radar.ingest.gateway_status import GatewayStatus
 from gw2radar.inference.goal_gap import calculate_goal_gap
 
 
@@ -100,6 +101,18 @@ class MarketRadarReport(BaseModel):
     signals: list[MarketSignal]
 
 
+class OfficialPriceRefreshResult(BaseModel):
+    schema_version: str = "gw2radar.official_price_refresh.v1"
+    status: str
+    requested_item_count: int
+    refreshed_item_count: int
+    skipped_item_count: int
+    chunks: int
+    source: str = "official_commerce_api"
+    warnings: list[str] = Field(default_factory=list)
+    boundary: str = "Official price refresh stores public price observations only; it does not trade or inspect private payloads."
+
+
 def record_price_snapshot(session: Session, snapshot: PriceSnapshotInput) -> PriceSnapshot:
     row = MarketSnapshotModel(
         snapshot_id=f"market_snapshot_{uuid4().hex}",
@@ -114,6 +127,62 @@ def record_price_snapshot(session: Session, snapshot: PriceSnapshotInput) -> Pri
     session.add(row)
     session.commit()
     return _snapshot_from_model(row)
+
+
+def refresh_official_price_snapshots_for_account(
+    session: Session,
+    graph: GraphData,
+    gateway,
+    *,
+    chunk_size: int = 200,
+) -> OfficialPriceRefreshResult:
+    holding_index = build_account_holding_index(graph, include_holdings=True)
+    item_ids = sorted({holding.item_id for holding in holding_index.holdings if holding.item_id is not None})
+    warnings: list[str] = []
+    if not item_ids:
+        return OfficialPriceRefreshResult(
+            status="idle",
+            requested_item_count=0,
+            refreshed_item_count=0,
+            skipped_item_count=0,
+            chunks=0,
+            warnings=["No item holdings are available for price refresh."],
+        )
+    refreshed = 0
+    chunks = 0
+    for chunk in _chunks(item_ids, max(1, chunk_size)):
+        chunks += 1
+        result = gateway.get_batch("/v2/commerce/prices", ids=chunk, priority="P2")
+        if result.status not in {GatewayStatus.OK, GatewayStatus.CACHE_HIT}:
+            warnings.append(f"Chunk {chunks} returned {result.status.value}; retry later.")
+            continue
+        rows = result.payload if isinstance(result.payload, list) else [result.payload]
+        for row in rows:
+            if not isinstance(row, dict) or row.get("id") is None:
+                continue
+            item_id = int(row["id"])
+            buys = row.get("buys") if isinstance(row.get("buys"), dict) else {}
+            sells = row.get("sells") if isinstance(row.get("sells"), dict) else {}
+            record_price_snapshot(
+                session,
+                PriceSnapshotInput(
+                    item_id=f"gw2:item:{item_id}",
+                    item_name=graph.entity_name(f"gw2:item:{item_id}"),
+                    buy_price_copper=int(buys.get("unit_price") or 0),
+                    sell_price_copper=int(sells.get("unit_price") or 0),
+                    volume=int(buys.get("quantity") or 0) + int(sells.get("quantity") or 0),
+                    source="official_commerce_api",
+                ),
+            )
+            refreshed += 1
+    return OfficialPriceRefreshResult(
+        status="succeeded" if refreshed else "refresh_pending",
+        requested_item_count=len(item_ids),
+        refreshed_item_count=refreshed,
+        skipped_item_count=max(len(item_ids) - refreshed, 0),
+        chunks=chunks,
+        warnings=warnings,
+    )
 
 
 def add_watchlist_item(
@@ -409,3 +478,8 @@ def _watch_from_model(row: MarketWatchlistModel) -> ItemWatch:
         reason=row.reason,
         created_at=row.created_at,
     )
+
+
+def _chunks(values: list[int], chunk_size: int):
+    for index in range(0, len(values), chunk_size):
+        yield values[index:index + chunk_size]
