@@ -6,6 +6,7 @@ from uuid import uuid4
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from gw2radar.commercial.account_value import AccountValueSnapshot, build_account_value_snapshot
 from gw2radar.db.models import BuildModel, utc_now
 from gw2radar.graph.graph_query import GraphData
 from gw2radar.kb.kb_models import KnowledgeReviewStatus, KnowledgeRule
@@ -132,6 +133,10 @@ class GearTransitionPlan(BaseModel):
     reusable_requirements: list[GearMatchItem]
     estimated_cost_gold: float
     manual_steps: list[str]
+    value_context: list[str] = Field(default_factory=list)
+    account_bound_notes: list[str] = Field(default_factory=list)
+    reserved_goal_notes: list[str] = Field(default_factory=list)
+    unpriced_notes: list[str] = Field(default_factory=list)
     recommendation_boundary: str = "informational_manual_actions_only"
 
 
@@ -301,10 +306,13 @@ def evaluate_build_fit(
     build: BuildRecord,
     account: AccountGearSnapshot,
     knowledge_rules: list[KnowledgeRule] | None = None,
+    value_snapshot: AccountValueSnapshot | None = None,
 ) -> BuildFitResult:
     matches = match_account_gear(build, account)
     score = calculate_build_fit_score(build, account, matches)
     plan = build_transition_plan(build, matches)
+    if value_snapshot is not None:
+        plan = enrich_transition_plan_with_value_snapshot(plan, value_snapshot)
     upgrade_effects = evaluate_upgrade_effects(build, account, knowledge_rules)
     alternative = recommend_budget_alternative(build, plan)
     return BuildFitResult(
@@ -402,6 +410,56 @@ def build_transition_plan(build: BuildRecord, matches: list[GearMatchItem]) -> G
     )
 
 
+def build_value_aware_transition_plan(
+    session: Session,
+    graph: GraphData,
+    build: BuildRecord,
+    matches: list[GearMatchItem],
+) -> GearTransitionPlan:
+    plan = build_transition_plan(build, matches)
+    snapshot = build_account_value_snapshot(graph, session, top_limit=10000)
+    return enrich_transition_plan_with_value_snapshot(plan, snapshot)
+
+
+def enrich_transition_plan_with_value_snapshot(
+    plan: GearTransitionPlan,
+    snapshot: AccountValueSnapshot,
+) -> GearTransitionPlan:
+    value_context = [
+        f"Account value context: {snapshot.summary.priced_holding_count} priced holdings, {snapshot.summary.unpriced_holding_count} unpriced holdings, {snapshot.summary.account_bound_holding_count} account-bound holdings.",
+        f"Conservative net sell value after trading post fees: {snapshot.summary.net_sell_value_copper} copper.",
+    ]
+    account_bound_notes = [
+        f"{holding.canonical_name} is account-bound or non-sellable; do not count it as a liquid gear budget."
+        for holding in snapshot.top_holdings
+        if holding.valuation_status == "account_bound"
+    ][:5]
+    reserved_goal_notes = [
+        f"{holding.canonical_name} is reserved for active goals ({', '.join(holding.reserved_for_goal_ids)}); avoid using it as gear-conversion budget."
+        for holding in snapshot.top_holdings
+        if holding.reserved_quantity > 0
+    ][:5]
+    unpriced_notes = [
+        f"{warning.player_message}"
+        for warning in snapshot.warnings
+        if warning.warning_code in {"missing_price", "stale_price"}
+    ][:5]
+    manual_steps = list(plan.manual_steps)
+    if reserved_goal_notes:
+        manual_steps.append("Check value warnings before liquidating materials for gear conversion.")
+    if unpriced_notes:
+        manual_steps.append("Refresh or add price snapshots before treating transition cost as complete.")
+    return plan.model_copy(
+        update={
+            "manual_steps": manual_steps,
+            "value_context": value_context,
+            "account_bound_notes": account_bound_notes,
+            "reserved_goal_notes": reserved_goal_notes,
+            "unpriced_notes": unpriced_notes,
+        }
+    )
+
+
 def evaluate_upgrade_effects(
     build: BuildRecord,
     account: AccountGearSnapshot,
@@ -476,6 +534,11 @@ def render_build_fit_report(result: BuildFitResult) -> str:
         "## Transition Plan",
         *[f"- {step}" for step in result.transition_plan.manual_steps],
         f"- Estimated manual transition cost: {result.transition_plan.estimated_cost_gold:g} gold",
+        "",
+        "## Account Value Context",
+        *(result.transition_plan.value_context or ["- No account value snapshot was attached."]),
+        *(["", "## Reserved Goal Materials", *[f"- {note}" for note in result.transition_plan.reserved_goal_notes]] if result.transition_plan.reserved_goal_notes else []),
+        *(["", "## Unpriced Or Account-Bound Notes", *[f"- {note}" for note in [*result.transition_plan.account_bound_notes, *result.transition_plan.unpriced_notes]]] if result.transition_plan.account_bound_notes or result.transition_plan.unpriced_notes else []),
         "",
         "## Upgrade Effects",
         *upgrade_effect_lines,

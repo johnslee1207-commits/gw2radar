@@ -14,6 +14,7 @@ from gw2radar.inference.goal_gap import calculate_goal_gap
 from gw2radar.kb.kb_models import KnowledgeReviewStatus, KnowledgeRule
 from gw2radar.kb.kb_report_quality import score_kb_report_quality
 from gw2radar.kb.patch_rule_audit import build_patch_rule_audit_manifest
+from gw2radar.commercial.account_value import AccountValueSnapshot, build_account_value_snapshot, render_account_value_snapshot_markdown
 from gw2radar.commercial.player_intelligence import render_freshness_markdown
 from gw2radar.reports.markdown_report import generate_kb_backed_markdown_report, generate_markdown_report
 from gw2radar.security.log_sanitizer import sanitize_log_payload
@@ -221,6 +222,7 @@ def generate_report_job(
     markdown_override: str | None = None,
     knowledge_backed: bool = False,
     knowledge_rules: list[KnowledgeRule] | None = None,
+    account_value_snapshot: AccountValueSnapshot | None = None,
 ) -> ReportExportJob:
     ensure_default_report_products(session)
     product = session.get(ReportProductModel, product_id)
@@ -253,6 +255,10 @@ def generate_report_job(
             knowledge_backed=knowledge_backed,
             knowledge_rules=knowledge_rules or [],
         )
+        if account_value_snapshot is None and product.report_type in {"legendary_pro", "build_fit", "market"}:
+            account_value_snapshot = build_account_value_snapshot(graph, session)
+        if account_value_snapshot is not None and "## Account Value Snapshot" not in markdown:
+            markdown = markdown.rstrip() + "\n\n" + render_account_value_snapshot_markdown(account_value_snapshot)
         content = _render_export_content(markdown, export_format)
         kb_quality = _build_kb_quality_manifest(graph, goal_id, knowledge_rules or []) if knowledge_backed else None
         kb_audit = build_patch_rule_audit_manifest(knowledge_rules or []) if knowledge_backed else []
@@ -267,6 +273,7 @@ def generate_report_job(
             knowledge_rule_count=_count_reviewed_enabled_rules(knowledge_rules or []),
             kb_quality=kb_quality,
             kb_audit=kb_audit,
+            account_value_snapshot=account_value_snapshot,
         )
         job.status = ReportJobStatus.SUCCEEDED.value
         job.artifact_path = artifact_path.as_posix()
@@ -376,6 +383,7 @@ def _write_artifact(
     knowledge_rule_count: int = 0,
     kb_quality: dict | None = None,
     kb_audit: list[dict] | None = None,
+    account_value_snapshot: AccountValueSnapshot | None = None,
 ) -> tuple[Path, Path]:
     safe_user = _safe_slug(user_id)
     safe_report = _safe_slug(report_type)
@@ -411,10 +419,32 @@ def _write_artifact(
                 "quality": kb_quality,
                 "patch_rule_audit": kb_audit or [],
             },
+            "account_value_snapshot": _account_value_manifest(account_value_snapshot),
         }
     )
     manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
     return artifact_path, manifest_path
+
+
+def _account_value_manifest(snapshot: AccountValueSnapshot | None) -> dict:
+    if snapshot is None:
+        return {
+            "enabled": False,
+            "boundary": "No account value snapshot attached.",
+        }
+    return {
+        "enabled": True,
+        "schema_version": snapshot.schema_version,
+        "account_id_present": bool(snapshot.account_id),
+        "total_value_buy_copper": snapshot.summary.total_value_buy_copper,
+        "net_sell_value_copper": snapshot.summary.net_sell_value_copper,
+        "priced_holding_count": snapshot.summary.priced_holding_count,
+        "unpriced_holding_count": snapshot.summary.unpriced_holding_count,
+        "account_bound_holding_count": snapshot.summary.account_bound_holding_count,
+        "reserved_holding_count": snapshot.summary.reserved_holding_count,
+        "warning_count": len(snapshot.warnings),
+        "boundary": "Summary metadata only; excludes raw API keys and private source payload details.",
+    }
 
 
 def _product_from_model(row: ReportProductModel) -> ReportProduct:

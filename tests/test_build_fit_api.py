@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 
 from gw2radar.api import state
 from gw2radar.api.main import app
+from gw2radar.commercial.market_radar import PriceSnapshotInput, record_price_snapshot
 from gw2radar.commercial.report_engine import create_report_entitlement, ensure_default_report_products
 from gw2radar.db import session as db_session
 from gw2radar.db.init_db import init_db
@@ -30,6 +31,16 @@ def test_build_fit_api_import_fit_transition_and_paid_report() -> None:
         build_id = imported.json()["data"]["build"]["build_id"]
 
         with db_session.SessionLocal() as session:
+            record_price_snapshot(
+                session,
+                PriceSnapshotInput(
+                    item_id="gw2:item:mystic_coin",
+                    item_name="Mystic Coin",
+                    buy_price_copper=12000,
+                    sell_price_copper=12500,
+                    volume=10000,
+                ),
+            )
             create_rule(
                 session,
                 KnowledgeRuleInput(
@@ -65,7 +76,14 @@ def test_build_fit_api_import_fit_transition_and_paid_report() -> None:
         assert fit.status_code == 200
         assert fit.json()["data"]["fit"]["score"]["playable_now"] is True
         assert fit.json()["data"]["fit"]["upgrade_effects"][0]["evidence_source"] == "reviewed_kb_rule"
+        assert fit.json()["data"]["fit"]["transition_plan"]["value_context"]
+        assert any(
+            "reserved for active goals" in note
+            for note in fit.json()["data"]["fit"]["transition_plan"]["reserved_goal_notes"]
+        )
         assert transition.status_code == 200
+        assert transition.json()["data"]["transition_plan"]["value_context"]
+        assert transition.json()["data"]["transition_plan"]["reserved_goal_notes"]
         assert locked.status_code == 403
 
         with db_session.SessionLocal() as session:

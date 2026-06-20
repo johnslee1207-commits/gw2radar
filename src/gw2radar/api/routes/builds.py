@@ -7,7 +7,7 @@ from gw2radar.commercial.build_fit import (
     DEFAULT_USER_ID,
     AccountGearSnapshot,
     BuildImport,
-    build_transition_plan,
+    build_value_aware_transition_plan,
     evaluate_build_fit,
     get_build,
     get_character_snapshot,
@@ -92,7 +92,9 @@ def get_build_character_snapshot_account_gear(snapshot_id: str) -> ApiDataEnvelo
 @router.post("/fit", response_model=ApiDataEnvelope)
 def post_build_fit(request: BuildFitRequest) -> ApiDataEnvelope:
     build = _load_build(request.build_id)
-    result = evaluate_build_fit(build, request.account_gear, _knowledge_rules())
+    init_db()
+    with db_session.SessionLocal() as session:
+        result = evaluate_build_fit(build, request.account_gear, _knowledge_rules(), _value_snapshot(session))
     notices = _build_notices(build)
     return ApiDataEnvelope(
         data={
@@ -106,7 +108,9 @@ def post_build_fit(request: BuildFitRequest) -> ApiDataEnvelope:
 def post_build_transition_plan(request: BuildFitRequest) -> ApiDataEnvelope:
     build = _load_build(request.build_id)
     matches = match_account_gear(build, request.account_gear)
-    plan = build_transition_plan(build, matches)
+    init_db()
+    with db_session.SessionLocal() as session:
+        plan = build_value_aware_transition_plan(session, get_graph(), build, matches)
     budget = recommend_budget_alternative(build, plan)
     return ApiDataEnvelope(
         data={
@@ -119,7 +123,9 @@ def post_build_transition_plan(request: BuildFitRequest) -> ApiDataEnvelope:
 @router.post("/report", response_model=ApiDataEnvelope)
 def post_build_report(request: BuildReportRequest) -> ApiDataEnvelope:
     build = _load_build(request.build_id)
-    result = evaluate_build_fit(build, request.account_gear, _knowledge_rules())
+    init_db()
+    with db_session.SessionLocal() as session:
+        result = evaluate_build_fit(build, request.account_gear, _knowledge_rules(), _value_snapshot(session))
     notices = _build_notices(build)
     freshness = build_patch_freshness_report([build], [], _patch_dashboard_items(), _source_semantics())
     markdown = render_build_fit_report(result)
@@ -180,3 +186,9 @@ def _knowledge_rules():
 
 def _source_semantics():
     return build_source_semantic_report()
+
+
+def _value_snapshot(session):
+    from gw2radar.commercial.account_value import build_account_value_snapshot
+
+    return build_account_value_snapshot(get_graph(), session, top_limit=10000)

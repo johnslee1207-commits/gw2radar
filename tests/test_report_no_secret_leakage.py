@@ -7,6 +7,7 @@ from gw2radar.commercial.report_engine import (
     generate_report_job,
     generate_report_preview,
 )
+from gw2radar.commercial.market_radar import PriceSnapshotInput, record_price_snapshot
 from gw2radar.db import session as db_session
 from gw2radar.db.init_db import init_db
 from gw2radar.db.session import close_database, configure_database
@@ -25,11 +26,30 @@ def test_report_artifacts_do_not_leak_api_key_or_private_payload() -> None:
         with db_session.SessionLocal() as session:
             ensure_default_report_products(session)
             create_report_entitlement(session, "local-user", "legendary_gap_report")
+            create_report_entitlement(session, "local-user", "build_fit_report")
+            record_price_snapshot(
+                session,
+                PriceSnapshotInput(
+                    item_id="gw2:item:mystic_coin",
+                    item_name="Mystic Coin",
+                    buy_price_copper=12000,
+                    sell_price_copper=12500,
+                    volume=10000,
+                ),
+            )
             job = generate_report_job(
                 session,
                 graph,
                 user_id="local-user",
                 product_id="legendary_gap_report",
+                goal_id="gw2:goal:aurora",
+                output_root=temp_dir / "outputs",
+            )
+            build_job = generate_report_job(
+                session,
+                graph,
+                user_id="local-user",
+                product_id="build_fit_report",
                 goal_id="gw2:goal:aurora",
                 output_root=temp_dir / "outputs",
             )
@@ -39,9 +59,15 @@ def test_report_artifacts_do_not_leak_api_key_or_private_payload() -> None:
             + Path(str(preview["manifest_path"])).read_text(encoding="utf-8")
             + Path(str(job.artifact_path)).read_text(encoding="utf-8")
             + Path(str(job.manifest_path)).read_text(encoding="utf-8")
+            + Path(str(build_job.artifact_path)).read_text(encoding="utf-8")
+            + Path(str(build_job.manifest_path)).read_text(encoding="utf-8")
         )
         assert secret not in combined
         assert "api_key" not in combined.lower()
         assert "raw private account payload" not in combined.lower()
+        build_manifest = Path(str(build_job.manifest_path)).read_text(encoding="utf-8")
+        assert '"account_value_snapshot"' in build_manifest
+        assert '"enabled": true' in build_manifest
+        assert "Account Value Snapshot" in Path(str(build_job.artifact_path)).read_text(encoding="utf-8")
     finally:
         close_database()
