@@ -99,6 +99,10 @@ It also verifies the P17 source edit patch draft:
 resolved backfill candidates become deterministic source-edit patch draft
 operations with current/proposed field context, Markdown / CSV export, and an
 explicit no-auto-edit boundary.
+It also verifies the P18 source edit patch apply gate:
+operators can apply a source edit patch draft into a new draft source manifest
+only after manual confirmation, with metadata-only audit export and no reviewed
+planner ingestion.
 
 ## Account Connection Diagnostic Command
 
@@ -214,7 +218,9 @@ readiness rollup, and visible no-secret boundary copy.
 38. Export backfill candidate readiness as Markdown and CSV.
 39. Resolve one backfill candidate and confirm source edit patch draft operations are generated.
 40. Export source edit patch draft as Markdown and CSV.
-41. Confirm the route planner ingests the promoted reviewed source.
+41. Apply one source edit patch draft into a draft source manifest after manual confirmation.
+42. Export source edit patch apply audit as Markdown and CSV.
+43. Confirm the route planner ingests the promoted reviewed source.
 
 ## Account Connection Diagnostic Steps
 

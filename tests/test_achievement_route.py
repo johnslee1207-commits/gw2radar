@@ -12,6 +12,7 @@ from gw2radar.commercial.achievement_route import (
     AchievementRouteReviewedPromotionRequest,
     AchievementRouteRemediationReviewRequest,
     AchievementRouteRequest,
+    AchievementRouteSourceEditPatchApplyRequest,
     AchievementRouteSourceManifest,
     AchievementRouteStep,
     OfficialAchievementFetchPreviewRequest,
@@ -28,9 +29,11 @@ from gw2radar.commercial.achievement_route import (
     build_official_achievement_fetch_preview,
     build_achievement_route_plan,
     build_official_achievement_route_preview,
+    apply_achievement_route_source_edit_patch_draft,
     list_achievement_route_promotion_audits,
     list_achievement_route_backfill_candidate_review_audits,
     list_achievement_route_remediation_review_audits,
+    list_achievement_route_source_edit_patch_apply_audits,
     load_reviewed_achievement_route_steps,
     promote_official_fetch_preview_to_reviewed_manifest,
     record_achievement_route_promotion_audit,
@@ -58,6 +61,8 @@ from gw2radar.commercial.achievement_route import (
     render_achievement_route_remediation_review_audit_markdown,
     render_achievement_route_source_edit_patch_draft_csv,
     render_achievement_route_source_edit_patch_draft_markdown,
+    render_achievement_route_source_edit_patch_apply_audit_csv,
+    render_achievement_route_source_edit_patch_apply_audit_markdown,
     render_achievement_route_source_quality_csv,
     render_achievement_route_source_quality_markdown,
     render_official_achievement_fetch_preview_markdown,
@@ -468,6 +473,38 @@ def test_achievement_route_operator_action_bundle_aggregates_and_records_review(
         patch_draft = build_achievement_route_source_edit_patch_draft(temp_root, audit_root)
         patch_markdown = render_achievement_route_source_edit_patch_draft_markdown(patch_draft)
         patch_csv = render_achievement_route_source_edit_patch_draft_csv(patch_draft)
+        draft_id = patch_draft.drafts[0].draft_id
+        try:
+            apply_achievement_route_source_edit_patch_draft(
+                AchievementRouteSourceEditPatchApplyRequest(
+                    draft_id=draft_id,
+                    reviewer="bundle_operator",
+                    confirmed_manual_review=False,
+                ),
+                temp_root,
+                audit_root,
+            )
+        except ValueError as exc:
+            assert "confirmed_manual_review" in str(exc)
+        else:
+            raise AssertionError("unconfirmed source edit patch apply should fail")
+        apply_record = apply_achievement_route_source_edit_patch_draft(
+            AchievementRouteSourceEditPatchApplyRequest(
+                draft_id=draft_id,
+                reviewer="bundle_operator",
+                notes=["Applied patch draft into a draft manifest for later promotion review."],
+                evidence_refs=["operator-review:source-edit-patch-apply"],
+                confirmed_manual_review=True,
+            ),
+            temp_root,
+            audit_root,
+        )
+        apply_audit = list_achievement_route_source_edit_patch_apply_audits(
+            audit_root,
+            reviewer="bundle_operator",
+        )
+        apply_audit_markdown = render_achievement_route_source_edit_patch_apply_audit_markdown(apply_audit)
+        apply_audit_csv = render_achievement_route_source_edit_patch_apply_audit_csv(apply_audit)
 
         assert initial.schema_version == "gw2radar.achievement_route_operator_action_bundle.v1"
         assert initial.remediation_review is None
@@ -508,11 +545,21 @@ def test_achievement_route_operator_action_bundle_aggregates_and_records_review(
         assert patch_draft.drafts[0].operations[0].required_review
         assert "Achievement Route Source Edit Patch Draft" in patch_markdown
         assert "draft_id,candidate_id,item_id" in patch_csv
+        assert apply_record.schema_version == "gw2radar.achievement_route_source_edit_patch_apply.v1"
+        assert apply_record.draft_id == draft_id
+        assert apply_record.operation_count >= 1
+        assert Path(apply_record.output_manifest_path).exists()
+        assert ":patch-draft:" in apply_record.output_source_id
+        assert apply_audit.schema_version == "gw2radar.achievement_route_source_edit_patch_apply_audit_list.v1"
+        assert apply_audit.records[0].draft_id == draft_id
+        assert "# Achievement Route Source Edit Patch Apply Audit" in apply_audit_markdown
+        assert "event_id,applied_at,reviewer,draft_id" in apply_audit_csv
         assert "secret-key" not in str(updated).lower()
         assert "secret-key" not in str(packet).lower()
         assert "secret-key" not in str(candidates).lower()
         assert "secret-key" not in str(candidate_audit).lower()
         assert "secret-key" not in str(patch_draft).lower()
+        assert "secret-key" not in str(apply_audit).lower()
     finally:
         rmtree(temp_root, ignore_errors=True)
         rmtree(audit_root, ignore_errors=True)
@@ -812,6 +859,34 @@ def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
         source_patch_draft_csv = client.get(
             "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft?format=csv"
         )
+        source_patch_draft_id = source_patch_draft.json()["data"]["source_edit_patch_draft"]["drafts"][0]["draft_id"]
+        blocked_patch_apply = client.post(
+            "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft/apply",
+            json={
+                "draft_id": source_patch_draft_id,
+                "reviewer": "api_review_operator",
+                "confirmed_manual_review": False,
+            },
+        )
+        source_patch_apply = client.post(
+            "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft/apply",
+            json={
+                "draft_id": source_patch_draft_id,
+                "reviewer": "api_review_operator",
+                "notes": ["Applied into draft source manifest for API test."],
+                "evidence_refs": ["official:/v2/achievements?source-edit-patch-apply"],
+                "confirmed_manual_review": True,
+            },
+        )
+        source_patch_apply_audit = client.get(
+            "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft/apply-audit?reviewer=api_review_operator"
+        )
+        source_patch_apply_audit_markdown = client.get(
+            "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft/apply-audit?format=markdown"
+        )
+        source_patch_apply_audit_csv = client.get(
+            "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft/apply-audit?format=csv"
+        )
 
         assert blocked_review.status_code == 400
         assert review_action.status_code == 200
@@ -859,6 +934,14 @@ def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
         assert source_patch_draft.json()["data"]["source_edit_patch_draft"]["operation_count"] >= 1
         assert "# Achievement Route Source Edit Patch Draft" in source_patch_draft_markdown.text
         assert "draft_id,candidate_id,item_id" in source_patch_draft_csv.text
+        assert blocked_patch_apply.status_code == 400
+        assert source_patch_apply.status_code == 200
+        assert source_patch_apply.json()["data"]["source_edit_patch_apply"]["draft_id"] == source_patch_draft_id
+        assert source_patch_apply.json()["data"]["source_edit_patch_apply"]["output_manifest_path"]
+        assert source_patch_apply_audit.status_code == 200
+        assert source_patch_apply_audit.json()["data"]["source_edit_patch_apply_audit"]["records"][0]["draft_id"] == source_patch_draft_id
+        assert "# Achievement Route Source Edit Patch Apply Audit" in source_patch_apply_audit_markdown.text
+        assert "event_id,applied_at,reviewer,draft_id" in source_patch_apply_audit_csv.text
     finally:
         achievement_route_routes.gateway_factory = original_factory
         achievement_route_routes.source_root = original_source_root

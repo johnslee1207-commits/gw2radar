@@ -9,6 +9,7 @@ const state = {
   lastRoutePromotionSourceId: "",
   lastRouteRemediationItemId: "",
   lastRouteBackfillCandidateId: "",
+  lastRouteSourcePatchDraftId: "",
 };
 
 const storageKeys = {
@@ -253,6 +254,12 @@ function summarizeResult(target, payload) {
     }
     if (data?.source_edit_patch_draft) {
       return `${data.source_edit_patch_draft.draft_count || 0} source edit patch drafts with ${data.source_edit_patch_draft.operation_count || 0} operations generated for manual review.`;
+    }
+    if (data?.source_edit_patch_apply) {
+      return `Source patch draft ${data.source_edit_patch_apply.draft_id} applied to draft manifest ${data.source_edit_patch_apply.output_source_id}.`;
+    }
+    if (data?.source_edit_patch_apply_audit) {
+      return `${data.source_edit_patch_apply_audit.records?.length || 0} source patch apply audit records loaded.`;
     }
     if (Array.isArray(data?.sources)) {
       return `${data.sources.length} route source manifests loaded with ${data.reviewed_step_count || 0} reviewed steps.`;
@@ -707,9 +714,14 @@ function renderRouteBackfillCandidateReadiness(readiness) {
 }
 
 function renderRouteSourceEditPatchDraft(exportPayload) {
+  state.lastRouteSourcePatchDraftId = exportPayload?.drafts?.[0]?.draft_id || "";
   const drafts = typeof exportPayload?.draft_count === "number" ? exportPayload.draft_count : "--";
   const operations = typeof exportPayload?.operation_count === "number" ? exportPayload.operation_count : "--";
   document.querySelector("#route-source-patch-draft-count").textContent = `${drafts} drafts / ${operations} ops`;
+}
+
+function renderRouteSourceEditPatchApplyAudit(audit) {
+  document.querySelector("#route-source-patch-apply-count").textContent = String(audit?.records?.length || 0);
 }
 
 function renderRouteOperatorActionBundle(bundle) {
@@ -1502,6 +1514,48 @@ const actions = {
         return text;
       }),
     ),
+  applyAchievementRouteSourceEditPatchDraft: () =>
+    run("routes", async () => {
+      if (!state.lastRouteSourcePatchDraftId) {
+        const patchPayload = await fetchJson("/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft");
+        renderRouteSourceEditPatchDraft(patchPayload?.data?.source_edit_patch_draft || {});
+      }
+      if (!state.lastRouteSourcePatchDraftId) {
+        throw new Error("No source patch draft is available to apply.");
+      }
+      return fetchJson("/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft/apply", {
+        method: "POST",
+        body: JSON.stringify({
+          draft_id: state.lastRouteSourcePatchDraftId,
+          reviewer: document.querySelector("#route-reviewer").value,
+          notes: [document.querySelector("#route-review-notes").value],
+          evidence_refs: ["/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft"],
+          confirmed_manual_review: true,
+        }),
+      });
+    }),
+  loadAchievementRouteSourceEditPatchApplyAudit: () =>
+    run("routes", async () => {
+      const reviewer = encodeURIComponent(document.querySelector("#route-reviewer").value.trim());
+      const suffix = reviewer ? `?reviewer=${reviewer}` : "";
+      const payload = await fetchJson(`/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft/apply-audit${suffix}`);
+      renderRouteSourceEditPatchApplyAudit(payload?.data?.source_edit_patch_apply_audit || {});
+      return payload;
+    }),
+  exportAchievementRouteSourceEditPatchApplyAudit: () =>
+    run("routes", () => {
+      const reviewer = encodeURIComponent(document.querySelector("#route-reviewer").value.trim());
+      const suffix = reviewer ? `&reviewer=${reviewer}` : "";
+      return fetch(`/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft/apply-audit?format=csv${suffix}`, {
+        headers: { "Accept": "text/csv" },
+      }).then(async (response) => {
+        const text = await response.text();
+        if (!response.ok) {
+          throw new Error(text || `HTTP ${response.status}`);
+        }
+        return text;
+      });
+    }),
   importBuild: () =>
     run("build", async () => {
       const payload = await fetchJson("/api/v1/builds/import", {

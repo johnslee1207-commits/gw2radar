@@ -341,6 +341,38 @@ def main() -> int:
     source_patch_csv = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft?format=csv")
     if source_patch_csv.status_code != 200 or "draft_id,candidate_id,item_id" not in source_patch_csv.text:
         failures.append("achievement route source edit patch draft csv export failed")
+    source_patch_draft_id = (source_patch.get("drafts") or [{}])[0].get("draft_id")
+    source_patch_apply = client.post(
+        "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft/apply",
+        json={
+            "draft_id": source_patch_draft_id,
+            "reviewer": "smoke_operator",
+            "notes": ["Smoke applied source edit patch draft into draft manifest for later promotion review."],
+            "evidence_refs": ["official:/v2/achievements?smoke-source-edit-patch-apply"],
+            "confirmed_manual_review": True,
+        },
+    )
+    source_patch_apply_payload = _json_response(source_patch_apply, "achievement route source edit patch apply", failures)
+    source_patch_apply_record = (((source_patch_apply_payload or {}).get("data") or {}).get("source_edit_patch_apply") or {})
+    if source_patch_apply_record.get("draft_id") != source_patch_draft_id or not source_patch_apply_record.get("output_manifest_path"):
+        failures.append("achievement route source edit patch apply did not write expected draft manifest metadata")
+    source_patch_apply_audit = client.get(
+        "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft/apply-audit?reviewer=smoke_operator"
+    )
+    source_patch_apply_audit_payload = _json_response(source_patch_apply_audit, "achievement route source edit patch apply audit", failures)
+    source_patch_apply_records = (((source_patch_apply_audit_payload or {}).get("data") or {}).get("source_edit_patch_apply_audit") or {}).get("records", [])
+    if not source_patch_apply_records:
+        failures.append("achievement route source edit patch apply audit did not list applied draft")
+    source_patch_apply_audit_markdown = client.get(
+        "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft/apply-audit?format=markdown"
+    )
+    if source_patch_apply_audit_markdown.status_code != 200 or "# Achievement Route Source Edit Patch Apply Audit" not in source_patch_apply_audit_markdown.text:
+        failures.append("achievement route source edit patch apply audit markdown export failed")
+    source_patch_apply_audit_csv = client.get(
+        "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft/apply-audit?format=csv"
+    )
+    if source_patch_apply_audit_csv.status_code != 200 or "event_id,applied_at,reviewer,draft_id" not in source_patch_apply_audit_csv.text:
+        failures.append("achievement route source edit patch apply audit csv export failed")
     promoted_sources = client.get("/api/v1/achievement-routes/sources")
     promoted_sources_payload = _json_response(promoted_sources, "promoted route sources", failures)
     promoted_reviewed_step_count = (((promoted_sources_payload or {}).get("data") or {}).get("reviewed_step_count") or 0)

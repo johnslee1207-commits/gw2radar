@@ -13,6 +13,7 @@ from gw2radar.commercial.achievement_route import (
     AchievementRouteReviewedPromotionRequest,
     AchievementRouteRemediationReviewRequest,
     AchievementRouteRequest,
+    AchievementRouteSourceEditPatchApplyRequest,
     OfficialAccountAchievementProgress,
     OfficialAchievementFetchPreviewRequest,
     OfficialAchievementRoutePreviewRequest,
@@ -28,9 +29,11 @@ from gw2radar.commercial.achievement_route import (
     build_official_achievement_fetch_preview,
     build_achievement_route_plan,
     build_official_achievement_route_preview,
+    apply_achievement_route_source_edit_patch_draft,
     list_achievement_route_promotion_audits,
     list_achievement_route_backfill_candidate_review_audits,
     list_achievement_route_remediation_review_audits,
+    list_achievement_route_source_edit_patch_apply_audits,
     load_reviewed_achievement_route_steps,
     promote_official_fetch_preview_to_reviewed_manifest,
     record_achievement_route_promotion_audit,
@@ -60,6 +63,8 @@ from gw2radar.commercial.achievement_route import (
     render_achievement_route_remediation_review_audit_markdown,
     render_achievement_route_source_edit_patch_draft_csv,
     render_achievement_route_source_edit_patch_draft_markdown,
+    render_achievement_route_source_edit_patch_apply_audit_csv,
+    render_achievement_route_source_edit_patch_apply_audit_markdown,
     render_achievement_route_source_quality_csv,
     render_achievement_route_source_quality_markdown,
     render_official_achievement_fetch_preview_markdown,
@@ -448,6 +453,43 @@ def get_achievement_route_source_edit_patch_draft(
             media_type="text/csv; charset=utf-8",
         )
     return ApiDataEnvelope(data={"source_edit_patch_draft": export.model_dump(mode="json")})
+
+
+@router.post("/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft/apply", response_model=None)
+def post_achievement_route_source_edit_patch_apply(request: AchievementRouteSourceEditPatchApplyRequest):
+    try:
+        record = apply_achievement_route_source_edit_patch_draft(request, source_root, audit_root)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return ApiDataEnvelope(data={"source_edit_patch_apply": record.model_dump(mode="json")})
+
+
+@router.get("/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft/apply-audit", response_model=None)
+def get_achievement_route_source_edit_patch_apply_audit(
+    reviewer: str | None = None,
+    draft_id: str | None = None,
+    output_source_id: str | None = None,
+    limit: int = Query(default=25, ge=1, le=200),
+    format: str = Query(default="json", pattern="^(json|markdown|csv)$"),
+):
+    audit = list_achievement_route_source_edit_patch_apply_audits(
+        audit_root,
+        reviewer=reviewer,
+        draft_id=draft_id,
+        output_source_id=output_source_id,
+        limit=limit,
+    )
+    if format == "markdown":
+        return Response(
+            content=render_achievement_route_source_edit_patch_apply_audit_markdown(audit),
+            media_type="text/markdown; charset=utf-8",
+        )
+    if format == "csv":
+        return Response(
+            content=render_achievement_route_source_edit_patch_apply_audit_csv(audit),
+            media_type="text/csv; charset=utf-8",
+        )
+    return ApiDataEnvelope(data={"source_edit_patch_apply_audit": audit.model_dump(mode="json")})
 
 
 @router.post("/plan/export")
