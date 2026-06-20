@@ -35,6 +35,8 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert "Status breakdown" in response.text
     assert "Top Holdings" in response.text
     assert "Value Warnings" in response.text
+    assert "Refresh official prices" in response.text
+    assert "Refresh status to inspect missing or stale price coverage." in response.text
     assert "Export value MD" in response.text
     assert "Export value CSV" in response.text
     assert "Delete all private data" in response.text
@@ -173,6 +175,11 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "renderValueBreakdown" in js.text
     assert "renderTopHoldings" in js.text
     assert "renderValueWarnings" in js.text
+    assert "renderPriceRemediationSummary" in js.text
+    assert "remediationMessage" in js.text
+    assert "refreshOfficialPrices" in js.text
+    assert "/api/v1/market/snapshots/official-refresh" in js.text
+    assert "Official price refresh" in js.text
     assert "exportAccountValueMarkdown" in js.text
     assert "exportAccountValueCsv" in js.text
     assert "downloadText" in js.text

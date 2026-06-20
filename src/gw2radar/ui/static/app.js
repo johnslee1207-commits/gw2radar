@@ -119,6 +119,10 @@ function renderActionList(selector, actions) {
 function summarizeResult(target, payload) {
   const data = payload?.data || payload;
   if (target === "dashboard") {
+    if (data?.refresh?.data?.official_price_refresh) {
+      const refresh = data.refresh.data.official_price_refresh;
+      return `Official price refresh ${refresh.status}: ${refresh.refreshed_item_count || 0}/${refresh.requested_item_count || 0} items refreshed.`;
+    }
     if (data?.dashboard) {
       const count = data.dashboard.today_best_actions?.length || 0;
       return `${count} account-aware best actions loaded with freshness annotations.`;
@@ -635,6 +639,7 @@ function renderAccountValueSummary(snapshot) {
   renderValueBreakdown("#value-status-breakdown", snapshot.by_status || [], "No status coverage yet.");
   renderTopHoldings(snapshot.top_holdings || []);
   renderValueWarnings(snapshot.warnings || []);
+  renderPriceRemediationSummary(snapshot);
 }
 
 function formatCopper(value) {
@@ -711,10 +716,46 @@ function renderValueWarnings(warnings) {
     const message = document.createElement("span");
     item.className = `compact-list-row ${warning.severity || "info"}`;
     code.textContent = warning.warning_code || "warning";
-    message.textContent = warning.player_message || "";
+    message.textContent = remediationMessage(warning);
     item.append(code, message);
     element.appendChild(item);
   }
+}
+
+function renderPriceRemediationSummary(snapshot) {
+  const element = document.querySelector("#price-remediation-summary");
+  if (!element) {
+    return;
+  }
+  const warnings = snapshot.warnings || [];
+  const missing = warnings.filter((warning) => warning.warning_code === "missing_price").length;
+  const stale = warnings.filter((warning) => warning.warning_code === "stale_price").length;
+  const reserved = warnings.filter((warning) => warning.warning_code === "reserved_for_goal").length;
+  if (!missing && !stale) {
+    element.textContent = reserved
+      ? `${reserved} holdings are reserved for active goals. Price coverage has no missing or stale warnings.`
+      : "Price coverage has no missing or stale warnings.";
+    return;
+  }
+  const actions = [];
+  if (missing) {
+    actions.push(`${missing} missing prices: use Refresh official prices, then add manual snapshots for non-tradable or symbolic ids.`);
+  }
+  if (stale) {
+    actions.push(`${stale} stale prices: refresh official prices before costly planning.`);
+  }
+  element.textContent = actions.join(" ");
+}
+
+function remediationMessage(warning) {
+  const message = warning.player_message || "";
+  if (warning.warning_code === "missing_price") {
+    return `${message} Action: refresh official prices or add a manual price snapshot if this item is not official-commerce priced.`;
+  }
+  if (warning.warning_code === "stale_price") {
+    return `${message} Action: refresh official prices before relying on this value.`;
+  }
+  return message;
 }
 
 function renderSyncProgress(progress) {
@@ -1295,6 +1336,13 @@ const actions = {
       const text = await fetch("/api/v1/player/account-value?format=csv").then((response) => response.text());
       downloadText("gw2radar-account-value.csv", text, "text/csv");
       return text;
+    }),
+  refreshOfficialPrices: () =>
+    run("dashboard", async () => {
+      const refresh = await fetchJson("/api/v1/market/snapshots/official-refresh", { method: "POST" });
+      const value = await fetchJson("/api/v1/player/account-value");
+      renderAccountValueSummary(value?.data?.account_value_snapshot || {});
+      return { refresh, value };
     }),
   apiKeyStatus: () =>
     run("connect", async () => {
