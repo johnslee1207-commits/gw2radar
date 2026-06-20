@@ -23,6 +23,7 @@ def main() -> int:
     original_gateway_factory = achievement_route_routes.gateway_factory
     original_source_root = achievement_route_routes.source_root
     original_audit_root = achievement_route_routes.audit_root
+    original_release_export_root = achievement_route_routes.release_export_root
     achievement_route_routes.gateway_factory = FetchPreviewGateway
     client = TestClient(app)
     failures: list[str] = []
@@ -106,14 +107,19 @@ def main() -> int:
 
     temp_source_root = ROOT / ".test_tmp" / "achievement-route-smoke-promotion"
     temp_audit_root = ROOT / ".test_tmp" / "achievement-route-smoke-audit"
+    temp_release_export_root = ROOT / ".test_tmp" / "achievement-route-release-export"
     if temp_source_root.exists():
-        rmtree(temp_source_root)
+        rmtree(temp_source_root, ignore_errors=True)
     if temp_audit_root.exists():
-        rmtree(temp_audit_root)
+        rmtree(temp_audit_root, ignore_errors=True)
+    if temp_release_export_root.exists():
+        rmtree(temp_release_export_root, ignore_errors=True)
     temp_source_root.mkdir(parents=True, exist_ok=True)
     temp_audit_root.mkdir(parents=True, exist_ok=True)
+    temp_release_export_root.mkdir(parents=True, exist_ok=True)
     achievement_route_routes.source_root = temp_source_root
     achievement_route_routes.audit_root = temp_audit_root
+    achievement_route_routes.release_export_root = temp_release_export_root
     review = {
         "confirmed_reviewed": True,
         "reviewer": "achievement_route_smoke",
@@ -539,6 +545,23 @@ def main() -> int:
     release_export_packet_manifest = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet?format=manifest")
     if release_export_packet_manifest.status_code != 200 or release_export_packet_manifest.json().get("packet_schema") != "gw2radar.achievement_route_release_export_packet.v1":
         failures.append("achievement route release export packet manifest export failed")
+    release_export_artifacts = client.post("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts")
+    release_export_artifacts_payload = _json_response(release_export_artifacts, "achievement route release export artifacts", failures)
+    release_export_artifacts_data = (((release_export_artifacts_payload or {}).get("data") or {}).get("release_export_artifacts") or {})
+    release_export_files = release_export_artifacts_data.get("files", [])
+    if release_export_artifacts_data.get("file_count") != 3 or not release_export_files:
+        failures.append("achievement route release export artifact write did not expose three files")
+    release_export_artifact_index = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts")
+    release_export_artifact_index_payload = _json_response(release_export_artifact_index, "achievement route release export artifact index", failures)
+    if (((release_export_artifact_index_payload or {}).get("data") or {}).get("release_export_artifacts") or {}).get("file_count") != 3:
+        failures.append("achievement route release export artifact index did not list three files")
+    if release_export_files:
+        artifact_file = client.get(
+            "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/"
+            + release_export_files[0].get("relative_path", "")
+        )
+        if artifact_file.status_code != 200 or "secret-key" in artifact_file.text.lower():
+            failures.append("achievement route release export artifact file retrieval failed or leaked secret text")
     promoted_sources = client.get("/api/v1/achievement-routes/sources")
     promoted_sources_payload = _json_response(promoted_sources, "promoted route sources", failures)
     promoted_reviewed_step_count = (((promoted_sources_payload or {}).get("data") or {}).get("reviewed_step_count") or 0)
@@ -563,6 +586,8 @@ def main() -> int:
         achievement_route_routes.gateway_factory = original_gateway_factory
         achievement_route_routes.source_root = original_source_root
         achievement_route_routes.audit_root = original_audit_root
+        achievement_route_routes.release_export_root = original_release_export_root
+        rmtree(temp_release_export_root, ignore_errors=True)
         print("FAIL: GW2Radar achievement route smoke failed")
         for failure in failures:
             print(f"- {failure}")
@@ -570,6 +595,8 @@ def main() -> int:
     achievement_route_routes.gateway_factory = original_gateway_factory
     achievement_route_routes.source_root = original_source_root
     achievement_route_routes.audit_root = original_audit_root
+    achievement_route_routes.release_export_root = original_release_export_root
+    rmtree(temp_release_export_root, ignore_errors=True)
     print("PASS: GW2Radar achievement route smoke succeeded")
     return 0
 

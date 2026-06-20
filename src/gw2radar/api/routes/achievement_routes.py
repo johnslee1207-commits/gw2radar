@@ -7,6 +7,7 @@ from gw2radar.db import session as db_session
 from gw2radar.db.init_db import init_db
 from gw2radar.commercial.achievement_route import (
     ACHIEVEMENT_ROUTE_AUDIT_ROOT,
+    ACHIEVEMENT_ROUTE_RELEASE_EXPORT_ROOT,
     ACHIEVEMENT_ROUTE_SOURCE_ROOT,
     AchievementRouteOperatorActionBundleRequest,
     AchievementRouteBackfillCandidateReviewRequest,
@@ -42,6 +43,7 @@ from gw2radar.commercial.achievement_route import (
     list_achievement_route_backfill_candidate_review_audits,
     list_achievement_route_draft_source_promotion_audits,
     list_achievement_route_release_evidence_archives,
+    list_achievement_route_release_export_artifacts,
     list_achievement_route_release_signoff_audits,
     list_achievement_route_remediation_review_audits,
     list_achievement_route_source_edit_patch_apply_audits,
@@ -95,6 +97,8 @@ from gw2radar.commercial.achievement_route import (
     render_achievement_route_source_quality_markdown,
     render_official_achievement_fetch_preview_markdown,
     render_official_achievement_route_preview_markdown,
+    resolve_achievement_route_release_export_artifact_path,
+    write_achievement_route_release_export_packet_artifacts,
 )
 from gw2radar.ingest.gateway_status import GatewayStatus
 from gw2radar.ingest.gw2_api_gateway import Gw2ApiGateway
@@ -104,6 +108,7 @@ router = APIRouter(prefix="/api/v1/achievement-routes", tags=["achievement-route
 gateway_factory = Gw2ApiGateway
 source_root = ACHIEVEMENT_ROUTE_SOURCE_ROOT
 audit_root = ACHIEVEMENT_ROUTE_AUDIT_ROOT
+release_export_root = ACHIEVEMENT_ROUTE_RELEASE_EXPORT_ROOT
 
 
 @router.post("/plan", response_model=ApiDataEnvelope)
@@ -551,6 +556,29 @@ def get_achievement_route_release_export_packet(
             media_type="application/json; charset=utf-8",
         )
     return ApiDataEnvelope(data={"release_export_packet": packet.model_dump(mode="json")})
+
+
+@router.post("/source-quality/remediation-queue/release-export-packet/artifacts", response_model=None)
+def post_achievement_route_release_export_packet_artifacts():
+    index = write_achievement_route_release_export_packet_artifacts(source_root, audit_root, release_export_root)
+    return ApiDataEnvelope(data={"release_export_artifacts": index.model_dump(mode="json")})
+
+
+@router.get("/source-quality/remediation-queue/release-export-packet/artifacts", response_model=None)
+def get_achievement_route_release_export_packet_artifacts(
+    limit: int = Query(default=25, ge=1, le=200),
+):
+    index = list_achievement_route_release_export_artifacts(release_export_root, limit=limit)
+    return ApiDataEnvelope(data={"release_export_artifacts": index.model_dump(mode="json")})
+
+
+@router.get("/source-quality/remediation-queue/release-export-packet/artifacts/{relative_path:path}", response_model=None)
+def get_achievement_route_release_export_packet_artifact(relative_path: str):
+    path = resolve_achievement_route_release_export_artifact_path(relative_path, release_export_root)
+    if path is None:
+        raise HTTPException(status_code=404, detail="Release export artifact not found")
+    media_type = "application/json" if path.suffix == ".json" else "text/csv" if path.suffix == ".csv" else "text/markdown"
+    return Response(content=path.read_text(encoding="utf-8"), media_type=f"{media_type}; charset=utf-8")
 
 
 @router.get("/source-quality/remediation-queue/backfill-candidates", response_model=None)

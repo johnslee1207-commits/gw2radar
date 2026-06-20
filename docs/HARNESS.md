@@ -131,6 +131,9 @@ It also verifies the P25 release export packet:
 the dashboard, bundle, archive, diff, and sign-off audit schemas are packaged
 into a final metadata-only release export packet with manifest, Markdown, and
 CSV exports.
+It also verifies the P26 release packet file export:
+the release export packet can be written to deterministic local artifact files,
+listed through an artifact index, and retrieved through a path-safe API.
 
 ## Account Connection Diagnostic Command
 
@@ -262,7 +265,9 @@ readiness rollup, and visible no-secret boundary copy.
 54. Export operator release dashboard as Markdown and CSV.
 55. Load the release export packet and confirm artifact manifest metadata.
 56. Export release export packet as Markdown, CSV, and manifest JSON.
-57. Confirm the route planner ingests the promoted reviewed source.
+57. Write release export packet artifact files and confirm artifact index metadata.
+58. Retrieve one release export artifact through the path-safe API.
+59. Confirm the route planner ingests the promoted reviewed source.
 
 ## Account Connection Diagnostic Steps
 

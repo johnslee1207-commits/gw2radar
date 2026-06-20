@@ -20,6 +20,7 @@ RouteRemediationReviewStatus = Literal["acknowledged", "resolved", "deferred"]
 
 ACHIEVEMENT_ROUTE_SOURCE_ROOT = Path("docs/knowledge_base/achievement_routes")
 ACHIEVEMENT_ROUTE_AUDIT_ROOT = Path("data/achievement_route_audit")
+ACHIEVEMENT_ROUTE_RELEASE_EXPORT_ROOT = Path("src/gw2radar/reports/artifacts/achievement_route_release_exports")
 
 
 class AchievementRouteRequest(BaseModel):
@@ -764,6 +765,24 @@ class AchievementRouteReleaseExportPacket(BaseModel):
     manifest: dict[str, Any]
     dashboard: AchievementRouteOperatorReleaseDashboard
     boundary: str = "Release export packet is a metadata-only final handoff artifact; it does not publish content, edit source manifests, automate gameplay, store secrets, or certify live game state."
+
+
+class AchievementRouteReleaseExportArtifactFile(BaseModel):
+    filename: str
+    relative_path: str
+    media_type: str
+    size_bytes: int
+    checksum_sha256: str
+
+
+class AchievementRouteReleaseExportArtifactIndex(BaseModel):
+    schema_version: str = "gw2radar.achievement_route_release_export_artifact_index.v1"
+    packet_id: str | None = None
+    packet_dir: str | None = None
+    generated_at: datetime
+    file_count: int
+    files: list[AchievementRouteReleaseExportArtifactFile]
+    boundary: str = "Release export artifact index is local metadata only; it does not publish files externally or include secrets."
 
 
 class AchievementRouteGateway(Protocol):
@@ -3320,6 +3339,84 @@ def render_achievement_route_release_export_packet_csv(
         ]
     )
     return buffer.getvalue()
+
+
+def write_achievement_route_release_export_packet_artifacts(
+    source_root: Path = ACHIEVEMENT_ROUTE_SOURCE_ROOT,
+    audit_root: Path = ACHIEVEMENT_ROUTE_AUDIT_ROOT,
+    output_root: Path = ACHIEVEMENT_ROUTE_RELEASE_EXPORT_ROOT,
+) -> AchievementRouteReleaseExportArtifactIndex:
+    packet = build_achievement_route_release_export_packet(source_root, audit_root)
+    safe_packet_id = _safe_identifier(packet.packet_id)
+    packet_dir = output_root / safe_packet_id
+    packet_dir.mkdir(parents=True, exist_ok=True)
+    payloads = {
+        "release_export_packet_manifest.json": (json.dumps(packet.manifest, indent=2, sort_keys=True) + "\n", "application/json"),
+        "release_export_packet.md": (render_achievement_route_release_export_packet_markdown(packet), "text/markdown"),
+        "release_export_packet.csv": (render_achievement_route_release_export_packet_csv(packet), "text/csv"),
+    }
+    files: list[AchievementRouteReleaseExportArtifactFile] = []
+    for filename, (content, media_type) in payloads.items():
+        path = packet_dir / filename
+        path.write_text(content, encoding="utf-8", newline="\n")
+        checksum = hashlib.sha256(content.encode("utf-8")).hexdigest()
+        files.append(
+            AchievementRouteReleaseExportArtifactFile(
+                filename=filename,
+                relative_path=(Path(safe_packet_id) / filename).as_posix(),
+                media_type=media_type,
+                size_bytes=path.stat().st_size,
+                checksum_sha256=checksum,
+            )
+        )
+    index = AchievementRouteReleaseExportArtifactIndex(
+        packet_id=packet.packet_id,
+        packet_dir=packet_dir.as_posix(),
+        generated_at=datetime.now(UTC),
+        file_count=len(files),
+        files=files,
+    )
+    (packet_dir / "artifact_index.json").write_text(index.model_dump_json(indent=2) + "\n", encoding="utf-8", newline="\n")
+    return index
+
+
+def list_achievement_route_release_export_artifacts(
+    output_root: Path = ACHIEVEMENT_ROUTE_RELEASE_EXPORT_ROOT,
+    *,
+    limit: int = 25,
+) -> AchievementRouteReleaseExportArtifactIndex:
+    indexes: list[AchievementRouteReleaseExportArtifactIndex] = []
+    if output_root.exists():
+        for path in output_root.glob("*/artifact_index.json"):
+            try:
+                indexes.append(AchievementRouteReleaseExportArtifactIndex.model_validate_json(path.read_text(encoding="utf-8")))
+            except ValidationError:
+                continue
+    indexes = sorted(indexes, key=lambda item: item.generated_at, reverse=True)[: max(1, min(limit, 200))]
+    files = [file for index in indexes for file in index.files]
+    latest = indexes[0] if indexes else None
+    return AchievementRouteReleaseExportArtifactIndex(
+        packet_id=latest.packet_id if latest else None,
+        packet_dir=latest.packet_dir if latest else None,
+        generated_at=datetime.now(UTC),
+        file_count=len(files),
+        files=files,
+    )
+
+
+def resolve_achievement_route_release_export_artifact_path(
+    relative_path: str,
+    output_root: Path = ACHIEVEMENT_ROUTE_RELEASE_EXPORT_ROOT,
+) -> Path | None:
+    root = output_root.resolve()
+    candidate = (output_root / relative_path).resolve()
+    try:
+        candidate.relative_to(root)
+    except ValueError:
+        return None
+    if not candidate.exists() or not candidate.is_file():
+        return None
+    return candidate
 
 
 def build_achievement_route_backfill_candidates(

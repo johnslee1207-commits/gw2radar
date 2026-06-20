@@ -294,6 +294,9 @@ function summarizeResult(target, payload) {
     if (data?.release_export_packet) {
       return `Release export packet ${data.release_export_packet.maturity_label}: ${data.release_export_packet.artifact_count} artifacts.`;
     }
+    if (data?.release_export_artifacts) {
+      return `Release export artifacts: ${data.release_export_artifacts.file_count} files indexed.`;
+    }
     if (Array.isArray(data?.sources)) {
       return `${data.sources.length} route source manifests loaded with ${data.reviewed_step_count || 0} reviewed steps.`;
     }
@@ -802,6 +805,13 @@ function renderRouteReleaseExportPacket(packet) {
   const label = packet?.maturity_label || "unknown";
   const artifacts = typeof packet?.artifact_count === "number" ? packet.artifact_count : "--";
   document.querySelector("#route-release-export-packet-count").textContent = `${label} / ${artifacts} artifacts`;
+}
+
+function renderRouteReleaseExportArtifacts(index) {
+  const count = typeof index?.file_count === "number" ? index.file_count : "--";
+  const packet = index?.packet_id || "--";
+  state.lastRouteReleaseExportArtifactPath = index?.files?.[0]?.relative_path || "";
+  document.querySelector("#route-release-export-artifact-count").textContent = `${count} files / ${packet}`;
 }
 
 function renderRouteOperatorActionBundle(bundle) {
@@ -1851,6 +1861,34 @@ const actions = {
         return JSON.parse(text);
       }),
     ),
+  writeAchievementRouteReleaseExportArtifacts: () =>
+    run("routes", async () => {
+      const payload = await fetchJson("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts", {
+        method: "POST",
+      });
+      renderRouteReleaseExportArtifacts(payload?.data?.release_export_artifacts || {});
+      return payload;
+    }),
+  loadAchievementRouteReleaseExportArtifacts: () =>
+    run("routes", async () => {
+      const payload = await fetchJson("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts");
+      renderRouteReleaseExportArtifacts(payload?.data?.release_export_artifacts || {});
+      return payload;
+    }),
+  openAchievementRouteReleaseExportArtifact: () =>
+    run("routes", () => {
+      if (!state.lastRouteReleaseExportArtifactPath) {
+        throw new Error("No release export artifact path is loaded.");
+      }
+      return fetch(`/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/${state.lastRouteReleaseExportArtifactPath}`)
+        .then(async (response) => {
+          const text = await response.text();
+          if (!response.ok) {
+            throw new Error(text || `HTTP ${response.status}`);
+          }
+          return text;
+        });
+    }),
   importBuild: () =>
     run("build", async () => {
       const payload = await fetchJson("/api/v1/builds/import", {

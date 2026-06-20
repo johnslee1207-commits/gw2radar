@@ -102,12 +102,16 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert "Release export packet" in response.text
     assert "Export packet CSV" in response.text
     assert "Export packet manifest" in response.text
+    assert "Write packet files" in response.text
+    assert "Load packet files" in response.text
+    assert "Open packet file" in response.text
     assert "Evidence bundle" in response.text
     assert "Evidence archive" in response.text
     assert "Archive diff" in response.text
     assert "Release sign-off" in response.text
     assert "Release dashboard" in response.text
     assert "Export packet" in response.text
+    assert "Packet files" in response.text
 
 
 def test_player_ui_static_assets_are_served() -> None:
@@ -215,6 +219,9 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "loadAchievementRouteReleaseExportPacket" in js.text
     assert "exportAchievementRouteReleaseExportPacket" in js.text
     assert "exportAchievementRouteReleaseExportPacketManifest" in js.text
+    assert "writeAchievementRouteReleaseExportArtifacts" in js.text
+    assert "loadAchievementRouteReleaseExportArtifacts" in js.text
+    assert "openAchievementRouteReleaseExportArtifact" in js.text
     assert "confirmed_manual_review" in js.text
     assert "routeOfficialFetchPreviewPayload" in js.text
     assert "routeReviewPayload" in js.text
@@ -243,6 +250,7 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/signoff-audit" in js.text
     assert "/api/v1/achievement-routes/source-quality/remediation-queue/release-dashboard" in js.text
     assert "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet" in js.text
+    assert "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts" in js.text
 
 
 def test_player_ui_styles_cover_workflow_and_summaries() -> None:

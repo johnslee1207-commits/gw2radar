@@ -214,6 +214,7 @@ Operator review gate:
 - `Sign off release`, `Load sign-off audit`, and `Export sign-off CSV` record a confirmed metadata-only release sign-off after bundle/archive/diff review and expose reviewer/status audit history.
 - `Release dashboard` and `Export dashboard CSV` aggregate bundle, archive, diff, and sign-off state into one operator release summary with missing gates, blockers, warnings, and next actions.
 - `Release export packet`, `Export packet CSV`, and `Export packet manifest` package the dashboard, bundle, archive, diff, and sign-off audit schemas into one final metadata-only handoff manifest.
+- `Write packet files`, `Load packet files`, and `Open packet file` write the release export packet to deterministic local artifacts, list the artifact index, and retrieve a selected artifact through a path-safe API.
 
 Advanced operator flow:
 
@@ -247,6 +248,9 @@ Advanced operator flow:
 - `GET /api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/signoff-audit` lists release sign-off records with `format=markdown` or `format=csv`.
 - `GET /api/v1/achievement-routes/source-quality/remediation-queue/release-dashboard` summarizes bundle, archive, diff, and sign-off release state with `format=markdown` or `format=csv`.
 - `GET /api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet` exports the final metadata-only release packet with `format=markdown`, `format=csv`, or `format=manifest`.
+- `POST /api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts` writes release packet artifact files locally.
+- `GET /api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts` lists local release packet artifact files.
+- `GET /api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/{relative_path}` retrieves a path-safe local release packet artifact.
 - Draft previews are not used by the route planner until this reviewed promotion gate writes a `source_status=reviewed` manifest.
 
 ## Freshness And Confidence
