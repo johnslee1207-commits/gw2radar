@@ -216,6 +216,7 @@ Operator review gate:
 - `Release export packet`, `Export packet CSV`, and `Export packet manifest` package the dashboard, bundle, archive, diff, and sign-off audit schemas into one final metadata-only handoff manifest.
 - `Write packet files`, `Load packet files`, and `Open packet file` write the release export packet to deterministic local artifacts, list the artifact index, and retrieve a selected artifact through a path-safe API.
 - `Bundle manifest` and `Download bundle` package the release export artifacts into a local read-only zip download with whitelist files and a SHA-256 checksum.
+- `Verify bundle` safely imports release export zip bytes for checksum, schema, whitelist, required-file, and no-secret validation without executing or publishing files.
 
 Advanced operator flow:
 
@@ -252,6 +253,7 @@ Advanced operator flow:
 - `POST /api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts` writes release packet artifact files locally.
 - `GET /api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts` lists local release packet artifact files.
 - `GET /api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/bundle` downloads the local read-only release packet zip bundle or returns its manifest with `format=manifest`.
+- `POST /api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/bundle/verify` verifies uploaded zip bytes, or the current local bundle when no body is provided.
 - `GET /api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/{relative_path}` retrieves a path-safe local release packet artifact.
 - Draft previews are not used by the route planner until this reviewed promotion gate writes a `source_status=reviewed` manifest.
 

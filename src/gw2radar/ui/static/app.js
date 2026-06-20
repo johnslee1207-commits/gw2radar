@@ -300,6 +300,9 @@ function summarizeResult(target, payload) {
     if (data?.release_export_bundle) {
       return `Release export bundle: ${data.release_export_bundle.file_count} files, ${data.release_export_bundle.size_bytes} bytes.`;
     }
+    if (data?.release_export_bundle_verification) {
+      return `Release export bundle verification: ${data.release_export_bundle_verification.ready ? "ready" : "blocked"} with ${data.release_export_bundle_verification.blockers.length} blockers.`;
+    }
     if (Array.isArray(data?.sources)) {
       return `${data.sources.length} route source manifests loaded with ${data.reviewed_step_count || 0} reviewed steps.`;
     }
@@ -821,6 +824,12 @@ function renderRouteReleaseExportBundle(bundle) {
   const count = typeof bundle?.file_count === "number" ? bundle.file_count : "--";
   const checksum = bundle?.checksum_sha256 ? bundle.checksum_sha256.slice(0, 12) : "--";
   document.querySelector("#route-release-export-bundle-count").textContent = `${count} files / ${checksum}`;
+}
+
+function renderRouteReleaseExportBundleVerification(verification) {
+  const status = verification?.ready ? "ready" : "blocked";
+  const blockers = Array.isArray(verification?.blockers) ? verification.blockers.length : "--";
+  document.querySelector("#route-release-export-bundle-verification-count").textContent = `${status} / ${blockers} blockers`;
 }
 
 function renderRouteOperatorActionBundle(bundle) {
@@ -1929,6 +1938,14 @@ const actions = {
           },
         },
       };
+    }),
+  verifyAchievementRouteReleaseExportBundle: () =>
+    run("routes", async () => {
+      const payload = await fetchJson("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/bundle/verify", {
+        method: "POST",
+      });
+      renderRouteReleaseExportBundleVerification(payload?.data?.release_export_bundle_verification || {});
+      return payload;
     }),
   importBuild: () =>
     run("build", async () => {

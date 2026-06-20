@@ -100,6 +100,7 @@ from gw2radar.commercial.achievement_route import (
     render_official_achievement_route_preview_markdown,
     list_achievement_route_release_export_artifacts,
     resolve_achievement_route_release_export_artifact_path,
+    verify_achievement_route_release_export_bundle,
     write_achievement_route_release_export_packet_artifacts,
 )
 from gw2radar.ingest.gateway_status import GatewayStatus
@@ -633,6 +634,20 @@ def test_achievement_route_operator_action_bundle_aggregates_and_records_review(
         )
         release_export_bundle_manifest, release_export_bundle_bytes = build_achievement_route_release_export_bundle(artifact_root)
         release_export_bundle_names = set(ZipFile(BytesIO(release_export_bundle_bytes)).namelist())
+        release_export_bundle_verification = verify_achievement_route_release_export_bundle(
+            release_export_bundle_bytes,
+            expected_checksum_sha256=release_export_bundle_manifest.checksum_sha256,
+        )
+        tampered_bundle_buffer = BytesIO()
+        with ZipFile(BytesIO(release_export_bundle_bytes), mode="r") as source_archive:
+            with ZipFile(tampered_bundle_buffer, mode="w") as tampered_archive:
+                for name in source_archive.namelist():
+                    tampered_archive.writestr(name, source_archive.read(name))
+                tampered_archive.writestr("achievement_route_release_export/extra.txt", "not allowed")
+        tampered_bundle_verification = verify_achievement_route_release_export_bundle(
+            tampered_bundle_buffer.getvalue(),
+            expected_checksum_sha256=release_export_bundle_manifest.checksum_sha256,
+        )
 
         assert initial.schema_version == "gw2radar.achievement_route_operator_action_bundle.v1"
         assert initial.remediation_review is None
@@ -765,6 +780,13 @@ def test_achievement_route_operator_action_bundle_aggregates_and_records_review(
             "achievement_route_release_export/release_export_packet.md",
             "achievement_route_release_export/release_export_packet.csv",
         }
+        assert release_export_bundle_verification.schema_version == "gw2radar.achievement_route_release_export_bundle_verification.v1"
+        assert release_export_bundle_verification.ready is True
+        assert release_export_bundle_verification.file_count == 4
+        assert release_export_bundle_verification.blockers == []
+        assert tampered_bundle_verification.ready is False
+        assert any("checksum" in blocker for blocker in tampered_bundle_verification.blockers)
+        assert any("non-whitelisted" in blocker for blocker in tampered_bundle_verification.blockers)
         assert "secret-key" not in str(updated).lower()
         assert "secret-key" not in str(packet).lower()
         assert "secret-key" not in str(candidates).lower()
@@ -779,6 +801,7 @@ def test_achievement_route_operator_action_bundle_aggregates_and_records_review(
         assert "secret-key" not in str(release_dashboard).lower()
         assert "secret-key" not in str(release_export_packet).lower()
         assert "secret-key" not in str(release_export_artifacts).lower()
+        assert "secret-key" not in str(release_export_bundle_verification).lower()
         assert "secret-key" not in release_export_bundle_bytes.decode("latin1").lower()
     finally:
         rmtree(temp_root, ignore_errors=True)
@@ -1211,6 +1234,9 @@ def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
             "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/bundle?format=manifest"
         )
         release_export_bundle_zip = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/bundle")
+        release_export_bundle_verify_current = client.post(
+            "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/bundle/verify"
+        )
 
         assert blocked_review.status_code == 400
         assert review_action.status_code == 200
@@ -1335,6 +1361,15 @@ def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
             "achievement_route_release_export/release_export_packet.md",
             "achievement_route_release_export/release_export_packet.csv",
         }
+        release_export_bundle_verify_upload = client.post(
+            "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/bundle/verify",
+            content=release_export_bundle_zip.content,
+            headers={"content-type": "application/zip"},
+        )
+        assert release_export_bundle_verify_current.status_code == 200
+        assert release_export_bundle_verify_current.json()["data"]["release_export_bundle_verification"]["ready"] is True
+        assert release_export_bundle_verify_upload.status_code == 200
+        assert release_export_bundle_verify_upload.json()["data"]["release_export_bundle_verification"]["ready"] is True
         assert "secret-key" not in release_export_bundle_zip.content.decode("latin1").lower()
     finally:
         achievement_route_routes.gateway_factory = original_factory

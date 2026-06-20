@@ -800,6 +800,19 @@ class AchievementRouteReleaseExportBundleManifest(BaseModel):
     boundary: str = "Release export bundle is a local read-only zip package; it does not publish files externally, include secrets, or certify live game state."
 
 
+class AchievementRouteReleaseExportBundleVerification(BaseModel):
+    schema_version: str = "gw2radar.achievement_route_release_export_bundle_verification.v1"
+    ready: bool
+    verified_at: datetime
+    checksum_sha256: str
+    size_bytes: int
+    file_count: int
+    verified_files: list[str]
+    blockers: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    boundary: str = "Release export bundle verification reads local zip bytes only; it does not execute files, publish content, store secrets, or certify live game state."
+
+
 class AchievementRouteGateway(Protocol):
     def get_batch(
         self,
@@ -3496,6 +3509,89 @@ def build_achievement_route_release_export_bundle(
         size_bytes=len(bundle_bytes),
     )
     return manifest, bundle_bytes
+
+
+def verify_achievement_route_release_export_bundle(
+    bundle_bytes: bytes,
+    *,
+    expected_checksum_sha256: str | None = None,
+) -> AchievementRouteReleaseExportBundleVerification:
+    checksum = hashlib.sha256(bundle_bytes).hexdigest()
+    blockers: list[str] = []
+    warnings: list[str] = []
+    allowed_names = {
+        "achievement_route_release_export/artifact_index.json",
+        "achievement_route_release_export/release_export_packet_manifest.json",
+        "achievement_route_release_export/release_export_packet.md",
+        "achievement_route_release_export/release_export_packet.csv",
+    }
+    verified_files: list[str] = []
+    if expected_checksum_sha256 and expected_checksum_sha256 != checksum:
+        blockers.append("bundle checksum does not match the expected SHA-256 value")
+    try:
+        with ZipFile(BytesIO(bundle_bytes), mode="r") as archive:
+            names = sorted(archive.namelist())
+            verified_files = names
+            for name in names:
+                path = Path(name)
+                if path.is_absolute() or ".." in path.parts:
+                    blockers.append(f"bundle contains unsafe path: {name}")
+            extra_names = sorted(set(names) - allowed_names)
+            missing_names = sorted(allowed_names - set(names))
+            if extra_names:
+                blockers.append("bundle contains non-whitelisted files: " + ", ".join(extra_names))
+            if missing_names:
+                blockers.append("bundle is missing required files: " + ", ".join(missing_names))
+            for name in names:
+                content = archive.read(name)
+                if b"secret-key" in content.lower():
+                    blockers.append(f"bundle file contains prohibited secret marker: {name}")
+            if "achievement_route_release_export/artifact_index.json" in names:
+                try:
+                    AchievementRouteReleaseExportArtifactIndex.model_validate_json(
+                        archive.read("achievement_route_release_export/artifact_index.json").decode("utf-8")
+                    )
+                except (UnicodeDecodeError, ValidationError, ValueError) as exc:
+                    blockers.append(f"artifact index validation failed: {exc}")
+            if "achievement_route_release_export/release_export_packet_manifest.json" in names:
+                try:
+                    packet_manifest = json.loads(
+                        archive.read("achievement_route_release_export/release_export_packet_manifest.json").decode("utf-8")
+                    )
+                    if packet_manifest.get("packet_schema") != "gw2radar.achievement_route_release_export_packet.v1":
+                        blockers.append("release export packet manifest schema mismatch")
+                except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                    blockers.append(f"release export packet manifest validation failed: {exc}")
+            if "achievement_route_release_export/release_export_packet.md" in names:
+                try:
+                    markdown = archive.read("achievement_route_release_export/release_export_packet.md").decode("utf-8")
+                    if "Achievement Route Release Export Packet" not in markdown:
+                        blockers.append("release export packet Markdown title is missing")
+                    if "guaranteed" in markdown.lower():
+                        blockers.append("release export packet Markdown contains prohibited guarantee wording")
+                except UnicodeDecodeError as exc:
+                    blockers.append(f"release export packet Markdown is not UTF-8: {exc}")
+            if "achievement_route_release_export/release_export_packet.csv" in names:
+                try:
+                    csv_text = archive.read("achievement_route_release_export/release_export_packet.csv").decode("utf-8")
+                    if "packet_id,ready,maturity_label" not in csv_text:
+                        blockers.append("release export packet CSV header mismatch")
+                except UnicodeDecodeError as exc:
+                    blockers.append(f"release export packet CSV is not UTF-8: {exc}")
+    except Exception as exc:
+        blockers.append(f"bundle zip could not be read: {exc}")
+    if len(bundle_bytes) > 5_000_000:
+        warnings.append("bundle is larger than the MVP verification target of 5 MB")
+    return AchievementRouteReleaseExportBundleVerification(
+        ready=not blockers,
+        verified_at=datetime.now(UTC),
+        checksum_sha256=checksum,
+        size_bytes=len(bundle_bytes),
+        file_count=len(verified_files),
+        verified_files=verified_files,
+        blockers=blockers,
+        warnings=warnings,
+    )
 
 
 def build_achievement_route_backfill_candidates(

@@ -1,6 +1,6 @@
 import json
 
-from fastapi import APIRouter, HTTPException, Query, Response
+from fastapi import APIRouter, Body, HTTPException, Query, Response
 
 from gw2radar.api.envelope import ApiDataEnvelope
 from gw2radar.db import session as db_session
@@ -99,6 +99,7 @@ from gw2radar.commercial.achievement_route import (
     render_official_achievement_fetch_preview_markdown,
     render_official_achievement_route_preview_markdown,
     resolve_achievement_route_release_export_artifact_path,
+    verify_achievement_route_release_export_bundle,
     write_achievement_route_release_export_packet_artifacts,
 )
 from gw2radar.ingest.gateway_status import GatewayStatus
@@ -594,6 +595,24 @@ def get_achievement_route_release_export_packet_artifact_bundle(
             "X-Checksum-SHA256": manifest.checksum_sha256,
         },
     )
+
+
+@router.post("/source-quality/remediation-queue/release-export-packet/artifacts/bundle/verify", response_model=None)
+def post_achievement_route_release_export_packet_artifact_bundle_verify(
+    bundle: bytes | None = Body(default=None, media_type="application/zip"),
+    expected_checksum_sha256: str | None = Query(default=None),
+):
+    if bundle is None or len(bundle) == 0:
+        index = list_achievement_route_release_export_artifacts(release_export_root, limit=1)
+        if not index.files:
+            write_achievement_route_release_export_packet_artifacts(source_root, audit_root, release_export_root)
+        manifest, bundle = build_achievement_route_release_export_bundle(release_export_root)
+        expected_checksum_sha256 = expected_checksum_sha256 or manifest.checksum_sha256
+    verification = verify_achievement_route_release_export_bundle(
+        bundle,
+        expected_checksum_sha256=expected_checksum_sha256,
+    )
+    return ApiDataEnvelope(data={"release_export_bundle_verification": verification.model_dump(mode="json")})
 
 
 @router.get("/source-quality/remediation-queue/release-export-packet/artifacts/{relative_path:path}", response_model=None)

@@ -137,6 +137,9 @@ listed through an artifact index, and retrieved through a path-safe API.
 It also verifies the P27 release packet bundle download:
 the release export artifact files can be packaged into a local read-only zip
 bundle with a manifest, checksum header, and whitelist validation.
+It also verifies the P28 release packet verification import:
+release export zip bundle bytes can be verified for checksum, schema, whitelist,
+required files, and no-secret boundaries without executing or publishing files.
 
 ## Account Connection Diagnostic Command
 
@@ -271,7 +274,8 @@ readiness rollup, and visible no-secret boundary copy.
 57. Write release export packet artifact files and confirm artifact index metadata.
 58. Retrieve one release export artifact through the path-safe API.
 59. Load the release export bundle manifest and download the read-only zip bundle.
-60. Confirm the route planner ingests the promoted reviewed source.
+60. Verify the release export zip bundle bytes through the safe import verifier.
+61. Confirm the route planner ingests the promoted reviewed source.
 
 ## Account Connection Diagnostic Steps
 

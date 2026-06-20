@@ -590,6 +590,21 @@ def main() -> int:
             "achievement_route_release_export/release_export_packet.csv",
         }:
             failures.append("achievement route release export bundle zip file whitelist mismatch")
+    release_export_bundle_verification = client.post(
+        "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/bundle/verify",
+        content=release_export_bundle_zip.content if release_export_bundle_zip.status_code == 200 else b"",
+        headers={"content-type": "application/zip"},
+    )
+    release_export_bundle_verification_payload = _json_response(
+        release_export_bundle_verification,
+        "achievement route release export bundle verification",
+        failures,
+    )
+    release_export_bundle_verification_data = (
+        ((release_export_bundle_verification_payload or {}).get("data") or {}).get("release_export_bundle_verification") or {}
+    )
+    if release_export_bundle_verification_data.get("ready") is not True or release_export_bundle_verification_data.get("blockers"):
+        failures.append("achievement route release export bundle verification was not ready")
     promoted_sources = client.get("/api/v1/achievement-routes/sources")
     promoted_sources_payload = _json_response(promoted_sources, "promoted route sources", failures)
     promoted_reviewed_step_count = (((promoted_sources_payload or {}).get("data") or {}).get("reviewed_step_count") or 0)
