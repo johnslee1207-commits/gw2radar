@@ -578,6 +578,69 @@ label + label {
   color: #742a2a;
 }
 
+.value-readiness-panel {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-soft);
+  padding: 10px;
+}
+
+.value-readiness-panel h4 {
+  margin: 0;
+  font-size: 0.94rem;
+}
+
+.value-module-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.value-module {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 8px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  padding: 7px 9px;
+  font-size: 0.85rem;
+}
+
+.value-module strong,
+.value-module span,
+.value-module em {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.value-module em {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-style: normal;
+}
+
+.value-module.ready {
+  border-color: rgba(47, 133, 90, 0.3);
+  background: #edf8f0;
+  color: #22543d;
+}
+
+.value-module.limited {
+  border-color: rgba(183, 121, 31, 0.32);
+  background: #fff8e6;
+  color: #744210;
+}
+
+.value-module.blocked {
+  border-color: rgba(184, 50, 50, 0.32);
+  background: #fff0f0;
+  color: #742a2a;
+}
+
 .permission-grid span,
 .sync-checklist span {
   min-height: 32px;

@@ -116,6 +116,9 @@ def post_account_debug_bundle(request: DebugBundleRequest) -> dict:
                 "missing_required_permissions": diagnostic["permission_report"].get("missing_required_permissions", []),
                 "missing_optional_permissions": diagnostic["permission_report"].get("missing_optional_permissions", []),
                 "feature_impacts": diagnostic["permission_report"].get("feature_impacts", []),
+                "unlocked_analysis_modules": diagnostic["permission_report"].get("unlocked_analysis_modules", []),
+                "blocked_analysis_modules": diagnostic["permission_report"].get("blocked_analysis_modules", []),
+                "value_analysis_readiness": diagnostic["permission_report"].get("value_analysis_readiness"),
                 "assumptions": diagnostic["permission_report"].get("assumptions", []),
             },
             "sync_summary": {

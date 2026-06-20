@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from gw2radar.api.envelope import ApiDataEnvelope
 from gw2radar.api.state import get_graph
+from gw2radar.commercial.account_value import build_account_holding_index
 from gw2radar.commercial.player_intelligence import (
     build_data_freshness_annotations,
     build_player_dashboard_plan,
@@ -23,3 +24,10 @@ def get_player_freshness_annotations() -> ApiDataEnvelope:
     return ApiDataEnvelope(
         data={"annotations": [item.model_dump(mode="json") for item in build_data_freshness_annotations(graph)]}
     )
+
+
+@router.get("/account-holdings", response_model=ApiDataEnvelope)
+def get_player_account_holdings(include_holdings: bool = True) -> ApiDataEnvelope:
+    graph = get_graph()
+    holding_index = build_account_holding_index(graph, include_holdings=include_holdings)
+    return ApiDataEnvelope(data={"account_holding_index": holding_index.model_dump(mode="json")})

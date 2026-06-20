@@ -530,6 +530,69 @@ function renderPermissionReport(report) {
     item.title = impact.player_message || "";
     grid.appendChild(item);
   }
+  renderValueReadiness(report);
+}
+
+function renderValueReadiness(report) {
+  const summary = document.querySelector("#value-readiness-summary");
+  const grid = document.querySelector("#value-module-grid");
+  if (!summary || !grid || !report) {
+    return;
+  }
+  const readiness = report.value_analysis_readiness || {};
+  summary.textContent =
+    readiness.player_message ||
+    "Value analysis readiness is unknown until permissions are inspected.";
+  grid.innerHTML = "";
+  const modules = [
+    ...(report.unlocked_analysis_modules || []),
+    ...(report.blocked_analysis_modules || []),
+  ];
+  if (!modules.length) {
+    grid.textContent = "No value-analysis module status is available yet.";
+    return;
+  }
+  for (const module of modules) {
+    const item = document.createElement("div");
+    const name = document.createElement("strong");
+    const status = document.createElement("span");
+    const detail = document.createElement("em");
+    item.className = `value-module ${module.status || "blocked"}`;
+    name.textContent = module.label || module.module_id;
+    status.textContent = module.status || "unknown";
+    detail.textContent = module.missing_permissions?.length
+      ? `Missing: ${module.missing_permissions.join(", ")}`
+      : "Unlocked";
+    item.title = module.player_message || "";
+    item.append(name, status, detail);
+    grid.appendChild(item);
+  }
+}
+
+function renderHoldingSummary(index) {
+  const grid = document.querySelector("#holding-summary-grid");
+  if (!grid || !index) {
+    return;
+  }
+  const counts = index.location_counts || {};
+  const rows = [
+    ["Holdings", `${index.holding_count || 0} private summaries`],
+    ["Wallet", `${counts.wallet || 0} entries`],
+    ["Materials", `${counts.materials || 0} entries`],
+    ["Bank", `${counts.bank || 0} entries`],
+    ["Character gear", `${counts.character_equipment || 0} entries`],
+    ["Coverage gaps", `${index.coverage_gaps?.length || 0}`],
+  ];
+  grid.innerHTML = "";
+  for (const [label, value] of rows) {
+    const row = document.createElement("div");
+    const dt = document.createElement("dt");
+    const dd = document.createElement("dd");
+    dt.textContent = label;
+    dd.textContent = value;
+    row.append(dt, dd);
+    grid.appendChild(row);
+  }
 }
 
 function renderSyncProgress(progress) {
@@ -571,7 +634,10 @@ function updateStatusFromSync(payload) {
   status.className = `status-pill ${goodStatuses.has(label) ? "good" : warnStatuses.has(label) ? "warn" : "muted"}`;
   document.querySelector("#metric-sync").textContent = new Date().toLocaleString();
   document.querySelector("#freshness-account").textContent = "Checked just now";
-  document.querySelector("#freshness-account-card").textContent = `Account sync state checked: ${label}`;
+  const freshnessCard = document.querySelector("#freshness-account-card");
+  if (freshnessCard) {
+    freshnessCard.textContent = `Account sync state checked: ${label}`;
+  }
   renderSyncProgress(payload?.endpoint_progress || payload?.data?.endpoint_progress || []);
   markStep("sync", String(label));
 }
@@ -1087,7 +1153,9 @@ const actions = {
       const dashboard = await fetchJson("/api/v1/player/dashboard");
       renderDashboardPlan(dashboard?.data?.dashboard || {});
       renderFreshnessAnnotations(dashboard?.data?.dashboard?.data_freshness || []);
-      return { account: key, sync, dashboard };
+      const holdings = await fetchJson("/api/v1/player/account-holdings?include_holdings=false");
+      renderHoldingSummary(holdings?.data?.account_holding_index || {});
+      return { account: key, sync, dashboard, holdings };
     }),
   apiKeyStatus: () =>
     run("connect", async () => {
@@ -1164,10 +1232,21 @@ const actions = {
         dashboard = await fetchJson("/api/v1/player/dashboard");
         renderDashboardPlan(dashboard?.data?.dashboard || {});
         renderFreshnessAnnotations(dashboard?.data?.dashboard?.data_freshness || []);
+        const holdings = await fetchJson("/api/v1/player/account-holdings?include_holdings=false");
+        renderHoldingSummary(holdings?.data?.account_holding_index || {});
         characterSnapshots = await fetchJson("/api/v1/builds/character-snapshots");
         state.characterSnapshots = characterSnapshots?.data?.snapshots || [];
         renderCharacterSnapshots(state.characterSnapshots);
         markStep("plan", "Account-aware data ready");
+        return {
+          queued,
+          drained,
+          status,
+          dashboard,
+          holdings,
+          character_snapshots: characterSnapshots,
+          boundary: "Sync now queues one account snapshot job, drains one local worker job, then refreshes dashboard, holdings, and Build Fit character snapshots when successful.",
+        };
       }
       return {
         queued,
@@ -1183,10 +1262,12 @@ const actions = {
       const payload = await fetchJson("/api/v1/account/sync/drain-one", { method: "POST" });
       updateStatusFromSync(payload);
       if (payload.status === "succeeded") {
+        const holdings = await fetchJson("/api/v1/player/account-holdings?include_holdings=false");
+        renderHoldingSummary(holdings?.data?.account_holding_index || {});
         const characterSnapshots = await fetchJson("/api/v1/builds/character-snapshots");
         state.characterSnapshots = characterSnapshots?.data?.snapshots || [];
         renderCharacterSnapshots(state.characterSnapshots);
-        return { drained: payload, character_snapshots: characterSnapshots };
+        return { drained: payload, holdings, character_snapshots: characterSnapshots };
       }
       return payload;
     }),

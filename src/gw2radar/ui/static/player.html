@@ -152,6 +152,18 @@
             </article>
             <article class="panel">
               <div class="panel-title">
+                <span class="marker green"></span>
+                <h3>Account Value Coverage</h3>
+              </div>
+              <dl class="metric-list" id="holding-summary-grid">
+                <div><dt>Holdings</dt><dd>Run sync</dd></div>
+                <div><dt>Wallet</dt><dd>Unknown</dd></div>
+                <div><dt>Materials</dt><dd>Unknown</dd></div>
+                <div><dt>Coverage gaps</dt><dd>Check permissions</dd></div>
+              </dl>
+            </article>
+            <article class="panel">
+              <div class="panel-title">
                 <span class="marker amber"></span>
                 <h3>Data Freshness</h3>
               </div>
@@ -216,6 +228,11 @@
               </div>
               <div class="permission-status-grid" id="permission-status-grid" aria-live="polite">
                 Permission status not checked.
+              </div>
+              <div class="value-readiness-panel">
+                <h4>Value analysis readiness</h4>
+                <div class="result-summary" id="value-readiness-summary">Check permissions to see unlocked account-value modules.</div>
+                <div class="value-module-grid" id="value-module-grid" aria-live="polite"></div>
               </div>
               <label>API key
                 <input id="api-key-input" type="password" autocomplete="off" placeholder="Paste GW2 API key" />
