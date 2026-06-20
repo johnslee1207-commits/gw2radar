@@ -278,7 +278,10 @@ def main() -> int:
     backfill_csv = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates?format=csv")
     if backfill_csv.status_code != 200 or "candidate_id,item_id,priority" not in backfill_csv.text:
         failures.append("achievement route backfill candidate csv export failed")
-    backfill_candidate_id = (backfill.get("candidates") or [{}])[0].get("candidate_id")
+    backfill_candidate_id = next(
+        (candidate.get("candidate_id") for candidate in (backfill.get("candidates") or []) if candidate.get("step_id")),
+        (backfill.get("candidates") or [{}])[0].get("candidate_id"),
+    )
     backfill_review = client.post(
         "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/review",
         json={
@@ -373,10 +376,43 @@ def main() -> int:
     )
     if source_patch_apply_audit_csv.status_code != 200 or "event_id,applied_at,reviewer,draft_id" not in source_patch_apply_audit_csv.text:
         failures.append("achievement route source edit patch apply audit csv export failed")
+    draft_source_id = source_patch_apply_record.get("output_source_id")
+    draft_promotion = client.post(
+        "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft/promote-draft-source",
+        json={
+            "draft_source_id": draft_source_id,
+            "reviewer": "smoke_operator",
+            "review_notes": ["Smoke promoted draft source manifest after patch apply review."],
+            "evidence_refs": ["official:/v2/achievements?smoke-draft-source-promotion"],
+            "overwrite_existing": True,
+            "confirmed_reviewed": True,
+        },
+    )
+    draft_promotion_payload = _json_response(draft_promotion, "achievement route draft source promotion", failures)
+    draft_promotion_record = (((draft_promotion_payload or {}).get("data") or {}).get("draft_source_promotion") or {})
+    if draft_promotion_record.get("draft_source_id") != draft_source_id or draft_promotion_record.get("planner_ingestion_status") != "ready":
+        failures.append("achievement route draft source promotion did not expose reviewed ingestion metadata")
+    draft_promotion_audit = client.get(
+        "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft/promote-draft-source-audit?reviewer=smoke_operator"
+    )
+    draft_promotion_audit_payload = _json_response(draft_promotion_audit, "achievement route draft source promotion audit", failures)
+    draft_promotion_records = (((draft_promotion_audit_payload or {}).get("data") or {}).get("draft_source_promotion_audit") or {}).get("records", [])
+    if not draft_promotion_records:
+        failures.append("achievement route draft source promotion audit did not list promoted draft source")
+    draft_promotion_audit_markdown = client.get(
+        "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft/promote-draft-source-audit?format=markdown"
+    )
+    if draft_promotion_audit_markdown.status_code != 200 or "# Achievement Route Draft Source Promotion Audit" not in draft_promotion_audit_markdown.text:
+        failures.append("achievement route draft source promotion audit markdown export failed")
+    draft_promotion_audit_csv = client.get(
+        "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft/promote-draft-source-audit?format=csv"
+    )
+    if draft_promotion_audit_csv.status_code != 200 or "event_id,promoted_at,reviewer,draft_source_id" not in draft_promotion_audit_csv.text:
+        failures.append("achievement route draft source promotion audit csv export failed")
     promoted_sources = client.get("/api/v1/achievement-routes/sources")
     promoted_sources_payload = _json_response(promoted_sources, "promoted route sources", failures)
     promoted_reviewed_step_count = (((promoted_sources_payload or {}).get("data") or {}).get("reviewed_step_count") or 0)
-    if promoted_reviewed_step_count != 2:
+    if promoted_reviewed_step_count < 2:
         failures.append("promoted reviewed source did not expose expected route steps")
     promoted_plan = client.post(
         "/api/v1/achievement-routes/plan",
@@ -388,8 +424,10 @@ def main() -> int:
     )
     promoted_plan_payload = _json_response(promoted_plan, "promoted route plan", failures)
     promoted_source_ids = (((promoted_plan_payload or {}).get("data") or {}).get("plan") or {}).get("source_ids", [])
-    if promoted_source_ids != ["kb:achievement-routes:smoke-official-fetch:v1"]:
+    if "kb:achievement-routes:smoke-official-fetch:v1" not in promoted_source_ids:
         failures.append("route planner did not ingest promoted reviewed source manifest")
+    if draft_promotion_record.get("reviewed_source_id") not in promoted_source_ids:
+        failures.append("route planner did not ingest promoted draft source manifest")
 
     if failures:
         achievement_route_routes.gateway_factory = original_gateway_factory

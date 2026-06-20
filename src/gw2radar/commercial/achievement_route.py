@@ -553,6 +553,38 @@ class AchievementRouteSourceEditPatchApplyAuditList(BaseModel):
     boundary: str = "Patch apply audit exports are metadata-only and must not contain raw API keys or private account payloads."
 
 
+class AchievementRouteDraftSourcePromotionRequest(BaseModel):
+    draft_source_id: str = Field(min_length=3)
+    reviewer: str = Field(min_length=2)
+    reviewed_source_id: str | None = None
+    review_notes: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    overwrite_existing: bool = False
+    confirmed_reviewed: bool = False
+
+
+class AchievementRouteDraftSourcePromotionRecord(BaseModel):
+    schema_version: str = "gw2radar.achievement_route_draft_source_promotion.v1"
+    event_id: str
+    draft_source_id: str
+    reviewed_source_id: str
+    reviewer: str
+    promoted_at: datetime
+    manifest_path: str
+    step_count: int
+    review_notes: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    planner_ingestion_status: Literal["ready", "blocked"]
+    safety_boundary: str = "Draft source promotion requires human review; reviewed manifest ingestion remains visible through release readiness."
+
+
+class AchievementRouteDraftSourcePromotionAuditList(BaseModel):
+    schema_version: str = "gw2radar.achievement_route_draft_source_promotion_audit_list.v1"
+    records: list[AchievementRouteDraftSourcePromotionRecord]
+    filters: dict[str, str | int | None]
+    boundary: str = "Draft source promotion audit exports are metadata-only and must not contain raw API keys or private account payloads."
+
+
 class AchievementRouteGateway(Protocol):
     def get_batch(
         self,
@@ -2913,6 +2945,187 @@ def render_achievement_route_source_edit_patch_apply_audit_csv(
     return buffer.getvalue()
 
 
+def promote_draft_achievement_route_source_to_reviewed(
+    request: AchievementRouteDraftSourcePromotionRequest,
+    source_root: Path = ACHIEVEMENT_ROUTE_SOURCE_ROOT,
+    audit_root: Path = ACHIEVEMENT_ROUTE_AUDIT_ROOT,
+) -> AchievementRouteDraftSourcePromotionRecord:
+    if not request.confirmed_reviewed:
+        raise ValueError("Draft source promotion requires confirmed_reviewed=true.")
+    manifests = [
+        manifest
+        for manifest in load_achievement_route_source_manifests(source_root)
+        if isinstance(manifest, AchievementRouteSourceManifest)
+    ]
+    draft = next((manifest for manifest in manifests if manifest.source_id == request.draft_source_id), None)
+    if draft is None:
+        raise ValueError(f"Draft source manifest {request.draft_source_id} was not found.")
+    if draft.source_status != "draft":
+        raise ValueError(f"Source manifest {request.draft_source_id} is {draft.source_status}, not draft.")
+    if not draft.steps:
+        raise ValueError("Cannot promote a draft source manifest with no steps.")
+
+    reviewed_source_id = request.reviewed_source_id or f"{request.draft_source_id}:reviewed"
+    manifest_path = _reviewed_manifest_path(source_root, reviewed_source_id)
+    if manifest_path.exists() and not request.overwrite_existing:
+        raise FileExistsError(f"Reviewed achievement route manifest already exists: {manifest_path.as_posix()}")
+
+    notes = request.review_notes or ["Human reviewer promoted this draft source manifest after source patch apply review."]
+    reviewed_manifest = draft.model_copy(
+        deep=True,
+        update={
+            "source_id": reviewed_source_id,
+            "source_status": "reviewed",
+            "reviewed_by": request.reviewer,
+            "reviewed_at": datetime.now(UTC).date().isoformat(),
+            "assumptions": _unique(
+                [
+                    *draft.assumptions,
+                    "This manifest was promoted from a draft source manifest through the reviewed gate.",
+                    *notes,
+                ]
+            ),
+            "steps": [
+                step.model_copy(
+                    update={
+                        "source_id": reviewed_source_id,
+                        "source_status": "reviewed",
+                        "evidence_refs": _unique([*step.evidence_refs, reviewed_source_id, *request.evidence_refs]),
+                        "assumptions": _unique(
+                            [
+                                *step.assumptions,
+                                "Human reviewer promoted this draft source patch output for route planning.",
+                            ]
+                        ),
+                    }
+                )
+                for step in draft.steps
+            ],
+        },
+    )
+    source_root.mkdir(parents=True, exist_ok=True)
+    manifest_path.write_text(reviewed_manifest.model_dump_json(indent=2), encoding="utf-8")
+
+    record = AchievementRouteDraftSourcePromotionRecord(
+        event_id=f"route-draft-source-promotion:{datetime.now(UTC).strftime('%Y%m%d%H%M%S%f')}:{_safe_identifier(reviewed_source_id)}",
+        draft_source_id=request.draft_source_id,
+        reviewed_source_id=reviewed_source_id,
+        reviewer=request.reviewer,
+        promoted_at=datetime.now(UTC),
+        manifest_path=manifest_path.as_posix(),
+        step_count=len(reviewed_manifest.steps),
+        review_notes=_unique([note.strip() for note in notes if note.strip()]),
+        evidence_refs=_unique([*draft.source_refs, *request.evidence_refs, *[ref for step in reviewed_manifest.steps for ref in step.evidence_refs]]),
+        planner_ingestion_status="ready",
+    )
+    audit_root.mkdir(parents=True, exist_ok=True)
+    path = audit_root / "draft_source_promotion_audit.jsonl"
+    with path.open("a", encoding="utf-8", newline="\n") as handle:
+        handle.write(record.model_dump_json() + "\n")
+    return record
+
+
+def list_achievement_route_draft_source_promotion_audits(
+    audit_root: Path = ACHIEVEMENT_ROUTE_AUDIT_ROOT,
+    *,
+    reviewer: str | None = None,
+    draft_source_id: str | None = None,
+    reviewed_source_id: str | None = None,
+    limit: int = 25,
+) -> AchievementRouteDraftSourcePromotionAuditList:
+    path = audit_root / "draft_source_promotion_audit.jsonl"
+    records: list[AchievementRouteDraftSourcePromotionRecord] = []
+    if path.exists():
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            try:
+                record = AchievementRouteDraftSourcePromotionRecord.model_validate_json(line)
+            except ValidationError:
+                continue
+            if reviewer and record.reviewer != reviewer:
+                continue
+            if draft_source_id and record.draft_source_id != draft_source_id:
+                continue
+            if reviewed_source_id and record.reviewed_source_id != reviewed_source_id:
+                continue
+            records.append(record)
+    records = sorted(records, key=lambda item: item.promoted_at, reverse=True)[: max(1, min(limit, 200))]
+    return AchievementRouteDraftSourcePromotionAuditList(
+        records=records,
+        filters={"reviewer": reviewer, "draft_source_id": draft_source_id, "reviewed_source_id": reviewed_source_id, "limit": limit},
+    )
+
+
+def render_achievement_route_draft_source_promotion_audit_markdown(
+    audit_list: AchievementRouteDraftSourcePromotionAuditList,
+) -> str:
+    lines = [
+        "# Achievement Route Draft Source Promotion Audit",
+        "",
+        f"- Records: {len(audit_list.records)}",
+        f"- Boundary: {audit_list.boundary}",
+        "",
+        "| Promoted At | Reviewer | Draft Source | Reviewed Source | Steps | Manifest Path |",
+        "| --- | --- | --- | --- | --- | --- |",
+    ]
+    for record in audit_list.records:
+        lines.append(
+            "| "
+            + " | ".join(
+                [
+                    record.promoted_at.isoformat(),
+                    record.reviewer,
+                    record.draft_source_id,
+                    record.reviewed_source_id,
+                    str(record.step_count),
+                    record.manifest_path,
+                ]
+            )
+            + " |"
+        )
+    if not audit_list.records:
+        lines.append("| none | none | none | none | none | none |")
+    return "\n".join(lines) + "\n"
+
+
+def render_achievement_route_draft_source_promotion_audit_csv(
+    audit_list: AchievementRouteDraftSourcePromotionAuditList,
+) -> str:
+    buffer = StringIO()
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow(
+        [
+            "event_id",
+            "promoted_at",
+            "reviewer",
+            "draft_source_id",
+            "reviewed_source_id",
+            "manifest_path",
+            "step_count",
+            "planner_ingestion_status",
+            "review_notes",
+            "evidence_refs",
+        ]
+    )
+    for record in audit_list.records:
+        writer.writerow(
+            [
+                record.event_id,
+                record.promoted_at.isoformat(),
+                record.reviewer,
+                record.draft_source_id,
+                record.reviewed_source_id,
+                record.manifest_path,
+                record.step_count,
+                record.planner_ingestion_status,
+                ";".join(record.review_notes),
+                ";".join(record.evidence_refs),
+            ]
+        )
+    return buffer.getvalue()
+
+
 def _build_segments(
     steps: list[AchievementRouteStep],
     ready: list[str],
@@ -3170,6 +3383,8 @@ def _route_source_edit_patch_operations(
     candidate: AchievementRouteBackfillCandidate,
     manifest: AchievementRouteSourceManifest | None,
 ) -> list[AchievementRouteSourceEditPatchOperation]:
+    if manifest is None and candidate.step_id is None:
+        return []
     operations: list[AchievementRouteSourceEditPatchOperation] = []
     step = None
     if manifest and candidate.step_id:

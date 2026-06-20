@@ -12,6 +12,7 @@ from gw2radar.commercial.achievement_route import (
     AchievementRouteReviewedPromotionRequest,
     AchievementRouteRemediationReviewRequest,
     AchievementRouteRequest,
+    AchievementRouteDraftSourcePromotionRequest,
     AchievementRouteSourceEditPatchApplyRequest,
     AchievementRouteSourceManifest,
     AchievementRouteStep,
@@ -30,8 +31,10 @@ from gw2radar.commercial.achievement_route import (
     build_achievement_route_plan,
     build_official_achievement_route_preview,
     apply_achievement_route_source_edit_patch_draft,
+    promote_draft_achievement_route_source_to_reviewed,
     list_achievement_route_promotion_audits,
     list_achievement_route_backfill_candidate_review_audits,
+    list_achievement_route_draft_source_promotion_audits,
     list_achievement_route_remediation_review_audits,
     list_achievement_route_source_edit_patch_apply_audits,
     load_reviewed_achievement_route_steps,
@@ -63,6 +66,8 @@ from gw2radar.commercial.achievement_route import (
     render_achievement_route_source_edit_patch_draft_markdown,
     render_achievement_route_source_edit_patch_apply_audit_csv,
     render_achievement_route_source_edit_patch_apply_audit_markdown,
+    render_achievement_route_draft_source_promotion_audit_csv,
+    render_achievement_route_draft_source_promotion_audit_markdown,
     render_achievement_route_source_quality_csv,
     render_achievement_route_source_quality_markdown,
     render_official_achievement_fetch_preview_markdown,
@@ -421,7 +426,7 @@ def test_achievement_route_operator_action_bundle_aggregates_and_records_review(
         candidates = build_achievement_route_backfill_candidates(temp_root, audit_root)
         candidates_markdown = render_achievement_route_backfill_candidates_markdown(candidates)
         candidates_csv = render_achievement_route_backfill_candidates_csv(candidates)
-        candidate_id = candidates.candidates[0].candidate_id
+        candidate_id = next(candidate.candidate_id for candidate in candidates.candidates if candidate.step_id)
         try:
             record_achievement_route_backfill_candidate_review(
                 AchievementRouteBackfillCandidateReviewRequest(
@@ -505,6 +510,39 @@ def test_achievement_route_operator_action_bundle_aggregates_and_records_review(
         )
         apply_audit_markdown = render_achievement_route_source_edit_patch_apply_audit_markdown(apply_audit)
         apply_audit_csv = render_achievement_route_source_edit_patch_apply_audit_csv(apply_audit)
+        try:
+            promote_draft_achievement_route_source_to_reviewed(
+                AchievementRouteDraftSourcePromotionRequest(
+                    draft_source_id=apply_record.output_source_id,
+                    reviewer="bundle_operator",
+                    confirmed_reviewed=False,
+                ),
+                temp_root,
+                audit_root,
+            )
+        except ValueError as exc:
+            assert "confirmed_reviewed" in str(exc)
+        else:
+            raise AssertionError("unconfirmed draft source promotion should fail")
+        draft_promotion = promote_draft_achievement_route_source_to_reviewed(
+            AchievementRouteDraftSourcePromotionRequest(
+                draft_source_id=apply_record.output_source_id,
+                reviewer="bundle_operator",
+                review_notes=["Promoted draft source manifest after patch apply review."],
+                evidence_refs=["operator-review:draft-source-promotion"],
+                overwrite_existing=True,
+                confirmed_reviewed=True,
+            ),
+            temp_root,
+            audit_root,
+        )
+        draft_promotion_audit = list_achievement_route_draft_source_promotion_audits(
+            audit_root,
+            reviewer="bundle_operator",
+        )
+        draft_promotion_markdown = render_achievement_route_draft_source_promotion_audit_markdown(draft_promotion_audit)
+        draft_promotion_csv = render_achievement_route_draft_source_promotion_audit_csv(draft_promotion_audit)
+        promoted_steps, promoted_summaries = load_reviewed_achievement_route_steps(temp_root)
 
         assert initial.schema_version == "gw2radar.achievement_route_operator_action_bundle.v1"
         assert initial.remediation_review is None
@@ -554,12 +592,23 @@ def test_achievement_route_operator_action_bundle_aggregates_and_records_review(
         assert apply_audit.records[0].draft_id == draft_id
         assert "# Achievement Route Source Edit Patch Apply Audit" in apply_audit_markdown
         assert "event_id,applied_at,reviewer,draft_id" in apply_audit_csv
+        assert draft_promotion.schema_version == "gw2radar.achievement_route_draft_source_promotion.v1"
+        assert draft_promotion.draft_source_id == apply_record.output_source_id
+        assert draft_promotion.reviewed_source_id.endswith(":reviewed")
+        assert draft_promotion.planner_ingestion_status == "ready"
+        assert draft_promotion_audit.schema_version == "gw2radar.achievement_route_draft_source_promotion_audit_list.v1"
+        assert draft_promotion_audit.records[0].draft_source_id == apply_record.output_source_id
+        assert "# Achievement Route Draft Source Promotion Audit" in draft_promotion_markdown
+        assert "event_id,promoted_at,reviewer,draft_source_id" in draft_promotion_csv
+        assert any(summary.source_id == draft_promotion.reviewed_source_id for summary in promoted_summaries)
+        assert any(step.source_id == draft_promotion.reviewed_source_id for step in promoted_steps)
         assert "secret-key" not in str(updated).lower()
         assert "secret-key" not in str(packet).lower()
         assert "secret-key" not in str(candidates).lower()
         assert "secret-key" not in str(candidate_audit).lower()
         assert "secret-key" not in str(patch_draft).lower()
         assert "secret-key" not in str(apply_audit).lower()
+        assert "secret-key" not in str(draft_promotion_audit).lower()
     finally:
         rmtree(temp_root, ignore_errors=True)
         rmtree(audit_root, ignore_errors=True)
@@ -803,7 +852,11 @@ def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
         backfill_candidates = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates")
         backfill_candidates_markdown = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates?format=markdown")
         backfill_candidates_csv = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates?format=csv")
-        backfill_candidate_id = backfill_candidates.json()["data"]["backfill_candidates"]["candidates"][0]["candidate_id"]
+        backfill_candidate_id = next(
+            candidate["candidate_id"]
+            for candidate in backfill_candidates.json()["data"]["backfill_candidates"]["candidates"]
+            if candidate.get("step_id")
+        )
         blocked_backfill_review = client.post(
             "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/review",
             json={
@@ -887,6 +940,35 @@ def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
         source_patch_apply_audit_csv = client.get(
             "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft/apply-audit?format=csv"
         )
+        draft_source_id = source_patch_apply.json()["data"]["source_edit_patch_apply"]["output_source_id"]
+        blocked_draft_promotion = client.post(
+            "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft/promote-draft-source",
+            json={
+                "draft_source_id": draft_source_id,
+                "reviewer": "api_review_operator",
+                "confirmed_reviewed": False,
+            },
+        )
+        draft_promotion = client.post(
+            "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft/promote-draft-source",
+            json={
+                "draft_source_id": draft_source_id,
+                "reviewer": "api_review_operator",
+                "review_notes": ["Promoted API draft source manifest after patch apply review."],
+                "evidence_refs": ["official:/v2/achievements?draft-source-promotion"],
+                "overwrite_existing": True,
+                "confirmed_reviewed": True,
+            },
+        )
+        draft_promotion_audit = client.get(
+            "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft/promote-draft-source-audit?reviewer=api_review_operator"
+        )
+        draft_promotion_audit_markdown = client.get(
+            "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft/promote-draft-source-audit?format=markdown"
+        )
+        draft_promotion_audit_csv = client.get(
+            "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft/promote-draft-source-audit?format=csv"
+        )
 
         assert blocked_review.status_code == 400
         assert review_action.status_code == 200
@@ -942,6 +1024,14 @@ def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
         assert source_patch_apply_audit.json()["data"]["source_edit_patch_apply_audit"]["records"][0]["draft_id"] == source_patch_draft_id
         assert "# Achievement Route Source Edit Patch Apply Audit" in source_patch_apply_audit_markdown.text
         assert "event_id,applied_at,reviewer,draft_id" in source_patch_apply_audit_csv.text
+        assert blocked_draft_promotion.status_code == 400
+        assert draft_promotion.status_code == 200
+        assert draft_promotion.json()["data"]["draft_source_promotion"]["draft_source_id"] == draft_source_id
+        assert draft_promotion.json()["data"]["draft_source_promotion"]["planner_ingestion_status"] == "ready"
+        assert draft_promotion_audit.status_code == 200
+        assert draft_promotion_audit.json()["data"]["draft_source_promotion_audit"]["records"][0]["draft_source_id"] == draft_source_id
+        assert "# Achievement Route Draft Source Promotion Audit" in draft_promotion_audit_markdown.text
+        assert "event_id,promoted_at,reviewer,draft_source_id" in draft_promotion_audit_csv.text
     finally:
         achievement_route_routes.gateway_factory = original_factory
         achievement_route_routes.source_root = original_source_root

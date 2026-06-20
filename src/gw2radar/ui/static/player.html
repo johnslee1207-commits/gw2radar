@@ -493,6 +493,9 @@ achievement_api_access</textarea>
                 <button data-action="applyAchievementRouteSourceEditPatchDraft">Apply source patch draft</button>
                 <button data-action="loadAchievementRouteSourceEditPatchApplyAudit">Load source patch audit</button>
                 <button data-action="exportAchievementRouteSourceEditPatchApplyAudit">Export source patch audit CSV</button>
+                <button data-action="promoteAchievementRouteDraftSource">Promote draft source</button>
+                <button data-action="loadAchievementRouteDraftSourcePromotionAudit">Load draft promotion audit</button>
+                <button data-action="exportAchievementRouteDraftSourcePromotionAudit">Export draft promotion CSV</button>
               </div>
             </article>
             <article class="panel">
@@ -512,6 +515,7 @@ achievement_api_access</textarea>
                 <div><dt>Backfill gate</dt><dd id="route-backfill-readiness-score">--</dd></div>
                 <div><dt>Source patch draft</dt><dd id="route-source-patch-draft-count">--</dd></div>
                 <div><dt>Source patch apply</dt><dd id="route-source-patch-apply-count">--</dd></div>
+                <div><dt>Draft promotion</dt><dd id="route-draft-source-promotion-count">--</dd></div>
               </dl>
               <p class="muted">Draft previews stay outside route planning until this reviewed gate writes a reviewed source manifest.</p>
             </article>

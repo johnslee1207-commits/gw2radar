@@ -103,6 +103,10 @@ It also verifies the P18 source edit patch apply gate:
 operators can apply a source edit patch draft into a new draft source manifest
 only after manual confirmation, with metadata-only audit export and no reviewed
 planner ingestion.
+It also verifies the P19 draft source promotion gate:
+draft source manifests produced by patch apply can be promoted to reviewed
+planner-ingestible manifests only after explicit reviewer confirmation, with
+metadata-only audit export.
 
 ## Account Connection Diagnostic Command
 
@@ -220,7 +224,9 @@ readiness rollup, and visible no-secret boundary copy.
 40. Export source edit patch draft as Markdown and CSV.
 41. Apply one source edit patch draft into a draft source manifest after manual confirmation.
 42. Export source edit patch apply audit as Markdown and CSV.
-43. Confirm the route planner ingests the promoted reviewed source.
+43. Promote one draft source manifest through the reviewed gate.
+44. Export draft source promotion audit as Markdown and CSV.
+45. Confirm the route planner ingests the promoted reviewed source.
 
 ## Account Connection Diagnostic Steps
 

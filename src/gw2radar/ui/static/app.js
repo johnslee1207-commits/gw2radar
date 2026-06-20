@@ -10,6 +10,7 @@ const state = {
   lastRouteRemediationItemId: "",
   lastRouteBackfillCandidateId: "",
   lastRouteSourcePatchDraftId: "",
+  lastRouteDraftSourceId: "",
 };
 
 const storageKeys = {
@@ -256,10 +257,18 @@ function summarizeResult(target, payload) {
       return `${data.source_edit_patch_draft.draft_count || 0} source edit patch drafts with ${data.source_edit_patch_draft.operation_count || 0} operations generated for manual review.`;
     }
     if (data?.source_edit_patch_apply) {
+      state.lastRouteDraftSourceId = data.source_edit_patch_apply.output_source_id || state.lastRouteDraftSourceId;
       return `Source patch draft ${data.source_edit_patch_apply.draft_id} applied to draft manifest ${data.source_edit_patch_apply.output_source_id}.`;
     }
     if (data?.source_edit_patch_apply_audit) {
       return `${data.source_edit_patch_apply_audit.records?.length || 0} source patch apply audit records loaded.`;
+    }
+    if (data?.draft_source_promotion) {
+      state.lastRoutePromotionSourceId = data.draft_source_promotion.reviewed_source_id || state.lastRoutePromotionSourceId;
+      return `Draft source ${data.draft_source_promotion.draft_source_id} promoted to reviewed source ${data.draft_source_promotion.reviewed_source_id}.`;
+    }
+    if (data?.draft_source_promotion_audit) {
+      return `${data.draft_source_promotion_audit.records?.length || 0} draft source promotion audit records loaded.`;
     }
     if (Array.isArray(data?.sources)) {
       return `${data.sources.length} route source manifests loaded with ${data.reviewed_step_count || 0} reviewed steps.`;
@@ -698,7 +707,8 @@ function renderRouteRemediationReadiness(readiness) {
 }
 
 function renderRouteBackfillCandidates(exportPayload) {
-  state.lastRouteBackfillCandidateId = exportPayload?.candidates?.[0]?.candidate_id || "";
+  const candidate = exportPayload?.candidates?.find((item) => item.step_id) || exportPayload?.candidates?.[0] || {};
+  state.lastRouteBackfillCandidateId = candidate.candidate_id || "";
   const count = typeof exportPayload?.candidate_count === "number" ? exportPayload.candidate_count : "--";
   document.querySelector("#route-backfill-count").textContent = String(count);
 }
@@ -722,6 +732,10 @@ function renderRouteSourceEditPatchDraft(exportPayload) {
 
 function renderRouteSourceEditPatchApplyAudit(audit) {
   document.querySelector("#route-source-patch-apply-count").textContent = String(audit?.records?.length || 0);
+}
+
+function renderRouteDraftSourcePromotionAudit(audit) {
+  document.querySelector("#route-draft-source-promotion-count").textContent = String(audit?.records?.length || 0);
 }
 
 function renderRouteOperatorActionBundle(bundle) {
@@ -1539,6 +1553,10 @@ const actions = {
       const reviewer = encodeURIComponent(document.querySelector("#route-reviewer").value.trim());
       const suffix = reviewer ? `?reviewer=${reviewer}` : "";
       const payload = await fetchJson(`/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft/apply-audit${suffix}`);
+      const latest = payload?.data?.source_edit_patch_apply_audit?.records?.[0];
+      if (latest?.output_source_id) {
+        state.lastRouteDraftSourceId = latest.output_source_id;
+      }
       renderRouteSourceEditPatchApplyAudit(payload?.data?.source_edit_patch_apply_audit || {});
       return payload;
     }),
@@ -1547,6 +1565,55 @@ const actions = {
       const reviewer = encodeURIComponent(document.querySelector("#route-reviewer").value.trim());
       const suffix = reviewer ? `&reviewer=${reviewer}` : "";
       return fetch(`/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft/apply-audit?format=csv${suffix}`, {
+        headers: { "Accept": "text/csv" },
+      }).then(async (response) => {
+        const text = await response.text();
+        if (!response.ok) {
+          throw new Error(text || `HTTP ${response.status}`);
+        }
+        return text;
+      });
+    }),
+  promoteAchievementRouteDraftSource: () =>
+    run("routes", async () => {
+      if (!state.lastRouteDraftSourceId) {
+        const reviewer = encodeURIComponent(document.querySelector("#route-reviewer").value.trim());
+        const suffix = reviewer ? `?reviewer=${reviewer}` : "";
+        const auditPayload = await fetchJson(`/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft/apply-audit${suffix}`);
+        const latest = auditPayload?.data?.source_edit_patch_apply_audit?.records?.[0];
+        if (latest?.output_source_id) {
+          state.lastRouteDraftSourceId = latest.output_source_id;
+        }
+        renderRouteSourceEditPatchApplyAudit(auditPayload?.data?.source_edit_patch_apply_audit || {});
+      }
+      if (!state.lastRouteDraftSourceId) {
+        throw new Error("No draft source manifest is available for promotion.");
+      }
+      return fetchJson("/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft/promote-draft-source", {
+        method: "POST",
+        body: JSON.stringify({
+          draft_source_id: state.lastRouteDraftSourceId,
+          reviewer: document.querySelector("#route-reviewer").value,
+          review_notes: [document.querySelector("#route-review-notes").value],
+          evidence_refs: ["/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft/apply-audit"],
+          overwrite_existing: true,
+          confirmed_reviewed: true,
+        }),
+      });
+    }),
+  loadAchievementRouteDraftSourcePromotionAudit: () =>
+    run("routes", async () => {
+      const reviewer = encodeURIComponent(document.querySelector("#route-reviewer").value.trim());
+      const suffix = reviewer ? `?reviewer=${reviewer}` : "";
+      const payload = await fetchJson(`/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft/promote-draft-source-audit${suffix}`);
+      renderRouteDraftSourcePromotionAudit(payload?.data?.draft_source_promotion_audit || {});
+      return payload;
+    }),
+  exportAchievementRouteDraftSourcePromotionAudit: () =>
+    run("routes", () => {
+      const reviewer = encodeURIComponent(document.querySelector("#route-reviewer").value.trim());
+      const suffix = reviewer ? `&reviewer=${reviewer}` : "";
+      return fetch(`/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft/promote-draft-source-audit?format=csv${suffix}`, {
         headers: { "Accept": "text/csv" },
       }).then(async (response) => {
         const text = await response.text();
