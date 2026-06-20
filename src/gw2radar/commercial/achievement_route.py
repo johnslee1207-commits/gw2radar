@@ -475,6 +475,52 @@ class AchievementRouteBackfillCandidateReadiness(BaseModel):
     boundary: str = "Backfill readiness is an operator review gate; it does not edit source manifests, enable rules, automate gameplay, or certify live game state."
 
 
+class AchievementRouteSourceEditPatchOperation(BaseModel):
+    operation_id: str
+    candidate_id: str
+    operation_type: Literal["add", "replace", "review"]
+    target_type: Literal["source_manifest", "route_step"]
+    source_id: str | None = None
+    step_id: str | None = None
+    field_path: str
+    current_value: Any | None = None
+    proposed_value: Any
+    rationale: str
+    evidence_refs: list[str] = Field(default_factory=list)
+    required_review: list[str] = Field(default_factory=list)
+
+
+class AchievementRouteSourceEditPatchDraft(BaseModel):
+    draft_id: str
+    candidate_id: str
+    item_id: str
+    priority: str
+    remediation_type: str
+    title: str
+    reviewer: str
+    reviewed_at: datetime
+    source_id: str | None = None
+    step_id: str | None = None
+    source_manifest_path: str | None = None
+    operations: list[AchievementRouteSourceEditPatchOperation]
+    evidence_refs: list[str] = Field(default_factory=list)
+    safety_boundary: str = "Patch draft is an operator review artifact only; it does not modify source manifests or promote reviewed guidance."
+
+
+class AchievementRouteSourceEditPatchDraftExport(BaseModel):
+    schema_version: str = "gw2radar.achievement_route_source_edit_patch_draft.v1"
+    generated_at: datetime
+    draft_count: int
+    operation_count: int
+    drafts: list[AchievementRouteSourceEditPatchDraft]
+    excluded_candidate_ids: list[str]
+    blockers: list[str]
+    warnings: list[str]
+    next_steps: list[str]
+    evidence_chain: list[str]
+    boundary: str = "Source edit patch drafts are deterministic review artifacts; operators must apply, review, and promote source manifests separately."
+
+
 class AchievementRouteGateway(Protocol):
     def get_batch(
         self,
@@ -2491,6 +2537,200 @@ def render_achievement_route_backfill_candidate_readiness_csv(
     return buffer.getvalue()
 
 
+def build_achievement_route_source_edit_patch_draft(
+    source_root: Path = ACHIEVEMENT_ROUTE_SOURCE_ROOT,
+    audit_root: Path = ACHIEVEMENT_ROUTE_AUDIT_ROOT,
+) -> AchievementRouteSourceEditPatchDraftExport:
+    export = build_achievement_route_backfill_candidates(source_root, audit_root)
+    audit = list_achievement_route_backfill_candidate_review_audits(audit_root, limit=200)
+    latest_by_candidate: dict[str, AchievementRouteBackfillCandidateReviewRecord] = {}
+    for record in sorted(audit.records, key=lambda item: item.occurred_at):
+        latest_by_candidate[record.candidate_id] = record
+
+    manifests = [
+        manifest
+        for manifest in load_achievement_route_source_manifests(source_root)
+        if isinstance(manifest, AchievementRouteSourceManifest) and manifest.source_status == "reviewed"
+    ]
+    manifest_by_source = {manifest.source_id: manifest for manifest in manifests}
+    drafts: list[AchievementRouteSourceEditPatchDraft] = []
+    excluded: list[str] = []
+    warnings: list[str] = []
+
+    for candidate in export.candidates:
+        review = latest_by_candidate.get(candidate.candidate_id)
+        if review is None or review.status != "resolved":
+            excluded.append(candidate.candidate_id)
+            continue
+        manifest = manifest_by_source.get(candidate.source_id or "")
+        if candidate.source_id and manifest is None:
+            warnings.append(f"Candidate {candidate.candidate_id} references source {candidate.source_id}, but no reviewed manifest was loaded.")
+        operations = _route_source_edit_patch_operations(candidate, manifest)
+        if not operations:
+            warnings.append(f"Candidate {candidate.candidate_id} did not produce concrete patch operations and needs manual source review.")
+            excluded.append(candidate.candidate_id)
+            continue
+        manifest_path = str(_reviewed_manifest_path(source_root, candidate.source_id)) if candidate.source_id else None
+        drafts.append(
+            AchievementRouteSourceEditPatchDraft(
+                draft_id=f"source-edit-patch:{_slug(candidate.candidate_id)}",
+                candidate_id=candidate.candidate_id,
+                item_id=candidate.item_id,
+                priority=candidate.priority,
+                remediation_type=candidate.remediation_type,
+                title=candidate.title,
+                reviewer=review.reviewer,
+                reviewed_at=review.occurred_at,
+                source_id=candidate.source_id,
+                step_id=candidate.step_id,
+                source_manifest_path=manifest_path,
+                operations=operations,
+                evidence_refs=_unique([*candidate.evidence_refs, *review.evidence_refs]),
+            )
+        )
+
+    blockers: list[str] = []
+    next_steps: list[str] = []
+    unresolved_count = len(export.candidates) - len(drafts)
+    if unresolved_count:
+        blockers.append(f"{unresolved_count} backfill candidates are not resolved and cannot become patch drafts.")
+        next_steps.append("Resolve candidate review gates before generating source edit patch drafts for every open remediation item.")
+    if drafts:
+        next_steps.append("Review generated patch operations, apply source manifest edits manually, then re-run source quality and promotion readiness.")
+    else:
+        next_steps.append("No source edit patch drafts are ready; continue candidate review before editing source manifests.")
+
+    operation_count = sum(len(draft.operations) for draft in drafts)
+    return AchievementRouteSourceEditPatchDraftExport(
+        generated_at=datetime.now(UTC),
+        draft_count=len(drafts),
+        operation_count=operation_count,
+        drafts=drafts,
+        excluded_candidate_ids=_unique(excluded),
+        blockers=blockers,
+        warnings=_unique(warnings),
+        next_steps=_unique(next_steps),
+        evidence_chain=[
+            "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates",
+            "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/review-audit",
+            "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft",
+        ],
+    )
+
+
+def render_achievement_route_source_edit_patch_draft_markdown(
+    export: AchievementRouteSourceEditPatchDraftExport,
+) -> str:
+    lines = [
+        "# Achievement Route Source Edit Patch Draft",
+        "",
+        f"- Drafts: {export.draft_count}",
+        f"- Operations: {export.operation_count}",
+        f"- Excluded candidates: {len(export.excluded_candidate_ids)}",
+        f"- Boundary: {export.boundary}",
+        "",
+        "## Drafts",
+    ]
+    for draft in export.drafts:
+        lines.extend(
+            [
+                f"### {draft.priority} {draft.title}",
+                f"- Draft: {draft.draft_id}",
+                f"- Candidate: {draft.candidate_id}",
+                f"- Type: {draft.remediation_type}",
+                f"- Reviewer: {draft.reviewer}",
+                f"- Source: {draft.source_id or 'n/a'}",
+                f"- Step: {draft.step_id or 'n/a'}",
+                f"- Manifest path: {draft.source_manifest_path or 'n/a'}",
+                f"- Boundary: {draft.safety_boundary}",
+                "",
+                "| Operation | Target | Field | Current | Proposed |",
+                "| --- | --- | --- | --- | --- |",
+            ]
+        )
+        for operation in draft.operations:
+            target = operation.source_id or "source"
+            if operation.step_id:
+                target = f"{target}/{operation.step_id}"
+            lines.append(
+                "| "
+                + " | ".join(
+                    [
+                        operation.operation_type,
+                        target,
+                        operation.field_path,
+                        json.dumps(operation.current_value, sort_keys=True) if operation.current_value is not None else "null",
+                        json.dumps(operation.proposed_value, sort_keys=True),
+                    ]
+                )
+                + " |"
+            )
+        lines.append("")
+    if not export.drafts:
+        lines.append("- None")
+    lines.extend(["", "## Blockers"])
+    lines.extend([f"- {item}" for item in export.blockers] or ["- None"])
+    lines.extend(["", "## Warnings"])
+    lines.extend([f"- {item}" for item in export.warnings] or ["- None"])
+    lines.extend(["", "## Next Steps"])
+    lines.extend([f"- {item}" for item in export.next_steps] or ["- None"])
+    lines.extend(["", "## Evidence Chain"])
+    lines.extend([f"- {item}" for item in export.evidence_chain])
+    return "\n".join(lines) + "\n"
+
+
+def render_achievement_route_source_edit_patch_draft_csv(
+    export: AchievementRouteSourceEditPatchDraftExport,
+) -> str:
+    buffer = StringIO()
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow(
+        [
+            "draft_id",
+            "candidate_id",
+            "item_id",
+            "priority",
+            "remediation_type",
+            "reviewer",
+            "source_id",
+            "step_id",
+            "manifest_path",
+            "operation_id",
+            "operation_type",
+            "target_type",
+            "field_path",
+            "current_value",
+            "proposed_value",
+            "required_review",
+            "evidence_refs",
+        ]
+    )
+    for draft in export.drafts:
+        for operation in draft.operations:
+            writer.writerow(
+                [
+                    draft.draft_id,
+                    draft.candidate_id,
+                    draft.item_id,
+                    draft.priority,
+                    draft.remediation_type,
+                    draft.reviewer,
+                    draft.source_id or "",
+                    draft.step_id or "",
+                    draft.source_manifest_path or "",
+                    operation.operation_id,
+                    operation.operation_type,
+                    operation.target_type,
+                    operation.field_path,
+                    json.dumps(operation.current_value, sort_keys=True) if operation.current_value is not None else "",
+                    json.dumps(operation.proposed_value, sort_keys=True),
+                    ";".join(operation.required_review),
+                    ";".join(operation.evidence_refs),
+                ]
+            )
+    return buffer.getvalue()
+
+
 def _build_segments(
     steps: list[AchievementRouteStep],
     ready: list[str],
@@ -2742,6 +2982,48 @@ def _route_backfill_candidate(item: AchievementRouteRemediationItem) -> Achievem
         required_review=_unique(required_review),
         evidence_refs=item.evidence_refs,
     )
+
+
+def _route_source_edit_patch_operations(
+    candidate: AchievementRouteBackfillCandidate,
+    manifest: AchievementRouteSourceManifest | None,
+) -> list[AchievementRouteSourceEditPatchOperation]:
+    operations: list[AchievementRouteSourceEditPatchOperation] = []
+    step = None
+    if manifest and candidate.step_id:
+        step = next((item for item in manifest.steps if item.step_id == candidate.step_id), None)
+    for field_name, proposed_value in candidate.suggested_fields.items():
+        target_type: Literal["source_manifest", "route_step"] = "route_step"
+        current_value: Any | None = None
+        operation_type: Literal["add", "replace", "review"] = "review"
+        if field_name in {"source_status", "source_refs", "steps"}:
+            target_type = "source_manifest"
+            current_value = getattr(manifest, field_name, None) if manifest else None
+        elif step is not None:
+            current_value = getattr(step, field_name, None)
+
+        if current_value in (None, "", [], {}):
+            operation_type = "add"
+        elif current_value != proposed_value:
+            operation_type = "replace"
+
+        operations.append(
+            AchievementRouteSourceEditPatchOperation(
+                operation_id=f"patch-op:{_slug(candidate.candidate_id)}:{_slug(field_name)}",
+                candidate_id=candidate.candidate_id,
+                operation_type=operation_type,
+                target_type=target_type,
+                source_id=candidate.source_id,
+                step_id=candidate.step_id if target_type == "route_step" else None,
+                field_path=f"steps[{candidate.step_id}].{field_name}" if target_type == "route_step" else field_name,
+                current_value=current_value,
+                proposed_value=proposed_value,
+                rationale=candidate.rationale,
+                evidence_refs=candidate.evidence_refs,
+                required_review=candidate.required_review,
+            )
+        )
+    return operations
 
 
 def _slug(value: str) -> str:

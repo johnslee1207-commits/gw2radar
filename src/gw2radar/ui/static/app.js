@@ -251,6 +251,9 @@ function summarizeResult(target, payload) {
     if (data?.backfill_candidate_readiness) {
       return `Backfill candidate readiness is ${data.backfill_candidate_readiness.maturity_label} at ${data.backfill_candidate_readiness.readiness_score}/100.`;
     }
+    if (data?.source_edit_patch_draft) {
+      return `${data.source_edit_patch_draft.draft_count || 0} source edit patch drafts with ${data.source_edit_patch_draft.operation_count || 0} operations generated for manual review.`;
+    }
     if (Array.isArray(data?.sources)) {
       return `${data.sources.length} route source manifests loaded with ${data.reviewed_step_count || 0} reviewed steps.`;
     }
@@ -701,6 +704,12 @@ function renderRouteBackfillCandidateReadiness(readiness) {
   const label = readiness?.maturity_label || "unknown";
   const score = typeof readiness?.readiness_score === "number" ? readiness.readiness_score : "--";
   document.querySelector("#route-backfill-readiness-score").textContent = `${label} ${score}/100`;
+}
+
+function renderRouteSourceEditPatchDraft(exportPayload) {
+  const drafts = typeof exportPayload?.draft_count === "number" ? exportPayload.draft_count : "--";
+  const operations = typeof exportPayload?.operation_count === "number" ? exportPayload.operation_count : "--";
+  document.querySelector("#route-source-patch-draft-count").textContent = `${drafts} drafts / ${operations} ops`;
 }
 
 function renderRouteOperatorActionBundle(bundle) {
@@ -1466,6 +1475,24 @@ const actions = {
   exportAchievementRouteBackfillCandidateReadiness: () =>
     run("routes", () =>
       fetch("/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/readiness?format=csv", {
+        headers: { "Accept": "text/csv" },
+      }).then(async (response) => {
+        const text = await response.text();
+        if (!response.ok) {
+          throw new Error(text || `HTTP ${response.status}`);
+        }
+        return text;
+      }),
+    ),
+  loadAchievementRouteSourceEditPatchDraft: () =>
+    run("routes", async () => {
+      const payload = await fetchJson("/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft");
+      renderRouteSourceEditPatchDraft(payload?.data?.source_edit_patch_draft || {});
+      return payload;
+    }),
+  exportAchievementRouteSourceEditPatchDraft: () =>
+    run("routes", () =>
+      fetch("/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft?format=csv", {
         headers: { "Accept": "text/csv" },
       }).then(async (response) => {
         const text = await response.text();

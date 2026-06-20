@@ -205,6 +205,7 @@ Operator review gate:
 - `Release packet`, `Export release packet CSV`, and `Export packet manifest` create a deterministic operator handoff artifact with readiness scores, blockers, warnings, source paths, API refs, and safety boundaries.
 - `Backfill candidates` and `Export backfill CSV` turn unresolved remediation items into draft source-edit suggestions with suggested fields, required review checks, and evidence refs.
 - `Review backfill candidate`, `Load backfill audit`, `Export backfill audit CSV`, `Backfill readiness`, and `Export backfill readiness CSV` let operators acknowledge, resolve, or defer draft source-edit candidates before any separate source manifest edit.
+- `Source patch draft` and `Export source patch CSV` turn resolved backfill candidates into deterministic patch operations for manual source manifest editing; they do not apply the edits automatically.
 
 Advanced operator flow:
 
@@ -225,6 +226,7 @@ Advanced operator flow:
 - `POST /api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/review` records a confirmed metadata-only candidate review action.
 - `GET /api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/review-audit` lists candidate review records and supports `format=markdown` or `format=csv`.
 - `GET /api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/readiness` summarizes candidate review state with `format=markdown` and `format=csv`.
+- `GET /api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft` exports resolved candidate patch operations with `format=markdown` or `format=csv`.
 - Draft previews are not used by the route planner until this reviewed promotion gate writes a `source_status=reviewed` manifest.
 
 ## Freshness And Confidence

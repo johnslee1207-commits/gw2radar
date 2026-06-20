@@ -23,6 +23,7 @@ from gw2radar.commercial.achievement_route import (
     build_achievement_route_operator_release_packet,
     build_achievement_route_remediation_queue,
     build_achievement_route_remediation_readiness,
+    build_achievement_route_source_edit_patch_draft,
     build_achievement_route_source_quality_review,
     build_official_achievement_fetch_preview,
     build_achievement_route_plan,
@@ -55,6 +56,8 @@ from gw2radar.commercial.achievement_route import (
     render_achievement_route_remediation_readiness_markdown,
     render_achievement_route_remediation_review_audit_csv,
     render_achievement_route_remediation_review_audit_markdown,
+    render_achievement_route_source_edit_patch_draft_csv,
+    render_achievement_route_source_edit_patch_draft_markdown,
     render_achievement_route_source_quality_csv,
     render_achievement_route_source_quality_markdown,
     render_official_achievement_fetch_preview_markdown,
@@ -450,6 +453,21 @@ def test_achievement_route_operator_action_bundle_aggregates_and_records_review(
         candidate_audit_csv = render_achievement_route_backfill_candidate_review_audit_csv(candidate_audit)
         candidate_readiness_markdown = render_achievement_route_backfill_candidate_readiness_markdown(candidate_readiness)
         candidate_readiness_csv = render_achievement_route_backfill_candidate_readiness_csv(candidate_readiness)
+        resolved_candidate_record = record_achievement_route_backfill_candidate_review(
+            AchievementRouteBackfillCandidateReviewRequest(
+                candidate_id=candidate_id,
+                status="resolved",
+                reviewer="bundle_operator",
+                notes=["Candidate fields are ready for a manual source edit patch draft."],
+                evidence_refs=["operator-review:source-edit-patch-draft"],
+                confirmed_manual_review=True,
+            ),
+            temp_root,
+            audit_root,
+        )
+        patch_draft = build_achievement_route_source_edit_patch_draft(temp_root, audit_root)
+        patch_markdown = render_achievement_route_source_edit_patch_draft_markdown(patch_draft)
+        patch_csv = render_achievement_route_source_edit_patch_draft_csv(patch_draft)
 
         assert initial.schema_version == "gw2radar.achievement_route_operator_action_bundle.v1"
         assert initial.remediation_review is None
@@ -482,10 +500,19 @@ def test_achievement_route_operator_action_bundle_aggregates_and_records_review(
         assert "candidate_id,item_id" in candidate_audit_csv
         assert "Achievement Route Backfill Candidate Readiness" in candidate_readiness_markdown
         assert "ready,maturity_label,readiness_score" in candidate_readiness_csv
+        assert resolved_candidate_record.status == "resolved"
+        assert patch_draft.schema_version == "gw2radar.achievement_route_source_edit_patch_draft.v1"
+        assert patch_draft.draft_count >= 1
+        assert patch_draft.operation_count >= 1
+        assert patch_draft.drafts[0].candidate_id == candidate_id
+        assert patch_draft.drafts[0].operations[0].required_review
+        assert "Achievement Route Source Edit Patch Draft" in patch_markdown
+        assert "draft_id,candidate_id,item_id" in patch_csv
         assert "secret-key" not in str(updated).lower()
         assert "secret-key" not in str(packet).lower()
         assert "secret-key" not in str(candidates).lower()
         assert "secret-key" not in str(candidate_audit).lower()
+        assert "secret-key" not in str(patch_draft).lower()
     finally:
         rmtree(temp_root, ignore_errors=True)
         rmtree(audit_root, ignore_errors=True)
@@ -765,6 +792,26 @@ def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
             "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/readiness?format=markdown"
         )
         backfill_readiness_csv = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/readiness?format=csv")
+        backfill_resolved_review = client.post(
+            "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/review",
+            json={
+                "candidate_id": backfill_candidate_id,
+                "status": "resolved",
+                "reviewer": "api_review_operator",
+                "notes": ["Resolved candidate is ready for source edit patch draft."],
+                "evidence_refs": ["official:/v2/achievements?source-edit-patch"],
+                "confirmed_manual_review": True,
+            },
+        )
+        source_patch_draft = client.get(
+            "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft"
+        )
+        source_patch_draft_markdown = client.get(
+            "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft?format=markdown"
+        )
+        source_patch_draft_csv = client.get(
+            "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft?format=csv"
+        )
 
         assert blocked_review.status_code == 400
         assert review_action.status_code == 200
@@ -805,6 +852,13 @@ def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
         assert backfill_readiness.json()["data"]["backfill_candidate_readiness"]["open_candidate_count"] >= 1
         assert "# Achievement Route Backfill Candidate Readiness" in backfill_readiness_markdown.text
         assert "ready,maturity_label,readiness_score" in backfill_readiness_csv.text
+        assert backfill_resolved_review.status_code == 200
+        assert backfill_resolved_review.json()["data"]["backfill_candidate_review"]["status"] == "resolved"
+        assert source_patch_draft.status_code == 200
+        assert source_patch_draft.json()["data"]["source_edit_patch_draft"]["draft_count"] >= 1
+        assert source_patch_draft.json()["data"]["source_edit_patch_draft"]["operation_count"] >= 1
+        assert "# Achievement Route Source Edit Patch Draft" in source_patch_draft_markdown.text
+        assert "draft_id,candidate_id,item_id" in source_patch_draft_csv.text
     finally:
         achievement_route_routes.gateway_factory = original_factory
         achievement_route_routes.source_root = original_source_root

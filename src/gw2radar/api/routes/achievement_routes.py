@@ -23,6 +23,7 @@ from gw2radar.commercial.achievement_route import (
     build_achievement_route_release_readiness,
     build_achievement_route_remediation_queue,
     build_achievement_route_remediation_readiness,
+    build_achievement_route_source_edit_patch_draft,
     build_achievement_route_source_quality_review,
     build_official_achievement_fetch_preview,
     build_achievement_route_plan,
@@ -57,6 +58,8 @@ from gw2radar.commercial.achievement_route import (
     render_achievement_route_remediation_readiness_markdown,
     render_achievement_route_remediation_review_audit_csv,
     render_achievement_route_remediation_review_audit_markdown,
+    render_achievement_route_source_edit_patch_draft_csv,
+    render_achievement_route_source_edit_patch_draft_markdown,
     render_achievement_route_source_quality_csv,
     render_achievement_route_source_quality_markdown,
     render_official_achievement_fetch_preview_markdown,
@@ -427,6 +430,24 @@ def get_achievement_route_backfill_candidate_readiness(
             media_type="text/csv; charset=utf-8",
         )
     return ApiDataEnvelope(data={"backfill_candidate_readiness": readiness.model_dump(mode="json")})
+
+
+@router.get("/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft", response_model=None)
+def get_achievement_route_source_edit_patch_draft(
+    format: str = Query(default="json", pattern="^(json|markdown|csv)$"),
+):
+    export = build_achievement_route_source_edit_patch_draft(source_root, audit_root)
+    if format == "markdown":
+        return Response(
+            content=render_achievement_route_source_edit_patch_draft_markdown(export),
+            media_type="text/markdown; charset=utf-8",
+        )
+    if format == "csv":
+        return Response(
+            content=render_achievement_route_source_edit_patch_draft_csv(export),
+            media_type="text/csv; charset=utf-8",
+        )
+    return ApiDataEnvelope(data={"source_edit_patch_draft": export.model_dump(mode="json")})
 
 
 @router.post("/plan/export")

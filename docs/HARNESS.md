@@ -95,6 +95,10 @@ It also verifies the P16 backfill candidate review gate:
 operators can mark draft backfill candidates acknowledged/resolved/deferred with
 manual confirmation, metadata-only audit records, Markdown / CSV audit exports,
 and a readiness rollup before any separate source manifest edit or promotion.
+It also verifies the P17 source edit patch draft:
+resolved backfill candidates become deterministic source-edit patch draft
+operations with current/proposed field context, Markdown / CSV export, and an
+explicit no-auto-edit boundary.
 
 ## Account Connection Diagnostic Command
 
@@ -208,7 +212,9 @@ readiness rollup, and visible no-secret boundary copy.
 36. Export backfill candidate audit as Markdown and CSV.
 37. Load backfill candidate readiness and confirm open candidate gate status.
 38. Export backfill candidate readiness as Markdown and CSV.
-39. Confirm the route planner ingests the promoted reviewed source.
+39. Resolve one backfill candidate and confirm source edit patch draft operations are generated.
+40. Export source edit patch draft as Markdown and CSV.
+41. Confirm the route planner ingests the promoted reviewed source.
 
 ## Account Connection Diagnostic Steps
 

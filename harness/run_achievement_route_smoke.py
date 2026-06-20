@@ -316,6 +316,31 @@ def main() -> int:
     backfill_readiness_csv = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/readiness?format=csv")
     if backfill_readiness_csv.status_code != 200 or "ready,maturity_label,readiness_score" not in backfill_readiness_csv.text:
         failures.append("achievement route backfill candidate readiness csv export failed")
+    backfill_resolved_review = client.post(
+        "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/review",
+        json={
+            "candidate_id": backfill_candidate_id,
+            "status": "resolved",
+            "reviewer": "smoke_operator",
+            "notes": ["Smoke resolved one backfill candidate for source edit patch draft generation."],
+            "evidence_refs": ["official:/v2/achievements?smoke-source-edit-patch"],
+            "confirmed_manual_review": True,
+        },
+    )
+    backfill_resolved_payload = _json_response(backfill_resolved_review, "achievement route resolved backfill candidate review", failures)
+    if ((((backfill_resolved_payload or {}).get("data") or {}).get("backfill_candidate_review") or {}).get("status")) != "resolved":
+        failures.append("achievement route resolved backfill candidate review did not persist resolved status")
+    source_patch_draft = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft")
+    source_patch_payload = _json_response(source_patch_draft, "achievement route source edit patch draft", failures)
+    source_patch = (((source_patch_payload or {}).get("data") or {}).get("source_edit_patch_draft") or {})
+    if source_patch.get("draft_count", 0) < 1 or source_patch.get("operation_count", 0) < 1:
+        failures.append("achievement route source edit patch draft did not expose resolved candidate operations")
+    source_patch_markdown = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft?format=markdown")
+    if source_patch_markdown.status_code != 200 or "# Achievement Route Source Edit Patch Draft" not in source_patch_markdown.text:
+        failures.append("achievement route source edit patch draft markdown export failed")
+    source_patch_csv = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft?format=csv")
+    if source_patch_csv.status_code != 200 or "draft_id,candidate_id,item_id" not in source_patch_csv.text:
+        failures.append("achievement route source edit patch draft csv export failed")
     promoted_sources = client.get("/api/v1/achievement-routes/sources")
     promoted_sources_payload = _json_response(promoted_sources, "promoted route sources", failures)
     promoted_reviewed_step_count = (((promoted_sources_payload or {}).get("data") or {}).get("reviewed_step_count") or 0)
