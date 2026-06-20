@@ -472,6 +472,46 @@ def main() -> int:
     )
     if release_evidence_archive_diff_csv.status_code != 200 or "baseline_archive_id,candidate_archive_id,ready" not in release_evidence_archive_diff_csv.text:
         failures.append("achievement route release evidence archive diff csv export failed")
+    blocked_release_signoff = client.post(
+        "/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/signoff",
+        json={
+            "reviewer": "smoke_operator",
+            "notes": ["Unconfirmed sign-off should fail."],
+            "confirmed_signoff": False,
+        },
+    )
+    if blocked_release_signoff.status_code != 400:
+        failures.append("achievement route release sign-off accepted an unconfirmed request")
+    release_signoff = client.post(
+        "/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/signoff",
+        json={
+            "reviewer": "smoke_operator",
+            "notes": ["Smoke release sign-off reviewed bundle, archive, and diff."],
+            "evidence_refs": ["smoke:release-signoff"],
+            "confirmed_signoff": True,
+        },
+    )
+    release_signoff_payload = _json_response(release_signoff, "achievement route release sign-off", failures)
+    release_signoff_record = (((release_signoff_payload or {}).get("data") or {}).get("release_signoff") or {})
+    if release_signoff_record.get("reviewer") != "smoke_operator" or release_signoff_record.get("regression_count") != 0:
+        failures.append("achievement route release sign-off did not expose reviewer and regression state")
+    release_signoff_audit = client.get(
+        "/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/signoff-audit?reviewer=smoke_operator"
+    )
+    release_signoff_audit_payload = _json_response(release_signoff_audit, "achievement route release sign-off audit", failures)
+    release_signoff_records = (((release_signoff_audit_payload or {}).get("data") or {}).get("release_signoff_audit") or {}).get("records", [])
+    if not release_signoff_records:
+        failures.append("achievement route release sign-off audit did not list sign-off records")
+    release_signoff_audit_markdown = client.get(
+        "/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/signoff-audit?format=markdown"
+    )
+    if release_signoff_audit_markdown.status_code != 200 or "# Achievement Route Release Sign-off Audit" not in release_signoff_audit_markdown.text:
+        failures.append("achievement route release sign-off audit markdown export failed")
+    release_signoff_audit_csv = client.get(
+        "/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/signoff-audit?format=csv"
+    )
+    if release_signoff_audit_csv.status_code != 200 or "signoff_id,signed_off_at,reviewer,status" not in release_signoff_audit_csv.text:
+        failures.append("achievement route release sign-off audit csv export failed")
     promoted_sources = client.get("/api/v1/achievement-routes/sources")
     promoted_sources_payload = _json_response(promoted_sources, "promoted route sources", failures)
     promoted_reviewed_step_count = (((promoted_sources_payload or {}).get("data") or {}).get("reviewed_step_count") or 0)

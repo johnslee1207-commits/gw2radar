@@ -119,6 +119,10 @@ It also verifies the P22 release evidence archive diff review:
 the latest two archived evidence records can be compared for checksum changes,
 source/artifact/evidence-chain deltas, blocker/warning regressions,
 improvements, next actions, and Markdown / CSV exports.
+It also verifies the P23 release sign-off gate:
+operators must explicitly confirm a metadata-only release sign-off after bundle,
+archive, and diff review; sign-off records and audit exports include reviewer,
+status, archive ids, diff ids, regressions, blockers, and safety boundaries.
 
 ## Account Connection Diagnostic Command
 
@@ -244,7 +248,9 @@ readiness rollup, and visible no-secret boundary copy.
 48. Export release evidence archive index as Markdown and CSV.
 49. Compare the latest two release evidence archives and confirm checksum-only changes do not create regressions.
 50. Export release evidence archive diff as Markdown and CSV.
-51. Confirm the route planner ingests the promoted reviewed source.
+51. Confirm unconfirmed release sign-off is rejected.
+52. Record confirmed release sign-off and export sign-off audit as Markdown and CSV.
+53. Confirm the route planner ingests the promoted reviewed source.
 
 ## Account Connection Diagnostic Steps
 

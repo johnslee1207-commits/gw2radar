@@ -282,6 +282,12 @@ function summarizeResult(target, payload) {
     if (data?.release_evidence_archive_diff) {
       return `Release evidence diff ${data.release_evidence_archive_diff.maturity_label}: ${data.release_evidence_archive_diff.regression_count} regressions, ${data.release_evidence_archive_diff.improvement_count} improvements.`;
     }
+    if (data?.release_signoff) {
+      return `Release sign-off ${data.release_signoff.status}: ${data.release_signoff.reviewer}, ${data.release_signoff.regression_count} regressions.`;
+    }
+    if (data?.release_signoff_audit) {
+      return `${data.release_signoff_audit.records?.length || 0} release sign-off audit records loaded.`;
+    }
     if (Array.isArray(data?.sources)) {
       return `${data.sources.length} route source manifests loaded with ${data.reviewed_step_count || 0} reviewed steps.`;
     }
@@ -769,6 +775,14 @@ function renderRouteReleaseEvidenceArchiveDiff(diff) {
   const regressions = typeof diff?.regression_count === "number" ? diff.regression_count : "--";
   const improvements = typeof diff?.improvement_count === "number" ? diff.improvement_count : "--";
   document.querySelector("#route-release-evidence-diff-count").textContent = `${label} / ${regressions} regressions / ${improvements} improvements`;
+}
+
+function renderRouteReleaseSignoff(recordOrAudit) {
+  const records = Array.isArray(recordOrAudit?.records) ? recordOrAudit.records : null;
+  const latest = records ? records[0] : recordOrAudit;
+  const count = records ? records.length : latest?.signoff_id ? 1 : 0;
+  const status = latest?.status || "unknown";
+  document.querySelector("#route-release-signoff-count").textContent = `${status} / ${count} records`;
 }
 
 function renderRouteOperatorActionBundle(bundle) {
@@ -1732,6 +1746,44 @@ const actions = {
         return text;
       }),
     ),
+  signoffAchievementRouteRelease: () =>
+    run("routes", async () => {
+      const reviewer = document.querySelector("#route-reviewer").value.trim() || "local_operator";
+      const notes = document.querySelector("#route-review-notes").value.trim();
+      const payload = await fetchJson("/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/signoff", {
+        method: "POST",
+        body: JSON.stringify({
+          reviewer,
+          notes: notes ? [notes] : ["Player UI release sign-off review."],
+          evidence_refs: ["/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/archive/diff"],
+          confirmed_signoff: true,
+        }),
+      });
+      renderRouteReleaseSignoff(payload?.data?.release_signoff || {});
+      return payload;
+    }),
+  loadAchievementRouteReleaseSignoffAudit: () =>
+    run("routes", async () => {
+      const reviewer = encodeURIComponent(document.querySelector("#route-reviewer").value.trim());
+      const suffix = reviewer ? `?reviewer=${reviewer}` : "";
+      const payload = await fetchJson(`/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/signoff-audit${suffix}`);
+      renderRouteReleaseSignoff(payload?.data?.release_signoff_audit || {});
+      return payload;
+    }),
+  exportAchievementRouteReleaseSignoffAudit: () =>
+    run("routes", () => {
+      const reviewer = encodeURIComponent(document.querySelector("#route-reviewer").value.trim());
+      const suffix = reviewer ? `&reviewer=${reviewer}` : "";
+      return fetch(`/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/signoff-audit?format=csv${suffix}`, {
+        headers: { "Accept": "text/csv" },
+      }).then(async (response) => {
+        const text = await response.text();
+        if (!response.ok) {
+          throw new Error(text || `HTTP ${response.status}`);
+        }
+        return text;
+      });
+    }),
   importBuild: () =>
     run("build", async () => {
       const payload = await fetchJson("/api/v1/builds/import", {

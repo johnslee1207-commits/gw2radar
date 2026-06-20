@@ -14,6 +14,7 @@ from gw2radar.commercial.achievement_route import (
     AchievementRouteRemediationReviewRequest,
     AchievementRouteRequest,
     AchievementRouteDraftSourcePromotionRequest,
+    AchievementRouteReleaseSignoffRequest,
     AchievementRouteSourceEditPatchApplyRequest,
     OfficialAccountAchievementProgress,
     OfficialAchievementFetchPreviewRequest,
@@ -39,6 +40,7 @@ from gw2radar.commercial.achievement_route import (
     list_achievement_route_backfill_candidate_review_audits,
     list_achievement_route_draft_source_promotion_audits,
     list_achievement_route_release_evidence_archives,
+    list_achievement_route_release_signoff_audits,
     list_achievement_route_remediation_review_audits,
     list_achievement_route_source_edit_patch_apply_audits,
     load_reviewed_achievement_route_steps,
@@ -46,6 +48,7 @@ from gw2radar.commercial.achievement_route import (
     record_achievement_route_promotion_audit,
     record_achievement_route_backfill_candidate_review,
     record_achievement_route_remediation_review,
+    record_achievement_route_release_signoff,
     render_achievement_route_csv,
     render_achievement_route_backfill_candidate_readiness_csv,
     render_achievement_route_backfill_candidate_readiness_markdown,
@@ -66,6 +69,8 @@ from gw2radar.commercial.achievement_route import (
     render_achievement_route_release_evidence_archive_diff_csv,
     render_achievement_route_release_evidence_archive_diff_markdown,
     render_achievement_route_release_evidence_archive_markdown,
+    render_achievement_route_release_signoff_audit_csv,
+    render_achievement_route_release_signoff_audit_markdown,
     render_achievement_route_remediation_queue_csv,
     render_achievement_route_remediation_queue_markdown,
     render_achievement_route_remediation_readiness_csv,
@@ -464,6 +469,41 @@ def get_achievement_route_release_evidence_archive_diff(
             media_type="text/csv; charset=utf-8",
         )
     return ApiDataEnvelope(data={"release_evidence_archive_diff": diff.model_dump(mode="json")})
+
+
+@router.post("/source-quality/remediation-queue/release-evidence-bundle/signoff", response_model=None)
+def post_achievement_route_release_signoff(request: AchievementRouteReleaseSignoffRequest):
+    try:
+        record = record_achievement_route_release_signoff(request, source_root, audit_root)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return ApiDataEnvelope(data={"release_signoff": record.model_dump(mode="json")})
+
+
+@router.get("/source-quality/remediation-queue/release-evidence-bundle/signoff-audit", response_model=None)
+def get_achievement_route_release_signoff_audit(
+    reviewer: str | None = None,
+    status: str | None = Query(default=None, pattern="^(signed_off|blocked)$"),
+    limit: int = Query(default=25, ge=1, le=200),
+    format: str = Query(default="json", pattern="^(json|markdown|csv)$"),
+):
+    audit = list_achievement_route_release_signoff_audits(
+        audit_root,
+        reviewer=reviewer,
+        status=status,
+        limit=limit,
+    )
+    if format == "markdown":
+        return Response(
+            content=render_achievement_route_release_signoff_audit_markdown(audit),
+            media_type="text/markdown; charset=utf-8",
+        )
+    if format == "csv":
+        return Response(
+            content=render_achievement_route_release_signoff_audit_csv(audit),
+            media_type="text/csv; charset=utf-8",
+        )
+    return ApiDataEnvelope(data={"release_signoff_audit": audit.model_dump(mode="json")})
 
 
 @router.get("/source-quality/remediation-queue/backfill-candidates", response_model=None)

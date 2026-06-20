@@ -677,6 +677,44 @@ class AchievementRouteReleaseEvidenceArchiveDiff(BaseModel):
     boundary: str = "Release evidence archive diff is metadata-only; it does not publish, edit source manifests, certify live game state, or inspect private account payloads."
 
 
+class AchievementRouteReleaseSignoffRequest(BaseModel):
+    reviewer: str = Field(min_length=2)
+    notes: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    confirmed_signoff: bool = False
+
+
+class AchievementRouteReleaseSignoffRecord(BaseModel):
+    schema_version: str = "gw2radar.achievement_route_release_signoff.v1"
+    signoff_id: str
+    signed_off_at: datetime
+    reviewer: str
+    status: Literal["signed_off", "blocked"]
+    bundle_id: str
+    archive_id: str | None = None
+    diff_baseline_archive_id: str | None = None
+    diff_candidate_archive_id: str | None = None
+    bundle_maturity: str
+    archive_maturity: str | None = None
+    diff_maturity: str
+    regression_count: int
+    blocker_count: int
+    warning_count: int
+    checksum_changed: bool
+    notes: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    blockers: list[str] = Field(default_factory=list)
+    next_actions: list[str] = Field(default_factory=list)
+    safety_boundary: str = "Release sign-off is metadata-only; it records reviewer confirmation and does not publish content, edit source manifests, automate gameplay, or store secrets."
+
+
+class AchievementRouteReleaseSignoffAuditList(BaseModel):
+    schema_version: str = "gw2radar.achievement_route_release_signoff_audit_list.v1"
+    records: list[AchievementRouteReleaseSignoffRecord]
+    filters: dict[str, str | int | None]
+    boundary: str = "Release sign-off audit exports are metadata-only and must not contain raw API keys or private account payloads."
+
+
 class AchievementRouteGateway(Protocol):
     def get_batch(
         self,
@@ -2789,6 +2827,167 @@ def render_achievement_route_release_evidence_archive_diff_csv(
             diff.warning_delta,
         ]
     )
+    return buffer.getvalue()
+
+
+def record_achievement_route_release_signoff(
+    request: AchievementRouteReleaseSignoffRequest,
+    source_root: Path = ACHIEVEMENT_ROUTE_SOURCE_ROOT,
+    audit_root: Path = ACHIEVEMENT_ROUTE_AUDIT_ROOT,
+) -> AchievementRouteReleaseSignoffRecord:
+    if not request.confirmed_signoff:
+        raise ValueError("confirmed_signoff must be true before recording release sign-off.")
+    bundle = build_achievement_route_unified_release_evidence_bundle(source_root, audit_root)
+    archive_index = list_achievement_route_release_evidence_archives(audit_root, limit=1)
+    latest_archive = archive_index.records[0] if archive_index.records else None
+    diff = build_achievement_route_release_evidence_archive_diff(audit_root)
+    blockers: list[str] = []
+    if latest_archive is None:
+        blockers.append("No release evidence archive exists for sign-off.")
+    if diff.baseline_archive_id is None or diff.candidate_archive_id is None:
+        blockers.append("Release evidence archive diff requires at least two archived records.")
+    if diff.regression_count > 0:
+        blockers.extend(diff.regressions)
+    if bundle.maturity_label == "blocked":
+        blockers.append("Unified release evidence bundle is blocked.")
+    signed_off_at = datetime.now(UTC)
+    status: Literal["signed_off", "blocked"] = "blocked" if blockers else "signed_off"
+    record = AchievementRouteReleaseSignoffRecord(
+        signoff_id=f"achievement-route-release-signoff:{signed_off_at.strftime('%Y%m%dT%H%M%S%fZ')}:{_safe_identifier(request.reviewer)}",
+        signed_off_at=signed_off_at,
+        reviewer=request.reviewer,
+        status=status,
+        bundle_id=bundle.bundle_id,
+        archive_id=latest_archive.archive_id if latest_archive else None,
+        diff_baseline_archive_id=diff.baseline_archive_id,
+        diff_candidate_archive_id=diff.candidate_archive_id,
+        bundle_maturity=bundle.maturity_label,
+        archive_maturity=latest_archive.maturity_label if latest_archive else None,
+        diff_maturity=diff.maturity_label,
+        regression_count=diff.regression_count,
+        blocker_count=bundle.blocker_count,
+        warning_count=bundle.warning_count,
+        checksum_changed=diff.checksum_changed,
+        notes=request.notes or ["Human reviewer confirmed release evidence sign-off gate."],
+        evidence_refs=_unique(
+            [
+                *request.evidence_refs,
+                "/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle",
+                "/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/archive",
+                "/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/archive/diff",
+            ]
+        ),
+        blockers=_unique(blockers),
+        next_actions=_unique(
+            blockers
+            or [
+                "Release evidence sign-off recorded; continue external release process manually.",
+                "Keep archived evidence and diff exports with the release packet.",
+            ]
+        ),
+    )
+    audit_root.mkdir(parents=True, exist_ok=True)
+    path = audit_root / "release_signoff_audit.jsonl"
+    with path.open("a", encoding="utf-8", newline="\n") as handle:
+        handle.write(record.model_dump_json() + "\n")
+    return record
+
+
+def list_achievement_route_release_signoff_audits(
+    audit_root: Path = ACHIEVEMENT_ROUTE_AUDIT_ROOT,
+    *,
+    reviewer: str | None = None,
+    status: str | None = None,
+    limit: int = 25,
+) -> AchievementRouteReleaseSignoffAuditList:
+    path = audit_root / "release_signoff_audit.jsonl"
+    records: list[AchievementRouteReleaseSignoffRecord] = []
+    if path.exists():
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            try:
+                record = AchievementRouteReleaseSignoffRecord.model_validate_json(line)
+            except ValidationError:
+                continue
+            if reviewer and record.reviewer != reviewer:
+                continue
+            if status and record.status != status:
+                continue
+            records.append(record)
+    records = sorted(records, key=lambda item: item.signed_off_at, reverse=True)[: max(1, min(limit, 200))]
+    return AchievementRouteReleaseSignoffAuditList(
+        records=records,
+        filters={"reviewer": reviewer, "status": status, "limit": limit},
+    )
+
+
+def render_achievement_route_release_signoff_audit_markdown(
+    audit: AchievementRouteReleaseSignoffAuditList,
+) -> str:
+    lines = [
+        "# Achievement Route Release Sign-off Audit",
+        "",
+        f"- Records: {len(audit.records)}",
+        f"- Boundary: {audit.boundary}",
+        "",
+        "## Records",
+    ]
+    if not audit.records:
+        lines.append("- None")
+    for record in audit.records:
+        lines.extend(
+            [
+                f"- Sign-off: {record.signoff_id}",
+                f"  - Status: {record.status}",
+                f"  - Reviewer: {record.reviewer}",
+                f"  - Bundle: {record.bundle_id}",
+                f"  - Archive: {record.archive_id or 'None'}",
+                f"  - Diff: {record.diff_baseline_archive_id or 'None'} -> {record.diff_candidate_archive_id or 'None'}",
+                f"  - Regressions: {record.regression_count}",
+            ]
+        )
+    return "\n".join(lines) + "\n"
+
+
+def render_achievement_route_release_signoff_audit_csv(
+    audit: AchievementRouteReleaseSignoffAuditList,
+) -> str:
+    buffer = StringIO()
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow(
+        [
+            "signoff_id",
+            "signed_off_at",
+            "reviewer",
+            "status",
+            "bundle_id",
+            "archive_id",
+            "diff_baseline_archive_id",
+            "diff_candidate_archive_id",
+            "regression_count",
+            "blocker_count",
+            "warning_count",
+            "checksum_changed",
+        ]
+    )
+    for record in audit.records:
+        writer.writerow(
+            [
+                record.signoff_id,
+                record.signed_off_at.isoformat(),
+                record.reviewer,
+                record.status,
+                record.bundle_id,
+                record.archive_id or "",
+                record.diff_baseline_archive_id or "",
+                record.diff_candidate_archive_id or "",
+                record.regression_count,
+                record.blocker_count,
+                record.warning_count,
+                record.checksum_changed,
+            ]
+        )
     return buffer.getvalue()
 
 
