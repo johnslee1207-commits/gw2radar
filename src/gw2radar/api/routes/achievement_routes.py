@@ -26,6 +26,7 @@ from gw2radar.commercial.achievement_route import (
     build_achievement_route_operator_release_packet,
     build_achievement_route_operator_release_dashboard,
     build_achievement_route_release_readiness,
+    build_achievement_route_release_export_packet,
     build_achievement_route_release_evidence_archive_diff,
     build_achievement_route_remediation_queue,
     build_achievement_route_remediation_readiness,
@@ -72,6 +73,8 @@ from gw2radar.commercial.achievement_route import (
     render_achievement_route_release_evidence_archive_diff_csv,
     render_achievement_route_release_evidence_archive_diff_markdown,
     render_achievement_route_release_evidence_archive_markdown,
+    render_achievement_route_release_export_packet_csv,
+    render_achievement_route_release_export_packet_markdown,
     render_achievement_route_release_signoff_audit_csv,
     render_achievement_route_release_signoff_audit_markdown,
     render_achievement_route_remediation_queue_csv,
@@ -525,6 +528,29 @@ def get_achievement_route_operator_release_dashboard(
             media_type="text/csv; charset=utf-8",
         )
     return ApiDataEnvelope(data={"operator_release_dashboard": dashboard.model_dump(mode="json")})
+
+
+@router.get("/source-quality/remediation-queue/release-export-packet", response_model=None)
+def get_achievement_route_release_export_packet(
+    format: str = Query(default="json", pattern="^(json|markdown|csv|manifest)$"),
+):
+    packet = build_achievement_route_release_export_packet(source_root, audit_root)
+    if format == "markdown":
+        return Response(
+            content=render_achievement_route_release_export_packet_markdown(packet),
+            media_type="text/markdown; charset=utf-8",
+        )
+    if format == "csv":
+        return Response(
+            content=render_achievement_route_release_export_packet_csv(packet),
+            media_type="text/csv; charset=utf-8",
+        )
+    if format == "manifest":
+        return Response(
+            content=json.dumps(packet.manifest, indent=2),
+            media_type="application/json; charset=utf-8",
+        )
+    return ApiDataEnvelope(data={"release_export_packet": packet.model_dump(mode="json")})
 
 
 @router.get("/source-quality/remediation-queue/backfill-candidates", response_model=None)

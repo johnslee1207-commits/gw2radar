@@ -525,6 +525,20 @@ def main() -> int:
     release_dashboard_csv = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-dashboard?format=csv")
     if release_dashboard_csv.status_code != 200 or "ready,maturity_label,bundle_id" not in release_dashboard_csv.text:
         failures.append("achievement route operator release dashboard csv export failed")
+    release_export_packet = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet")
+    release_export_packet_payload = _json_response(release_export_packet, "achievement route release export packet", failures)
+    release_export_packet_data = (((release_export_packet_payload or {}).get("data") or {}).get("release_export_packet") or {})
+    if release_export_packet_data.get("artifact_count", 0) < 8 or not release_export_packet_data.get("manifest"):
+        failures.append("achievement route release export packet did not expose artifact manifest")
+    release_export_packet_markdown = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet?format=markdown")
+    if release_export_packet_markdown.status_code != 200 or "# Achievement Route Release Export Packet" not in release_export_packet_markdown.text:
+        failures.append("achievement route release export packet markdown export failed")
+    release_export_packet_csv = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet?format=csv")
+    if release_export_packet_csv.status_code != 200 or "packet_id,ready,maturity_label" not in release_export_packet_csv.text:
+        failures.append("achievement route release export packet csv export failed")
+    release_export_packet_manifest = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet?format=manifest")
+    if release_export_packet_manifest.status_code != 200 or release_export_packet_manifest.json().get("packet_schema") != "gw2radar.achievement_route_release_export_packet.v1":
+        failures.append("achievement route release export packet manifest export failed")
     promoted_sources = client.get("/api/v1/achievement-routes/sources")
     promoted_sources_payload = _json_response(promoted_sources, "promoted route sources", failures)
     promoted_reviewed_step_count = (((promoted_sources_payload or {}).get("data") or {}).get("reviewed_step_count") or 0)

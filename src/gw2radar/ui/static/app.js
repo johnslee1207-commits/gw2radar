@@ -291,6 +291,9 @@ function summarizeResult(target, payload) {
     if (data?.operator_release_dashboard) {
       return `Release dashboard ${data.operator_release_dashboard.maturity_label}: ${data.operator_release_dashboard.blockers?.length || 0} blockers, ${data.operator_release_dashboard.missing_gates?.length || 0} missing gates.`;
     }
+    if (data?.release_export_packet) {
+      return `Release export packet ${data.release_export_packet.maturity_label}: ${data.release_export_packet.artifact_count} artifacts.`;
+    }
     if (Array.isArray(data?.sources)) {
       return `${data.sources.length} route source manifests loaded with ${data.reviewed_step_count || 0} reviewed steps.`;
     }
@@ -793,6 +796,12 @@ function renderRouteOperatorReleaseDashboard(dashboard) {
   const blockers = Array.isArray(dashboard?.blockers) ? dashboard.blockers.length : "--";
   const missing = Array.isArray(dashboard?.missing_gates) ? dashboard.missing_gates.length : "--";
   document.querySelector("#route-release-dashboard-count").textContent = `${label} / ${blockers} blockers / ${missing} missing`;
+}
+
+function renderRouteReleaseExportPacket(packet) {
+  const label = packet?.maturity_label || "unknown";
+  const artifacts = typeof packet?.artifact_count === "number" ? packet.artifact_count : "--";
+  document.querySelector("#route-release-export-packet-count").textContent = `${label} / ${artifacts} artifacts`;
 }
 
 function renderRouteOperatorActionBundle(bundle) {
@@ -1810,6 +1819,36 @@ const actions = {
           throw new Error(text || `HTTP ${response.status}`);
         }
         return text;
+      }),
+    ),
+  loadAchievementRouteReleaseExportPacket: () =>
+    run("routes", async () => {
+      const payload = await fetchJson("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet");
+      renderRouteReleaseExportPacket(payload?.data?.release_export_packet || {});
+      return payload;
+    }),
+  exportAchievementRouteReleaseExportPacket: () =>
+    run("routes", () =>
+      fetch("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet?format=csv", {
+        headers: { "Accept": "text/csv" },
+      }).then(async (response) => {
+        const text = await response.text();
+        if (!response.ok) {
+          throw new Error(text || `HTTP ${response.status}`);
+        }
+        return text;
+      }),
+    ),
+  exportAchievementRouteReleaseExportPacketManifest: () =>
+    run("routes", () =>
+      fetch("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet?format=manifest", {
+        headers: { "Accept": "application/json" },
+      }).then(async (response) => {
+        const text = await response.text();
+        if (!response.ok) {
+          throw new Error(text || `HTTP ${response.status}`);
+        }
+        return JSON.parse(text);
       }),
     ),
   importBuild: () =>

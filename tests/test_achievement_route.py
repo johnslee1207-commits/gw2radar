@@ -23,6 +23,7 @@ from gw2radar.commercial.achievement_route import (
     build_achievement_route_backfill_candidates,
     build_achievement_route_backfill_candidate_readiness,
     build_achievement_route_release_evidence_archive_diff,
+    build_achievement_route_release_export_packet,
     build_achievement_route_release_readiness,
     build_achievement_route_operator_action_bundle,
     build_achievement_route_operator_release_dashboard,
@@ -70,6 +71,8 @@ from gw2radar.commercial.achievement_route import (
     render_achievement_route_release_evidence_archive_diff_csv,
     render_achievement_route_release_evidence_archive_diff_markdown,
     render_achievement_route_release_evidence_archive_markdown,
+    render_achievement_route_release_export_packet_csv,
+    render_achievement_route_release_export_packet_markdown,
     render_achievement_route_release_signoff_audit_csv,
     render_achievement_route_release_signoff_audit_markdown,
     render_achievement_route_remediation_queue_csv,
@@ -612,6 +615,9 @@ def test_achievement_route_operator_action_bundle_aggregates_and_records_review(
         release_dashboard = build_achievement_route_operator_release_dashboard(temp_root, audit_root)
         release_dashboard_markdown = render_achievement_route_operator_release_dashboard_markdown(release_dashboard)
         release_dashboard_csv = render_achievement_route_operator_release_dashboard_csv(release_dashboard)
+        release_export_packet = build_achievement_route_release_export_packet(temp_root, audit_root)
+        release_export_packet_markdown = render_achievement_route_release_export_packet_markdown(release_export_packet)
+        release_export_packet_csv = render_achievement_route_release_export_packet_csv(release_export_packet)
 
         assert initial.schema_version == "gw2radar.achievement_route_operator_action_bundle.v1"
         assert initial.remediation_review is None
@@ -714,6 +720,15 @@ def test_achievement_route_operator_action_bundle_aggregates_and_records_review(
         assert release_dashboard.latest_signoff_id == signoff_record.signoff_id
         assert "Achievement Route Operator Release Dashboard" in release_dashboard_markdown
         assert "ready,maturity_label,bundle_id" in release_dashboard_csv
+        assert release_export_packet.schema_version == "gw2radar.achievement_route_release_export_packet.v1"
+        assert release_export_packet.dashboard_schema == release_dashboard.schema_version
+        assert release_export_packet.bundle_id == release_dashboard.bundle_id
+        assert release_export_packet.latest_archive_id == release_dashboard.latest_archive_id
+        assert release_export_packet.latest_signoff_id == signoff_record.signoff_id
+        assert "release_export_packet_manifest.json" in release_export_packet.artifacts
+        assert release_export_packet.manifest["packet_schema"] == release_export_packet.schema_version
+        assert "Achievement Route Release Export Packet" in release_export_packet_markdown
+        assert "packet_id,ready,maturity_label" in release_export_packet_csv
         assert "secret-key" not in str(updated).lower()
         assert "secret-key" not in str(packet).lower()
         assert "secret-key" not in str(candidates).lower()
@@ -726,6 +741,7 @@ def test_achievement_route_operator_action_bundle_aggregates_and_records_review(
         assert "secret-key" not in str(archive_diff).lower()
         assert "secret-key" not in str(signoff_audit).lower()
         assert "secret-key" not in str(release_dashboard).lower()
+        assert "secret-key" not in str(release_export_packet).lower()
     finally:
         rmtree(temp_root, ignore_errors=True)
         rmtree(audit_root, ignore_errors=True)
@@ -1143,6 +1159,10 @@ def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
         release_dashboard = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-dashboard")
         release_dashboard_markdown = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-dashboard?format=markdown")
         release_dashboard_csv = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-dashboard?format=csv")
+        release_export_packet = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet")
+        release_export_packet_markdown = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet?format=markdown")
+        release_export_packet_csv = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet?format=csv")
+        release_export_packet_manifest = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet?format=manifest")
 
         assert blocked_review.status_code == 400
         assert review_action.status_code == 200
@@ -1240,6 +1260,12 @@ def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
         assert release_dashboard.json()["data"]["operator_release_dashboard"]["latest_signoff_reviewer"] == "api_review_operator"
         assert "# Achievement Route Operator Release Dashboard" in release_dashboard_markdown.text
         assert "ready,maturity_label,bundle_id" in release_dashboard_csv.text
+        assert release_export_packet.status_code == 200
+        assert release_export_packet.json()["data"]["release_export_packet"]["artifact_count"] >= 8
+        assert release_export_packet.json()["data"]["release_export_packet"]["latest_signoff_status"] in {"signed_off", "blocked"}
+        assert "# Achievement Route Release Export Packet" in release_export_packet_markdown.text
+        assert "packet_id,ready,maturity_label" in release_export_packet_csv.text
+        assert release_export_packet_manifest.json()["packet_schema"] == "gw2radar.achievement_route_release_export_packet.v1"
     finally:
         achievement_route_routes.gateway_factory = original_factory
         achievement_route_routes.source_root = original_source_root

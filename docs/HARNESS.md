@@ -127,6 +127,10 @@ It also verifies the P24 operator release dashboard:
 bundle, archive, archive diff, and sign-off state are aggregated into one
 read-only release dashboard with missing gates, blockers, warnings, next
 actions, and Markdown / CSV exports.
+It also verifies the P25 release export packet:
+the dashboard, bundle, archive, diff, and sign-off audit schemas are packaged
+into a final metadata-only release export packet with manifest, Markdown, and
+CSV exports.
 
 ## Account Connection Diagnostic Command
 
@@ -256,7 +260,9 @@ readiness rollup, and visible no-secret boundary copy.
 52. Record confirmed release sign-off and export sign-off audit as Markdown and CSV.
 53. Load the operator release dashboard and confirm bundle, archive, diff, and sign-off state are summarized.
 54. Export operator release dashboard as Markdown and CSV.
-55. Confirm the route planner ingests the promoted reviewed source.
+55. Load the release export packet and confirm artifact manifest metadata.
+56. Export release export packet as Markdown, CSV, and manifest JSON.
+57. Confirm the route planner ingests the promoted reviewed source.
 
 ## Account Connection Diagnostic Steps
 

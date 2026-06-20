@@ -741,6 +741,31 @@ class AchievementRouteOperatorReleaseDashboard(BaseModel):
     boundary: str = "Operator release dashboard is a read-only metadata summary; it does not publish content, edit source manifests, automate gameplay, or store secrets."
 
 
+class AchievementRouteReleaseExportPacket(BaseModel):
+    schema_version: str = "gw2radar.achievement_route_release_export_packet.v1"
+    packet_id: str
+    generated_at: datetime
+    ready: bool
+    maturity_label: Literal["blocked", "review_needed", "ready"]
+    dashboard_schema: str
+    bundle_schema: str
+    archive_index_schema: str
+    diff_schema: str
+    signoff_audit_schema: str
+    bundle_id: str
+    latest_archive_id: str | None = None
+    diff_baseline_archive_id: str | None = None
+    diff_candidate_archive_id: str | None = None
+    latest_signoff_id: str | None = None
+    latest_signoff_status: str | None = None
+    artifact_count: int
+    artifacts: list[str]
+    evidence_refs: list[str]
+    manifest: dict[str, Any]
+    dashboard: AchievementRouteOperatorReleaseDashboard
+    boundary: str = "Release export packet is a metadata-only final handoff artifact; it does not publish content, edit source manifests, automate gameplay, store secrets, or certify live game state."
+
+
 class AchievementRouteGateway(Protocol):
     def get_batch(
         self,
@@ -3160,6 +3185,138 @@ def render_achievement_route_operator_release_dashboard_csv(
             len(dashboard.missing_gates),
             len(dashboard.blockers),
             len(dashboard.warnings),
+        ]
+    )
+    return buffer.getvalue()
+
+
+def build_achievement_route_release_export_packet(
+    source_root: Path = ACHIEVEMENT_ROUTE_SOURCE_ROOT,
+    audit_root: Path = ACHIEVEMENT_ROUTE_AUDIT_ROOT,
+) -> AchievementRouteReleaseExportPacket:
+    dashboard = build_achievement_route_operator_release_dashboard(source_root, audit_root)
+    generated_at = datetime.now(UTC)
+    artifacts = [
+        "release_export_packet_manifest.json",
+        "release_export_packet.md",
+        "release_export_packet.csv",
+        "operator_release_dashboard.md",
+        "unified_release_evidence_bundle.md",
+        "release_evidence_archive.csv",
+        "release_evidence_archive_diff.csv",
+        "release_signoff_audit.csv",
+    ]
+    manifest = {
+        "packet_schema": "gw2radar.achievement_route_release_export_packet.v1",
+        "generated_at": generated_at.isoformat(),
+        "ready": dashboard.ready,
+        "maturity_label": dashboard.maturity_label,
+        "bundle_id": dashboard.bundle_id,
+        "latest_archive_id": dashboard.latest_archive_id,
+        "latest_signoff_id": dashboard.latest_signoff_id,
+        "artifacts": artifacts,
+        "source_paths": [
+            "docs/knowledge_base/achievement_routes/*.json",
+            "data/achievement_route_audit/release_evidence_archive.jsonl",
+            "data/achievement_route_audit/release_signoff_audit.jsonl",
+        ],
+        "api_refs": [
+            *dashboard.evidence_refs,
+            "/api/v1/achievement-routes/source-quality/remediation-queue/release-dashboard",
+            "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet",
+        ],
+        "safety_boundaries": [
+            "No raw API keys or private account payloads are included.",
+            "No source manifests are edited by this packet.",
+            "No gameplay, trading, publishing, or deployment action is automated.",
+            "This packet is an operator handoff artifact, not a live game-state certificate.",
+        ],
+    }
+    return AchievementRouteReleaseExportPacket(
+        packet_id=f"achievement-route-release-export:{generated_at.strftime('%Y%m%dT%H%M%S%fZ')}",
+        generated_at=generated_at,
+        ready=dashboard.ready,
+        maturity_label=dashboard.maturity_label,
+        dashboard_schema=dashboard.schema_version,
+        bundle_schema=dashboard.release_evidence_bundle.schema_version,
+        archive_index_schema=dashboard.release_evidence_archive_index.schema_version,
+        diff_schema=dashboard.release_evidence_archive_diff.schema_version,
+        signoff_audit_schema=dashboard.release_signoff_audit.schema_version,
+        bundle_id=dashboard.bundle_id,
+        latest_archive_id=dashboard.latest_archive_id,
+        diff_baseline_archive_id=dashboard.release_evidence_archive_diff.baseline_archive_id,
+        diff_candidate_archive_id=dashboard.release_evidence_archive_diff.candidate_archive_id,
+        latest_signoff_id=dashboard.latest_signoff_id,
+        latest_signoff_status=dashboard.latest_signoff_status,
+        artifact_count=len(artifacts),
+        artifacts=artifacts,
+        evidence_refs=_unique(manifest["api_refs"]),
+        manifest=manifest,
+        dashboard=dashboard,
+    )
+
+
+def render_achievement_route_release_export_packet_markdown(
+    packet: AchievementRouteReleaseExportPacket,
+) -> str:
+    lines = [
+        "# Achievement Route Release Export Packet",
+        "",
+        f"- Packet: {packet.packet_id}",
+        f"- Ready: {packet.ready}",
+        f"- Maturity: {packet.maturity_label}",
+        f"- Bundle: {packet.bundle_id}",
+        f"- Latest archive: {packet.latest_archive_id or 'None'}",
+        f"- Diff: {packet.diff_baseline_archive_id or 'None'} -> {packet.diff_candidate_archive_id or 'None'}",
+        f"- Latest sign-off: {packet.latest_signoff_status or 'None'}",
+        f"- Artifacts: {packet.artifact_count}",
+        f"- Boundary: {packet.boundary}",
+        "",
+        "## Artifacts",
+    ]
+    lines.extend([f"- {item}" for item in packet.artifacts])
+    lines.extend(["", "## Dashboard Blockers"])
+    lines.extend([f"- {item}" for item in packet.dashboard.blockers] or ["- None"])
+    lines.extend(["", "## Dashboard Warnings"])
+    lines.extend([f"- {item}" for item in packet.dashboard.warnings] or ["- None"])
+    lines.extend(["", "## Evidence Refs"])
+    lines.extend([f"- {item}" for item in packet.evidence_refs])
+    return "\n".join(lines) + "\n"
+
+
+def render_achievement_route_release_export_packet_csv(
+    packet: AchievementRouteReleaseExportPacket,
+) -> str:
+    buffer = StringIO()
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow(
+        [
+            "packet_id",
+            "ready",
+            "maturity_label",
+            "bundle_id",
+            "latest_archive_id",
+            "diff_baseline_archive_id",
+            "diff_candidate_archive_id",
+            "latest_signoff_status",
+            "artifact_count",
+            "dashboard_blocker_count",
+            "dashboard_warning_count",
+        ]
+    )
+    writer.writerow(
+        [
+            packet.packet_id,
+            packet.ready,
+            packet.maturity_label,
+            packet.bundle_id,
+            packet.latest_archive_id or "",
+            packet.diff_baseline_archive_id or "",
+            packet.diff_candidate_archive_id or "",
+            packet.latest_signoff_status or "",
+            packet.artifact_count,
+            len(packet.dashboard.blockers),
+            len(packet.dashboard.warnings),
         ]
     )
     return buffer.getvalue()
