@@ -25,6 +25,19 @@ ACCOUNT_SYNC_ENDPOINTS = (
     "/v2/account/wallet",
     "/v2/account/materials",
     "/v2/account/bank",
+    "/v2/account/inventory",
+    "/v2/account/achievements",
+    "/v2/commerce/transactions/current/buys",
+    "/v2/commerce/transactions/current/sells",
+)
+
+REQUIRED_ACCOUNT_SYNC_ENDPOINTS = (
+    "/v2/account",
+    "/v2/characters",
+    "/v2/account/wallet",
+    "/v2/account/materials",
+    "/v2/account/bank",
+    "/v2/account/inventory",
     "/v2/account/achievements",
 )
 
@@ -34,7 +47,10 @@ ENDPOINT_LABELS = {
     "/v2/account/wallet": "Wallet currencies",
     "/v2/account/materials": "Materials",
     "/v2/account/bank": "Bank",
+    "/v2/account/inventory": "Shared inventory",
     "/v2/account/achievements": "Achievements",
+    "/v2/commerce/transactions/current/buys": "Trading post buy orders",
+    "/v2/commerce/transactions/current/sells": "Trading post sell orders",
 }
 
 
@@ -48,7 +64,7 @@ class AccountSyncCoordinator:
     def enqueue_sync(self) -> dict:
         api_key = self._require_api_key()
         tokeninfo = self.gateway._fetch_tokeninfo(api_key, request_id="account-sync:tokeninfo")
-        for endpoint in ACCOUNT_SYNC_ENDPOINTS:
+        for endpoint in REQUIRED_ACCOUNT_SYNC_ENDPOINTS:
             validate_endpoint_permissions(endpoint, tokeninfo)
 
         repo = RefreshQueueRepository(self.session)

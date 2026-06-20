@@ -58,7 +58,7 @@ class ApiKeyPermissionReport(BaseModel):
 
 
 REQUIRED_PERMISSIONS = ["account", "characters", "inventories", "wallet", "progression"]
-OPTIONAL_PERMISSIONS = ["unlocks", "builds"]
+OPTIONAL_PERMISSIONS = ["unlocks", "builds", "tradingpost"]
 
 FEATURE_REQUIREMENTS = {
     "returner_diagnosis": {

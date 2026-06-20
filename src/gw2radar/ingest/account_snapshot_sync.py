@@ -15,8 +15,11 @@ def sync_account_snapshot(graph: GraphData, gateway: Gw2ApiGateway, *, api_key: 
     wallet = gateway.get("/v2/account/wallet", api_key=api_key, priority="P1")
     materials = gateway.get("/v2/account/materials", api_key=api_key, priority="P1")
     bank = gateway.get("/v2/account/bank", api_key=api_key, priority="P1")
+    shared_inventory = gateway.get("/v2/account/inventory", api_key=api_key, priority="P1")
     achievements = gateway.get("/v2/account/achievements", api_key=api_key, priority="P1")
-    results = [account, characters, wallet, materials, bank, achievements]
+    tradingpost_buys = gateway.get("/v2/commerce/transactions/current/buys", api_key=api_key, priority="P2")
+    tradingpost_sells = gateway.get("/v2/commerce/transactions/current/sells", api_key=api_key, priority="P2")
+    results = [account, characters, wallet, materials, bank, shared_inventory, achievements]
     if any(result.status != GatewayStatus.OK for result in results):
         return {"status": "refresh_pending", "updated_player_state": 0}
 
@@ -58,7 +61,28 @@ def sync_account_snapshot(graph: GraphData, gateway: Gw2ApiGateway, *, api_key: 
             continue
         entity_id = f"gw2:item:{entry['id']}"
         _ensure_entity(graph, entity_id, EntityType.ITEM, f"Item {entry['id']}")
-        _add_private_state(graph, account_id, entity_id, float(entry.get("count", 0)), "bank")
+        _add_private_state(
+            graph,
+            account_id,
+            entity_id,
+            float(entry.get("count", 0)),
+            "bank",
+            properties={"binding": entry.get("binding")},
+        )
+        count += 1
+    for slot_index, entry in enumerate(shared_inventory.payload):
+        if entry is None:
+            continue
+        entity_id = f"gw2:item:{entry['id']}"
+        _ensure_entity(graph, entity_id, EntityType.ITEM, f"Item {entry['id']}")
+        _add_private_state(
+            graph,
+            account_id,
+            entity_id,
+            float(entry.get("count", 0)),
+            f"shared_inventory:{slot_index}",
+            properties={"binding": entry.get("binding")},
+        )
         count += 1
     for entry in achievements.payload:
         entity_id = f"gw2:achievement:{entry['id']}"
@@ -67,6 +91,10 @@ def sync_account_snapshot(graph: GraphData, gateway: Gw2ApiGateway, *, api_key: 
         max_value = float(entry.get("max", 1) or 1)
         _add_private_state(graph, account_id, entity_id, current / max_value, "achievements")
         count += 1
+    if tradingpost_buys.status == GatewayStatus.OK:
+        count += _add_tradingpost_orders(graph, account_id, tradingpost_buys.payload, "tradingpost_buy")
+    if tradingpost_sells.status == GatewayStatus.OK:
+        count += _add_tradingpost_orders(graph, account_id, tradingpost_sells.payload, "tradingpost_sell")
     return {"status": "synced", "account_id": account_id, "updated_player_state": count}
 
 
@@ -98,10 +126,11 @@ def _add_private_state(
     entity_id: str,
     quantity: float,
     location: str,
+    properties: dict | None = None,
 ) -> None:
     graph.add_player_state(
         PlayerState(
-            id=f"state:{account_id}:{entity_id}",
+            id=f"state:{account_id}:{entity_id}:{_safe_state_id(location)}",
             account_id=account_id,
             entity_id=entity_id,
             graph_layer=GraphLayer.PRIVATE_PLAYER_STATE,
@@ -118,7 +147,7 @@ def _add_private_state(
                 predicate=RelationType.OWNED_BY,
                 object_id=entity_id,
                 graph_layer=GraphLayer.PRIVATE_PLAYER_STATE,
-                properties={"quantity": quantity, "location": location},
+                properties={"quantity": quantity, "location": location, **(properties or {})},
             )
         )
 
@@ -130,6 +159,35 @@ def _fetch_character_detail(gateway: Gw2ApiGateway, character_name: str, api_key
     except Exception:
         return None
     return result.payload if result.status == GatewayStatus.OK and isinstance(result.payload, dict) else None
+
+
+def _add_tradingpost_orders(graph: GraphData, account_id: str, orders: list | None, location: str) -> int:
+    count = 0
+    if not isinstance(orders, list):
+        return count
+    for index, order in enumerate(orders):
+        if not isinstance(order, dict):
+            continue
+        item_id = order.get("item_id")
+        quantity = float(order.get("quantity", 0) or 0)
+        if item_id is None or quantity <= 0:
+            continue
+        entity_id = f"gw2:item:{item_id}"
+        _ensure_entity(graph, entity_id, EntityType.ITEM, f"Item {item_id}")
+        _add_private_state(
+            graph,
+            account_id,
+            entity_id,
+            quantity,
+            f"{location}:{index}",
+            properties={"price": order.get("price")},
+        )
+        count += 1
+    return count
+
+
+def _safe_state_id(value: str) -> str:
+    return "".join(ch.lower() if ch.isalnum() else "_" for ch in value).strip("_") or "unknown"
 
 
 def _character_properties(detail: dict, equipment_metadata: dict[str, dict[int, dict]]) -> dict:

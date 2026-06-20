@@ -55,7 +55,10 @@ class DiagnosticAccountGateway:
         "/v2/account/wallet": [{"id": 1, "value": 420000}],
         "/v2/account/materials": [{"id": 19721, "count": 7}],
         "/v2/account/bank": [{"id": 19722, "count": 2}],
+        "/v2/account/inventory": [{"id": 19723, "count": 3}],
         "/v2/account/achievements": [{"id": 999, "current": 1, "max": 1}],
+        "/v2/commerce/transactions/current/buys": [{"item_id": 19724, "quantity": 4, "price": 1200}],
+        "/v2/commerce/transactions/current/sells": [{"item_id": 19725, "quantity": 5, "price": 1500}],
     }
 
     def _fetch_tokeninfo(self, api_key: str, *, request_id: str) -> dict:
@@ -63,7 +66,7 @@ class DiagnosticAccountGateway:
             raise AssertionError(f"API key was not normalized before tokeninfo: {api_key!r}")
         return {
             "name": "Diagnostic Test Key",
-            "permissions": ["account", "characters", "inventories", "progression", "wallet", "builds"],
+            "permissions": ["account", "characters", "inventories", "progression", "wallet", "builds", "tradingpost"],
         }
 
     def get(self, endpoint: str, *, params=None, api_key=None, priority: str = "P3") -> GatewayResult:
@@ -145,13 +148,14 @@ def main() -> int:
         _add(checks, "key status is configured without raw key leakage", status.status_code == 200 and status.json().get("is_configured") is True, status.text)
         _add(checks, "permission inspection is ready", permissions.status_code == 200 and permissions.json().get("limited_mode") is False and permissions.json().get("missing_required_permissions") == [], permissions.text)
         _add(checks, "permission inspection explains value analysis readiness", permissions.status_code == 200 and permissions.json().get("value_analysis_readiness", {}).get("status") in {"ready", "limited"} and permissions.json().get("unlocked_analysis_modules"), permissions.text)
-        _add(checks, "account sync queues endpoint-level work", enqueue.status_code == 200 and enqueue.json().get("status") == "queued" and len(enqueue.json().get("endpoint_progress", [])) == 6, enqueue.text)
+        _add(checks, "account sync queues endpoint-level work", enqueue.status_code == 200 and enqueue.json().get("status") == "queued" and len(enqueue.json().get("endpoint_progress", [])) == 9, enqueue.text)
         _add(checks, "queued sync status is visible", queued_status.status_code == 200 and queued_status.json().get("counts", {}).get("queued") == 1, queued_status.text)
         _add(checks, "drain-one succeeds and writes player state", drained.status_code == 200 and drained.json().get("status") == "succeeded" and drained.json().get("updated_player_state", 0) >= 5, drained.text)
         _add(checks, "manual price snapshot records account value evidence", price_snapshot.status_code == 200 and price_snapshot.json().get("data", {}).get("snapshot", {}).get("item_id") == "gw2:item:19721", price_snapshot.text)
         _add(checks, "post-drain status exposes succeeded endpoints", synced_status.status_code == 200 and synced_status.json().get("counts", {}).get("succeeded") == 1, synced_status.text)
         _add(checks, "read-only API diagnostic reports ready lifecycle", api_diagnostic.status_code == 200 and api_diagnostic.json().get("summary_status") == "ready" and {check.get("status") for check in api_diagnostic.json().get("checks", [])} == {"pass"}, api_diagnostic.text)
-        _add(checks, "private account holding index summarizes synced state", account_holdings.status_code == 200 and account_holdings.json().get("data", {}).get("account_holding_index", {}).get("holding_count", 0) >= 5 and account_holdings.json().get("data", {}).get("account_holding_index", {}).get("location_counts", {}).get("wallet") == 1, account_holdings.text)
+        holding_counts = account_holdings.json().get("data", {}).get("account_holding_index", {}).get("location_counts", {}) if account_holdings.status_code == 200 else {}
+        _add(checks, "private account holding index summarizes synced state", account_holdings.status_code == 200 and account_holdings.json().get("data", {}).get("account_holding_index", {}).get("holding_count", 0) >= 8 and holding_counts.get("wallet") == 1 and holding_counts.get("shared_inventory") == 1 and holding_counts.get("tradingpost_buy") == 1 and holding_counts.get("tradingpost_sell") == 1, account_holdings.text)
         _add(checks, "account value snapshot reports conservative totals", account_value.status_code == 200 and account_value.json().get("data", {}).get("account_value_snapshot", {}).get("summary", {}).get("total_value_buy_copper", 0) >= 420000 and account_value.json().get("data", {}).get("account_value_snapshot", {}).get("summary", {}).get("unpriced_holding_count", 0) >= 1, account_value.text)
         _add(checks, "private graph layer contains synced account", "gw2:account:Diagnostic.1234" in graph.entities and graph.entities["gw2:account:Diagnostic.1234"].graph_layer is GraphLayer.PRIVATE_PLAYER_STATE, "missing private account entity")
         _add(checks, "Build Fit sees synced character snapshot before manual fallback", snapshots.status_code == 200 and snapshot_payload and snapshot_payload[0].get("source") == "synced_official_api", snapshots.text)

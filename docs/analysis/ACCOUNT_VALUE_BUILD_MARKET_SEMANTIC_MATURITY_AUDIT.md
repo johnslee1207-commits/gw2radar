@@ -44,6 +44,8 @@ flowchart TD
 | Build Fit value context | Implemented | transition plan value context, reserved/unpriced/account-bound notes |
 | Paid report artifact manifest | Implemented | `account_value_snapshot` metadata in report manifest |
 | Official commerce price refresh | Implemented | `/api/v1/market/snapshots/official-refresh`, `official_commerce_api` snapshots |
+| Shared inventory holdings | Implemented | `/v2/account/inventory` account sync writes `shared_inventory` private holdings |
+| Trading-post order holdings | Implemented | Current buy/sell orders sync into `tradingpost_buy` and `tradingpost_sell` holdings when `tradingpost` permission is available |
 
 ## Safety Boundaries
 
@@ -80,24 +82,22 @@ Latest targeted verification covered:
 
 ## Remaining Gaps
 
-1. Shared inventory and trading-post order holdings are represented in the
-   semantic model but still depend on sync-layer endpoint expansion.
-2. Official commerce price refresh now exists for numeric item ids derived from
+1. Official commerce price refresh now exists for numeric item ids derived from
    account holdings. Symbolic mock ids remain intentionally skipped because they
    are not official `/v2/commerce/prices` ids.
-3. Value dashboard is text/list based. Richer charts can be added later, but the
+2. Value dashboard is text/list based. Richer charts can be added later, but the
    current MVP intentionally favors deterministic, testable output.
-4. Build Fit value context is account-level. Slot-to-item price mapping should
+3. Build Fit value context is account-level. Slot-to-item price mapping should
    be refined when build requirements include official item ids.
-5. Report manifests include summary metadata. Full per-holding report exports
+4. Report manifests include summary metadata. Full per-holding report exports
    should remain opt-in and privacy-gated.
 
 ## Next Priority
 
-Proceed to holding depth expansion:
+Proceed to value dashboard remediation depth:
 
-1. add shared inventory and trading-post order endpoints to account sync;
-2. expose endpoint-level coverage gaps in the value dashboard;
+1. expose endpoint-level coverage gaps in the value dashboard;
+2. add one-click official price refresh controls to the Player Dashboard;
 3. refine Build Fit requirements with official item ids where available;
 4. keep per-holding report exports opt-in and privacy-gated;
 5. preserve the manual-planning and no-auto-trading boundary.

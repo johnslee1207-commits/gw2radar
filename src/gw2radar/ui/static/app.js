@@ -727,7 +727,10 @@ function renderSyncProgress(progress) {
     "/v2/account/wallet": "sync-wallet",
     "/v2/account/materials": "sync-materials",
     "/v2/account/bank": "sync-bank",
+    "/v2/account/inventory": "sync-shared-inventory",
     "/v2/account/achievements": "sync-achievements",
+    "/v2/commerce/transactions/current/buys": "sync-tradingpost-buys",
+    "/v2/commerce/transactions/current/sells": "sync-tradingpost-sells",
   };
   for (const item of progress) {
     const element = document.querySelector(`#${idByEndpoint[item.endpoint]}`);

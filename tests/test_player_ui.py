@@ -40,6 +40,9 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert "Delete all private data" in response.text
     assert "Check permissions" in response.text
     assert "Sync now" in response.text
+    assert "Shared inventory" in response.text
+    assert "TP buys" in response.text
+    assert "TP sells" in response.text
     assert "Permission status not checked." in response.text
     assert "Run connection diagnostic" in response.text
     assert "Export debug bundle" in response.text
@@ -186,6 +189,9 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "downloadJson" in js.text
     assert "focus_api_key_input" in js.text
     assert "renderSyncProgress" in js.text
+    assert "/v2/account/inventory" in js.text
+    assert "/v2/commerce/transactions/current/buys" in js.text
+    assert "/v2/commerce/transactions/current/sells" in js.text
     assert "renderFreshnessAnnotations" in js.text
     assert "gw2radar.api_key_permissions.v1" in js.text
     assert "gw2radar.account_connection_diagnostic.v1" in js.text

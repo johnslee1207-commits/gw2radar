@@ -38,13 +38,16 @@ class AccountSyncGateway:
         "/v2/account/wallet": [{"id": 1, "value": 42}],
         "/v2/account/materials": [{"id": 19721, "count": 7}],
         "/v2/account/bank": [{"id": 19722, "count": 2}],
+        "/v2/account/inventory": [{"id": 19723, "count": 3}],
         "/v2/account/achievements": [{"id": 999, "current": 1, "max": 1}],
+        "/v2/commerce/transactions/current/buys": [{"item_id": 19724, "quantity": 4, "price": 1200}],
+        "/v2/commerce/transactions/current/sells": [{"item_id": 19725, "quantity": 5, "price": 1500}],
     }
 
     def _fetch_tokeninfo(self, api_key, *, request_id):
         return {
             "name": "Unit Test",
-            "permissions": ["account", "characters", "wallet", "inventories", "progression"],
+            "permissions": ["account", "characters", "wallet", "inventories", "progression", "tradingpost"],
         }
 
     def get(self, endpoint, *, params=None, api_key=None, priority="P3"):
@@ -102,11 +105,11 @@ def test_account_sync_enqueue_status_and_no_key_leakage() -> None:
         assert response.status_code == 200
         assert response.json()["status"] == "queued"
         assert response.json()["task_type"] == "account_snapshot_sync"
-        assert len(response.json()["endpoint_progress"]) == 6
+        assert len(response.json()["endpoint_progress"]) == 9
         assert {item["status"] for item in response.json()["endpoint_progress"]} == {"queued"}
         assert raw_key not in str(response.json())
         assert status.json()["counts"]["queued"] == 1
-        assert len(status.json()["endpoint_progress"]) == 6
+        assert len(status.json()["endpoint_progress"]) == 9
         assert raw_key not in str(status.json())
     finally:
         _teardown_temp_api(temp_dir, original_factory)
@@ -154,7 +157,7 @@ def test_account_sync_drain_one_persists_private_layer_snapshot() -> None:
         assert queued.status_code == 200
         assert drained.status_code == 200
         assert drained.json()["status"] == "succeeded"
-        assert drained.json()["updated_player_state"] == 5
+        assert drained.json()["updated_player_state"] == 8
         assert {item["status"] for item in drained.json()["endpoint_progress"]} == {"succeeded"}
         assert status.json()["counts"]["succeeded"] == 1
         assert {item["status"] for item in status.json()["endpoint_progress"]} == {"succeeded"}
@@ -176,6 +179,10 @@ def test_account_sync_drain_one_persists_private_layer_snapshot() -> None:
         assert graph.entities["gw2:item:1001"].properties["stat_combo"] == "Berserker"
         assert graph.entities["gw2:item:2001"].properties["equipment_category"] == "rune"
         assert graph.entities["gw2:item:2002"].properties["equipment_category"] == "sigil"
+        locations = {player_state.location for player_state in graph.player_state}
+        assert "shared_inventory:0" in locations
+        assert "tradingpost_buy:0" in locations
+        assert "tradingpost_sell:0" in locations
         assert all(player_state.graph_layer == GraphLayer.PRIVATE_PLAYER_STATE for player_state in graph.player_state)
         assert all(
             relation.graph_layer == GraphLayer.PRIVATE_PLAYER_STATE

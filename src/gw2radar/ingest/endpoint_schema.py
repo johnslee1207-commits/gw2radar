@@ -48,10 +48,25 @@ ENDPOINT_SCHEMAS: dict[str, Gw2EndpointSchema] = {
         kind=Gw2EndpointKind.PRIVATE,
         required_permissions=frozenset({"inventories"}),
     ),
+    "/v2/account/inventory": Gw2EndpointSchema(
+        endpoint="/v2/account/inventory",
+        kind=Gw2EndpointKind.PRIVATE,
+        required_permissions=frozenset({"inventories"}),
+    ),
     "/v2/account/achievements": Gw2EndpointSchema(
         endpoint="/v2/account/achievements",
         kind=Gw2EndpointKind.PRIVATE,
         required_permissions=frozenset({"progression"}),
+    ),
+    "/v2/commerce/transactions/current/buys": Gw2EndpointSchema(
+        endpoint="/v2/commerce/transactions/current/buys",
+        kind=Gw2EndpointKind.PRIVATE,
+        required_permissions=frozenset({"tradingpost"}),
+    ),
+    "/v2/commerce/transactions/current/sells": Gw2EndpointSchema(
+        endpoint="/v2/commerce/transactions/current/sells",
+        kind=Gw2EndpointKind.PRIVATE,
+        required_permissions=frozenset({"tradingpost"}),
     ),
     "/v2/items": Gw2EndpointSchema(
         endpoint="/v2/items",

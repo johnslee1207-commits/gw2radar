@@ -313,7 +313,7 @@ def _entity_item_id(entity_id: str) -> int | None:
 
 
 def _initial_tradable(location_type: str, properties: dict) -> bool | None:
-    if location_type in {"wallet", "tradingpost"}:
+    if location_type in {"wallet", "tradingpost", "tradingpost_buy", "tradingpost_sell"}:
         return True
     if location_type == "character_equipment":
         return False
