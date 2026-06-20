@@ -413,6 +413,55 @@ label + label {
   margin: 0;
 }
 
+.value-dashboard-detail {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.value-dashboard-detail h4 {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.compact-list {
+  display: grid;
+  gap: 7px;
+  min-height: 34px;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.compact-list-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 3px;
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-soft);
+  padding: 7px 9px;
+}
+
+.compact-list-row strong,
+.compact-list-row span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compact-list-row.warn {
+  border-color: rgba(183, 121, 31, 0.32);
+  background: #fff8e6;
+  color: #744210;
+}
+
+.compact-list-row.info {
+  border-color: rgba(39, 121, 136, 0.24);
+  background: #eef8f9;
+  color: #245a62;
+}
+
 .marker {
   width: 10px;
   height: 10px;

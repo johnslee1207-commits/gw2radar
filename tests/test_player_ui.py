@@ -30,6 +30,13 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert "No gameplay automation" in response.text
     assert "Workflow readiness" in response.text
     assert "No dashboard summary yet." in response.text
+    assert "Account Value Coverage" in response.text
+    assert "Location breakdown" in response.text
+    assert "Status breakdown" in response.text
+    assert "Top Holdings" in response.text
+    assert "Value Warnings" in response.text
+    assert "Export value MD" in response.text
+    assert "Export value CSV" in response.text
     assert "Delete all private data" in response.text
     assert "Check permissions" in response.text
     assert "Sync now" in response.text
@@ -157,6 +164,15 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "/account/diagnostic" in js.text
     assert "/account/debug-bundle" in js.text
     assert "/api/v1/player/dashboard" in js.text
+    assert "/api/v1/player/account-holdings" in js.text
+    assert "/api/v1/player/account-value" in js.text
+    assert "renderAccountValueSummary" in js.text
+    assert "renderValueBreakdown" in js.text
+    assert "renderTopHoldings" in js.text
+    assert "renderValueWarnings" in js.text
+    assert "exportAccountValueMarkdown" in js.text
+    assert "exportAccountValueCsv" in js.text
+    assert "downloadText" in js.text
     assert "/api/v1/player/freshness-annotations" in js.text
     assert "/api/v1/legendary/goals/catalog" in js.text
     assert "/api/v1/legendary/actions" in js.text

@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 
 from gw2radar.api import state
 from gw2radar.api.main import app
+from gw2radar.commercial.market_radar import PriceSnapshotInput, record_price_snapshot
 from gw2radar.commercial.report_engine import create_report_entitlement, ensure_default_report_products
 from gw2radar.db import session as db_session
 from gw2radar.db.init_db import init_db
@@ -31,6 +32,48 @@ def test_player_dashboard_returns_best_actions_and_freshness_annotations() -> No
         assert len(payload["this_week_actions"]) >= 5
         assert any(item["subject"] == "Account Snapshot" for item in payload["data_freshness"])
         assert all(item["safety_boundary"] == "informational_manual_actions_only" for item in payload["today_best_actions"])
+    finally:
+        close_database()
+        state.reset_cached_graph()
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def test_player_account_value_endpoint_exports_dashboard_ready_snapshot() -> None:
+    temp_dir = Path(".test_tmp") / f"player-account-value-{uuid4().hex}"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        configure_database(f"sqlite:///{temp_dir / 'account-value.db'}")
+        init_db()
+        state.reset_cached_graph()
+        client = TestClient(app)
+        assert client.post("/mock/load").status_code == 200
+        with db_session.SessionLocal() as session:
+            record_price_snapshot(
+                session,
+                PriceSnapshotInput(
+                    item_id="gw2:item:mystic_coin",
+                    item_name="Mystic Coin",
+                    buy_price_copper=12000,
+                    sell_price_copper=12500,
+                    volume=10000,
+                ),
+            )
+
+        response = client.get("/api/v1/player/account-value")
+        snapshot = response.json()["data"]["account_value_snapshot"]
+        markdown = client.get("/api/v1/player/account-value?format=markdown")
+        csv = client.get("/api/v1/player/account-value?format=csv")
+
+        assert response.status_code == 200
+        assert snapshot["schema_version"] == "gw2radar.account_value_snapshot.v1"
+        assert "summary" in snapshot
+        assert isinstance(snapshot["by_location"], list)
+        assert isinstance(snapshot["by_status"], list)
+        assert "never automates trades" in " ".join(snapshot["safety_boundaries"])
+        assert markdown.status_code == 200
+        assert "# Account Value Snapshot" in markdown.text
+        assert csv.status_code == 200
+        assert "holding_id,entity_id,name,location,status" in csv.text
     finally:
         close_database()
         state.reset_cached_graph()

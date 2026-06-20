@@ -419,6 +419,18 @@ function downloadJson(filename, payload) {
   URL.revokeObjectURL(url);
 }
 
+function downloadText(filename, text, type = "text/plain") {
+  const blob = new Blob([text], { type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 function debugBundleClientState() {
   return {
     active_view: readStorage(storageKeys.activeView),
@@ -619,6 +631,10 @@ function renderAccountValueSummary(snapshot) {
     row.append(dt, dd);
     grid.appendChild(row);
   }
+  renderValueBreakdown("#value-location-breakdown", snapshot.by_location || [], "No location value yet.");
+  renderValueBreakdown("#value-status-breakdown", snapshot.by_status || [], "No status coverage yet.");
+  renderTopHoldings(snapshot.top_holdings || []);
+  renderValueWarnings(snapshot.warnings || []);
 }
 
 function formatCopper(value) {
@@ -633,6 +649,72 @@ function formatCopper(value) {
     return `${silver}s ${coin}c`;
   }
   return `${coin}c`;
+}
+
+function renderValueBreakdown(selector, rows, emptyText) {
+  const element = document.querySelector(selector);
+  if (!element) {
+    return;
+  }
+  element.innerHTML = "";
+  if (!rows.length) {
+    element.textContent = emptyText;
+    return;
+  }
+  for (const row of rows.slice(0, 6)) {
+    const item = document.createElement("div");
+    const name = document.createElement("strong");
+    const detail = document.createElement("span");
+    item.className = "compact-list-row";
+    name.textContent = row.label || row.key;
+    detail.textContent = `${formatCopper(row.value_buy_copper || 0)} / ${row.holding_count || 0} holdings`;
+    item.append(name, detail);
+    element.appendChild(item);
+  }
+}
+
+function renderTopHoldings(holdings) {
+  const element = document.querySelector("#value-top-holdings");
+  if (!element) {
+    return;
+  }
+  element.innerHTML = "";
+  if (!holdings.length) {
+    element.textContent = "No priced holdings yet. Add price snapshots or sync account data.";
+    return;
+  }
+  for (const holding of holdings.slice(0, 8)) {
+    const item = document.createElement("div");
+    const name = document.createElement("strong");
+    const detail = document.createElement("span");
+    item.className = "compact-list-row";
+    name.textContent = holding.canonical_name || holding.entity_id;
+    detail.textContent = `${formatCopper(holding.value_buy_copper || 0)} · ${holding.location_type || "unknown"} · ${holding.valuation_status || "unknown"}`;
+    item.append(name, detail);
+    element.appendChild(item);
+  }
+}
+
+function renderValueWarnings(warnings) {
+  const element = document.querySelector("#value-warning-list");
+  if (!element) {
+    return;
+  }
+  element.innerHTML = "";
+  if (!warnings.length) {
+    element.textContent = "No value warnings. Recheck after price or account sync changes.";
+    return;
+  }
+  for (const warning of warnings.slice(0, 8)) {
+    const item = document.createElement("div");
+    const code = document.createElement("strong");
+    const message = document.createElement("span");
+    item.className = `compact-list-row ${warning.severity || "info"}`;
+    code.textContent = warning.warning_code || "warning";
+    message.textContent = warning.player_message || "";
+    item.append(code, message);
+    element.appendChild(item);
+  }
 }
 
 function renderSyncProgress(progress) {
@@ -1198,6 +1280,18 @@ const actions = {
       const value = await fetchJson("/api/v1/player/account-value");
       renderAccountValueSummary(value?.data?.account_value_snapshot || {});
       return { account: key, sync, dashboard, holdings, value };
+    }),
+  exportAccountValueMarkdown: () =>
+    run("dashboard", async () => {
+      const text = await fetch("/api/v1/player/account-value?format=markdown").then((response) => response.text());
+      downloadText("gw2radar-account-value.md", text, "text/markdown");
+      return text;
+    }),
+  exportAccountValueCsv: () =>
+    run("dashboard", async () => {
+      const text = await fetch("/api/v1/player/account-value?format=csv").then((response) => response.text());
+      downloadText("gw2radar-account-value.csv", text, "text/csv");
+      return text;
     }),
   apiKeyStatus: () =>
     run("connect", async () => {

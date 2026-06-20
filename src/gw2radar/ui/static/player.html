@@ -119,7 +119,11 @@
               <p class="eyebrow">Today</p>
               <h2 id="dashboard-title">Best actions first</h2>
             </div>
-            <button class="secondary-action" data-action="refreshDashboard">Refresh status</button>
+            <div class="button-row">
+              <button class="secondary-action" data-action="refreshDashboard">Refresh status</button>
+              <button class="secondary-action" data-action="exportAccountValueMarkdown">Export value MD</button>
+              <button class="secondary-action" data-action="exportAccountValueCsv">Export value CSV</button>
+            </div>
           </div>
           <div class="dashboard-grid">
             <article class="panel priority-panel">
@@ -161,6 +165,26 @@
                 <div><dt>Materials</dt><dd>Unknown</dd></div>
                 <div><dt>Coverage gaps</dt><dd>Check permissions</dd></div>
               </dl>
+              <div class="value-dashboard-detail">
+                <h4>Location breakdown</h4>
+                <div id="value-location-breakdown" class="compact-list">Refresh status to load value breakdown.</div>
+                <h4>Status breakdown</h4>
+                <div id="value-status-breakdown" class="compact-list">Refresh status to load status coverage.</div>
+              </div>
+            </article>
+            <article class="panel">
+              <div class="panel-title">
+                <span class="marker amber"></span>
+                <h3>Top Holdings</h3>
+              </div>
+              <div id="value-top-holdings" class="compact-list">Refresh status to load top priced holdings.</div>
+            </article>
+            <article class="panel">
+              <div class="panel-title">
+                <span class="marker red"></span>
+                <h3>Value Warnings</h3>
+              </div>
+              <div id="value-warning-list" class="compact-list">Missing prices, stale prices, and account-bound holdings appear here.</div>
             </article>
             <article class="panel">
               <div class="panel-title">
