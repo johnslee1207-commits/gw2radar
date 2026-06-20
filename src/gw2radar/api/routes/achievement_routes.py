@@ -18,6 +18,7 @@ from gw2radar.commercial.achievement_route import (
     OfficialAccountAchievementProgress,
     OfficialAchievementFetchPreviewRequest,
     OfficialAchievementRoutePreviewRequest,
+    archive_achievement_route_release_evidence_bundle,
     build_achievement_route_backfill_candidates,
     build_achievement_route_backfill_candidate_readiness,
     build_achievement_route_operator_action_bundle,
@@ -36,6 +37,7 @@ from gw2radar.commercial.achievement_route import (
     list_achievement_route_promotion_audits,
     list_achievement_route_backfill_candidate_review_audits,
     list_achievement_route_draft_source_promotion_audits,
+    list_achievement_route_release_evidence_archives,
     list_achievement_route_remediation_review_audits,
     list_achievement_route_source_edit_patch_apply_audits,
     load_reviewed_achievement_route_steps,
@@ -59,6 +61,8 @@ from gw2radar.commercial.achievement_route import (
     render_achievement_route_promotion_audit_markdown,
     render_achievement_route_release_readiness_csv,
     render_achievement_route_release_readiness_markdown,
+    render_achievement_route_release_evidence_archive_csv,
+    render_achievement_route_release_evidence_archive_markdown,
     render_achievement_route_remediation_queue_csv,
     render_achievement_route_remediation_queue_markdown,
     render_achievement_route_remediation_readiness_csv,
@@ -393,6 +397,46 @@ def get_achievement_route_unified_release_evidence_bundle(
             media_type="application/json; charset=utf-8",
         )
     return ApiDataEnvelope(data={"release_evidence_bundle": bundle.model_dump(mode="json")})
+
+
+@router.post("/source-quality/remediation-queue/release-evidence-bundle/archive", response_model=None)
+def post_achievement_route_release_evidence_archive(
+    archived_by: str = Query(default="local_operator", min_length=2, max_length=80),
+    retention_policy: str = Query(default="retain_365_days", min_length=3, max_length=80),
+):
+    record = archive_achievement_route_release_evidence_bundle(
+        source_root,
+        audit_root,
+        archived_by=archived_by,
+        retention_policy=retention_policy,
+    )
+    return ApiDataEnvelope(data={"release_evidence_archive": record.model_dump(mode="json")})
+
+
+@router.get("/source-quality/remediation-queue/release-evidence-bundle/archive", response_model=None)
+def get_achievement_route_release_evidence_archive(
+    archived_by: str | None = None,
+    maturity_label: str | None = Query(default=None, pattern="^(blocked|review_needed|ready)$"),
+    limit: int = Query(default=25, ge=1, le=200),
+    format: str = Query(default="json", pattern="^(json|markdown|csv)$"),
+):
+    index = list_achievement_route_release_evidence_archives(
+        audit_root,
+        archived_by=archived_by,
+        maturity_label=maturity_label,
+        limit=limit,
+    )
+    if format == "markdown":
+        return Response(
+            content=render_achievement_route_release_evidence_archive_markdown(index),
+            media_type="text/markdown; charset=utf-8",
+        )
+    if format == "csv":
+        return Response(
+            content=render_achievement_route_release_evidence_archive_csv(index),
+            media_type="text/csv; charset=utf-8",
+        )
+    return ApiDataEnvelope(data={"release_evidence_archive_index": index.model_dump(mode="json")})
 
 
 @router.get("/source-quality/remediation-queue/backfill-candidates", response_model=None)

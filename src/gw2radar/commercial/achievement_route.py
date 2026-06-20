@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 from datetime import UTC, datetime
 from io import StringIO
@@ -612,6 +613,38 @@ class AchievementRouteUnifiedReleaseEvidenceBundle(BaseModel):
     source_patch_apply_audit: AchievementRouteSourceEditPatchApplyAuditList
     draft_source_promotion_audit: AchievementRouteDraftSourcePromotionAuditList
     boundary: str = "Unified release evidence bundle is a read-only handoff artifact; it does not publish, edit manifests, automate gameplay, or certify live game state."
+
+
+class AchievementRouteReleaseEvidenceArchiveRecord(BaseModel):
+    schema_version: str = "gw2radar.achievement_route_release_evidence_archive_record.v1"
+    archive_id: str
+    bundle_id: str
+    archived_at: datetime
+    generated_at: datetime
+    archived_by: str
+    checksum_sha256: str
+    retention_policy: str
+    ready: bool
+    maturity_label: Literal["blocked", "review_needed", "ready"]
+    reviewed_source_count: int
+    reviewed_step_count: int
+    blocker_count: int
+    warning_count: int
+    source_ids: list[str]
+    artifacts: list[str]
+    evidence_chain: list[str]
+    manifest_schema: str
+    source_bundle_schema: str
+    safety_boundary: str = "Release evidence archives are immutable metadata snapshots; they do not publish content, edit source manifests, automate gameplay, or store secrets."
+
+
+class AchievementRouteReleaseEvidenceArchiveIndex(BaseModel):
+    schema_version: str = "gw2radar.achievement_route_release_evidence_archive_index.v1"
+    records: list[AchievementRouteReleaseEvidenceArchiveRecord]
+    filters: dict[str, str | int | None]
+    total_records: int
+    latest_archive_id: str | None = None
+    boundary: str = "Archive index exports are metadata-only and must not include raw API keys or private account payloads."
 
 
 class AchievementRouteGateway(Protocol):
@@ -2387,6 +2420,149 @@ def render_achievement_route_unified_release_evidence_bundle_csv(
             ";".join(bundle.source_ids),
         ]
     )
+    return buffer.getvalue()
+
+
+def archive_achievement_route_release_evidence_bundle(
+    source_root: Path = ACHIEVEMENT_ROUTE_SOURCE_ROOT,
+    audit_root: Path = ACHIEVEMENT_ROUTE_AUDIT_ROOT,
+    *,
+    archived_by: str = "local_operator",
+    retention_policy: str = "retain_365_days",
+) -> AchievementRouteReleaseEvidenceArchiveRecord:
+    bundle = build_achievement_route_unified_release_evidence_bundle(source_root, audit_root)
+    archived_at = datetime.now(UTC)
+    canonical_bundle = json.dumps(bundle.model_dump(mode="json"), sort_keys=True, separators=(",", ":"))
+    checksum = hashlib.sha256(canonical_bundle.encode("utf-8")).hexdigest()
+    archive_id = f"achievement-route-release-archive:{archived_at.strftime('%Y%m%dT%H%M%S%fZ')}:{checksum[:12]}"
+    record = AchievementRouteReleaseEvidenceArchiveRecord(
+        archive_id=archive_id,
+        bundle_id=bundle.bundle_id,
+        archived_at=archived_at,
+        generated_at=bundle.generated_at,
+        archived_by=archived_by,
+        checksum_sha256=checksum,
+        retention_policy=retention_policy,
+        ready=bundle.ready,
+        maturity_label=bundle.maturity_label,
+        reviewed_source_count=bundle.reviewed_source_count,
+        reviewed_step_count=bundle.reviewed_step_count,
+        blocker_count=bundle.blocker_count,
+        warning_count=bundle.warning_count,
+        source_ids=bundle.source_ids,
+        artifacts=bundle.artifacts,
+        evidence_chain=bundle.evidence_chain,
+        manifest_schema=str(bundle.manifest.get("bundle_schema", "")),
+        source_bundle_schema=bundle.schema_version,
+    )
+    audit_root.mkdir(parents=True, exist_ok=True)
+    path = audit_root / "release_evidence_archive.jsonl"
+    with path.open("a", encoding="utf-8", newline="\n") as handle:
+        handle.write(record.model_dump_json() + "\n")
+    return record
+
+
+def list_achievement_route_release_evidence_archives(
+    audit_root: Path = ACHIEVEMENT_ROUTE_AUDIT_ROOT,
+    *,
+    archived_by: str | None = None,
+    maturity_label: str | None = None,
+    limit: int = 25,
+) -> AchievementRouteReleaseEvidenceArchiveIndex:
+    path = audit_root / "release_evidence_archive.jsonl"
+    records: list[AchievementRouteReleaseEvidenceArchiveRecord] = []
+    if path.exists():
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            try:
+                record = AchievementRouteReleaseEvidenceArchiveRecord.model_validate_json(line)
+            except ValidationError:
+                continue
+            if archived_by and record.archived_by != archived_by:
+                continue
+            if maturity_label and record.maturity_label != maturity_label:
+                continue
+            records.append(record)
+    records = sorted(records, key=lambda item: item.archived_at, reverse=True)[: max(1, min(limit, 200))]
+    return AchievementRouteReleaseEvidenceArchiveIndex(
+        records=records,
+        filters={"archived_by": archived_by, "maturity_label": maturity_label, "limit": limit},
+        total_records=len(records),
+        latest_archive_id=records[0].archive_id if records else None,
+    )
+
+
+def render_achievement_route_release_evidence_archive_markdown(
+    index: AchievementRouteReleaseEvidenceArchiveIndex,
+) -> str:
+    lines = [
+        "# Achievement Route Release Evidence Archive",
+        "",
+        f"- Records: {index.total_records}",
+        f"- Latest archive: {index.latest_archive_id or 'None'}",
+        f"- Boundary: {index.boundary}",
+        "",
+        "## Records",
+    ]
+    if not index.records:
+        lines.append("- None")
+    for record in index.records:
+        lines.extend(
+            [
+                f"- Archive: {record.archive_id}",
+                f"  - Bundle: {record.bundle_id}",
+                f"  - Archived by: {record.archived_by}",
+                f"  - Maturity: {record.maturity_label}",
+                f"  - Checksum: {record.checksum_sha256}",
+                f"  - Retention: {record.retention_policy}",
+                f"  - Reviewed sources: {record.reviewed_source_count}",
+                f"  - Blockers: {record.blocker_count}",
+            ]
+        )
+    return "\n".join(lines) + "\n"
+
+
+def render_achievement_route_release_evidence_archive_csv(
+    index: AchievementRouteReleaseEvidenceArchiveIndex,
+) -> str:
+    buffer = StringIO()
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow(
+        [
+            "archive_id",
+            "bundle_id",
+            "archived_at",
+            "archived_by",
+            "checksum_sha256",
+            "retention_policy",
+            "ready",
+            "maturity_label",
+            "reviewed_source_count",
+            "reviewed_step_count",
+            "blocker_count",
+            "warning_count",
+            "source_ids",
+        ]
+    )
+    for record in index.records:
+        writer.writerow(
+            [
+                record.archive_id,
+                record.bundle_id,
+                record.archived_at.isoformat(),
+                record.archived_by,
+                record.checksum_sha256,
+                record.retention_policy,
+                record.ready,
+                record.maturity_label,
+                record.reviewed_source_count,
+                record.reviewed_step_count,
+                record.blocker_count,
+                record.warning_count,
+                ";".join(record.source_ids),
+            ]
+        )
     return buffer.getvalue()
 
 

@@ -111,6 +111,10 @@ It also verifies the P20 unified release evidence bundle:
 official promotion audit, source patch apply audit, draft source promotion
 audit, source quality, release readiness, and operator release packet state are
 combined into one read-only JSON/Markdown/CSV/manifest evidence bundle.
+It also verifies the P21 release evidence archive gate:
+the unified evidence bundle can be archived as immutable metadata with a
+SHA-256 checksum, retention policy, archive index, and Markdown / CSV exports
+without publishing content, editing source manifests, or storing secrets.
 
 ## Account Connection Diagnostic Command
 
@@ -232,7 +236,9 @@ readiness rollup, and visible no-secret boundary copy.
 44. Export draft source promotion audit as Markdown and CSV.
 45. Load unified release evidence bundle and confirm promotion, patch apply, quality, and readiness evidence are aggregated.
 46. Export unified release evidence bundle as Markdown, CSV, and manifest JSON.
-47. Confirm the route planner ingests the promoted reviewed source.
+47. Archive the unified release evidence bundle and confirm reviewer, checksum, and retention metadata.
+48. Export release evidence archive index as Markdown and CSV.
+49. Confirm the route planner ingests the promoted reviewed source.
 
 ## Account Connection Diagnostic Steps
 

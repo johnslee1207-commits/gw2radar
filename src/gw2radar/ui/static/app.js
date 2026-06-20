@@ -273,6 +273,12 @@ function summarizeResult(target, payload) {
     if (data?.release_evidence_bundle) {
       return `Release evidence bundle ${data.release_evidence_bundle.maturity_label}: ${data.release_evidence_bundle.reviewed_source_count} sources, ${data.release_evidence_bundle.blocker_count} blockers.`;
     }
+    if (data?.release_evidence_archive) {
+      return `Release evidence archived by ${data.release_evidence_archive.archived_by}: ${data.release_evidence_archive.archive_id}.`;
+    }
+    if (data?.release_evidence_archive_index) {
+      return `Release evidence archive: ${data.release_evidence_archive_index.total_records} records.`;
+    }
     if (Array.isArray(data?.sources)) {
       return `${data.sources.length} route source manifests loaded with ${data.reviewed_step_count || 0} reviewed steps.`;
     }
@@ -746,6 +752,13 @@ function renderRouteReleaseEvidenceBundle(bundle) {
   const sources = typeof bundle?.reviewed_source_count === "number" ? bundle.reviewed_source_count : "--";
   const blockers = typeof bundle?.blocker_count === "number" ? bundle.blocker_count : "--";
   document.querySelector("#route-release-evidence-count").textContent = `${label} / ${sources} sources / ${blockers} blockers`;
+}
+
+function renderRouteReleaseEvidenceArchive(indexOrRecord) {
+  const records = Array.isArray(indexOrRecord?.records) ? indexOrRecord.records : null;
+  const count = records ? indexOrRecord.total_records : 1;
+  const latest = records ? indexOrRecord.latest_archive_id : indexOrRecord?.archive_id;
+  document.querySelector("#route-release-evidence-archive-count").textContent = `${count || 0} archived / ${latest || "--"}`;
 }
 
 function renderRouteOperatorActionBundle(bundle) {
@@ -1661,6 +1674,34 @@ const actions = {
           throw new Error(text || `HTTP ${response.status}`);
         }
         return JSON.parse(text);
+      }),
+    ),
+  archiveAchievementRouteReleaseEvidenceBundle: () =>
+    run("routes", async () => {
+      const reviewer = encodeURIComponent(document.querySelector("#route-reviewer").value.trim() || "local_operator");
+      const payload = await fetchJson(
+        `/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/archive?archived_by=${reviewer}&retention_policy=retain_365_days`,
+        { method: "POST" },
+      );
+      renderRouteReleaseEvidenceArchive(payload?.data?.release_evidence_archive || {});
+      return payload;
+    }),
+  loadAchievementRouteReleaseEvidenceArchive: () =>
+    run("routes", async () => {
+      const payload = await fetchJson("/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/archive");
+      renderRouteReleaseEvidenceArchive(payload?.data?.release_evidence_archive_index || {});
+      return payload;
+    }),
+  exportAchievementRouteReleaseEvidenceArchive: () =>
+    run("routes", () =>
+      fetch("/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/archive?format=csv", {
+        headers: { "Accept": "text/csv" },
+      }).then(async (response) => {
+        const text = await response.text();
+        if (!response.ok) {
+          throw new Error(text || `HTTP ${response.status}`);
+        }
+        return text;
       }),
     ),
   importBuild: () =>

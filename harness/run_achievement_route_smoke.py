@@ -427,6 +427,30 @@ def main() -> int:
     release_evidence_manifest = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle?format=manifest")
     if release_evidence_manifest.status_code != 200 or release_evidence_manifest.json().get("bundle_schema") != "gw2radar.achievement_route_unified_release_evidence_bundle.v1":
         failures.append("achievement route unified release evidence bundle manifest export failed")
+    release_evidence_archive = client.post(
+        "/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/archive?archived_by=smoke_operator&retention_policy=retain_365_days"
+    )
+    release_evidence_archive_payload = _json_response(release_evidence_archive, "achievement route release evidence archive", failures)
+    release_evidence_archive_record = (((release_evidence_archive_payload or {}).get("data") or {}).get("release_evidence_archive") or {})
+    if release_evidence_archive_record.get("archived_by") != "smoke_operator" or len(release_evidence_archive_record.get("checksum_sha256", "")) != 64:
+        failures.append("achievement route release evidence archive did not expose reviewer and checksum")
+    release_evidence_archive_index = client.get(
+        "/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/archive?archived_by=smoke_operator"
+    )
+    release_evidence_archive_index_payload = _json_response(release_evidence_archive_index, "achievement route release evidence archive index", failures)
+    release_evidence_archive_records = (((release_evidence_archive_index_payload or {}).get("data") or {}).get("release_evidence_archive_index") or {}).get("records", [])
+    if not release_evidence_archive_records:
+        failures.append("achievement route release evidence archive index did not list archived evidence")
+    release_evidence_archive_markdown = client.get(
+        "/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/archive?format=markdown"
+    )
+    if release_evidence_archive_markdown.status_code != 200 or "# Achievement Route Release Evidence Archive" not in release_evidence_archive_markdown.text:
+        failures.append("achievement route release evidence archive markdown export failed")
+    release_evidence_archive_csv = client.get(
+        "/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/archive?format=csv"
+    )
+    if release_evidence_archive_csv.status_code != 200 or "archive_id,bundle_id,archived_at" not in release_evidence_archive_csv.text:
+        failures.append("achievement route release evidence archive csv export failed")
     promoted_sources = client.get("/api/v1/achievement-routes/sources")
     promoted_sources_payload = _json_response(promoted_sources, "promoted route sources", failures)
     promoted_reviewed_step_count = (((promoted_sources_payload or {}).get("data") or {}).get("reviewed_step_count") or 0)

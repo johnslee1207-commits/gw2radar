@@ -209,6 +209,7 @@ Operator review gate:
 - `Apply source patch draft`, `Load source patch audit`, and `Export source patch audit CSV` write a new draft source manifest after manual confirmation and expose metadata-only audit records; reviewed ingestion still requires a later promotion gate.
 - `Promote draft source`, `Load draft promotion audit`, and `Export draft promotion CSV` promote a draft source manifest into reviewed planner-ingestible guidance only after explicit reviewer confirmation.
 - `Release evidence bundle`, `Export evidence CSV`, and `Export evidence manifest` combine promotion, patch apply, draft promotion, source quality, release readiness, and release packet evidence into one read-only handoff bundle.
+- `Archive evidence`, `Load evidence archive`, and `Export archive CSV` persist the current evidence bundle as immutable metadata with checksum and retention policy, then list/export the archive index.
 
 Advanced operator flow:
 
@@ -235,6 +236,8 @@ Advanced operator flow:
 - `POST /api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft/promote-draft-source` promotes a confirmed draft source manifest into reviewed planner-ingestible guidance.
 - `GET /api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft/promote-draft-source-audit` lists draft source promotion records and supports `format=markdown` or `format=csv`.
 - `GET /api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle` exports the unified route source release evidence bundle with `format=markdown`, `format=csv`, or `format=manifest`.
+- `POST /api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/archive` archives the current evidence bundle metadata with `archived_by`, SHA-256 checksum, and retention policy.
+- `GET /api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/archive` lists archived evidence records with `format=markdown` or `format=csv`.
 - Draft previews are not used by the route planner until this reviewed promotion gate writes a `source_status=reviewed` manifest.
 
 ## Freshness And Confidence
