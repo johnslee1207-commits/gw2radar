@@ -98,6 +98,41 @@ class AccountValueWarning(BaseModel):
     entity_id: str | None = None
 
 
+class AccountValueSourceInsight(BaseModel):
+    key: str
+    label: str
+    holding_count: int = 0
+    priced_holding_count: int = 0
+    unpriced_holding_count: int = 0
+    account_bound_holding_count: int = 0
+    stale_price_holding_count: int = 0
+    reserved_holding_count: int = 0
+    value_buy_copper: int = 0
+    net_sell_value_copper: int = 0
+    price_coverage_percent: float = 0.0
+    readiness_label: str = "needs_data"
+    action_hint: str = "Sync account data and refresh price observations before relying on this source."
+
+
+class AccountValueRemediationAction(BaseModel):
+    action_id: str
+    priority: str
+    label: str
+    reason: str
+    related_warning_codes: list[str] = Field(default_factory=list)
+    ui_action: str | None = None
+
+
+class AccountValueDiagnostics(BaseModel):
+    schema_version: str = "gw2radar.account_value_diagnostics.v1"
+    value_coverage_percent: float = 0.0
+    price_coverage_percent: float = 0.0
+    freshness_label: str = "unknown"
+    source_insights: list[AccountValueSourceInsight] = Field(default_factory=list)
+    remediation_actions: list[AccountValueRemediationAction] = Field(default_factory=list)
+    visualization_notes: list[str] = Field(default_factory=list)
+
+
 class AccountValueSnapshot(BaseModel):
     schema_version: str = "gw2radar.account_value_snapshot.v1"
     account_id: str | None
@@ -106,6 +141,7 @@ class AccountValueSnapshot(BaseModel):
     by_status: list[AccountValueBreakdownRow] = Field(default_factory=list)
     top_holdings: list[AccountValueHolding] = Field(default_factory=list)
     warnings: list[AccountValueWarning] = Field(default_factory=list)
+    diagnostics: AccountValueDiagnostics = Field(default_factory=AccountValueDiagnostics)
     assumptions: list[str] = Field(default_factory=list)
     safety_boundaries: list[str] = Field(default_factory=list)
 
@@ -169,6 +205,7 @@ def build_account_value_snapshot(
     ]
     summary = _value_summary(value_holdings, index.coverage_gaps)
     warnings = _value_warnings(value_holdings, index.coverage_gaps, stale_price_hours)
+    diagnostics = _value_diagnostics(value_holdings, warnings, summary)
     top_holdings = sorted(value_holdings, key=lambda item: item.value_buy_copper, reverse=True)[:top_limit]
     assumptions = list(index.assumptions)
     assumptions.extend(
@@ -185,6 +222,7 @@ def build_account_value_snapshot(
         by_status=_breakdown(value_holdings, key_attr="valuation_status", total_buy=summary.total_value_buy_copper),
         top_holdings=top_holdings,
         warnings=warnings,
+        diagnostics=diagnostics,
         assumptions=assumptions,
         safety_boundaries=[
             "Account value is informational planning guidance only.",
@@ -235,12 +273,24 @@ def render_account_value_snapshot_markdown(snapshot: AccountValueSnapshot) -> st
         f"- Unpriced holdings: {snapshot.summary.unpriced_holding_count}",
         f"- Account-bound holdings: {snapshot.summary.account_bound_holding_count}",
         f"- Stale-price holdings: {snapshot.summary.stale_price_holding_count}",
+        f"- Value coverage: {snapshot.diagnostics.value_coverage_percent}%",
+        f"- Price coverage: {snapshot.diagnostics.price_coverage_percent}%",
+        f"- Freshness: {snapshot.diagnostics.freshness_label}",
         "",
         "## Location Breakdown",
         *[
             f"- {row.label}: {row.value_buy_copper} copper across {row.holding_count} holdings"
             for row in snapshot.by_location
         ],
+        "",
+        "## Source Diagnostics",
+        *[
+            f"- {row.label}: {row.readiness_label}, {row.price_coverage_percent}% priced, {row.action_hint}"
+            for row in snapshot.diagnostics.source_insights
+        ],
+        "",
+        "## Remediation Actions",
+        *([f"- {action.priority}: {action.label} - {action.reason}" for action in snapshot.diagnostics.remediation_actions] or ["- None"]),
         "",
         "## Warnings",
         *([f"- {warning.severity}: {warning.player_message}" for warning in snapshot.warnings] or ["- None"]),
@@ -434,7 +484,7 @@ def _value_holding(
         canonical_name=holding.canonical_name,
         quantity=holding.quantity,
         location_type=holding.location_type,
-        valuation_status="stale_price" if warning_codes else "priced",
+        valuation_status="stale_price" if "stale_price" in warning_codes else "priced",
         buy_price_copper=snapshot.buy_price_copper,
         sell_price_copper=snapshot.sell_price_copper,
         value_buy_copper=buy_value,
@@ -485,6 +535,145 @@ def _breakdown(
     for row in rows.values():
         row.percentage_of_buy_value = round(row.value_buy_copper / total_buy * 100, 2) if total_buy else 0.0
     return sorted(rows.values(), key=lambda item: item.value_buy_copper, reverse=True)
+
+
+def _value_diagnostics(
+    holdings: list[AccountValueHolding],
+    warnings: list[AccountValueWarning],
+    summary: AccountValueSummary,
+) -> AccountValueDiagnostics:
+    total_holdings = len(holdings)
+    priced_like = sum(1 for holding in holdings if holding.valuation_status in {"priced", "stale_price"})
+    fresh_priced = sum(1 for holding in holdings if holding.valuation_status == "priced")
+    actionable_holdings = sum(1 for holding in holdings if holding.valuation_status != "account_bound")
+    source_insights = _source_insights(holdings)
+    warning_codes = {warning.warning_code for warning in warnings}
+    latest = _aware(summary.latest_price_observed_at) if summary.latest_price_observed_at else None
+    freshness_label = "no_prices"
+    if latest is not None:
+        age_hours = (datetime.now(timezone.utc) - latest).total_seconds() / 3600
+        freshness_label = "fresh" if age_hours <= DEFAULT_STALE_PRICE_HOURS else "stale"
+    return AccountValueDiagnostics(
+        value_coverage_percent=round(priced_like / total_holdings * 100, 2) if total_holdings else 0.0,
+        price_coverage_percent=round(fresh_priced / actionable_holdings * 100, 2) if actionable_holdings else 0.0,
+        freshness_label=freshness_label,
+        source_insights=source_insights,
+        remediation_actions=_remediation_actions(warning_codes, summary),
+        visualization_notes=[
+            "Value coverage counts holdings with any usable price, including stale observations.",
+            "Price coverage counts fresh priced holdings and excludes account-bound holdings from the denominator.",
+            "Source diagnostics are private summaries only and do not expose raw GW2 API payloads.",
+        ],
+    )
+
+
+def _source_insights(holdings: list[AccountValueHolding]) -> list[AccountValueSourceInsight]:
+    rows: dict[str, AccountValueSourceInsight] = {}
+    for holding in holdings:
+        row = rows.setdefault(
+            holding.location_type,
+            AccountValueSourceInsight(key=holding.location_type, label=_label(holding.location_type)),
+        )
+        row.holding_count += 1
+        row.value_buy_copper += holding.value_buy_copper
+        row.net_sell_value_copper += holding.net_sell_value_copper
+        if holding.valuation_status == "priced":
+            row.priced_holding_count += 1
+        elif holding.valuation_status == "unpriced":
+            row.unpriced_holding_count += 1
+        elif holding.valuation_status == "account_bound":
+            row.account_bound_holding_count += 1
+        elif holding.valuation_status == "stale_price":
+            row.stale_price_holding_count += 1
+        if holding.reserved_quantity > 0:
+            row.reserved_holding_count += 1
+    for row in rows.values():
+        actionable = max(row.holding_count - row.account_bound_holding_count, 0)
+        fresh_priced = row.priced_holding_count
+        row.price_coverage_percent = round(fresh_priced / actionable * 100, 2) if actionable else 0.0
+        row.readiness_label = _source_readiness(row)
+        row.action_hint = _source_action_hint(row)
+    return sorted(rows.values(), key=lambda item: (item.value_buy_copper, item.holding_count), reverse=True)
+
+
+def _source_readiness(row: AccountValueSourceInsight) -> str:
+    if row.holding_count == 0:
+        return "empty"
+    if row.unpriced_holding_count == 0 and row.stale_price_holding_count == 0:
+        return "ready"
+    if row.priced_holding_count > 0 or row.stale_price_holding_count > 0:
+        return "partial"
+    return "needs_price"
+
+
+def _source_action_hint(row: AccountValueSourceInsight) -> str:
+    if row.unpriced_holding_count > 0:
+        return "Refresh official prices, then add manual snapshots for non-tradable or symbolic ids."
+    if row.stale_price_holding_count > 0:
+        return "Refresh official prices before expensive crafting or sell decisions."
+    if row.reserved_holding_count > 0:
+        return "Review active goals before treating this source as sellable surplus."
+    return "Ready for planning review; still treat this as informational guidance only."
+
+
+def _remediation_actions(
+    warning_codes: set[str],
+    summary: AccountValueSummary,
+) -> list[AccountValueRemediationAction]:
+    actions: list[AccountValueRemediationAction] = []
+    if "missing_permission" in warning_codes:
+        actions.append(
+            AccountValueRemediationAction(
+                action_id="check_api_permissions",
+                priority="P0",
+                label="Check API key permissions",
+                reason="Missing permissions mean some account sources are absent from value analysis.",
+                related_warning_codes=["missing_permission"],
+                ui_action="apiKeyPermissions",
+            )
+        )
+    if "missing_price" in warning_codes:
+        actions.append(
+            AccountValueRemediationAction(
+                action_id="refresh_official_prices",
+                priority="P1",
+                label="Refresh official prices",
+                reason=f"{summary.unpriced_holding_count} holdings are excluded from value totals until priced.",
+                related_warning_codes=["missing_price"],
+                ui_action="refreshOfficialPrices",
+            )
+        )
+    if "stale_price" in warning_codes:
+        actions.append(
+            AccountValueRemediationAction(
+                action_id="refresh_stale_prices",
+                priority="P1",
+                label="Refresh stale prices",
+                reason=f"{summary.stale_price_holding_count} holdings use older price observations.",
+                related_warning_codes=["stale_price"],
+                ui_action="refreshOfficialPrices",
+            )
+        )
+    if "reserved_for_goal" in warning_codes:
+        actions.append(
+            AccountValueRemediationAction(
+                action_id="review_do_not_sell",
+                priority="P2",
+                label="Review do-not-sell reservations",
+                reason=f"{summary.reserved_holding_count} holdings are reserved by active goals.",
+                related_warning_codes=["reserved_for_goal"],
+            )
+        )
+    if not actions:
+        actions.append(
+            AccountValueRemediationAction(
+                action_id="review_value_sources",
+                priority="P3",
+                label="Review value source mix",
+                reason="No blocking value warnings are present; compare sources before manual planning decisions.",
+            )
+        )
+    return actions
 
 
 def _value_warnings(

@@ -33,6 +33,8 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert "Account Value Coverage" in response.text
     assert "Location breakdown" in response.text
     assert "Status breakdown" in response.text
+    assert "Source diagnostics" in response.text
+    assert "Next value actions" in response.text
     assert "Top Holdings" in response.text
     assert "Value Warnings" in response.text
     assert "Refresh official prices" in response.text
@@ -176,6 +178,10 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "renderTopHoldings" in js.text
     assert "renderValueWarnings" in js.text
     assert "renderPriceRemediationSummary" in js.text
+    assert "renderValueSourceInsights" in js.text
+    assert "renderValueRemediationActions" in js.text
+    assert "valueReadinessClass" in js.text
+    assert "price_coverage_percent" in js.text
     assert "remediationMessage" in js.text
     assert "refreshOfficialPrices" in js.text
     assert "/api/v1/market/snapshots/official-refresh" in js.text

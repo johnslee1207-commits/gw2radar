@@ -67,11 +67,18 @@ def test_player_account_value_endpoint_exports_dashboard_ready_snapshot() -> Non
         assert response.status_code == 200
         assert snapshot["schema_version"] == "gw2radar.account_value_snapshot.v1"
         assert "summary" in snapshot
+        assert snapshot["diagnostics"]["schema_version"] == "gw2radar.account_value_diagnostics.v1"
+        assert snapshot["diagnostics"]["source_insights"]
+        assert snapshot["diagnostics"]["remediation_actions"]
+        assert snapshot["diagnostics"]["price_coverage_percent"] >= 0
+        assert any(action["action_id"] in {"refresh_official_prices", "review_value_sources"} for action in snapshot["diagnostics"]["remediation_actions"])
         assert isinstance(snapshot["by_location"], list)
         assert isinstance(snapshot["by_status"], list)
         assert "never automates trades" in " ".join(snapshot["safety_boundaries"])
         assert markdown.status_code == 200
         assert "# Account Value Snapshot" in markdown.text
+        assert "## Source Diagnostics" in markdown.text
+        assert "## Remediation Actions" in markdown.text
         assert csv.status_code == 200
         assert "holding_id,entity_id,name,location,status" in csv.text
     finally:

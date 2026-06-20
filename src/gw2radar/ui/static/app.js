@@ -623,6 +623,7 @@ function renderAccountValueSummary(snapshot) {
     ["Priced", `${summary.priced_holding_count || 0}`],
     ["Unpriced", `${summary.unpriced_holding_count || 0}`],
     ["Account-bound", `${summary.account_bound_holding_count || 0}`],
+    ["Price coverage", `${snapshot.diagnostics?.price_coverage_percent || 0}%`],
     ["Warnings", `${snapshot.warnings?.length || 0}`],
   ];
   grid.innerHTML = "";
@@ -640,6 +641,8 @@ function renderAccountValueSummary(snapshot) {
   renderTopHoldings(snapshot.top_holdings || []);
   renderValueWarnings(snapshot.warnings || []);
   renderPriceRemediationSummary(snapshot);
+  renderValueSourceInsights(snapshot.diagnostics?.source_insights || []);
+  renderValueRemediationActions(snapshot.diagnostics?.remediation_actions || []);
 }
 
 function formatCopper(value) {
@@ -727,14 +730,15 @@ function renderPriceRemediationSummary(snapshot) {
   if (!element) {
     return;
   }
+  const diagnostics = snapshot.diagnostics || {};
   const warnings = snapshot.warnings || [];
   const missing = warnings.filter((warning) => warning.warning_code === "missing_price").length;
   const stale = warnings.filter((warning) => warning.warning_code === "stale_price").length;
   const reserved = warnings.filter((warning) => warning.warning_code === "reserved_for_goal").length;
   if (!missing && !stale) {
     element.textContent = reserved
-      ? `${reserved} holdings are reserved for active goals. Price coverage has no missing or stale warnings.`
-      : "Price coverage has no missing or stale warnings.";
+      ? `${reserved} holdings are reserved for active goals. Price coverage ${diagnostics.price_coverage_percent || 0}% has no missing or stale warnings.`
+      : `Price coverage ${diagnostics.price_coverage_percent || 0}% has no missing or stale warnings.`;
     return;
   }
   const actions = [];
@@ -745,6 +749,60 @@ function renderPriceRemediationSummary(snapshot) {
     actions.push(`${stale} stale prices: refresh official prices before costly planning.`);
   }
   element.textContent = actions.join(" ");
+}
+
+function renderValueSourceInsights(insights) {
+  const element = document.querySelector("#value-source-insights");
+  if (!element) {
+    return;
+  }
+  element.innerHTML = "";
+  if (!insights.length) {
+    element.textContent = "No source diagnostics yet. Sync account data and refresh dashboard.";
+    return;
+  }
+  for (const insight of insights.slice(0, 6)) {
+    const item = document.createElement("div");
+    const name = document.createElement("strong");
+    const detail = document.createElement("span");
+    item.className = `compact-list-row ${valueReadinessClass(insight.readiness_label)}`;
+    name.textContent = `${insight.label || insight.key}: ${insight.readiness_label || "unknown"}`;
+    detail.textContent = `${insight.price_coverage_percent || 0}% priced · ${formatCopper(insight.value_buy_copper || 0)} · ${insight.action_hint || ""}`;
+    item.append(name, detail);
+    element.appendChild(item);
+  }
+}
+
+function renderValueRemediationActions(actions) {
+  const element = document.querySelector("#value-remediation-actions");
+  if (!element) {
+    return;
+  }
+  element.innerHTML = "";
+  if (!actions.length) {
+    element.textContent = "No remediation actions yet. Refresh dashboard after account sync.";
+    return;
+  }
+  for (const action of actions.slice(0, 5)) {
+    const item = document.createElement("div");
+    const name = document.createElement("strong");
+    const detail = document.createElement("span");
+    item.className = `compact-list-row ${action.priority === "P0" || action.priority === "P1" ? "warn" : "info"}`;
+    name.textContent = `${action.priority || "P3"} · ${action.label || action.action_id}`;
+    detail.textContent = action.ui_action ? `${action.reason || ""} Action: ${action.ui_action}.` : action.reason || "";
+    item.append(name, detail);
+    element.appendChild(item);
+  }
+}
+
+function valueReadinessClass(label) {
+  if (label === "ready") {
+    return "info";
+  }
+  if (label === "partial" || label === "needs_price") {
+    return "warn";
+  }
+  return "";
 }
 
 function remediationMessage(warning) {
