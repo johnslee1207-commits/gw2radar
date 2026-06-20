@@ -637,6 +637,18 @@ def main() -> int:
     )
     if release_export_bundle_audit_csv.status_code != 200 or "audit_id,verified_at,reviewer,ready,checksum_sha256" not in release_export_bundle_audit_csv.text:
         failures.append("achievement route release export bundle verification audit CSV export failed")
+    operator_handoff = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/handoff-checklist")
+    operator_handoff_payload = _json_response(
+        operator_handoff,
+        "achievement route operator handoff checklist",
+        failures,
+    )
+    operator_handoff_data = (((operator_handoff_payload or {}).get("data") or {}).get("operator_handoff_checklist") or {})
+    if operator_handoff_data.get("ready") is not True or operator_handoff_data.get("maturity_label") != "ready":
+        failures.append("achievement route operator handoff checklist was not ready")
+    operator_handoff_csv = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/handoff-checklist?format=csv")
+    if operator_handoff_csv.status_code != 200 or "ready,maturity_label,packet_id,packet_artifact_count" not in operator_handoff_csv.text:
+        failures.append("achievement route operator handoff checklist CSV export failed")
     promoted_sources = client.get("/api/v1/achievement-routes/sources")
     promoted_sources_payload = _json_response(promoted_sources, "promoted route sources", failures)
     promoted_reviewed_step_count = (((promoted_sources_payload or {}).get("data") or {}).get("reviewed_step_count") or 0)

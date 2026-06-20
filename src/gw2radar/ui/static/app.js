@@ -309,6 +309,9 @@ function summarizeResult(target, payload) {
     if (data?.release_export_bundle_verification_audit) {
       return `Release bundle verification audit records: ${data.release_export_bundle_verification_audit.records.length}.`;
     }
+    if (data?.operator_handoff_checklist) {
+      return `Operator handoff checklist: ${data.operator_handoff_checklist.maturity_label} with ${data.operator_handoff_checklist.missing_gates.length} missing gates.`;
+    }
     if (Array.isArray(data?.sources)) {
       return `${data.sources.length} route source manifests loaded with ${data.reviewed_step_count || 0} reviewed steps.`;
     }
@@ -843,6 +846,12 @@ function renderRouteReleaseExportBundleVerificationAudit(audit) {
   const latest = audit?.records?.[0];
   const status = latest ? (latest.ready ? "ready" : "blocked") : "--";
   document.querySelector("#route-release-export-bundle-audit-count").textContent = `${count} records / ${status}`;
+}
+
+function renderRouteOperatorHandoffChecklist(checklist) {
+  const label = checklist?.maturity_label || "--";
+  const missing = Array.isArray(checklist?.missing_gates) ? checklist.missing_gates.length : "--";
+  document.querySelector("#route-operator-handoff-count").textContent = `${label} / ${missing} missing`;
 }
 
 function renderRouteOperatorActionBundle(bundle) {
@@ -1997,6 +2006,23 @@ const actions = {
           return text;
         });
     }),
+  loadAchievementRouteOperatorHandoffChecklist: () =>
+    run("routes", async () => {
+      const payload = await fetchJson("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/handoff-checklist");
+      renderRouteOperatorHandoffChecklist(payload?.data?.operator_handoff_checklist || {});
+      return payload;
+    }),
+  exportAchievementRouteOperatorHandoffChecklistCsv: () =>
+    run("routes", () =>
+      fetch("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/handoff-checklist?format=csv")
+        .then(async (response) => {
+          const text = await response.text();
+          if (!response.ok) {
+            throw new Error(text || `HTTP ${response.status}`);
+          }
+          return text;
+        }),
+    ),
   importBuild: () =>
     run("build", async () => {
       const payload = await fetchJson("/api/v1/builds/import", {

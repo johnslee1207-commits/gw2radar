@@ -218,6 +218,7 @@ Operator review gate:
 - `Bundle manifest` and `Download bundle` package the release export artifacts into a local read-only zip download with whitelist files and a SHA-256 checksum.
 - `Verify bundle` safely imports release export zip bytes for checksum, schema, whitelist, required-file, and no-secret validation without executing or publishing files.
 - `Record bundle audit`, `Load bundle audit`, and `Export bundle audit CSV` record release bundle verification results as metadata-only reviewer audit history.
+- `Handoff checklist` and `Export handoff CSV` summarize packet, artifacts, bundle, verification, and verification audit gates into one final operator readiness checklist.
 
 Advanced operator flow:
 
@@ -257,6 +258,7 @@ Advanced operator flow:
 - `POST /api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/bundle/verify` verifies uploaded zip bytes, or the current local bundle when no body is provided.
 - `POST /api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/bundle/verification-audit` records current bundle verification metadata for a reviewer.
 - `GET /api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/bundle/verification-audit` lists release bundle verification audit records with `format=markdown` or `format=csv`.
+- `GET /api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/handoff-checklist` returns the final operator handoff checklist with `format=markdown` or `format=csv`.
 - `GET /api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/{relative_path}` retrieves a path-safe local release packet artifact.
 - Draft previews are not used by the route planner until this reviewed promotion gate writes a `source_status=reviewed` manifest.
 

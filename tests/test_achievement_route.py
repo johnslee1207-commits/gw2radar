@@ -26,6 +26,7 @@ from gw2radar.commercial.achievement_route import (
     build_achievement_route_backfill_candidates,
     build_achievement_route_backfill_candidate_readiness,
     build_achievement_route_release_evidence_archive_diff,
+    build_achievement_route_operator_handoff_checklist,
     build_achievement_route_release_export_bundle,
     build_achievement_route_release_export_packet,
     build_achievement_route_release_readiness,
@@ -105,6 +106,8 @@ from gw2radar.commercial.achievement_route import (
     record_achievement_route_release_export_bundle_verification_audit,
     render_achievement_route_release_export_bundle_verification_audit_csv,
     render_achievement_route_release_export_bundle_verification_audit_markdown,
+    render_achievement_route_operator_handoff_checklist_csv,
+    render_achievement_route_operator_handoff_checklist_markdown,
     verify_achievement_route_release_export_bundle,
     write_achievement_route_release_export_packet_artifacts,
 )
@@ -673,6 +676,9 @@ def test_achievement_route_operator_action_bundle_aggregates_and_records_review(
         release_export_bundle_audit_csv = render_achievement_route_release_export_bundle_verification_audit_csv(
             release_export_bundle_audit
         )
+        operator_handoff = build_achievement_route_operator_handoff_checklist(temp_root, audit_root, artifact_root)
+        operator_handoff_markdown = render_achievement_route_operator_handoff_checklist_markdown(operator_handoff)
+        operator_handoff_csv = render_achievement_route_operator_handoff_checklist_csv(operator_handoff)
 
         assert initial.schema_version == "gw2radar.achievement_route_operator_action_bundle.v1"
         assert initial.remediation_review is None
@@ -818,6 +824,15 @@ def test_achievement_route_operator_action_bundle_aggregates_and_records_review(
         assert release_export_bundle_audit.records[0].audit_id == release_export_bundle_audit_record.audit_id
         assert "Achievement Route Release Bundle Verification Audit" in release_export_bundle_audit_markdown
         assert "audit_id,verified_at,reviewer,ready,checksum_sha256" in release_export_bundle_audit_csv
+        assert operator_handoff.schema_version == "gw2radar.achievement_route_operator_handoff_checklist.v1"
+        assert operator_handoff.ready is True
+        assert operator_handoff.maturity_label == "ready"
+        assert operator_handoff.packet_artifact_count == 3
+        assert operator_handoff.bundle_file_count == 4
+        assert operator_handoff.verification_ready is True
+        assert operator_handoff.verification_audit_count == 1
+        assert "Achievement Route Operator Handoff Checklist" in operator_handoff_markdown
+        assert "ready,maturity_label,packet_id,packet_artifact_count" in operator_handoff_csv
         assert "secret-key" not in str(updated).lower()
         assert "secret-key" not in str(packet).lower()
         assert "secret-key" not in str(candidates).lower()
@@ -834,6 +849,7 @@ def test_achievement_route_operator_action_bundle_aggregates_and_records_review(
         assert "secret-key" not in str(release_export_artifacts).lower()
         assert "secret-key" not in str(release_export_bundle_verification).lower()
         assert "secret-key" not in str(release_export_bundle_audit).lower()
+        assert "secret-key" not in str(operator_handoff).lower()
         assert "secret-key" not in release_export_bundle_bytes.decode("latin1").lower()
     finally:
         rmtree(temp_root, ignore_errors=True)
@@ -1414,6 +1430,15 @@ def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
         release_export_bundle_audit_csv = client.get(
             "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/bundle/verification-audit?format=csv"
         )
+        operator_handoff = client.get(
+            "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/handoff-checklist"
+        )
+        operator_handoff_markdown = client.get(
+            "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/handoff-checklist?format=markdown"
+        )
+        operator_handoff_csv = client.get(
+            "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/handoff-checklist?format=csv"
+        )
         assert release_export_bundle_verify_current.status_code == 200
         assert release_export_bundle_verify_current.json()["data"]["release_export_bundle_verification"]["ready"] is True
         assert release_export_bundle_verify_upload.status_code == 200
@@ -1426,6 +1451,13 @@ def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
         assert "Achievement Route Release Bundle Verification Audit" in release_export_bundle_audit_markdown.text
         assert release_export_bundle_audit_csv.status_code == 200
         assert "audit_id,verified_at,reviewer,ready,checksum_sha256" in release_export_bundle_audit_csv.text
+        assert operator_handoff.status_code == 200
+        assert operator_handoff.json()["data"]["operator_handoff_checklist"]["ready"] is True
+        assert operator_handoff.json()["data"]["operator_handoff_checklist"]["maturity_label"] == "ready"
+        assert operator_handoff_markdown.status_code == 200
+        assert "Achievement Route Operator Handoff Checklist" in operator_handoff_markdown.text
+        assert operator_handoff_csv.status_code == 200
+        assert "ready,maturity_label,packet_id,packet_artifact_count" in operator_handoff_csv.text
         assert "secret-key" not in release_export_bundle_zip.content.decode("latin1").lower()
     finally:
         achievement_route_routes.gateway_factory = original_factory

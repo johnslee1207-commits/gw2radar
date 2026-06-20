@@ -143,6 +143,9 @@ required files, and no-secret boundaries without executing or publishing files.
 It also verifies the P29 release packet verification audit trail:
 release export bundle verification results can be recorded as metadata-only
 audit records and exported as Markdown / CSV without storing zip content.
+It also verifies the P30 operator handoff checklist:
+release packet, artifact files, zip bundle, verification, and verification audit
+gates are summarized into one final metadata-only handoff readiness checklist.
 
 ## Account Connection Diagnostic Command
 
@@ -279,7 +282,8 @@ readiness rollup, and visible no-secret boundary copy.
 59. Load the release export bundle manifest and download the read-only zip bundle.
 60. Verify the release export zip bundle bytes through the safe import verifier.
 61. Record and export release bundle verification audit metadata.
-62. Confirm the route planner ingests the promoted reviewed source.
+62. Load and export the operator handoff checklist.
+63. Confirm the route planner ingests the promoted reviewed source.
 
 ## Account Connection Diagnostic Steps
 

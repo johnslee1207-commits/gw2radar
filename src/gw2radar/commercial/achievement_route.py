@@ -846,6 +846,27 @@ class AchievementRouteReleaseExportBundleVerificationAuditList(BaseModel):
     boundary: str = "Release bundle verification audit exports are metadata-only and must not include zip content, raw API keys, or private account payloads."
 
 
+class AchievementRouteOperatorHandoffChecklist(BaseModel):
+    schema_version: str = "gw2radar.achievement_route_operator_handoff_checklist.v1"
+    generated_at: datetime
+    ready: bool
+    maturity_label: Literal["blocked", "review_needed", "ready"]
+    packet_id: str | None = None
+    packet_artifact_count: int
+    bundle_checksum_sha256: str | None = None
+    bundle_file_count: int
+    verification_ready: bool
+    verification_audit_count: int
+    latest_verification_audit_id: str | None = None
+    checklist_items: list[str] = Field(default_factory=list)
+    missing_gates: list[str] = Field(default_factory=list)
+    blockers: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    next_actions: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    boundary: str = "Operator handoff checklist is metadata-only; it does not publish files, execute bundle content, certify live game state, or store secrets."
+
+
 class AchievementRouteGateway(Protocol):
     def get_batch(
         self,
@@ -3764,6 +3785,172 @@ def render_achievement_route_release_export_bundle_verification_audit_csv(
                 record.warning_count,
             ]
         )
+    return buffer.getvalue()
+
+
+def build_achievement_route_operator_handoff_checklist(
+    source_root: Path = ACHIEVEMENT_ROUTE_SOURCE_ROOT,
+    audit_root: Path = ACHIEVEMENT_ROUTE_AUDIT_ROOT,
+    output_root: Path = ACHIEVEMENT_ROUTE_RELEASE_EXPORT_ROOT,
+) -> AchievementRouteOperatorHandoffChecklist:
+    packet = build_achievement_route_release_export_packet(source_root, audit_root)
+    artifact_index = list_achievement_route_release_export_artifacts(output_root, limit=1)
+    if not artifact_index.files:
+        artifact_index = write_achievement_route_release_export_packet_artifacts(source_root, audit_root, output_root)
+
+    bundle_manifest: AchievementRouteReleaseExportBundleManifest | None = None
+    bundle_verification: AchievementRouteReleaseExportBundleVerification | None = None
+    blockers: list[str] = []
+    warnings: list[str] = []
+    try:
+        bundle_manifest, bundle_bytes = build_achievement_route_release_export_bundle(output_root)
+        bundle_verification = verify_achievement_route_release_export_bundle(
+            bundle_bytes,
+            expected_checksum_sha256=bundle_manifest.checksum_sha256,
+        )
+    except ValueError as exc:
+        blockers.append(str(exc))
+
+    verification_audit = list_achievement_route_release_export_bundle_verification_audits(audit_root, limit=1)
+    latest_audit = verification_audit.records[0] if verification_audit.records else None
+    missing_gates: list[str] = []
+    if packet.manifest.get("packet_schema") != "gw2radar.achievement_route_release_export_packet.v1":
+        missing_gates.append("release export packet manifest schema")
+    if artifact_index.file_count < 3:
+        missing_gates.append("release packet artifact files")
+    if bundle_manifest is None or bundle_manifest.file_count < 4:
+        missing_gates.append("release packet zip bundle")
+    if bundle_verification is None or not bundle_verification.ready:
+        missing_gates.append("release packet bundle verification")
+    if latest_audit is None:
+        missing_gates.append("release packet bundle verification audit")
+    elif not latest_audit.ready:
+        missing_gates.append("latest release packet bundle verification audit ready state")
+
+    if bundle_verification and bundle_verification.blockers:
+        blockers.extend(bundle_verification.blockers)
+    if latest_audit and latest_audit.blockers:
+        blockers.extend(latest_audit.blockers)
+    if bundle_verification and bundle_verification.warnings:
+        warnings.extend(bundle_verification.warnings)
+    if latest_audit and latest_audit.warnings:
+        warnings.extend(latest_audit.warnings)
+
+    ready = not missing_gates and not blockers
+    maturity_label: Literal["blocked", "review_needed", "ready"]
+    if blockers:
+        maturity_label = "blocked"
+    elif missing_gates or warnings:
+        maturity_label = "review_needed"
+    else:
+        maturity_label = "ready"
+    checklist_items = [
+        "Release export packet manifest generated.",
+        "Release packet artifact files written and indexed.",
+        "Release packet zip bundle generated from whitelist files.",
+        "Release packet zip bundle verified without executing content.",
+        "Release packet verification audit recorded as metadata only.",
+    ]
+    next_actions = (
+        [
+            "Resolve missing handoff gates before external release handoff.",
+            "Re-run bundle verification and record audit after blockers are fixed.",
+        ]
+        if not ready
+        else [
+            "Attach release packet bundle, verification audit export, and checklist to the manual operator handoff.",
+            "Keep external publication and deployment steps manual until a separate release process is approved.",
+        ]
+    )
+    return AchievementRouteOperatorHandoffChecklist(
+        generated_at=datetime.now(UTC),
+        ready=ready,
+        maturity_label=maturity_label,
+        packet_id=packet.packet_id,
+        packet_artifact_count=artifact_index.file_count,
+        bundle_checksum_sha256=bundle_manifest.checksum_sha256 if bundle_manifest else None,
+        bundle_file_count=bundle_manifest.file_count if bundle_manifest else 0,
+        verification_ready=bundle_verification.ready if bundle_verification else False,
+        verification_audit_count=len(verification_audit.records),
+        latest_verification_audit_id=latest_audit.audit_id if latest_audit else None,
+        checklist_items=checklist_items,
+        missing_gates=_unique(missing_gates),
+        blockers=_unique(blockers),
+        warnings=_unique(warnings),
+        next_actions=next_actions,
+        evidence_refs=_unique(
+            [
+                "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet",
+                "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts",
+                "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/bundle",
+                "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/bundle/verify",
+                "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/bundle/verification-audit",
+            ]
+        ),
+    )
+
+
+def render_achievement_route_operator_handoff_checklist_markdown(
+    checklist: AchievementRouteOperatorHandoffChecklist,
+) -> str:
+    lines = [
+        "# Achievement Route Operator Handoff Checklist",
+        "",
+        f"- Ready: {checklist.ready}",
+        f"- Maturity: {checklist.maturity_label}",
+        f"- Packet: {checklist.packet_id or 'None'}",
+        f"- Packet artifact files: {checklist.packet_artifact_count}",
+        f"- Bundle files: {checklist.bundle_file_count}",
+        f"- Bundle checksum: {checklist.bundle_checksum_sha256 or 'None'}",
+        f"- Verification ready: {checklist.verification_ready}",
+        f"- Verification audit records: {checklist.verification_audit_count}",
+        f"- Boundary: {checklist.boundary}",
+        "",
+        "## Checklist",
+    ]
+    lines.extend(f"- {item}" for item in checklist.checklist_items)
+    lines.extend(["", "## Missing Gates"])
+    lines.extend(f"- {item}" for item in checklist.missing_gates) if checklist.missing_gates else lines.append("- None")
+    lines.extend(["", "## Blockers"])
+    lines.extend(f"- {item}" for item in checklist.blockers) if checklist.blockers else lines.append("- None")
+    lines.extend(["", "## Next Actions"])
+    lines.extend(f"- {item}" for item in checklist.next_actions)
+    return "\n".join(lines) + "\n"
+
+
+def render_achievement_route_operator_handoff_checklist_csv(
+    checklist: AchievementRouteOperatorHandoffChecklist,
+) -> str:
+    buffer = StringIO()
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow(
+        [
+            "ready",
+            "maturity_label",
+            "packet_id",
+            "packet_artifact_count",
+            "bundle_file_count",
+            "verification_ready",
+            "verification_audit_count",
+            "missing_gate_count",
+            "blocker_count",
+            "warning_count",
+        ]
+    )
+    writer.writerow(
+        [
+            checklist.ready,
+            checklist.maturity_label,
+            checklist.packet_id,
+            checklist.packet_artifact_count,
+            checklist.bundle_file_count,
+            checklist.verification_ready,
+            checklist.verification_audit_count,
+            len(checklist.missing_gates),
+            len(checklist.blockers),
+            len(checklist.warnings),
+        ]
+    )
     return buffer.getvalue()
 
 

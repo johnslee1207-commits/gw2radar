@@ -25,6 +25,7 @@ from gw2radar.commercial.achievement_route import (
     build_achievement_route_backfill_candidates,
     build_achievement_route_backfill_candidate_readiness,
     build_achievement_route_operator_action_bundle,
+    build_achievement_route_operator_handoff_checklist,
     build_achievement_route_operator_release_packet,
     build_achievement_route_operator_release_dashboard,
     build_achievement_route_release_readiness,
@@ -67,6 +68,8 @@ from gw2radar.commercial.achievement_route import (
     render_achievement_route_markdown,
     render_achievement_route_operator_action_bundle_csv,
     render_achievement_route_operator_action_bundle_markdown,
+    render_achievement_route_operator_handoff_checklist_csv,
+    render_achievement_route_operator_handoff_checklist_markdown,
     render_achievement_route_operator_release_dashboard_csv,
     render_achievement_route_operator_release_dashboard_markdown,
     render_achievement_route_operator_release_packet_csv,
@@ -682,6 +685,24 @@ def get_achievement_route_release_export_packet_artifact_bundle_verification_aud
             media_type="text/csv; charset=utf-8",
         )
     return ApiDataEnvelope(data={"release_export_bundle_verification_audit": audit.model_dump(mode="json")})
+
+
+@router.get("/source-quality/remediation-queue/release-export-packet/handoff-checklist", response_model=None)
+def get_achievement_route_operator_handoff_checklist(
+    format: str = Query(default="json", pattern="^(json|markdown|csv)$"),
+):
+    checklist = build_achievement_route_operator_handoff_checklist(source_root, audit_root, release_export_root)
+    if format == "markdown":
+        return Response(
+            content=render_achievement_route_operator_handoff_checklist_markdown(checklist),
+            media_type="text/markdown; charset=utf-8",
+        )
+    if format == "csv":
+        return Response(
+            content=render_achievement_route_operator_handoff_checklist_csv(checklist),
+            media_type="text/csv; charset=utf-8",
+        )
+    return ApiDataEnvelope(data={"operator_handoff_checklist": checklist.model_dump(mode="json")})
 
 
 @router.get("/source-quality/remediation-queue/release-export-packet/artifacts/{relative_path:path}", response_model=None)

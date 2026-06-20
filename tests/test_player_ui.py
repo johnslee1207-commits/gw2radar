@@ -111,6 +111,8 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert "Record bundle audit" in response.text
     assert "Load bundle audit" in response.text
     assert "Export bundle audit CSV" in response.text
+    assert "Handoff checklist" in response.text
+    assert "Export handoff CSV" in response.text
     assert "Evidence bundle" in response.text
     assert "Evidence archive" in response.text
     assert "Archive diff" in response.text
@@ -121,6 +123,7 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert "Packet bundle" in response.text
     assert "Bundle verify" in response.text
     assert "Bundle audit" in response.text
+    assert "Handoff" in response.text
 
 
 def test_player_ui_static_assets_are_served() -> None:
@@ -237,6 +240,8 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "recordAchievementRouteReleaseExportBundleVerificationAudit" in js.text
     assert "loadAchievementRouteReleaseExportBundleVerificationAudit" in js.text
     assert "exportAchievementRouteReleaseExportBundleVerificationAuditCsv" in js.text
+    assert "loadAchievementRouteOperatorHandoffChecklist" in js.text
+    assert "exportAchievementRouteOperatorHandoffChecklistCsv" in js.text
     assert "confirmed_manual_review" in js.text
     assert "routeOfficialFetchPreviewPayload" in js.text
     assert "routeReviewPayload" in js.text
@@ -269,6 +274,7 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/bundle" in js.text
     assert "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/bundle/verify" in js.text
     assert "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/bundle/verification-audit" in js.text
+    assert "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/handoff-checklist" in js.text
 
 
 def test_player_ui_styles_cover_workflow_and_summaries() -> None:
