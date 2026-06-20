@@ -4,9 +4,10 @@ import csv
 import hashlib
 import json
 from datetime import UTC, datetime
-from io import StringIO
+from io import BytesIO, StringIO
 from pathlib import Path
 from typing import Any, Literal, Protocol
+from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 from pydantic import BaseModel, Field, ValidationError
 
@@ -783,6 +784,20 @@ class AchievementRouteReleaseExportArtifactIndex(BaseModel):
     file_count: int
     files: list[AchievementRouteReleaseExportArtifactFile]
     boundary: str = "Release export artifact index is local metadata only; it does not publish files externally or include secrets."
+
+
+class AchievementRouteReleaseExportBundleManifest(BaseModel):
+    schema_version: str = "gw2radar.achievement_route_release_export_bundle_manifest.v1"
+    bundle_id: str
+    packet_id: str | None = None
+    generated_at: datetime
+    filename: str
+    media_type: str = "application/zip"
+    file_count: int
+    included_files: list[AchievementRouteReleaseExportArtifactFile]
+    checksum_sha256: str
+    size_bytes: int
+    boundary: str = "Release export bundle is a local read-only zip package; it does not publish files externally, include secrets, or certify live game state."
 
 
 class AchievementRouteGateway(Protocol):
@@ -3417,6 +3432,70 @@ def resolve_achievement_route_release_export_artifact_path(
     if not candidate.exists() or not candidate.is_file():
         return None
     return candidate
+
+
+def build_achievement_route_release_export_bundle(
+    output_root: Path = ACHIEVEMENT_ROUTE_RELEASE_EXPORT_ROOT,
+) -> tuple[AchievementRouteReleaseExportBundleManifest, bytes]:
+    index = list_achievement_route_release_export_artifacts(output_root, limit=1)
+    if not index.files:
+        raise ValueError("No release export artifacts are available to bundle")
+    packet_dir_name = index.files[0].relative_path.split("/", 1)[0]
+    allowed_filenames = {
+        "artifact_index.json",
+        "release_export_packet_manifest.json",
+        "release_export_packet.md",
+        "release_export_packet.csv",
+    }
+    source_files: list[tuple[str, Path, str]] = []
+    for file in index.files:
+        if file.filename not in allowed_filenames:
+            continue
+        path = resolve_achievement_route_release_export_artifact_path(file.relative_path, output_root)
+        if path is not None:
+            source_files.append((file.relative_path, path, file.media_type))
+    artifact_index_relative = f"{packet_dir_name}/artifact_index.json"
+    artifact_index_path = resolve_achievement_route_release_export_artifact_path(artifact_index_relative, output_root)
+    if artifact_index_path is not None:
+        source_files.append((artifact_index_relative, artifact_index_path, "application/json"))
+
+    included_files: list[AchievementRouteReleaseExportArtifactFile] = []
+    buffer = BytesIO()
+    with ZipFile(buffer, mode="w", compression=ZIP_DEFLATED) as archive:
+        for relative_path, path, media_type in sorted(source_files, key=lambda item: item[0]):
+            filename = Path(relative_path).name
+            if filename not in allowed_filenames:
+                continue
+            content = path.read_bytes()
+            archive_path = f"achievement_route_release_export/{filename}"
+            info = ZipInfo(archive_path, date_time=(1980, 1, 1, 0, 0, 0))
+            info.compress_type = ZIP_DEFLATED
+            info.external_attr = 0o644 << 16
+            archive.writestr(info, content)
+            included_files.append(
+                AchievementRouteReleaseExportArtifactFile(
+                    filename=filename,
+                    relative_path=archive_path,
+                    media_type=media_type,
+                    size_bytes=len(content),
+                    checksum_sha256=hashlib.sha256(content).hexdigest(),
+                )
+            )
+    bundle_bytes = buffer.getvalue()
+    safe_packet_id = _safe_identifier(index.packet_id or "latest")
+    filename = f"{safe_packet_id}_release_export_bundle.zip"
+    checksum = hashlib.sha256(bundle_bytes).hexdigest()
+    manifest = AchievementRouteReleaseExportBundleManifest(
+        bundle_id=f"achievement-route-release-export-bundle:{checksum[:16]}",
+        packet_id=index.packet_id,
+        generated_at=datetime.now(UTC),
+        filename=filename,
+        file_count=len(included_files),
+        included_files=included_files,
+        checksum_sha256=checksum,
+        size_bytes=len(bundle_bytes),
+    )
+    return manifest, bundle_bytes
 
 
 def build_achievement_route_backfill_candidates(

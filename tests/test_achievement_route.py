@@ -1,6 +1,8 @@
+from io import BytesIO
 from pathlib import Path
 from shutil import rmtree
 from uuid import uuid4
+from zipfile import ZipFile
 
 from fastapi.testclient import TestClient
 
@@ -23,6 +25,7 @@ from gw2radar.commercial.achievement_route import (
     build_achievement_route_backfill_candidates,
     build_achievement_route_backfill_candidate_readiness,
     build_achievement_route_release_evidence_archive_diff,
+    build_achievement_route_release_export_bundle,
     build_achievement_route_release_export_packet,
     build_achievement_route_release_readiness,
     build_achievement_route_operator_action_bundle,
@@ -628,6 +631,8 @@ def test_achievement_route_operator_action_bundle_aggregates_and_records_review(
             release_export_artifacts.files[0].relative_path,
             artifact_root,
         )
+        release_export_bundle_manifest, release_export_bundle_bytes = build_achievement_route_release_export_bundle(artifact_root)
+        release_export_bundle_names = set(ZipFile(BytesIO(release_export_bundle_bytes)).namelist())
 
         assert initial.schema_version == "gw2radar.achievement_route_operator_action_bundle.v1"
         assert initial.remediation_review is None
@@ -750,6 +755,16 @@ def test_achievement_route_operator_action_bundle_aggregates_and_records_review(
         assert release_export_artifact_path is not None
         assert release_export_artifact_path.exists()
         assert resolve_achievement_route_release_export_artifact_path("../secret.txt", artifact_root) is None
+        assert release_export_bundle_manifest.schema_version == "gw2radar.achievement_route_release_export_bundle_manifest.v1"
+        assert release_export_bundle_manifest.file_count == 4
+        assert release_export_bundle_manifest.size_bytes == len(release_export_bundle_bytes)
+        assert release_export_bundle_manifest.checksum_sha256
+        assert release_export_bundle_names == {
+            "achievement_route_release_export/artifact_index.json",
+            "achievement_route_release_export/release_export_packet_manifest.json",
+            "achievement_route_release_export/release_export_packet.md",
+            "achievement_route_release_export/release_export_packet.csv",
+        }
         assert "secret-key" not in str(updated).lower()
         assert "secret-key" not in str(packet).lower()
         assert "secret-key" not in str(candidates).lower()
@@ -764,6 +779,7 @@ def test_achievement_route_operator_action_bundle_aggregates_and_records_review(
         assert "secret-key" not in str(release_dashboard).lower()
         assert "secret-key" not in str(release_export_packet).lower()
         assert "secret-key" not in str(release_export_artifacts).lower()
+        assert "secret-key" not in release_export_bundle_bytes.decode("latin1").lower()
     finally:
         rmtree(temp_root, ignore_errors=True)
         rmtree(audit_root, ignore_errors=True)
@@ -1191,6 +1207,10 @@ def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
         release_export_packet_manifest = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet?format=manifest")
         release_export_artifacts = client.post("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts")
         release_export_artifact_index = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts")
+        release_export_bundle_manifest = client.get(
+            "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/bundle?format=manifest"
+        )
+        release_export_bundle_zip = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/bundle")
 
         assert blocked_review.status_code == 400
         assert review_action.status_code == 200
@@ -1304,6 +1324,18 @@ def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
         assert release_export_artifact_index.json()["data"]["release_export_artifacts"]["file_count"] == 3
         assert release_export_artifact_file.status_code == 200
         assert "secret-key" not in release_export_artifact_file.text.lower()
+        assert release_export_bundle_manifest.status_code == 200
+        assert release_export_bundle_manifest.json()["data"]["release_export_bundle"]["file_count"] == 4
+        assert release_export_bundle_zip.status_code == 200
+        assert release_export_bundle_zip.headers["content-type"] == "application/zip"
+        assert release_export_bundle_zip.headers["x-checksum-sha256"]
+        assert set(ZipFile(BytesIO(release_export_bundle_zip.content)).namelist()) == {
+            "achievement_route_release_export/artifact_index.json",
+            "achievement_route_release_export/release_export_packet_manifest.json",
+            "achievement_route_release_export/release_export_packet.md",
+            "achievement_route_release_export/release_export_packet.csv",
+        }
+        assert "secret-key" not in release_export_bundle_zip.content.decode("latin1").lower()
     finally:
         achievement_route_routes.gateway_factory = original_factory
         achievement_route_routes.source_root = original_source_root

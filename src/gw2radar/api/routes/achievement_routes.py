@@ -27,6 +27,7 @@ from gw2radar.commercial.achievement_route import (
     build_achievement_route_operator_release_packet,
     build_achievement_route_operator_release_dashboard,
     build_achievement_route_release_readiness,
+    build_achievement_route_release_export_bundle,
     build_achievement_route_release_export_packet,
     build_achievement_route_release_evidence_archive_diff,
     build_achievement_route_remediation_queue,
@@ -570,6 +571,29 @@ def get_achievement_route_release_export_packet_artifacts(
 ):
     index = list_achievement_route_release_export_artifacts(release_export_root, limit=limit)
     return ApiDataEnvelope(data={"release_export_artifacts": index.model_dump(mode="json")})
+
+
+@router.get("/source-quality/remediation-queue/release-export-packet/artifacts/bundle", response_model=None)
+def get_achievement_route_release_export_packet_artifact_bundle(
+    format: str = Query(default="zip", pattern="^(zip|manifest)$"),
+):
+    index = list_achievement_route_release_export_artifacts(release_export_root, limit=1)
+    if not index.files:
+        write_achievement_route_release_export_packet_artifacts(source_root, audit_root, release_export_root)
+    try:
+        manifest, bundle_bytes = build_achievement_route_release_export_bundle(release_export_root)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    if format == "manifest":
+        return ApiDataEnvelope(data={"release_export_bundle": manifest.model_dump(mode="json")})
+    return Response(
+        content=bundle_bytes,
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f'attachment; filename="{manifest.filename}"',
+            "X-Checksum-SHA256": manifest.checksum_sha256,
+        },
+    )
 
 
 @router.get("/source-quality/remediation-queue/release-export-packet/artifacts/{relative_path:path}", response_model=None)

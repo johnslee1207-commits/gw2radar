@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import sys
+from io import BytesIO
 from shutil import rmtree
 from pathlib import Path
+from zipfile import ZipFile
 
 from fastapi.testclient import TestClient
 
@@ -562,6 +564,32 @@ def main() -> int:
         )
         if artifact_file.status_code != 200 or "secret-key" in artifact_file.text.lower():
             failures.append("achievement route release export artifact file retrieval failed or leaked secret text")
+    release_export_bundle_manifest = client.get(
+        "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/bundle?format=manifest"
+    )
+    release_export_bundle_manifest_payload = _json_response(
+        release_export_bundle_manifest,
+        "achievement route release export bundle manifest",
+        failures,
+    )
+    if (((release_export_bundle_manifest_payload or {}).get("data") or {}).get("release_export_bundle") or {}).get("file_count") != 4:
+        failures.append("achievement route release export bundle manifest did not list four files")
+    release_export_bundle_zip = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/bundle")
+    if release_export_bundle_zip.status_code != 200:
+        failures.append(f"achievement route release export bundle zip returned HTTP {release_export_bundle_zip.status_code}")
+    elif not release_export_bundle_zip.headers.get("x-checksum-sha256"):
+        failures.append("achievement route release export bundle zip did not include checksum header")
+    elif "secret-key" in release_export_bundle_zip.content.decode("latin1").lower():
+        failures.append("achievement route release export bundle zip leaked secret text")
+    else:
+        bundle_names = set(ZipFile(BytesIO(release_export_bundle_zip.content)).namelist())
+        if bundle_names != {
+            "achievement_route_release_export/artifact_index.json",
+            "achievement_route_release_export/release_export_packet_manifest.json",
+            "achievement_route_release_export/release_export_packet.md",
+            "achievement_route_release_export/release_export_packet.csv",
+        }:
+            failures.append("achievement route release export bundle zip file whitelist mismatch")
     promoted_sources = client.get("/api/v1/achievement-routes/sources")
     promoted_sources_payload = _json_response(promoted_sources, "promoted route sources", failures)
     promoted_reviewed_step_count = (((promoted_sources_payload or {}).get("data") or {}).get("reviewed_step_count") or 0)

@@ -297,6 +297,9 @@ function summarizeResult(target, payload) {
     if (data?.release_export_artifacts) {
       return `Release export artifacts: ${data.release_export_artifacts.file_count} files indexed.`;
     }
+    if (data?.release_export_bundle) {
+      return `Release export bundle: ${data.release_export_bundle.file_count} files, ${data.release_export_bundle.size_bytes} bytes.`;
+    }
     if (Array.isArray(data?.sources)) {
       return `${data.sources.length} route source manifests loaded with ${data.reviewed_step_count || 0} reviewed steps.`;
     }
@@ -812,6 +815,12 @@ function renderRouteReleaseExportArtifacts(index) {
   const packet = index?.packet_id || "--";
   state.lastRouteReleaseExportArtifactPath = index?.files?.[0]?.relative_path || "";
   document.querySelector("#route-release-export-artifact-count").textContent = `${count} files / ${packet}`;
+}
+
+function renderRouteReleaseExportBundle(bundle) {
+  const count = typeof bundle?.file_count === "number" ? bundle.file_count : "--";
+  const checksum = bundle?.checksum_sha256 ? bundle.checksum_sha256.slice(0, 12) : "--";
+  document.querySelector("#route-release-export-bundle-count").textContent = `${count} files / ${checksum}`;
 }
 
 function renderRouteOperatorActionBundle(bundle) {
@@ -1888,6 +1897,38 @@ const actions = {
           }
           return text;
         });
+    }),
+  loadAchievementRouteReleaseExportBundle: () =>
+    run("routes", async () => {
+      const payload = await fetchJson("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/bundle?format=manifest");
+      renderRouteReleaseExportBundle(payload?.data?.release_export_bundle || {});
+      return payload;
+    }),
+  downloadAchievementRouteReleaseExportBundle: () =>
+    run("routes", async () => {
+      const response = await fetch("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/bundle");
+      const blob = await response.blob();
+      if (!response.ok) {
+        throw new Error(await blob.text());
+      }
+      const disposition = response.headers.get("Content-Disposition") || "";
+      const filename = disposition.match(/filename="([^"]+)"/)?.[1] || "achievement_route_release_export_bundle.zip";
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      return {
+        data: {
+          release_export_bundle: {
+            file_count: "--",
+            size_bytes: blob.size,
+          },
+        },
+      };
     }),
   importBuild: () =>
     run("build", async () => {

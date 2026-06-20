@@ -134,6 +134,9 @@ CSV exports.
 It also verifies the P26 release packet file export:
 the release export packet can be written to deterministic local artifact files,
 listed through an artifact index, and retrieved through a path-safe API.
+It also verifies the P27 release packet bundle download:
+the release export artifact files can be packaged into a local read-only zip
+bundle with a manifest, checksum header, and whitelist validation.
 
 ## Account Connection Diagnostic Command
 
@@ -267,7 +270,8 @@ readiness rollup, and visible no-secret boundary copy.
 56. Export release export packet as Markdown, CSV, and manifest JSON.
 57. Write release export packet artifact files and confirm artifact index metadata.
 58. Retrieve one release export artifact through the path-safe API.
-59. Confirm the route planner ingests the promoted reviewed source.
+59. Load the release export bundle manifest and download the read-only zip bundle.
+60. Confirm the route planner ingests the promoted reviewed source.
 
 ## Account Connection Diagnostic Steps
 
