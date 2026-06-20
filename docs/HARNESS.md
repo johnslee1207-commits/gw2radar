@@ -146,6 +146,9 @@ audit records and exported as Markdown / CSV without storing zip content.
 It also verifies the P30 operator handoff checklist:
 release packet, artifact files, zip bundle, verification, and verification audit
 gates are summarized into one final metadata-only handoff readiness checklist.
+It also verifies the P31-P34 release closure artifacts:
+release notes, operator runbook, final release dashboard, and final code /
+semantic maturity audit are generated as read-only metadata exports.
 
 ## Account Connection Diagnostic Command
 
@@ -283,7 +286,11 @@ readiness rollup, and visible no-secret boundary copy.
 60. Verify the release export zip bundle bytes through the safe import verifier.
 61. Record and export release bundle verification audit metadata.
 62. Load and export the operator handoff checklist.
-63. Confirm the route planner ingests the promoted reviewed source.
+63. Load and export release notes.
+64. Load and export the operator runbook.
+65. Load and export the final release dashboard.
+66. Load and export the final code / semantic maturity audit.
+67. Confirm the route planner ingests the promoted reviewed source.
 
 ## Account Connection Diagnostic Steps
 

@@ -312,6 +312,18 @@ function summarizeResult(target, payload) {
     if (data?.operator_handoff_checklist) {
       return `Operator handoff checklist: ${data.operator_handoff_checklist.maturity_label} with ${data.operator_handoff_checklist.missing_gates.length} missing gates.`;
     }
+    if (data?.release_notes) {
+      return `Release notes: ${data.release_notes.maturity_label}, ${data.release_notes.highlights.length} highlights.`;
+    }
+    if (data?.operator_runbook) {
+      return `Operator runbook: ${data.operator_runbook.maturity_label}, ${data.operator_runbook.preflight_steps.length} preflight steps.`;
+    }
+    if (data?.final_release_dashboard) {
+      return `Final release dashboard: ${data.final_release_dashboard.maturity_label}.`;
+    }
+    if (data?.final_maturity_audit) {
+      return `Final maturity audit: ${data.final_maturity_audit.complete_player_ui_items} complete UI items.`;
+    }
     if (Array.isArray(data?.sources)) {
       return `${data.sources.length} route source manifests loaded with ${data.reviewed_step_count || 0} reviewed steps.`;
     }
@@ -852,6 +864,12 @@ function renderRouteOperatorHandoffChecklist(checklist) {
   const label = checklist?.maturity_label || "--";
   const missing = Array.isArray(checklist?.missing_gates) ? checklist.missing_gates.length : "--";
   document.querySelector("#route-operator-handoff-count").textContent = `${label} / ${missing} missing`;
+}
+
+function renderRouteFinalReleaseArtifact(selector, artifact) {
+  const label = artifact?.maturity_label || "--";
+  const ready = typeof artifact?.ready === "boolean" ? (artifact.ready ? "ready" : "blocked") : "--";
+  document.querySelector(selector).textContent = `${label} / ${ready}`;
 }
 
 function renderRouteOperatorActionBundle(bundle) {
@@ -2023,6 +2041,38 @@ const actions = {
           return text;
         }),
     ),
+  loadAchievementRouteReleaseNotes: () =>
+    run("routes", async () => {
+      const payload = await fetchJson("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/release-notes");
+      renderRouteFinalReleaseArtifact("#route-release-notes-count", payload?.data?.release_notes || {});
+      return payload;
+    }),
+  exportAchievementRouteReleaseNotesCsv: () =>
+    run("routes", () => fetch("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/release-notes?format=csv").then((response) => response.text())),
+  loadAchievementRouteOperatorRunbook: () =>
+    run("routes", async () => {
+      const payload = await fetchJson("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/operator-runbook");
+      renderRouteFinalReleaseArtifact("#route-operator-runbook-count", payload?.data?.operator_runbook || {});
+      return payload;
+    }),
+  exportAchievementRouteOperatorRunbookCsv: () =>
+    run("routes", () => fetch("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/operator-runbook?format=csv").then((response) => response.text())),
+  loadAchievementRouteFinalReleaseDashboard: () =>
+    run("routes", async () => {
+      const payload = await fetchJson("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/final-dashboard");
+      renderRouteFinalReleaseArtifact("#route-final-release-dashboard-count", payload?.data?.final_release_dashboard || {});
+      return payload;
+    }),
+  exportAchievementRouteFinalReleaseDashboardCsv: () =>
+    run("routes", () => fetch("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/final-dashboard?format=csv").then((response) => response.text())),
+  loadAchievementRouteFinalMaturityAudit: () =>
+    run("routes", async () => {
+      const payload = await fetchJson("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/final-maturity-audit");
+      renderRouteFinalReleaseArtifact("#route-final-maturity-audit-count", payload?.data?.final_maturity_audit || {});
+      return payload;
+    }),
+  exportAchievementRouteFinalMaturityAuditCsv: () =>
+    run("routes", () => fetch("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/final-maturity-audit?format=csv").then((response) => response.text())),
   importBuild: () =>
     run("build", async () => {
       const payload = await fetchJson("/api/v1/builds/import", {

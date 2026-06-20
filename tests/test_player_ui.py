@@ -113,6 +113,14 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert "Export bundle audit CSV" in response.text
     assert "Handoff checklist" in response.text
     assert "Export handoff CSV" in response.text
+    assert "Release notes" in response.text
+    assert "Export notes CSV" in response.text
+    assert "Operator runbook" in response.text
+    assert "Export runbook CSV" in response.text
+    assert "Final dashboard" in response.text
+    assert "Export final dashboard CSV" in response.text
+    assert "Final maturity audit" in response.text
+    assert "Export maturity CSV" in response.text
     assert "Evidence bundle" in response.text
     assert "Evidence archive" in response.text
     assert "Archive diff" in response.text
@@ -124,6 +132,8 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert "Bundle verify" in response.text
     assert "Bundle audit" in response.text
     assert "Handoff" in response.text
+    assert "Runbook" in response.text
+    assert "Maturity audit" in response.text
 
 
 def test_player_ui_static_assets_are_served() -> None:
@@ -242,6 +252,14 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "exportAchievementRouteReleaseExportBundleVerificationAuditCsv" in js.text
     assert "loadAchievementRouteOperatorHandoffChecklist" in js.text
     assert "exportAchievementRouteOperatorHandoffChecklistCsv" in js.text
+    assert "loadAchievementRouteReleaseNotes" in js.text
+    assert "exportAchievementRouteReleaseNotesCsv" in js.text
+    assert "loadAchievementRouteOperatorRunbook" in js.text
+    assert "exportAchievementRouteOperatorRunbookCsv" in js.text
+    assert "loadAchievementRouteFinalReleaseDashboard" in js.text
+    assert "exportAchievementRouteFinalReleaseDashboardCsv" in js.text
+    assert "loadAchievementRouteFinalMaturityAudit" in js.text
+    assert "exportAchievementRouteFinalMaturityAuditCsv" in js.text
     assert "confirmed_manual_review" in js.text
     assert "routeOfficialFetchPreviewPayload" in js.text
     assert "routeReviewPayload" in js.text
@@ -275,6 +293,10 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/bundle/verify" in js.text
     assert "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/bundle/verification-audit" in js.text
     assert "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/handoff-checklist" in js.text
+    assert "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/release-notes" in js.text
+    assert "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/operator-runbook" in js.text
+    assert "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/final-dashboard" in js.text
+    assert "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/final-maturity-audit" in js.text
 
 
 def test_player_ui_styles_cover_workflow_and_summaries() -> None:

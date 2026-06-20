@@ -649,6 +649,34 @@ def main() -> int:
     operator_handoff_csv = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/handoff-checklist?format=csv")
     if operator_handoff_csv.status_code != 200 or "ready,maturity_label,packet_id,packet_artifact_count" not in operator_handoff_csv.text:
         failures.append("achievement route operator handoff checklist CSV export failed")
+    release_notes = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/release-notes")
+    release_notes_payload = _json_response(release_notes, "achievement route release notes", failures)
+    if (((release_notes_payload or {}).get("data") or {}).get("release_notes") or {}).get("ready") is not True:
+        failures.append("achievement route release notes were not ready")
+    release_notes_csv = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/release-notes?format=csv")
+    if release_notes_csv.status_code != 200 or "release_id,ready,maturity_label" not in release_notes_csv.text:
+        failures.append("achievement route release notes CSV export failed")
+    operator_runbook = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/operator-runbook")
+    operator_runbook_payload = _json_response(operator_runbook, "achievement route operator runbook", failures)
+    if (((operator_runbook_payload or {}).get("data") or {}).get("operator_runbook") or {}).get("ready") is not True:
+        failures.append("achievement route operator runbook was not ready")
+    operator_runbook_csv = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/operator-runbook?format=csv")
+    if operator_runbook_csv.status_code != 200 or "runbook_id,ready,maturity_label" not in operator_runbook_csv.text:
+        failures.append("achievement route operator runbook CSV export failed")
+    final_dashboard = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/final-dashboard")
+    final_dashboard_payload = _json_response(final_dashboard, "achievement route final release dashboard", failures)
+    if (((final_dashboard_payload or {}).get("data") or {}).get("final_release_dashboard") or {}).get("ready") is not True:
+        failures.append("achievement route final release dashboard was not ready")
+    final_dashboard_csv = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/final-dashboard?format=csv")
+    if final_dashboard_csv.status_code != 200 or "ready,maturity_label,checklist_ready" not in final_dashboard_csv.text:
+        failures.append("achievement route final release dashboard CSV export failed")
+    final_maturity_audit = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/final-maturity-audit")
+    final_maturity_audit_payload = _json_response(final_maturity_audit, "achievement route final maturity audit", failures)
+    if (((final_maturity_audit_payload or {}).get("data") or {}).get("final_maturity_audit") or {}).get("complete_player_ui_items") != 83:
+        failures.append("achievement route final maturity audit did not report expected complete UI count")
+    final_maturity_audit_csv = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/final-maturity-audit?format=csv")
+    if final_maturity_audit_csv.status_code != 200 or "ready,maturity_label,implemented_stage_count" not in final_maturity_audit_csv.text:
+        failures.append("achievement route final maturity audit CSV export failed")
     promoted_sources = client.get("/api/v1/achievement-routes/sources")
     promoted_sources_payload = _json_response(promoted_sources, "promoted route sources", failures)
     promoted_reviewed_step_count = (((promoted_sources_payload or {}).get("data") or {}).get("reviewed_step_count") or 0)

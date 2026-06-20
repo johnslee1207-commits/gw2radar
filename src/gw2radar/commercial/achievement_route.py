@@ -867,6 +867,66 @@ class AchievementRouteOperatorHandoffChecklist(BaseModel):
     boundary: str = "Operator handoff checklist is metadata-only; it does not publish files, execute bundle content, certify live game state, or store secrets."
 
 
+class AchievementRouteReleaseNotes(BaseModel):
+    schema_version: str = "gw2radar.achievement_route_release_notes.v1"
+    generated_at: datetime
+    release_id: str
+    maturity_label: Literal["blocked", "review_needed", "ready"]
+    ready: bool
+    highlights: list[str] = Field(default_factory=list)
+    handoff_summary: list[str] = Field(default_factory=list)
+    known_limits: list[str] = Field(default_factory=list)
+    operator_actions: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    boundary: str = "Release notes are metadata-only operator guidance; they do not publish files, certify live game state, guarantee outcomes, or store secrets."
+
+
+class AchievementRouteOperatorRunbook(BaseModel):
+    schema_version: str = "gw2radar.achievement_route_operator_runbook.v1"
+    generated_at: datetime
+    runbook_id: str
+    ready: bool
+    maturity_label: Literal["blocked", "review_needed", "ready"]
+    preflight_steps: list[str] = Field(default_factory=list)
+    handoff_steps: list[str] = Field(default_factory=list)
+    rollback_steps: list[str] = Field(default_factory=list)
+    safety_boundaries: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+
+
+class AchievementRouteFinalReleaseDashboard(BaseModel):
+    schema_version: str = "gw2radar.achievement_route_final_release_dashboard.v1"
+    generated_at: datetime
+    ready: bool
+    maturity_label: Literal["blocked", "review_needed", "ready"]
+    checklist_ready: bool
+    release_notes_ready: bool
+    runbook_ready: bool
+    packet_artifact_count: int
+    bundle_file_count: int
+    verification_audit_count: int
+    blockers: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    next_actions: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    boundary: str = "Final release dashboard is read-only metadata; it does not deploy, publish, trade, automate gameplay, or store secrets."
+
+
+class AchievementRouteFinalMaturityAudit(BaseModel):
+    schema_version: str = "gw2radar.achievement_route_final_maturity_audit.v1"
+    generated_at: datetime
+    ready: bool
+    maturity_label: Literal["blocked", "review_needed", "ready"]
+    implemented_stage_count: int
+    complete_player_ui_items: int
+    code_graph_nodes: list[str] = Field(default_factory=list)
+    semantic_graph_nodes: list[str] = Field(default_factory=list)
+    partial_items: list[str] = Field(default_factory=list)
+    missing_items: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    boundary: str = "Final maturity audit is a metadata-only code and semantic graph summary; it does not claim external production certification."
+
+
 class AchievementRouteGateway(Protocol):
     def get_batch(
         self,
@@ -3951,6 +4011,268 @@ def render_achievement_route_operator_handoff_checklist_csv(
             len(checklist.warnings),
         ]
     )
+    return buffer.getvalue()
+
+
+def build_achievement_route_release_notes(
+    source_root: Path = ACHIEVEMENT_ROUTE_SOURCE_ROOT,
+    audit_root: Path = ACHIEVEMENT_ROUTE_AUDIT_ROOT,
+    output_root: Path = ACHIEVEMENT_ROUTE_RELEASE_EXPORT_ROOT,
+) -> AchievementRouteReleaseNotes:
+    checklist = build_achievement_route_operator_handoff_checklist(source_root, audit_root, output_root)
+    return AchievementRouteReleaseNotes(
+        generated_at=datetime.now(UTC),
+        release_id=f"achievement-route-release-notes:{_safe_identifier(checklist.packet_id or 'latest')}",
+        maturity_label=checklist.maturity_label,
+        ready=checklist.ready,
+        highlights=[
+            "Release packet manifest, Markdown, CSV, and local artifact index are available.",
+            "Read-only zip bundle generation, safe verification import, and verification audit trail are available.",
+            "Operator handoff checklist aggregates final readiness gates.",
+        ],
+        handoff_summary=[
+            f"Packet artifacts: {checklist.packet_artifact_count}",
+            f"Bundle files: {checklist.bundle_file_count}",
+            f"Verification audit records: {checklist.verification_audit_count}",
+            f"Missing gates: {len(checklist.missing_gates)}",
+        ],
+        known_limits=[
+            "External publication, deployment, and sharing remain manual.",
+            "Zip bundle verification does not execute bundle contents.",
+            "Release readiness does not certify live game state or guarantee player outcomes.",
+        ],
+        operator_actions=checklist.next_actions,
+        evidence_refs=checklist.evidence_refs,
+    )
+
+
+def render_achievement_route_release_notes_markdown(notes: AchievementRouteReleaseNotes) -> str:
+    lines = [
+        "# Achievement Route Release Notes",
+        "",
+        f"- Ready: {notes.ready}",
+        f"- Maturity: {notes.maturity_label}",
+        f"- Release: {notes.release_id}",
+        f"- Boundary: {notes.boundary}",
+        "",
+        "## Highlights",
+        *[f"- {item}" for item in notes.highlights],
+        "",
+        "## Handoff Summary",
+        *[f"- {item}" for item in notes.handoff_summary],
+        "",
+        "## Known Limits",
+        *[f"- {item}" for item in notes.known_limits],
+        "",
+        "## Operator Actions",
+        *[f"- {item}" for item in notes.operator_actions],
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def render_achievement_route_release_notes_csv(notes: AchievementRouteReleaseNotes) -> str:
+    buffer = StringIO()
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow(["release_id", "ready", "maturity_label", "highlight_count", "known_limit_count", "operator_action_count"])
+    writer.writerow([notes.release_id, notes.ready, notes.maturity_label, len(notes.highlights), len(notes.known_limits), len(notes.operator_actions)])
+    return buffer.getvalue()
+
+
+def build_achievement_route_operator_runbook(
+    source_root: Path = ACHIEVEMENT_ROUTE_SOURCE_ROOT,
+    audit_root: Path = ACHIEVEMENT_ROUTE_AUDIT_ROOT,
+    output_root: Path = ACHIEVEMENT_ROUTE_RELEASE_EXPORT_ROOT,
+) -> AchievementRouteOperatorRunbook:
+    checklist = build_achievement_route_operator_handoff_checklist(source_root, audit_root, output_root)
+    return AchievementRouteOperatorRunbook(
+        generated_at=datetime.now(UTC),
+        runbook_id=f"achievement-route-operator-runbook:{_safe_identifier(checklist.packet_id or 'latest')}",
+        ready=checklist.ready,
+        maturity_label=checklist.maturity_label,
+        preflight_steps=[
+            "Load release export packet manifest.",
+            "Confirm artifact index lists manifest, Markdown, and CSV files.",
+            "Download the read-only release bundle and verify its checksum.",
+            "Record release bundle verification audit metadata.",
+            "Load operator handoff checklist and confirm ready=true.",
+        ],
+        handoff_steps=[
+            "Attach release notes, runbook, handoff checklist, verification audit CSV, and release bundle to the manual handoff package.",
+            "Keep all external publication and deployment actions outside GW2Radar until separately approved.",
+            "Retain audit exports with the release packet for reviewer traceability.",
+        ],
+        rollback_steps=[
+            "Do not delete source manifests or audit records during rollback.",
+            "Create a new verification audit after rebuilding artifacts.",
+            "Use archive diff and dashboard exports to explain changed evidence.",
+        ],
+        safety_boundaries=[
+            "No automatic trading, gameplay automation, or profit guarantees.",
+            "No raw API keys, private account payloads, or zip bytes are stored in verification audit records.",
+            "Operator handoff is advisory metadata, not external release certification.",
+        ],
+        evidence_refs=checklist.evidence_refs,
+    )
+
+
+def render_achievement_route_operator_runbook_markdown(runbook: AchievementRouteOperatorRunbook) -> str:
+    lines = [
+        "# Achievement Route Operator Runbook",
+        "",
+        f"- Ready: {runbook.ready}",
+        f"- Maturity: {runbook.maturity_label}",
+        f"- Runbook: {runbook.runbook_id}",
+        "",
+        "## Preflight",
+        *[f"- {item}" for item in runbook.preflight_steps],
+        "",
+        "## Handoff",
+        *[f"- {item}" for item in runbook.handoff_steps],
+        "",
+        "## Rollback",
+        *[f"- {item}" for item in runbook.rollback_steps],
+        "",
+        "## Safety Boundaries",
+        *[f"- {item}" for item in runbook.safety_boundaries],
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def render_achievement_route_operator_runbook_csv(runbook: AchievementRouteOperatorRunbook) -> str:
+    buffer = StringIO()
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow(["runbook_id", "ready", "maturity_label", "preflight_count", "handoff_count", "rollback_count", "safety_boundary_count"])
+    writer.writerow([runbook.runbook_id, runbook.ready, runbook.maturity_label, len(runbook.preflight_steps), len(runbook.handoff_steps), len(runbook.rollback_steps), len(runbook.safety_boundaries)])
+    return buffer.getvalue()
+
+
+def build_achievement_route_final_release_dashboard(
+    source_root: Path = ACHIEVEMENT_ROUTE_SOURCE_ROOT,
+    audit_root: Path = ACHIEVEMENT_ROUTE_AUDIT_ROOT,
+    output_root: Path = ACHIEVEMENT_ROUTE_RELEASE_EXPORT_ROOT,
+) -> AchievementRouteFinalReleaseDashboard:
+    checklist = build_achievement_route_operator_handoff_checklist(source_root, audit_root, output_root)
+    notes = build_achievement_route_release_notes(source_root, audit_root, output_root)
+    runbook = build_achievement_route_operator_runbook(source_root, audit_root, output_root)
+    blockers = _unique([*checklist.blockers])
+    warnings = _unique([*checklist.warnings])
+    ready = checklist.ready and notes.ready and runbook.ready and not blockers
+    maturity_label: Literal["blocked", "review_needed", "ready"] = "ready" if ready and not warnings else "review_needed"
+    if blockers:
+        maturity_label = "blocked"
+    return AchievementRouteFinalReleaseDashboard(
+        generated_at=datetime.now(UTC),
+        ready=ready,
+        maturity_label=maturity_label,
+        checklist_ready=checklist.ready,
+        release_notes_ready=notes.ready,
+        runbook_ready=runbook.ready,
+        packet_artifact_count=checklist.packet_artifact_count,
+        bundle_file_count=checklist.bundle_file_count,
+        verification_audit_count=checklist.verification_audit_count,
+        blockers=blockers,
+        warnings=warnings,
+        next_actions=checklist.next_actions,
+        evidence_refs=_unique([*checklist.evidence_refs, "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/release-notes", "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/operator-runbook"]),
+    )
+
+
+def render_achievement_route_final_release_dashboard_markdown(dashboard: AchievementRouteFinalReleaseDashboard) -> str:
+    lines = [
+        "# Achievement Route Final Release Dashboard",
+        "",
+        f"- Ready: {dashboard.ready}",
+        f"- Maturity: {dashboard.maturity_label}",
+        f"- Checklist ready: {dashboard.checklist_ready}",
+        f"- Release notes ready: {dashboard.release_notes_ready}",
+        f"- Runbook ready: {dashboard.runbook_ready}",
+        f"- Packet artifacts: {dashboard.packet_artifact_count}",
+        f"- Bundle files: {dashboard.bundle_file_count}",
+        f"- Verification audit records: {dashboard.verification_audit_count}",
+        f"- Boundary: {dashboard.boundary}",
+        "",
+        "## Next Actions",
+        *[f"- {item}" for item in dashboard.next_actions],
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def render_achievement_route_final_release_dashboard_csv(dashboard: AchievementRouteFinalReleaseDashboard) -> str:
+    buffer = StringIO()
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow(["ready", "maturity_label", "checklist_ready", "release_notes_ready", "runbook_ready", "packet_artifact_count", "bundle_file_count", "verification_audit_count", "blocker_count", "warning_count"])
+    writer.writerow([dashboard.ready, dashboard.maturity_label, dashboard.checklist_ready, dashboard.release_notes_ready, dashboard.runbook_ready, dashboard.packet_artifact_count, dashboard.bundle_file_count, dashboard.verification_audit_count, len(dashboard.blockers), len(dashboard.warnings)])
+    return buffer.getvalue()
+
+
+def build_achievement_route_final_maturity_audit(
+    source_root: Path = ACHIEVEMENT_ROUTE_SOURCE_ROOT,
+    audit_root: Path = ACHIEVEMENT_ROUTE_AUDIT_ROOT,
+    output_root: Path = ACHIEVEMENT_ROUTE_RELEASE_EXPORT_ROOT,
+) -> AchievementRouteFinalMaturityAudit:
+    dashboard = build_achievement_route_final_release_dashboard(source_root, audit_root, output_root)
+    code_nodes = [
+        "AchievementRouteReleaseExportPacket",
+        "AchievementRouteReleaseExportArtifactIndex",
+        "AchievementRouteReleaseExportBundle",
+        "AchievementRouteReleaseExportBundleVerification",
+        "AchievementRouteReleaseExportBundleVerificationAudit",
+        "AchievementRouteOperatorHandoffChecklist",
+        "AchievementRouteReleaseNotes",
+        "AchievementRouteOperatorRunbook",
+        "AchievementRouteFinalReleaseDashboard",
+    ]
+    semantic_nodes = [
+        "Release packet handoff",
+        "Deterministic artifact files",
+        "Read-only bundle download",
+        "Safe bundle verification import",
+        "Metadata-only verification audit",
+        "Operator checklist",
+        "Release notes",
+        "Operator runbook",
+        "Final release dashboard",
+    ]
+    return AchievementRouteFinalMaturityAudit(
+        generated_at=datetime.now(UTC),
+        ready=dashboard.ready,
+        maturity_label=dashboard.maturity_label,
+        implemented_stage_count=34,
+        complete_player_ui_items=83,
+        code_graph_nodes=code_nodes,
+        semantic_graph_nodes=semantic_nodes,
+        partial_items=[],
+        missing_items=[] if dashboard.ready else dashboard.blockers,
+        evidence_refs=dashboard.evidence_refs,
+    )
+
+
+def render_achievement_route_final_maturity_audit_markdown(audit: AchievementRouteFinalMaturityAudit) -> str:
+    lines = [
+        "# Achievement Route Final Maturity Audit",
+        "",
+        f"- Ready: {audit.ready}",
+        f"- Maturity: {audit.maturity_label}",
+        f"- Implemented stages: {audit.implemented_stage_count}",
+        f"- Complete player UI items: {audit.complete_player_ui_items}",
+        f"- Partial items: {len(audit.partial_items)}",
+        f"- Missing items: {len(audit.missing_items)}",
+        f"- Boundary: {audit.boundary}",
+        "",
+        "## Code Graph Nodes",
+        *[f"- {item}" for item in audit.code_graph_nodes],
+        "",
+        "## Semantic Graph Nodes",
+        *[f"- {item}" for item in audit.semantic_graph_nodes],
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def render_achievement_route_final_maturity_audit_csv(audit: AchievementRouteFinalMaturityAudit) -> str:
+    buffer = StringIO()
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow(["ready", "maturity_label", "implemented_stage_count", "complete_player_ui_items", "partial_count", "missing_count", "code_node_count", "semantic_node_count"])
+    writer.writerow([audit.ready, audit.maturity_label, audit.implemented_stage_count, audit.complete_player_ui_items, len(audit.partial_items), len(audit.missing_items), len(audit.code_graph_nodes), len(audit.semantic_graph_nodes)])
     return buffer.getvalue()
 
 

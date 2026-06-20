@@ -219,6 +219,7 @@ Operator review gate:
 - `Verify bundle` safely imports release export zip bytes for checksum, schema, whitelist, required-file, and no-secret validation without executing or publishing files.
 - `Record bundle audit`, `Load bundle audit`, and `Export bundle audit CSV` record release bundle verification results as metadata-only reviewer audit history.
 - `Handoff checklist` and `Export handoff CSV` summarize packet, artifacts, bundle, verification, and verification audit gates into one final operator readiness checklist.
+- `Release notes`, `Operator runbook`, `Final dashboard`, and `Final maturity audit` close the release handoff with reviewer-facing notes, runbook steps, consolidated readiness, and code/semantic maturity evidence.
 
 Advanced operator flow:
 
@@ -259,6 +260,10 @@ Advanced operator flow:
 - `POST /api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/bundle/verification-audit` records current bundle verification metadata for a reviewer.
 - `GET /api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/bundle/verification-audit` lists release bundle verification audit records with `format=markdown` or `format=csv`.
 - `GET /api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/handoff-checklist` returns the final operator handoff checklist with `format=markdown` or `format=csv`.
+- `GET /api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/release-notes` returns release notes with `format=markdown` or `format=csv`.
+- `GET /api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/operator-runbook` returns the operator runbook with `format=markdown` or `format=csv`.
+- `GET /api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/final-dashboard` returns final release readiness with `format=markdown` or `format=csv`.
+- `GET /api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/final-maturity-audit` returns the final code / semantic maturity audit with `format=markdown` or `format=csv`.
 - `GET /api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/{relative_path}` retrieves a path-safe local release packet artifact.
 - Draft previews are not used by the route planner until this reviewed promotion gate writes a `source_status=reviewed` manifest.
 

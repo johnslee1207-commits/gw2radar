@@ -28,6 +28,10 @@ from gw2radar.commercial.achievement_route import (
     build_achievement_route_operator_handoff_checklist,
     build_achievement_route_operator_release_packet,
     build_achievement_route_operator_release_dashboard,
+    build_achievement_route_operator_runbook,
+    build_achievement_route_release_notes,
+    build_achievement_route_final_release_dashboard,
+    build_achievement_route_final_maturity_audit,
     build_achievement_route_release_readiness,
     build_achievement_route_release_export_bundle,
     build_achievement_route_release_export_packet,
@@ -74,6 +78,14 @@ from gw2radar.commercial.achievement_route import (
     render_achievement_route_operator_release_dashboard_markdown,
     render_achievement_route_operator_release_packet_csv,
     render_achievement_route_operator_release_packet_markdown,
+    render_achievement_route_operator_runbook_csv,
+    render_achievement_route_operator_runbook_markdown,
+    render_achievement_route_release_notes_csv,
+    render_achievement_route_release_notes_markdown,
+    render_achievement_route_final_release_dashboard_csv,
+    render_achievement_route_final_release_dashboard_markdown,
+    render_achievement_route_final_maturity_audit_csv,
+    render_achievement_route_final_maturity_audit_markdown,
     render_achievement_route_promotion_audit_csv,
     render_achievement_route_promotion_audit_markdown,
     render_achievement_route_release_readiness_csv,
@@ -703,6 +715,54 @@ def get_achievement_route_operator_handoff_checklist(
             media_type="text/csv; charset=utf-8",
         )
     return ApiDataEnvelope(data={"operator_handoff_checklist": checklist.model_dump(mode="json")})
+
+
+@router.get("/source-quality/remediation-queue/release-export-packet/release-notes", response_model=None)
+def get_achievement_route_release_notes(
+    format: str = Query(default="json", pattern="^(json|markdown|csv)$"),
+):
+    notes = build_achievement_route_release_notes(source_root, audit_root, release_export_root)
+    if format == "markdown":
+        return Response(content=render_achievement_route_release_notes_markdown(notes), media_type="text/markdown; charset=utf-8")
+    if format == "csv":
+        return Response(content=render_achievement_route_release_notes_csv(notes), media_type="text/csv; charset=utf-8")
+    return ApiDataEnvelope(data={"release_notes": notes.model_dump(mode="json")})
+
+
+@router.get("/source-quality/remediation-queue/release-export-packet/operator-runbook", response_model=None)
+def get_achievement_route_operator_runbook(
+    format: str = Query(default="json", pattern="^(json|markdown|csv)$"),
+):
+    runbook = build_achievement_route_operator_runbook(source_root, audit_root, release_export_root)
+    if format == "markdown":
+        return Response(content=render_achievement_route_operator_runbook_markdown(runbook), media_type="text/markdown; charset=utf-8")
+    if format == "csv":
+        return Response(content=render_achievement_route_operator_runbook_csv(runbook), media_type="text/csv; charset=utf-8")
+    return ApiDataEnvelope(data={"operator_runbook": runbook.model_dump(mode="json")})
+
+
+@router.get("/source-quality/remediation-queue/release-export-packet/final-dashboard", response_model=None)
+def get_achievement_route_final_release_dashboard(
+    format: str = Query(default="json", pattern="^(json|markdown|csv)$"),
+):
+    dashboard = build_achievement_route_final_release_dashboard(source_root, audit_root, release_export_root)
+    if format == "markdown":
+        return Response(content=render_achievement_route_final_release_dashboard_markdown(dashboard), media_type="text/markdown; charset=utf-8")
+    if format == "csv":
+        return Response(content=render_achievement_route_final_release_dashboard_csv(dashboard), media_type="text/csv; charset=utf-8")
+    return ApiDataEnvelope(data={"final_release_dashboard": dashboard.model_dump(mode="json")})
+
+
+@router.get("/source-quality/remediation-queue/release-export-packet/final-maturity-audit", response_model=None)
+def get_achievement_route_final_maturity_audit(
+    format: str = Query(default="json", pattern="^(json|markdown|csv)$"),
+):
+    audit = build_achievement_route_final_maturity_audit(source_root, audit_root, release_export_root)
+    if format == "markdown":
+        return Response(content=render_achievement_route_final_maturity_audit_markdown(audit), media_type="text/markdown; charset=utf-8")
+    if format == "csv":
+        return Response(content=render_achievement_route_final_maturity_audit_csv(audit), media_type="text/csv; charset=utf-8")
+    return ApiDataEnvelope(data={"final_maturity_audit": audit.model_dump(mode="json")})
 
 
 @router.get("/source-quality/remediation-queue/release-export-packet/artifacts/{relative_path:path}", response_model=None)

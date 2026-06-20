@@ -27,6 +27,10 @@ from gw2radar.commercial.achievement_route import (
     build_achievement_route_backfill_candidate_readiness,
     build_achievement_route_release_evidence_archive_diff,
     build_achievement_route_operator_handoff_checklist,
+    build_achievement_route_release_notes,
+    build_achievement_route_operator_runbook,
+    build_achievement_route_final_release_dashboard,
+    build_achievement_route_final_maturity_audit,
     build_achievement_route_release_export_bundle,
     build_achievement_route_release_export_packet,
     build_achievement_route_release_readiness,
@@ -108,6 +112,14 @@ from gw2radar.commercial.achievement_route import (
     render_achievement_route_release_export_bundle_verification_audit_markdown,
     render_achievement_route_operator_handoff_checklist_csv,
     render_achievement_route_operator_handoff_checklist_markdown,
+    render_achievement_route_release_notes_csv,
+    render_achievement_route_release_notes_markdown,
+    render_achievement_route_operator_runbook_csv,
+    render_achievement_route_operator_runbook_markdown,
+    render_achievement_route_final_release_dashboard_csv,
+    render_achievement_route_final_release_dashboard_markdown,
+    render_achievement_route_final_maturity_audit_csv,
+    render_achievement_route_final_maturity_audit_markdown,
     verify_achievement_route_release_export_bundle,
     write_achievement_route_release_export_packet_artifacts,
 )
@@ -679,6 +691,18 @@ def test_achievement_route_operator_action_bundle_aggregates_and_records_review(
         operator_handoff = build_achievement_route_operator_handoff_checklist(temp_root, audit_root, artifact_root)
         operator_handoff_markdown = render_achievement_route_operator_handoff_checklist_markdown(operator_handoff)
         operator_handoff_csv = render_achievement_route_operator_handoff_checklist_csv(operator_handoff)
+        release_notes = build_achievement_route_release_notes(temp_root, audit_root, artifact_root)
+        release_notes_markdown = render_achievement_route_release_notes_markdown(release_notes)
+        release_notes_csv = render_achievement_route_release_notes_csv(release_notes)
+        operator_runbook = build_achievement_route_operator_runbook(temp_root, audit_root, artifact_root)
+        operator_runbook_markdown = render_achievement_route_operator_runbook_markdown(operator_runbook)
+        operator_runbook_csv = render_achievement_route_operator_runbook_csv(operator_runbook)
+        final_dashboard = build_achievement_route_final_release_dashboard(temp_root, audit_root, artifact_root)
+        final_dashboard_markdown = render_achievement_route_final_release_dashboard_markdown(final_dashboard)
+        final_dashboard_csv = render_achievement_route_final_release_dashboard_csv(final_dashboard)
+        final_maturity_audit = build_achievement_route_final_maturity_audit(temp_root, audit_root, artifact_root)
+        final_maturity_audit_markdown = render_achievement_route_final_maturity_audit_markdown(final_maturity_audit)
+        final_maturity_audit_csv = render_achievement_route_final_maturity_audit_csv(final_maturity_audit)
 
         assert initial.schema_version == "gw2radar.achievement_route_operator_action_bundle.v1"
         assert initial.remediation_review is None
@@ -833,6 +857,24 @@ def test_achievement_route_operator_action_bundle_aggregates_and_records_review(
         assert operator_handoff.verification_audit_count == 1
         assert "Achievement Route Operator Handoff Checklist" in operator_handoff_markdown
         assert "ready,maturity_label,packet_id,packet_artifact_count" in operator_handoff_csv
+        assert release_notes.schema_version == "gw2radar.achievement_route_release_notes.v1"
+        assert release_notes.ready is True
+        assert "Achievement Route Release Notes" in release_notes_markdown
+        assert "release_id,ready,maturity_label" in release_notes_csv
+        assert operator_runbook.schema_version == "gw2radar.achievement_route_operator_runbook.v1"
+        assert operator_runbook.ready is True
+        assert "Achievement Route Operator Runbook" in operator_runbook_markdown
+        assert "runbook_id,ready,maturity_label" in operator_runbook_csv
+        assert final_dashboard.schema_version == "gw2radar.achievement_route_final_release_dashboard.v1"
+        assert final_dashboard.ready is True
+        assert "Achievement Route Final Release Dashboard" in final_dashboard_markdown
+        assert "ready,maturity_label,checklist_ready" in final_dashboard_csv
+        assert final_maturity_audit.schema_version == "gw2radar.achievement_route_final_maturity_audit.v1"
+        assert final_maturity_audit.ready is True
+        assert final_maturity_audit.implemented_stage_count == 34
+        assert final_maturity_audit.complete_player_ui_items == 83
+        assert "Achievement Route Final Maturity Audit" in final_maturity_audit_markdown
+        assert "ready,maturity_label,implemented_stage_count" in final_maturity_audit_csv
         assert "secret-key" not in str(updated).lower()
         assert "secret-key" not in str(packet).lower()
         assert "secret-key" not in str(candidates).lower()
@@ -850,6 +892,10 @@ def test_achievement_route_operator_action_bundle_aggregates_and_records_review(
         assert "secret-key" not in str(release_export_bundle_verification).lower()
         assert "secret-key" not in str(release_export_bundle_audit).lower()
         assert "secret-key" not in str(operator_handoff).lower()
+        assert "secret-key" not in str(release_notes).lower()
+        assert "secret-key" not in str(operator_runbook).lower()
+        assert "secret-key" not in str(final_dashboard).lower()
+        assert "secret-key" not in str(final_maturity_audit).lower()
         assert "secret-key" not in release_export_bundle_bytes.decode("latin1").lower()
     finally:
         rmtree(temp_root, ignore_errors=True)
@@ -1439,6 +1485,18 @@ def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
         operator_handoff_csv = client.get(
             "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/handoff-checklist?format=csv"
         )
+        release_notes = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/release-notes")
+        release_notes_markdown = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/release-notes?format=markdown")
+        release_notes_csv = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/release-notes?format=csv")
+        operator_runbook = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/operator-runbook")
+        operator_runbook_markdown = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/operator-runbook?format=markdown")
+        operator_runbook_csv = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/operator-runbook?format=csv")
+        final_dashboard = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/final-dashboard")
+        final_dashboard_markdown = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/final-dashboard?format=markdown")
+        final_dashboard_csv = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/final-dashboard?format=csv")
+        final_maturity_audit = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/final-maturity-audit")
+        final_maturity_audit_markdown = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/final-maturity-audit?format=markdown")
+        final_maturity_audit_csv = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/final-maturity-audit?format=csv")
         assert release_export_bundle_verify_current.status_code == 200
         assert release_export_bundle_verify_current.json()["data"]["release_export_bundle_verification"]["ready"] is True
         assert release_export_bundle_verify_upload.status_code == 200
@@ -1458,6 +1516,22 @@ def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
         assert "Achievement Route Operator Handoff Checklist" in operator_handoff_markdown.text
         assert operator_handoff_csv.status_code == 200
         assert "ready,maturity_label,packet_id,packet_artifact_count" in operator_handoff_csv.text
+        assert release_notes.status_code == 200
+        assert release_notes.json()["data"]["release_notes"]["ready"] is True
+        assert "Achievement Route Release Notes" in release_notes_markdown.text
+        assert "release_id,ready,maturity_label" in release_notes_csv.text
+        assert operator_runbook.status_code == 200
+        assert operator_runbook.json()["data"]["operator_runbook"]["ready"] is True
+        assert "Achievement Route Operator Runbook" in operator_runbook_markdown.text
+        assert "runbook_id,ready,maturity_label" in operator_runbook_csv.text
+        assert final_dashboard.status_code == 200
+        assert final_dashboard.json()["data"]["final_release_dashboard"]["ready"] is True
+        assert "Achievement Route Final Release Dashboard" in final_dashboard_markdown.text
+        assert "ready,maturity_label,checklist_ready" in final_dashboard_csv.text
+        assert final_maturity_audit.status_code == 200
+        assert final_maturity_audit.json()["data"]["final_maturity_audit"]["complete_player_ui_items"] == 83
+        assert "Achievement Route Final Maturity Audit" in final_maturity_audit_markdown.text
+        assert "ready,maturity_label,implemented_stage_count" in final_maturity_audit_csv.text
         assert "secret-key" not in release_export_bundle_zip.content.decode("latin1").lower()
     finally:
         achievement_route_routes.gateway_factory = original_factory
