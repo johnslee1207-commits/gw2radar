@@ -595,6 +595,46 @@ function renderHoldingSummary(index) {
   }
 }
 
+function renderAccountValueSummary(snapshot) {
+  const grid = document.querySelector("#holding-summary-grid");
+  if (!grid || !snapshot) {
+    return;
+  }
+  const summary = snapshot.summary || {};
+  const rows = [
+    ["Buy value", formatCopper(summary.total_value_buy_copper || 0)],
+    ["Net sell", formatCopper(summary.net_sell_value_copper || 0)],
+    ["Priced", `${summary.priced_holding_count || 0}`],
+    ["Unpriced", `${summary.unpriced_holding_count || 0}`],
+    ["Account-bound", `${summary.account_bound_holding_count || 0}`],
+    ["Warnings", `${snapshot.warnings?.length || 0}`],
+  ];
+  grid.innerHTML = "";
+  for (const [label, value] of rows) {
+    const row = document.createElement("div");
+    const dt = document.createElement("dt");
+    const dd = document.createElement("dd");
+    dt.textContent = label;
+    dd.textContent = value;
+    row.append(dt, dd);
+    grid.appendChild(row);
+  }
+}
+
+function formatCopper(value) {
+  const copper = Math.max(0, Number(value) || 0);
+  const gold = Math.floor(copper / 10000);
+  const silver = Math.floor((copper % 10000) / 100);
+  const coin = copper % 100;
+  if (gold > 0) {
+    return `${gold}g ${silver}s ${coin}c`;
+  }
+  if (silver > 0) {
+    return `${silver}s ${coin}c`;
+  }
+  return `${coin}c`;
+}
+
 function renderSyncProgress(progress) {
   if (!Array.isArray(progress)) {
     return;
@@ -1155,7 +1195,9 @@ const actions = {
       renderFreshnessAnnotations(dashboard?.data?.dashboard?.data_freshness || []);
       const holdings = await fetchJson("/api/v1/player/account-holdings?include_holdings=false");
       renderHoldingSummary(holdings?.data?.account_holding_index || {});
-      return { account: key, sync, dashboard, holdings };
+      const value = await fetchJson("/api/v1/player/account-value");
+      renderAccountValueSummary(value?.data?.account_value_snapshot || {});
+      return { account: key, sync, dashboard, holdings, value };
     }),
   apiKeyStatus: () =>
     run("connect", async () => {
@@ -1234,6 +1276,8 @@ const actions = {
         renderFreshnessAnnotations(dashboard?.data?.dashboard?.data_freshness || []);
         const holdings = await fetchJson("/api/v1/player/account-holdings?include_holdings=false");
         renderHoldingSummary(holdings?.data?.account_holding_index || {});
+        const value = await fetchJson("/api/v1/player/account-value");
+        renderAccountValueSummary(value?.data?.account_value_snapshot || {});
         characterSnapshots = await fetchJson("/api/v1/builds/character-snapshots");
         state.characterSnapshots = characterSnapshots?.data?.snapshots || [];
         renderCharacterSnapshots(state.characterSnapshots);
@@ -1244,6 +1288,7 @@ const actions = {
           status,
           dashboard,
           holdings,
+          value,
           character_snapshots: characterSnapshots,
           boundary: "Sync now queues one account snapshot job, drains one local worker job, then refreshes dashboard, holdings, and Build Fit character snapshots when successful.",
         };
@@ -1264,10 +1309,12 @@ const actions = {
       if (payload.status === "succeeded") {
         const holdings = await fetchJson("/api/v1/player/account-holdings?include_holdings=false");
         renderHoldingSummary(holdings?.data?.account_holding_index || {});
+        const value = await fetchJson("/api/v1/player/account-value");
+        renderAccountValueSummary(value?.data?.account_value_snapshot || {});
         const characterSnapshots = await fetchJson("/api/v1/builds/character-snapshots");
         state.characterSnapshots = characterSnapshots?.data?.snapshots || [];
         renderCharacterSnapshots(state.characterSnapshots);
-        return { drained: payload, holdings, character_snapshots: characterSnapshots };
+        return { drained: payload, holdings, value, character_snapshots: characterSnapshots };
       }
       return payload;
     }),

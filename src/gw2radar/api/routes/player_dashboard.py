@@ -1,12 +1,20 @@
 from fastapi import APIRouter
+from fastapi.responses import Response
 
 from gw2radar.api.envelope import ApiDataEnvelope
 from gw2radar.api.state import get_graph
-from gw2radar.commercial.account_value import build_account_holding_index
+from gw2radar.commercial.account_value import (
+    build_account_holding_index,
+    build_account_value_snapshot,
+    render_account_value_snapshot_csv,
+    render_account_value_snapshot_markdown,
+)
 from gw2radar.commercial.player_intelligence import (
     build_data_freshness_annotations,
     build_player_dashboard_plan,
 )
+from gw2radar.db import session as db_session
+from gw2radar.db.init_db import init_db
 
 router = APIRouter(prefix="/api/v1/player", tags=["player-dashboard"])
 
@@ -31,3 +39,27 @@ def get_player_account_holdings(include_holdings: bool = True) -> ApiDataEnvelop
     graph = get_graph()
     holding_index = build_account_holding_index(graph, include_holdings=include_holdings)
     return ApiDataEnvelope(data={"account_holding_index": holding_index.model_dump(mode="json")})
+
+
+@router.get("/account-value", response_model=None)
+def get_player_account_value(
+    format: str = "json",
+    stale_price_hours: int = 48,
+) -> ApiDataEnvelope | Response:
+    graph = get_graph()
+    init_db()
+    with db_session.SessionLocal() as session:
+        snapshot = build_account_value_snapshot(graph, session, stale_price_hours=max(1, stale_price_hours))
+    if format == "markdown":
+        return Response(
+            content=render_account_value_snapshot_markdown(snapshot),
+            media_type="text/markdown; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="account_value_snapshot.md"'},
+        )
+    if format == "csv":
+        return Response(
+            content=render_account_value_snapshot_csv(snapshot),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="account_value_snapshot.csv"'},
+        )
+    return ApiDataEnvelope(data={"account_value_snapshot": snapshot.model_dump(mode="json")})

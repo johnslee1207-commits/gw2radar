@@ -110,9 +110,20 @@ def main() -> int:
         enqueue = client.post("/api/v1/account/sync")
         queued_status = client.get("/api/v1/account/sync/status")
         drained = client.post("/api/v1/account/sync/drain-one")
+        price_snapshot = client.post(
+            "/api/v1/market/snapshots",
+            json={
+                "item_id": "gw2:item:19721",
+                "item_name": "Diagnostic Material",
+                "buy_price_copper": 1800,
+                "sell_price_copper": 2000,
+                "volume": 1000,
+            },
+        )
         synced_status = client.get("/api/v1/account/sync/status")
         api_diagnostic = client.get("/account/diagnostic")
         account_holdings = client.get("/api/v1/player/account-holdings")
+        account_value = client.get("/api/v1/player/account-value")
         snapshots = client.get("/api/v1/builds/character-snapshots")
         snapshot_payload = snapshots.json().get("data", {}).get("snapshots", []) if snapshots.status_code == 200 else []
         synced_snapshot = next((snapshot for snapshot in snapshot_payload if snapshot.get("source") == "synced_official_api"), None)
@@ -125,7 +136,7 @@ def main() -> int:
 
         all_payload_text = "\n".join(
             str(response.text)
-            for response in [stored, status, permissions, enqueue, queued_status, drained, synced_status, api_diagnostic, account_holdings, snapshots]
+            for response in [stored, status, permissions, enqueue, queued_status, drained, price_snapshot, synced_status, api_diagnostic, account_holdings, account_value, snapshots]
         )
         if account_gear is not None:
             all_payload_text += str(account_gear.text)
@@ -137,9 +148,11 @@ def main() -> int:
         _add(checks, "account sync queues endpoint-level work", enqueue.status_code == 200 and enqueue.json().get("status") == "queued" and len(enqueue.json().get("endpoint_progress", [])) == 6, enqueue.text)
         _add(checks, "queued sync status is visible", queued_status.status_code == 200 and queued_status.json().get("counts", {}).get("queued") == 1, queued_status.text)
         _add(checks, "drain-one succeeds and writes player state", drained.status_code == 200 and drained.json().get("status") == "succeeded" and drained.json().get("updated_player_state", 0) >= 5, drained.text)
+        _add(checks, "manual price snapshot records account value evidence", price_snapshot.status_code == 200 and price_snapshot.json().get("data", {}).get("snapshot", {}).get("item_id") == "gw2:item:19721", price_snapshot.text)
         _add(checks, "post-drain status exposes succeeded endpoints", synced_status.status_code == 200 and synced_status.json().get("counts", {}).get("succeeded") == 1, synced_status.text)
         _add(checks, "read-only API diagnostic reports ready lifecycle", api_diagnostic.status_code == 200 and api_diagnostic.json().get("summary_status") == "ready" and {check.get("status") for check in api_diagnostic.json().get("checks", [])} == {"pass"}, api_diagnostic.text)
         _add(checks, "private account holding index summarizes synced state", account_holdings.status_code == 200 and account_holdings.json().get("data", {}).get("account_holding_index", {}).get("holding_count", 0) >= 5 and account_holdings.json().get("data", {}).get("account_holding_index", {}).get("location_counts", {}).get("wallet") == 1, account_holdings.text)
+        _add(checks, "account value snapshot reports conservative totals", account_value.status_code == 200 and account_value.json().get("data", {}).get("account_value_snapshot", {}).get("summary", {}).get("total_value_buy_copper", 0) >= 420000 and account_value.json().get("data", {}).get("account_value_snapshot", {}).get("summary", {}).get("unpriced_holding_count", 0) >= 1, account_value.text)
         _add(checks, "private graph layer contains synced account", "gw2:account:Diagnostic.1234" in graph.entities and graph.entities["gw2:account:Diagnostic.1234"].graph_layer is GraphLayer.PRIVATE_PLAYER_STATE, "missing private account entity")
         _add(checks, "Build Fit sees synced character snapshot before manual fallback", snapshots.status_code == 200 and snapshot_payload and snapshot_payload[0].get("source") == "synced_official_api", snapshots.text)
         _add(checks, "synced account gear includes enriched item/stat metadata", account_gear is not None and account_gear.status_code == 200 and _gear_has_categories(account_gear.json(), {"armor", "weapon", "rune", "sigil"}), account_gear.text if account_gear is not None else "no synced snapshot")

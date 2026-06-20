@@ -1,7 +1,15 @@
-from pydantic import BaseModel, Field
+from datetime import datetime, timedelta, timezone
 
+from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
+
+from gw2radar.db.models import MarketSnapshotModel
 from gw2radar.graph.graph_query import GraphData
 from gw2radar.ontology.graph_layers import GraphLayer
+
+
+TP_TOTAL_FEE_RATE = 0.15
+DEFAULT_STALE_PRICE_HOURS = 48
 
 
 class AccountHolding(BaseModel):
@@ -34,6 +42,65 @@ class AccountHoldingIndex(BaseModel):
     location_counts: dict[str, int] = Field(default_factory=dict)
     holdings: list[AccountHolding] = Field(default_factory=list)
     coverage_gaps: list[AccountHoldingCoverageGap] = Field(default_factory=list)
+    assumptions: list[str] = Field(default_factory=list)
+    safety_boundaries: list[str] = Field(default_factory=list)
+
+
+class AccountValueHolding(BaseModel):
+    holding_id: str
+    entity_id: str
+    item_id: int | None = None
+    canonical_name: str
+    quantity: float
+    location_type: str
+    valuation_status: str
+    buy_price_copper: int = 0
+    sell_price_copper: int = 0
+    value_buy_copper: int = 0
+    value_sell_copper: int = 0
+    net_sell_value_copper: int = 0
+    price_observed_at: datetime | None = None
+    warning_codes: list[str] = Field(default_factory=list)
+
+
+class AccountValueSummary(BaseModel):
+    total_value_buy_copper: int = 0
+    total_value_sell_copper: int = 0
+    net_sell_value_copper: int = 0
+    priced_holding_count: int = 0
+    unpriced_holding_count: int = 0
+    account_bound_holding_count: int = 0
+    stale_price_holding_count: int = 0
+    coverage_gap_count: int = 0
+    latest_price_observed_at: datetime | None = None
+
+
+class AccountValueBreakdownRow(BaseModel):
+    key: str
+    label: str
+    holding_count: int = 0
+    value_buy_copper: int = 0
+    value_sell_copper: int = 0
+    net_sell_value_copper: int = 0
+    percentage_of_buy_value: float = 0.0
+
+
+class AccountValueWarning(BaseModel):
+    warning_code: str
+    severity: str
+    player_message: str
+    holding_id: str | None = None
+    entity_id: str | None = None
+
+
+class AccountValueSnapshot(BaseModel):
+    schema_version: str = "gw2radar.account_value_snapshot.v1"
+    account_id: str | None
+    summary: AccountValueSummary
+    by_location: list[AccountValueBreakdownRow] = Field(default_factory=list)
+    by_status: list[AccountValueBreakdownRow] = Field(default_factory=list)
+    top_holdings: list[AccountValueHolding] = Field(default_factory=list)
+    warnings: list[AccountValueWarning] = Field(default_factory=list)
     assumptions: list[str] = Field(default_factory=list)
     safety_boundaries: list[str] = Field(default_factory=list)
 
@@ -77,6 +144,100 @@ def build_account_holding_index(
             "Value and sellability require a separate price snapshot and do-not-sell policy review.",
         ],
     )
+
+
+def build_account_value_snapshot(
+    graph: GraphData,
+    session: Session,
+    *,
+    permission_report: dict | None = None,
+    stale_price_hours: int = DEFAULT_STALE_PRICE_HOURS,
+    top_limit: int = 10,
+) -> AccountValueSnapshot:
+    index = build_account_holding_index(graph, permission_report=permission_report)
+    latest_prices = _latest_market_snapshots(session)
+    stale_cutoff = datetime.now(timezone.utc) - timedelta(hours=stale_price_hours)
+    value_holdings = [
+        _value_holding(holding, latest_prices, stale_cutoff)
+        for holding in index.holdings
+    ]
+    summary = _value_summary(value_holdings, index.coverage_gaps)
+    warnings = _value_warnings(value_holdings, index.coverage_gaps, stale_price_hours)
+    top_holdings = sorted(value_holdings, key=lambda item: item.value_buy_copper, reverse=True)[:top_limit]
+    assumptions = list(index.assumptions)
+    assumptions.extend(
+        [
+            "Prices come from the latest stored market snapshot for each item.",
+            "Net sell value applies a conservative 15 percent trading post fee.",
+            "Unpriced, account-bound, and stale-price holdings are not inferred or auto-sold.",
+        ]
+    )
+    return AccountValueSnapshot(
+        account_id=index.account_id,
+        summary=summary,
+        by_location=_breakdown(value_holdings, key_attr="location_type", total_buy=summary.total_value_buy_copper),
+        by_status=_breakdown(value_holdings, key_attr="valuation_status", total_buy=summary.total_value_buy_copper),
+        top_holdings=top_holdings,
+        warnings=warnings,
+        assumptions=assumptions,
+        safety_boundaries=[
+            "Account value is informational planning guidance only.",
+            "GW2Radar never places orders, never automates trades, and never guarantees returns.",
+            "Private account payloads and raw API keys are excluded from this snapshot.",
+            "Review active goals and do-not-sell reservations before considering any manual sale.",
+        ],
+    )
+
+
+def render_account_value_snapshot_markdown(snapshot: AccountValueSnapshot) -> str:
+    lines = [
+        "# Account Value Snapshot",
+        "",
+        "## Summary",
+        f"- Total buy value: {snapshot.summary.total_value_buy_copper} copper",
+        f"- Total sell value: {snapshot.summary.total_value_sell_copper} copper",
+        f"- Net sell value after TP fee: {snapshot.summary.net_sell_value_copper} copper",
+        f"- Priced holdings: {snapshot.summary.priced_holding_count}",
+        f"- Unpriced holdings: {snapshot.summary.unpriced_holding_count}",
+        f"- Account-bound holdings: {snapshot.summary.account_bound_holding_count}",
+        f"- Stale-price holdings: {snapshot.summary.stale_price_holding_count}",
+        "",
+        "## Location Breakdown",
+        *[
+            f"- {row.label}: {row.value_buy_copper} copper across {row.holding_count} holdings"
+            for row in snapshot.by_location
+        ],
+        "",
+        "## Warnings",
+        *([f"- {warning.severity}: {warning.player_message}" for warning in snapshot.warnings] or ["- None"]),
+        "",
+        "## Boundaries",
+        *[f"- {boundary}" for boundary in snapshot.safety_boundaries],
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def render_account_value_snapshot_csv(snapshot: AccountValueSnapshot) -> str:
+    lines = ["holding_id,entity_id,name,location,status,quantity,buy_price_copper,sell_price_copper,value_buy_copper,value_sell_copper,net_sell_value_copper"]
+    for holding in snapshot.top_holdings:
+        lines.append(
+            ",".join(
+                [
+                    _csv(holding.holding_id),
+                    _csv(holding.entity_id),
+                    _csv(holding.canonical_name),
+                    _csv(holding.location_type),
+                    _csv(holding.valuation_status),
+                    str(holding.quantity),
+                    str(holding.buy_price_copper),
+                    str(holding.sell_price_copper),
+                    str(holding.value_buy_copper),
+                    str(holding.value_sell_copper),
+                    str(holding.net_sell_value_copper),
+                ]
+            )
+        )
+    return "\n".join(lines) + "\n"
 
 
 def _holding_from_state(graph: GraphData, state) -> AccountHolding | None:
@@ -153,3 +314,183 @@ def _coverage_gaps(permission_report: dict | None) -> list[AccountHoldingCoverag
             )
         )
     return gaps
+
+
+def _latest_market_snapshots(session: Session) -> dict[str, MarketSnapshotModel]:
+    rows = session.query(MarketSnapshotModel).order_by(MarketSnapshotModel.observed_at).all()
+    latest: dict[str, MarketSnapshotModel] = {}
+    for row in rows:
+        latest[row.item_id] = row
+    return latest
+
+
+def _value_holding(
+    holding: AccountHolding,
+    latest_prices: dict[str, MarketSnapshotModel],
+    stale_cutoff: datetime,
+) -> AccountValueHolding:
+    warning_codes: list[str] = []
+    if holding.location_type == "wallet":
+        value = int(holding.quantity)
+        return AccountValueHolding(
+            holding_id=holding.holding_id,
+            entity_id=holding.entity_id,
+            item_id=holding.item_id,
+            canonical_name=holding.canonical_name,
+            quantity=holding.quantity,
+            location_type=holding.location_type,
+            valuation_status="priced",
+            buy_price_copper=1,
+            sell_price_copper=1,
+            value_buy_copper=value,
+            value_sell_copper=value,
+            net_sell_value_copper=value,
+        )
+    if holding.tradable is False:
+        return AccountValueHolding(
+            holding_id=holding.holding_id,
+            entity_id=holding.entity_id,
+            item_id=holding.item_id,
+            canonical_name=holding.canonical_name,
+            quantity=holding.quantity,
+            location_type=holding.location_type,
+            valuation_status="account_bound",
+            warning_codes=["account_bound"],
+        )
+    snapshot = latest_prices.get(holding.entity_id)
+    if snapshot is None and holding.item_id is not None:
+        snapshot = latest_prices.get(f"gw2:item:{holding.item_id}") or latest_prices.get(str(holding.item_id))
+    if snapshot is None:
+        return AccountValueHolding(
+            holding_id=holding.holding_id,
+            entity_id=holding.entity_id,
+            item_id=holding.item_id,
+            canonical_name=holding.canonical_name,
+            quantity=holding.quantity,
+            location_type=holding.location_type,
+            valuation_status="unpriced",
+            warning_codes=["missing_price"],
+        )
+    observed_at = _aware(snapshot.observed_at)
+    if observed_at < stale_cutoff:
+        warning_codes.append("stale_price")
+    buy_value = int(holding.quantity * snapshot.buy_price_copper)
+    sell_value = int(holding.quantity * snapshot.sell_price_copper)
+    return AccountValueHolding(
+        holding_id=holding.holding_id,
+        entity_id=holding.entity_id,
+        item_id=holding.item_id,
+        canonical_name=holding.canonical_name,
+        quantity=holding.quantity,
+        location_type=holding.location_type,
+        valuation_status="stale_price" if warning_codes else "priced",
+        buy_price_copper=snapshot.buy_price_copper,
+        sell_price_copper=snapshot.sell_price_copper,
+        value_buy_copper=buy_value,
+        value_sell_copper=sell_value,
+        net_sell_value_copper=int(sell_value * (1 - TP_TOTAL_FEE_RATE)),
+        price_observed_at=observed_at,
+        warning_codes=warning_codes,
+    )
+
+
+def _value_summary(
+    holdings: list[AccountValueHolding],
+    coverage_gaps: list[AccountHoldingCoverageGap],
+) -> AccountValueSummary:
+    priced = [holding for holding in holdings if holding.valuation_status in {"priced", "stale_price"}]
+    latest = [holding.price_observed_at for holding in holdings if holding.price_observed_at is not None]
+    return AccountValueSummary(
+        total_value_buy_copper=sum(holding.value_buy_copper for holding in priced),
+        total_value_sell_copper=sum(holding.value_sell_copper for holding in priced),
+        net_sell_value_copper=sum(holding.net_sell_value_copper for holding in priced),
+        priced_holding_count=sum(1 for holding in holdings if holding.valuation_status == "priced"),
+        unpriced_holding_count=sum(1 for holding in holdings if holding.valuation_status == "unpriced"),
+        account_bound_holding_count=sum(1 for holding in holdings if holding.valuation_status == "account_bound"),
+        stale_price_holding_count=sum(1 for holding in holdings if holding.valuation_status == "stale_price"),
+        coverage_gap_count=len(coverage_gaps),
+        latest_price_observed_at=max(latest) if latest else None,
+    )
+
+
+def _breakdown(
+    holdings: list[AccountValueHolding],
+    *,
+    key_attr: str,
+    total_buy: int,
+) -> list[AccountValueBreakdownRow]:
+    rows: dict[str, AccountValueBreakdownRow] = {}
+    for holding in holdings:
+        key = str(getattr(holding, key_attr))
+        row = rows.setdefault(key, AccountValueBreakdownRow(key=key, label=_label(key)))
+        row.holding_count += 1
+        row.value_buy_copper += holding.value_buy_copper
+        row.value_sell_copper += holding.value_sell_copper
+        row.net_sell_value_copper += holding.net_sell_value_copper
+    for row in rows.values():
+        row.percentage_of_buy_value = round(row.value_buy_copper / total_buy * 100, 2) if total_buy else 0.0
+    return sorted(rows.values(), key=lambda item: item.value_buy_copper, reverse=True)
+
+
+def _value_warnings(
+    holdings: list[AccountValueHolding],
+    coverage_gaps: list[AccountHoldingCoverageGap],
+    stale_price_hours: int,
+) -> list[AccountValueWarning]:
+    warnings: list[AccountValueWarning] = []
+    for gap in coverage_gaps:
+        warnings.append(
+            AccountValueWarning(
+                warning_code="missing_permission",
+                severity="warn",
+                player_message=f"{gap.label} is unavailable until permissions include {', '.join(gap.required_permissions)}.",
+            )
+        )
+    for holding in holdings:
+        if "missing_price" in holding.warning_codes:
+            warnings.append(
+                AccountValueWarning(
+                    warning_code="missing_price",
+                    severity="info",
+                    player_message=f"{holding.canonical_name} has no stored price snapshot, so it is excluded from value totals.",
+                    holding_id=holding.holding_id,
+                    entity_id=holding.entity_id,
+                )
+            )
+        if "account_bound" in holding.warning_codes:
+            warnings.append(
+                AccountValueWarning(
+                    warning_code="account_bound",
+                    severity="info",
+                    player_message=f"{holding.canonical_name} is treated as account-bound or non-sellable.",
+                    holding_id=holding.holding_id,
+                    entity_id=holding.entity_id,
+                )
+            )
+        if "stale_price" in holding.warning_codes:
+            warnings.append(
+                AccountValueWarning(
+                    warning_code="stale_price",
+                    severity="warn",
+                    player_message=f"{holding.canonical_name} uses a price snapshot older than {stale_price_hours} hours.",
+                    holding_id=holding.holding_id,
+                    entity_id=holding.entity_id,
+                )
+            )
+    return warnings[:50]
+
+
+def _aware(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+def _label(value: str) -> str:
+    return value.replace("_", " ").title()
+
+
+def _csv(value: object) -> str:
+    text = "" if value is None else str(value)
+    escaped = text.replace('"', '""')
+    return f'"{escaped}"'
