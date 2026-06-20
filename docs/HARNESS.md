@@ -140,6 +140,9 @@ bundle with a manifest, checksum header, and whitelist validation.
 It also verifies the P28 release packet verification import:
 release export zip bundle bytes can be verified for checksum, schema, whitelist,
 required files, and no-secret boundaries without executing or publishing files.
+It also verifies the P29 release packet verification audit trail:
+release export bundle verification results can be recorded as metadata-only
+audit records and exported as Markdown / CSV without storing zip content.
 
 ## Account Connection Diagnostic Command
 
@@ -275,7 +278,8 @@ readiness rollup, and visible no-secret boundary copy.
 58. Retrieve one release export artifact through the path-safe API.
 59. Load the release export bundle manifest and download the read-only zip bundle.
 60. Verify the release export zip bundle bytes through the safe import verifier.
-61. Confirm the route planner ingests the promoted reviewed source.
+61. Record and export release bundle verification audit metadata.
+62. Confirm the route planner ingests the promoted reviewed source.
 
 ## Account Connection Diagnostic Steps
 

@@ -15,6 +15,7 @@ from gw2radar.commercial.achievement_route import (
     AchievementRouteRemediationReviewRequest,
     AchievementRouteRequest,
     AchievementRouteDraftSourcePromotionRequest,
+    AchievementRouteReleaseExportBundleVerificationAuditRequest,
     AchievementRouteReleaseSignoffRequest,
     AchievementRouteSourceEditPatchApplyRequest,
     AchievementRouteSourceManifest,
@@ -99,7 +100,11 @@ from gw2radar.commercial.achievement_route import (
     render_achievement_route_markdown,
     render_official_achievement_route_preview_markdown,
     list_achievement_route_release_export_artifacts,
+    list_achievement_route_release_export_bundle_verification_audits,
     resolve_achievement_route_release_export_artifact_path,
+    record_achievement_route_release_export_bundle_verification_audit,
+    render_achievement_route_release_export_bundle_verification_audit_csv,
+    render_achievement_route_release_export_bundle_verification_audit_markdown,
     verify_achievement_route_release_export_bundle,
     write_achievement_route_release_export_packet_artifacts,
 )
@@ -648,6 +653,26 @@ def test_achievement_route_operator_action_bundle_aggregates_and_records_review(
             tampered_bundle_buffer.getvalue(),
             expected_checksum_sha256=release_export_bundle_manifest.checksum_sha256,
         )
+        release_export_bundle_audit_record = record_achievement_route_release_export_bundle_verification_audit(
+            AchievementRouteReleaseExportBundleVerificationAuditRequest(
+                reviewer="operator_action_bundle_test",
+                notes=["Unit test recorded release bundle verification audit."],
+            ),
+            release_export_bundle_bytes,
+            temp_root,
+            audit_root,
+            artifact_root,
+        )
+        release_export_bundle_audit = list_achievement_route_release_export_bundle_verification_audits(
+            audit_root,
+            reviewer="operator_action_bundle_test",
+        )
+        release_export_bundle_audit_markdown = render_achievement_route_release_export_bundle_verification_audit_markdown(
+            release_export_bundle_audit
+        )
+        release_export_bundle_audit_csv = render_achievement_route_release_export_bundle_verification_audit_csv(
+            release_export_bundle_audit
+        )
 
         assert initial.schema_version == "gw2radar.achievement_route_operator_action_bundle.v1"
         assert initial.remediation_review is None
@@ -787,6 +812,12 @@ def test_achievement_route_operator_action_bundle_aggregates_and_records_review(
         assert tampered_bundle_verification.ready is False
         assert any("checksum" in blocker for blocker in tampered_bundle_verification.blockers)
         assert any("non-whitelisted" in blocker for blocker in tampered_bundle_verification.blockers)
+        assert release_export_bundle_audit_record.schema_version == "gw2radar.achievement_route_release_export_bundle_verification_audit.v1"
+        assert release_export_bundle_audit_record.ready is True
+        assert release_export_bundle_audit_record.reviewer == "operator_action_bundle_test"
+        assert release_export_bundle_audit.records[0].audit_id == release_export_bundle_audit_record.audit_id
+        assert "Achievement Route Release Bundle Verification Audit" in release_export_bundle_audit_markdown
+        assert "audit_id,verified_at,reviewer,ready,checksum_sha256" in release_export_bundle_audit_csv
         assert "secret-key" not in str(updated).lower()
         assert "secret-key" not in str(packet).lower()
         assert "secret-key" not in str(candidates).lower()
@@ -802,6 +833,7 @@ def test_achievement_route_operator_action_bundle_aggregates_and_records_review(
         assert "secret-key" not in str(release_export_packet).lower()
         assert "secret-key" not in str(release_export_artifacts).lower()
         assert "secret-key" not in str(release_export_bundle_verification).lower()
+        assert "secret-key" not in str(release_export_bundle_audit).lower()
         assert "secret-key" not in release_export_bundle_bytes.decode("latin1").lower()
     finally:
         rmtree(temp_root, ignore_errors=True)
@@ -1237,6 +1269,13 @@ def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
         release_export_bundle_verify_current = client.post(
             "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/bundle/verify"
         )
+        release_export_bundle_audit_record = client.post(
+            "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/bundle/verification-audit",
+            json={
+                "reviewer": "promotion_api_release_bundle",
+                "notes": ["API test recorded release bundle verification audit."],
+            },
+        )
 
         assert blocked_review.status_code == 400
         assert review_action.status_code == 200
@@ -1366,10 +1405,27 @@ def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
             content=release_export_bundle_zip.content,
             headers={"content-type": "application/zip"},
         )
+        release_export_bundle_audit = client.get(
+            "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/bundle/verification-audit?reviewer=promotion_api_release_bundle"
+        )
+        release_export_bundle_audit_markdown = client.get(
+            "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/bundle/verification-audit?format=markdown"
+        )
+        release_export_bundle_audit_csv = client.get(
+            "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/bundle/verification-audit?format=csv"
+        )
         assert release_export_bundle_verify_current.status_code == 200
         assert release_export_bundle_verify_current.json()["data"]["release_export_bundle_verification"]["ready"] is True
         assert release_export_bundle_verify_upload.status_code == 200
         assert release_export_bundle_verify_upload.json()["data"]["release_export_bundle_verification"]["ready"] is True
+        assert release_export_bundle_audit_record.status_code == 200
+        assert release_export_bundle_audit_record.json()["data"]["release_export_bundle_verification_audit_record"]["ready"] is True
+        assert release_export_bundle_audit.status_code == 200
+        assert release_export_bundle_audit.json()["data"]["release_export_bundle_verification_audit"]["records"][0]["reviewer"] == "promotion_api_release_bundle"
+        assert release_export_bundle_audit_markdown.status_code == 200
+        assert "Achievement Route Release Bundle Verification Audit" in release_export_bundle_audit_markdown.text
+        assert release_export_bundle_audit_csv.status_code == 200
+        assert "audit_id,verified_at,reviewer,ready,checksum_sha256" in release_export_bundle_audit_csv.text
         assert "secret-key" not in release_export_bundle_zip.content.decode("latin1").lower()
     finally:
         achievement_route_routes.gateway_factory = original_factory

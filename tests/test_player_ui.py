@@ -108,6 +108,9 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert "Bundle manifest" in response.text
     assert "Download bundle" in response.text
     assert "Verify bundle" in response.text
+    assert "Record bundle audit" in response.text
+    assert "Load bundle audit" in response.text
+    assert "Export bundle audit CSV" in response.text
     assert "Evidence bundle" in response.text
     assert "Evidence archive" in response.text
     assert "Archive diff" in response.text
@@ -117,6 +120,7 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert "Packet files" in response.text
     assert "Packet bundle" in response.text
     assert "Bundle verify" in response.text
+    assert "Bundle audit" in response.text
 
 
 def test_player_ui_static_assets_are_served() -> None:
@@ -230,6 +234,9 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "loadAchievementRouteReleaseExportBundle" in js.text
     assert "downloadAchievementRouteReleaseExportBundle" in js.text
     assert "verifyAchievementRouteReleaseExportBundle" in js.text
+    assert "recordAchievementRouteReleaseExportBundleVerificationAudit" in js.text
+    assert "loadAchievementRouteReleaseExportBundleVerificationAudit" in js.text
+    assert "exportAchievementRouteReleaseExportBundleVerificationAuditCsv" in js.text
     assert "confirmed_manual_review" in js.text
     assert "routeOfficialFetchPreviewPayload" in js.text
     assert "routeReviewPayload" in js.text
@@ -261,6 +268,7 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts" in js.text
     assert "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/bundle" in js.text
     assert "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/bundle/verify" in js.text
+    assert "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/bundle/verification-audit" in js.text
 
 
 def test_player_ui_styles_cover_workflow_and_summaries() -> None:

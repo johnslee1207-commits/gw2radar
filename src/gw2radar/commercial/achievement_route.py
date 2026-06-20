@@ -813,6 +813,39 @@ class AchievementRouteReleaseExportBundleVerification(BaseModel):
     boundary: str = "Release export bundle verification reads local zip bytes only; it does not execute files, publish content, store secrets, or certify live game state."
 
 
+class AchievementRouteReleaseExportBundleVerificationAuditRequest(BaseModel):
+    reviewer: str = Field(min_length=2)
+    notes: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    expected_checksum_sha256: str | None = None
+
+
+class AchievementRouteReleaseExportBundleVerificationAuditRecord(BaseModel):
+    schema_version: str = "gw2radar.achievement_route_release_export_bundle_verification_audit.v1"
+    audit_id: str
+    verified_at: datetime
+    reviewer: str
+    ready: bool
+    checksum_sha256: str
+    size_bytes: int
+    file_count: int
+    blocker_count: int
+    warning_count: int
+    verified_files: list[str] = Field(default_factory=list)
+    blockers: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    safety_boundary: str = "Release bundle verification audit is metadata-only; it records validation results and does not store zip bytes, publish files, execute uploads, or store secrets."
+
+
+class AchievementRouteReleaseExportBundleVerificationAuditList(BaseModel):
+    schema_version: str = "gw2radar.achievement_route_release_export_bundle_verification_audit_list.v1"
+    records: list[AchievementRouteReleaseExportBundleVerificationAuditRecord]
+    filters: dict[str, str | int | bool | None]
+    boundary: str = "Release bundle verification audit exports are metadata-only and must not include zip content, raw API keys, or private account payloads."
+
+
 class AchievementRouteGateway(Protocol):
     def get_batch(
         self,
@@ -3592,6 +3625,146 @@ def verify_achievement_route_release_export_bundle(
         blockers=blockers,
         warnings=warnings,
     )
+
+
+def record_achievement_route_release_export_bundle_verification_audit(
+    request: AchievementRouteReleaseExportBundleVerificationAuditRequest,
+    bundle_bytes: bytes | None = None,
+    source_root: Path = ACHIEVEMENT_ROUTE_SOURCE_ROOT,
+    audit_root: Path = ACHIEVEMENT_ROUTE_AUDIT_ROOT,
+    output_root: Path = ACHIEVEMENT_ROUTE_RELEASE_EXPORT_ROOT,
+) -> AchievementRouteReleaseExportBundleVerificationAuditRecord:
+    expected_checksum = request.expected_checksum_sha256
+    if bundle_bytes is None or len(bundle_bytes) == 0:
+        index = list_achievement_route_release_export_artifacts(output_root, limit=1)
+        if not index.files:
+            write_achievement_route_release_export_packet_artifacts(source_root, audit_root, output_root)
+        manifest, bundle_bytes = build_achievement_route_release_export_bundle(output_root)
+        expected_checksum = expected_checksum or manifest.checksum_sha256
+    verification = verify_achievement_route_release_export_bundle(
+        bundle_bytes,
+        expected_checksum_sha256=expected_checksum,
+    )
+    verified_at = datetime.now(UTC)
+    record = AchievementRouteReleaseExportBundleVerificationAuditRecord(
+        audit_id=f"achievement-route-release-bundle-verification:{verified_at.strftime('%Y%m%dT%H%M%S%fZ')}:{_safe_identifier(request.reviewer)}",
+        verified_at=verified_at,
+        reviewer=request.reviewer,
+        ready=verification.ready,
+        checksum_sha256=verification.checksum_sha256,
+        size_bytes=verification.size_bytes,
+        file_count=verification.file_count,
+        blocker_count=len(verification.blockers),
+        warning_count=len(verification.warnings),
+        verified_files=verification.verified_files,
+        blockers=verification.blockers,
+        warnings=verification.warnings,
+        notes=request.notes or ["Release bundle verification audit recorded by reviewer."],
+        evidence_refs=_unique(
+            [
+                *request.evidence_refs,
+                "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/bundle",
+                "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/bundle/verify",
+            ]
+        ),
+    )
+    audit_root.mkdir(parents=True, exist_ok=True)
+    path = audit_root / "release_bundle_verification_audit.jsonl"
+    with path.open("a", encoding="utf-8", newline="\n") as handle:
+        handle.write(record.model_dump_json() + "\n")
+    return record
+
+
+def list_achievement_route_release_export_bundle_verification_audits(
+    audit_root: Path = ACHIEVEMENT_ROUTE_AUDIT_ROOT,
+    *,
+    reviewer: str | None = None,
+    ready: bool | None = None,
+    limit: int = 25,
+) -> AchievementRouteReleaseExportBundleVerificationAuditList:
+    path = audit_root / "release_bundle_verification_audit.jsonl"
+    records: list[AchievementRouteReleaseExportBundleVerificationAuditRecord] = []
+    if path.exists():
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            try:
+                record = AchievementRouteReleaseExportBundleVerificationAuditRecord.model_validate_json(line)
+            except ValidationError:
+                continue
+            if reviewer and record.reviewer != reviewer:
+                continue
+            if ready is not None and record.ready is not ready:
+                continue
+            records.append(record)
+    records = sorted(records, key=lambda item: item.verified_at, reverse=True)[: max(1, min(limit, 200))]
+    return AchievementRouteReleaseExportBundleVerificationAuditList(
+        records=records,
+        filters={"reviewer": reviewer, "ready": ready, "limit": limit},
+    )
+
+
+def render_achievement_route_release_export_bundle_verification_audit_markdown(
+    audit: AchievementRouteReleaseExportBundleVerificationAuditList,
+) -> str:
+    lines = [
+        "# Achievement Route Release Bundle Verification Audit",
+        "",
+        f"- Records: {len(audit.records)}",
+        f"- Boundary: {audit.boundary}",
+        "",
+        "## Records",
+    ]
+    if not audit.records:
+        lines.append("- None")
+    for record in audit.records:
+        lines.extend(
+            [
+                f"- Audit: {record.audit_id}",
+                f"  - Reviewer: {record.reviewer}",
+                f"  - Ready: {record.ready}",
+                f"  - Checksum: {record.checksum_sha256}",
+                f"  - Files: {record.file_count}",
+                f"  - Blockers: {record.blocker_count}",
+                f"  - Warnings: {record.warning_count}",
+            ]
+        )
+    return "\n".join(lines) + "\n"
+
+
+def render_achievement_route_release_export_bundle_verification_audit_csv(
+    audit: AchievementRouteReleaseExportBundleVerificationAuditList,
+) -> str:
+    buffer = StringIO()
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow(
+        [
+            "audit_id",
+            "verified_at",
+            "reviewer",
+            "ready",
+            "checksum_sha256",
+            "size_bytes",
+            "file_count",
+            "blocker_count",
+            "warning_count",
+        ]
+    )
+    for record in audit.records:
+        writer.writerow(
+            [
+                record.audit_id,
+                record.verified_at.isoformat(),
+                record.reviewer,
+                record.ready,
+                record.checksum_sha256,
+                record.size_bytes,
+                record.file_count,
+                record.blocker_count,
+                record.warning_count,
+            ]
+        )
+    return buffer.getvalue()
 
 
 def build_achievement_route_backfill_candidates(

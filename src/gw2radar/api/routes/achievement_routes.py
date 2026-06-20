@@ -15,6 +15,7 @@ from gw2radar.commercial.achievement_route import (
     AchievementRouteRemediationReviewRequest,
     AchievementRouteRequest,
     AchievementRouteDraftSourcePromotionRequest,
+    AchievementRouteReleaseExportBundleVerificationAuditRequest,
     AchievementRouteReleaseSignoffRequest,
     AchievementRouteSourceEditPatchApplyRequest,
     OfficialAccountAchievementProgress,
@@ -44,6 +45,7 @@ from gw2radar.commercial.achievement_route import (
     list_achievement_route_backfill_candidate_review_audits,
     list_achievement_route_draft_source_promotion_audits,
     list_achievement_route_release_evidence_archives,
+    list_achievement_route_release_export_bundle_verification_audits,
     list_achievement_route_release_export_artifacts,
     list_achievement_route_release_signoff_audits,
     list_achievement_route_remediation_review_audits,
@@ -53,6 +55,7 @@ from gw2radar.commercial.achievement_route import (
     record_achievement_route_promotion_audit,
     record_achievement_route_backfill_candidate_review,
     record_achievement_route_remediation_review,
+    record_achievement_route_release_export_bundle_verification_audit,
     record_achievement_route_release_signoff,
     render_achievement_route_csv,
     render_achievement_route_backfill_candidate_readiness_csv,
@@ -78,6 +81,8 @@ from gw2radar.commercial.achievement_route import (
     render_achievement_route_release_evidence_archive_markdown,
     render_achievement_route_release_export_packet_csv,
     render_achievement_route_release_export_packet_markdown,
+    render_achievement_route_release_export_bundle_verification_audit_csv,
+    render_achievement_route_release_export_bundle_verification_audit_markdown,
     render_achievement_route_release_signoff_audit_csv,
     render_achievement_route_release_signoff_audit_markdown,
     render_achievement_route_remediation_queue_csv,
@@ -613,6 +618,70 @@ def post_achievement_route_release_export_packet_artifact_bundle_verify(
         expected_checksum_sha256=expected_checksum_sha256,
     )
     return ApiDataEnvelope(data={"release_export_bundle_verification": verification.model_dump(mode="json")})
+
+
+@router.post("/source-quality/remediation-queue/release-export-packet/artifacts/bundle/verification-audit", response_model=None)
+def post_achievement_route_release_export_packet_artifact_bundle_verification_audit(
+    request: AchievementRouteReleaseExportBundleVerificationAuditRequest,
+):
+    record = record_achievement_route_release_export_bundle_verification_audit(
+        request,
+        None,
+        source_root,
+        audit_root,
+        release_export_root,
+    )
+    return ApiDataEnvelope(data={"release_export_bundle_verification_audit_record": record.model_dump(mode="json")})
+
+
+@router.post("/source-quality/remediation-queue/release-export-packet/artifacts/bundle/verification-audit/upload", response_model=None)
+def post_achievement_route_release_export_packet_artifact_bundle_verification_audit_upload(
+    bundle: bytes = Body(media_type="application/zip"),
+    reviewer: str = Query(min_length=2),
+    expected_checksum_sha256: str | None = Query(default=None),
+):
+    request = AchievementRouteReleaseExportBundleVerificationAuditRequest(
+        reviewer=reviewer,
+        expected_checksum_sha256=expected_checksum_sha256,
+        notes=["Release bundle verification audit recorded from uploaded zip bytes."],
+        evidence_refs=[
+            "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/bundle/verification-audit/upload"
+        ],
+    )
+    record = record_achievement_route_release_export_bundle_verification_audit(
+        request,
+        bundle,
+        source_root,
+        audit_root,
+        release_export_root,
+    )
+    return ApiDataEnvelope(data={"release_export_bundle_verification_audit_record": record.model_dump(mode="json")})
+
+
+@router.get("/source-quality/remediation-queue/release-export-packet/artifacts/bundle/verification-audit", response_model=None)
+def get_achievement_route_release_export_packet_artifact_bundle_verification_audit(
+    reviewer: str | None = None,
+    ready: bool | None = None,
+    limit: int = Query(default=25, ge=1, le=200),
+    format: str = Query(default="json", pattern="^(json|markdown|csv)$"),
+):
+    audit = list_achievement_route_release_export_bundle_verification_audits(
+        audit_root,
+        reviewer=reviewer,
+        ready=ready,
+        limit=limit,
+    )
+    if format == "markdown":
+        return Response(
+            content=render_achievement_route_release_export_bundle_verification_audit_markdown(audit),
+            media_type="text/markdown; charset=utf-8",
+        )
+    if format == "csv":
+        return Response(
+            content=render_achievement_route_release_export_bundle_verification_audit_csv(audit),
+            media_type="text/csv; charset=utf-8",
+        )
+    return ApiDataEnvelope(data={"release_export_bundle_verification_audit": audit.model_dump(mode="json")})
 
 
 @router.get("/source-quality/remediation-queue/release-export-packet/artifacts/{relative_path:path}", response_model=None)

@@ -303,6 +303,12 @@ function summarizeResult(target, payload) {
     if (data?.release_export_bundle_verification) {
       return `Release export bundle verification: ${data.release_export_bundle_verification.ready ? "ready" : "blocked"} with ${data.release_export_bundle_verification.blockers.length} blockers.`;
     }
+    if (data?.release_export_bundle_verification_audit_record) {
+      return `Release bundle verification audit: ${data.release_export_bundle_verification_audit_record.ready ? "ready" : "blocked"} by ${data.release_export_bundle_verification_audit_record.reviewer}.`;
+    }
+    if (data?.release_export_bundle_verification_audit) {
+      return `Release bundle verification audit records: ${data.release_export_bundle_verification_audit.records.length}.`;
+    }
     if (Array.isArray(data?.sources)) {
       return `${data.sources.length} route source manifests loaded with ${data.reviewed_step_count || 0} reviewed steps.`;
     }
@@ -830,6 +836,13 @@ function renderRouteReleaseExportBundleVerification(verification) {
   const status = verification?.ready ? "ready" : "blocked";
   const blockers = Array.isArray(verification?.blockers) ? verification.blockers.length : "--";
   document.querySelector("#route-release-export-bundle-verification-count").textContent = `${status} / ${blockers} blockers`;
+}
+
+function renderRouteReleaseExportBundleVerificationAudit(audit) {
+  const count = Array.isArray(audit?.records) ? audit.records.length : "--";
+  const latest = audit?.records?.[0];
+  const status = latest ? (latest.ready ? "ready" : "blocked") : "--";
+  document.querySelector("#route-release-export-bundle-audit-count").textContent = `${count} records / ${status}`;
 }
 
 function renderRouteOperatorActionBundle(bundle) {
@@ -1946,6 +1959,43 @@ const actions = {
       });
       renderRouteReleaseExportBundleVerification(payload?.data?.release_export_bundle_verification || {});
       return payload;
+    }),
+  recordAchievementRouteReleaseExportBundleVerificationAudit: () =>
+    run("routes", async () => {
+      const payload = await fetchJson(
+        "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/bundle/verification-audit",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            reviewer: document.querySelector("#route-reviewer").value.trim() || "player_ui_operator",
+            notes: ["Player UI recorded release bundle verification audit."],
+          }),
+        },
+      );
+      return payload;
+    }),
+  loadAchievementRouteReleaseExportBundleVerificationAudit: () =>
+    run("routes", async () => {
+      const reviewer = encodeURIComponent(document.querySelector("#route-reviewer").value.trim());
+      const suffix = reviewer ? `?reviewer=${reviewer}&limit=10` : "?limit=10";
+      const payload = await fetchJson(
+        `/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/bundle/verification-audit${suffix}`,
+      );
+      renderRouteReleaseExportBundleVerificationAudit(payload?.data?.release_export_bundle_verification_audit || {});
+      return payload;
+    }),
+  exportAchievementRouteReleaseExportBundleVerificationAuditCsv: () =>
+    run("routes", () => {
+      const reviewer = encodeURIComponent(document.querySelector("#route-reviewer").value.trim());
+      const suffix = reviewer ? `?reviewer=${reviewer}&format=csv` : "?format=csv";
+      return fetch(`/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/bundle/verification-audit${suffix}`)
+        .then(async (response) => {
+          const text = await response.text();
+          if (!response.ok) {
+            throw new Error(text || `HTTP ${response.status}`);
+          }
+          return text;
+        });
     }),
   importBuild: () =>
     run("build", async () => {

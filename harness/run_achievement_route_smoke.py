@@ -605,6 +605,38 @@ def main() -> int:
     )
     if release_export_bundle_verification_data.get("ready") is not True or release_export_bundle_verification_data.get("blockers"):
         failures.append("achievement route release export bundle verification was not ready")
+    release_export_bundle_audit_record = client.post(
+        "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/bundle/verification-audit",
+        json={
+            "reviewer": "achievement_route_smoke",
+            "notes": ["Smoke recorded release bundle verification audit."],
+        },
+    )
+    release_export_bundle_audit_record_payload = _json_response(
+        release_export_bundle_audit_record,
+        "achievement route release export bundle verification audit record",
+        failures,
+    )
+    if (
+        (((release_export_bundle_audit_record_payload or {}).get("data") or {}).get("release_export_bundle_verification_audit_record") or {}).get("ready")
+        is not True
+    ):
+        failures.append("achievement route release export bundle verification audit record was not ready")
+    release_export_bundle_audit = client.get(
+        "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/bundle/verification-audit?reviewer=achievement_route_smoke&limit=5"
+    )
+    release_export_bundle_audit_payload = _json_response(
+        release_export_bundle_audit,
+        "achievement route release export bundle verification audit",
+        failures,
+    )
+    if not ((((release_export_bundle_audit_payload or {}).get("data") or {}).get("release_export_bundle_verification_audit") or {}).get("records") or []):
+        failures.append("achievement route release export bundle verification audit did not list records")
+    release_export_bundle_audit_csv = client.get(
+        "/api/v1/achievement-routes/source-quality/remediation-queue/release-export-packet/artifacts/bundle/verification-audit?format=csv"
+    )
+    if release_export_bundle_audit_csv.status_code != 200 or "audit_id,verified_at,reviewer,ready,checksum_sha256" not in release_export_bundle_audit_csv.text:
+        failures.append("achievement route release export bundle verification audit CSV export failed")
     promoted_sources = client.get("/api/v1/achievement-routes/sources")
     promoted_sources_payload = _json_response(promoted_sources, "promoted route sources", failures)
     promoted_reviewed_step_count = (((promoted_sources_payload or {}).get("data") or {}).get("reviewed_step_count") or 0)
