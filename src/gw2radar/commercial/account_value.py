@@ -3,8 +3,9 @@ from datetime import datetime, timedelta, timezone
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from gw2radar.db.models import MarketSnapshotModel
+from gw2radar.db.models import LegendaryGoalModel, MarketSnapshotModel
 from gw2radar.graph.graph_query import GraphData
+from gw2radar.inference.goal_gap import calculate_goal_gap
 from gw2radar.ontology.graph_layers import GraphLayer
 
 
@@ -59,6 +60,9 @@ class AccountValueHolding(BaseModel):
     value_buy_copper: int = 0
     value_sell_copper: int = 0
     net_sell_value_copper: int = 0
+    reserved_quantity: float = 0.0
+    sellable_surplus_quantity: float = 0.0
+    reserved_for_goal_ids: list[str] = Field(default_factory=list)
     price_observed_at: datetime | None = None
     warning_codes: list[str] = Field(default_factory=list)
 
@@ -71,6 +75,7 @@ class AccountValueSummary(BaseModel):
     unpriced_holding_count: int = 0
     account_bound_holding_count: int = 0
     stale_price_holding_count: int = 0
+    reserved_holding_count: int = 0
     coverage_gap_count: int = 0
     latest_price_observed_at: datetime | None = None
 
@@ -156,9 +161,10 @@ def build_account_value_snapshot(
 ) -> AccountValueSnapshot:
     index = build_account_holding_index(graph, permission_report=permission_report)
     latest_prices = _latest_market_snapshots(session)
+    reservations = build_goal_reservation_index(session, graph)
     stale_cutoff = datetime.now(timezone.utc) - timedelta(hours=stale_price_hours)
     value_holdings = [
-        _value_holding(holding, latest_prices, stale_cutoff)
+        _value_holding(holding, latest_prices, stale_cutoff, reservations)
         for holding in index.holdings
     ]
     summary = _value_summary(value_holdings, index.coverage_gaps)
@@ -187,6 +193,34 @@ def build_account_value_snapshot(
             "Review active goals and do-not-sell reservations before considering any manual sale.",
         ],
     )
+
+
+def build_goal_reservation_index(session: Session, graph: GraphData) -> dict[str, dict]:
+    goal_ids = _active_goal_ids(session, graph)
+    reservation_index: dict[str, dict] = {}
+    for goal_id in goal_ids:
+        if goal_id not in graph.entities:
+            continue
+        gap = calculate_goal_gap(graph, goal_id)
+        for item in gap.completed_requirements + gap.missing_requirements:
+            entry = reservation_index.setdefault(
+                item.entity_id,
+                {
+                    "name": item.name,
+                    "total_required_quantity": 0.0,
+                    "owned_quantity": graph.quantity_owned(item.entity_id),
+                    "reserved_quantity": 0.0,
+                    "reserved_for_goal_ids": [],
+                },
+            )
+            entry["total_required_quantity"] += item.required_quantity
+            entry["owned_quantity"] = graph.quantity_owned(item.entity_id)
+            if goal_id not in entry["reserved_for_goal_ids"]:
+                entry["reserved_for_goal_ids"].append(goal_id)
+    for entry in reservation_index.values():
+        entry["reserved_quantity"] = min(entry["owned_quantity"], entry["total_required_quantity"])
+        entry["sellable_surplus_quantity"] = max(entry["owned_quantity"] - entry["total_required_quantity"], 0.0)
+    return reservation_index
 
 
 def render_account_value_snapshot_markdown(snapshot: AccountValueSnapshot) -> str:
@@ -328,8 +362,15 @@ def _value_holding(
     holding: AccountHolding,
     latest_prices: dict[str, MarketSnapshotModel],
     stale_cutoff: datetime,
+    reservations: dict[str, dict],
 ) -> AccountValueHolding:
     warning_codes: list[str] = []
+    reservation = reservations.get(holding.entity_id, {})
+    reserved_quantity = float(reservation.get("reserved_quantity", 0.0) or 0.0)
+    sellable_surplus_quantity = max(float(holding.quantity) - reserved_quantity, 0.0)
+    reserved_for_goal_ids = list(reservation.get("reserved_for_goal_ids", []))
+    if reserved_quantity > 0:
+        warning_codes.append("reserved_for_goal")
     if holding.location_type == "wallet":
         value = int(holding.quantity)
         return AccountValueHolding(
@@ -345,6 +386,10 @@ def _value_holding(
             value_buy_copper=value,
             value_sell_copper=value,
             net_sell_value_copper=value,
+            reserved_quantity=reserved_quantity,
+            sellable_surplus_quantity=sellable_surplus_quantity,
+            reserved_for_goal_ids=reserved_for_goal_ids,
+            warning_codes=warning_codes,
         )
     if holding.tradable is False:
         return AccountValueHolding(
@@ -355,7 +400,10 @@ def _value_holding(
             quantity=holding.quantity,
             location_type=holding.location_type,
             valuation_status="account_bound",
-            warning_codes=["account_bound"],
+            reserved_quantity=reserved_quantity,
+            sellable_surplus_quantity=sellable_surplus_quantity,
+            reserved_for_goal_ids=reserved_for_goal_ids,
+            warning_codes=[*warning_codes, "account_bound"],
         )
     snapshot = latest_prices.get(holding.entity_id)
     if snapshot is None and holding.item_id is not None:
@@ -369,7 +417,10 @@ def _value_holding(
             quantity=holding.quantity,
             location_type=holding.location_type,
             valuation_status="unpriced",
-            warning_codes=["missing_price"],
+            reserved_quantity=reserved_quantity,
+            sellable_surplus_quantity=sellable_surplus_quantity,
+            reserved_for_goal_ids=reserved_for_goal_ids,
+            warning_codes=[*warning_codes, "missing_price"],
         )
     observed_at = _aware(snapshot.observed_at)
     if observed_at < stale_cutoff:
@@ -389,6 +440,9 @@ def _value_holding(
         value_buy_copper=buy_value,
         value_sell_copper=sell_value,
         net_sell_value_copper=int(sell_value * (1 - TP_TOTAL_FEE_RATE)),
+        reserved_quantity=reserved_quantity,
+        sellable_surplus_quantity=sellable_surplus_quantity,
+        reserved_for_goal_ids=reserved_for_goal_ids,
         price_observed_at=observed_at,
         warning_codes=warning_codes,
     )
@@ -408,6 +462,7 @@ def _value_summary(
         unpriced_holding_count=sum(1 for holding in holdings if holding.valuation_status == "unpriced"),
         account_bound_holding_count=sum(1 for holding in holdings if holding.valuation_status == "account_bound"),
         stale_price_holding_count=sum(1 for holding in holdings if holding.valuation_status == "stale_price"),
+        reserved_holding_count=sum(1 for holding in holdings if holding.reserved_quantity > 0),
         coverage_gap_count=len(coverage_gaps),
         latest_price_observed_at=max(latest) if latest else None,
     )
@@ -477,7 +532,30 @@ def _value_warnings(
                     entity_id=holding.entity_id,
                 )
             )
+        if "reserved_for_goal" in holding.warning_codes:
+            warnings.append(
+                AccountValueWarning(
+                    warning_code="reserved_for_goal",
+                    severity="warn",
+                    player_message=f"{holding.canonical_name} is reserved for active goals and should not be treated as sellable surplus.",
+                    holding_id=holding.holding_id,
+                    entity_id=holding.entity_id,
+                )
+            )
     return warnings[:50]
+
+
+def _active_goal_ids(session: Session, graph: GraphData) -> list[str]:
+    rows = (
+        session.query(LegendaryGoalModel)
+        .filter(LegendaryGoalModel.active.is_(True))
+        .order_by(LegendaryGoalModel.priority, LegendaryGoalModel.created_at)
+        .all()
+    )
+    goal_ids = [row.graph_goal_id for row in rows if row.graph_goal_id in graph.entities]
+    if goal_ids:
+        return goal_ids
+    return ["gw2:goal:aurora"] if "gw2:goal:aurora" in graph.entities else []
 
 
 def _aware(value: datetime) -> datetime:

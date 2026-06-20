@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from gw2radar.db.models import MarketSnapshotModel, MarketWatchlistModel, utc_now
 from gw2radar.graph.graph_query import GraphData
+from gw2radar.commercial.account_value import build_account_value_snapshot, build_goal_reservation_index
 from gw2radar.inference.goal_gap import calculate_goal_gap
 
 
@@ -83,6 +84,12 @@ class MarketSignal(BaseModel):
     item_name: str
     signal_type: MarketSignalType
     explanation: str
+    valuation_status: str | None = None
+    value_buy_copper: int = 0
+    net_sell_value_copper: int = 0
+    reserved_quantity: float = 0.0
+    sellable_surplus_quantity: float = 0.0
+    reserved_for_goal_ids: list[str] = Field(default_factory=list)
     evidence_refs: list[str] = Field(default_factory=list)
 
 
@@ -183,8 +190,14 @@ def calculate_goal_cost_index(session: Session, graph: GraphData, goal_id: str) 
 
 def infer_market_signals(session: Session, graph: GraphData, goal_id: str) -> list[MarketSignal]:
     trends = {trend.item_id: trend for trend in calculate_price_trends(session)}
+    value_by_entity = {
+        holding.entity_id: holding
+        for holding in build_account_value_snapshot(graph, session, top_limit=10000).top_holdings
+    }
+    reservations = build_goal_reservation_index(session, graph)
     gap = calculate_goal_gap(graph, goal_id)
     required_ids = {item.entity_id for item in gap.completed_requirements + gap.missing_requirements}
+    reserved_ids = {entity_id for entity_id, reservation in reservations.items() if reservation.get("reserved_quantity", 0) > 0}
     missing_ids = {item.entity_id for item in gap.missing_requirements}
     signals: list[MarketSignal] = []
     for item_id in sorted(required_ids):
@@ -199,6 +212,8 @@ def infer_market_signals(session: Session, graph: GraphData, goal_id: str) -> li
                         MarketSignalType.BUY_WAIT,
                         f"{name} is required by the active goal and is above recent average; consider observing before manual purchase.",
                         list(graph.evidence.keys()),
+                        value_by_entity.get(item_id),
+                        reservations.get(item_id),
                     )
                 )
             else:
@@ -209,6 +224,8 @@ def infer_market_signals(session: Session, graph: GraphData, goal_id: str) -> li
                         MarketSignalType.OBSERVE,
                         f"{name} is required by the active goal; observe price movement before manual action.",
                         list(graph.evidence.keys()),
+                        value_by_entity.get(item_id),
+                        reservations.get(item_id),
                     )
                 )
         else:
@@ -219,21 +236,29 @@ def infer_market_signals(session: Session, graph: GraphData, goal_id: str) -> li
                     MarketSignalType.HOLD,
                     f"{name} is required by an active goal; hold required quantities.",
                     list(graph.evidence.keys()),
+                    value_by_entity.get(item_id),
+                    reservations.get(item_id),
                 )
             )
 
     for state in graph.player_state:
-        if state.entity_id in required_ids or state.quantity <= 0:
+        if state.entity_id in required_ids or state.entity_id in reserved_ids or state.quantity <= 0:
             continue
         entity = graph.entities.get(state.entity_id)
         if entity and entity.properties.get("tradable", False):
+            value_holding = value_by_entity.get(state.entity_id)
+            surplus_quantity = value_holding.sellable_surplus_quantity if value_holding else state.quantity
+            if surplus_quantity <= 0:
+                continue
             signals.append(
                 _checked_signal(
                     state.entity_id,
                     entity.canonical_name,
                     MarketSignalType.CONSIDER_SELL_SURPLUS,
-                    f"{entity.canonical_name} is not required by active goals; consider selling only true surplus after manual review.",
+                    f"{entity.canonical_name} is not reserved for active goals; consider only true surplus after manual review.",
                     list(graph.evidence.keys()),
+                    value_holding,
+                    reservations.get(state.entity_id),
                 )
             )
     return signals
@@ -276,7 +301,10 @@ def render_market_report(report: MarketRadarReport) -> str:
         f"- Total missing cost: {report.goal_cost_index.total_missing_cost_copper if report.goal_cost_index else 0} copper",
         "",
         "## Market Signals",
-        *[f"- {signal.item_name}: {signal.explanation}" for signal in report.signals],
+        *[
+            f"- {signal.item_name}: {signal.explanation}{_signal_context(signal)}"
+            for signal in report.signals
+        ],
         "",
         "## Boundaries",
         "- Recommendations are observation and planning guidance only.",
@@ -285,6 +313,17 @@ def render_market_report(report: MarketRadarReport) -> str:
     text = "\n".join(lines) + "\n"
     validate_market_language(text)
     return text
+
+
+def _signal_context(signal: MarketSignal) -> str:
+    details = []
+    if signal.reserved_quantity > 0:
+        details.append(f"reserved {signal.reserved_quantity:g}")
+    if signal.sellable_surplus_quantity > 0:
+        details.append(f"surplus {signal.sellable_surplus_quantity:g}")
+    if signal.valuation_status:
+        details.append(f"value status {signal.valuation_status}")
+    return f" ({'; '.join(details)})" if details else ""
 
 
 def validate_market_language(text: str) -> None:
@@ -328,13 +367,22 @@ def _checked_signal(
     signal_type: MarketSignalType,
     explanation: str,
     evidence_refs: list[str],
+    value_holding=None,
+    reservation: dict | None = None,
 ) -> MarketSignal:
     validate_market_language(explanation)
+    reservation = reservation or {}
     return MarketSignal(
         item_id=item_id,
         item_name=item_name,
         signal_type=signal_type,
         explanation=explanation,
+        valuation_status=value_holding.valuation_status if value_holding else None,
+        value_buy_copper=value_holding.value_buy_copper if value_holding else 0,
+        net_sell_value_copper=value_holding.net_sell_value_copper if value_holding else 0,
+        reserved_quantity=float(reservation.get("reserved_quantity", 0.0) or 0.0),
+        sellable_surplus_quantity=float(reservation.get("sellable_surplus_quantity", 0.0) or 0.0),
+        reserved_for_goal_ids=list(reservation.get("reserved_for_goal_ids", [])),
         evidence_refs=evidence_refs,
     )
 
