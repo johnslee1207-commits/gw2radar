@@ -58,6 +58,39 @@ Use mock data when you want to test the flows without connecting a real GW2 acco
 
 ## 2. Connect Real Account Data
 
+Use the local player dashboard for the main workflow:
+
+```text
+http://127.0.0.1:8000/player
+```
+
+For real account data, paste the API key only into the account connection flow. The system stores the key through the encrypted key store and returns only masked key status. If the key has no visible error but produces no planning output, run the account diagnostic and support bundle review before assuming the key is invalid.
+
+Recommended diagnostic sequence:
+
+```powershell
+python harness/run_account_connection_diagnostic.py
+python harness/run_account_debug_bundle_review.py
+```
+
+## 2.1 Final Operator Handoff Flow
+
+After planning, source review, and release packet generation, use the Routes operator controls in this order:
+
+1. `Release export packet`
+2. `Write packet files`
+3. `Bundle manifest`
+4. `Download bundle`
+5. `Verify bundle`
+6. `Record bundle audit`
+7. `Handoff checklist`
+8. `Release notes`
+9. `Operator runbook`
+10. `Final dashboard`
+11. `Final maturity audit`
+
+These controls are metadata-only. They do not publish files, deploy content, automate gameplay, place trades, or certify live game state.
+
 Use a GW2 API key only through the API key route. Do not paste keys into markdown files, source code, issue comments, logs, or screenshots.
 
 Recommended GW2 API permissions for account planning:
@@ -442,4 +475,3 @@ The safest commercial path is:
 2. Manually reviewed Legendary Planner Pro report.
 3. Build Fit report for structured builds.
 4. Market Radar as an add-on, not a standalone trading product.
-
