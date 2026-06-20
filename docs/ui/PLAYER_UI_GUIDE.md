@@ -210,6 +210,7 @@ Operator review gate:
 - `Promote draft source`, `Load draft promotion audit`, and `Export draft promotion CSV` promote a draft source manifest into reviewed planner-ingestible guidance only after explicit reviewer confirmation.
 - `Release evidence bundle`, `Export evidence CSV`, and `Export evidence manifest` combine promotion, patch apply, draft promotion, source quality, release readiness, and release packet evidence into one read-only handoff bundle.
 - `Archive evidence`, `Load evidence archive`, and `Export archive CSV` persist the current evidence bundle as immutable metadata with checksum and retention policy, then list/export the archive index.
+- `Review archive diff` and `Export diff CSV` compare the latest two archived evidence records for checksum changes, source/artifact/evidence-chain deltas, blocker/warning regressions, improvements, and next actions.
 
 Advanced operator flow:
 
@@ -238,6 +239,7 @@ Advanced operator flow:
 - `GET /api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle` exports the unified route source release evidence bundle with `format=markdown`, `format=csv`, or `format=manifest`.
 - `POST /api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/archive` archives the current evidence bundle metadata with `archived_by`, SHA-256 checksum, and retention policy.
 - `GET /api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/archive` lists archived evidence records with `format=markdown` or `format=csv`.
+- `GET /api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/archive/diff` compares archived evidence records with `format=markdown` or `format=csv`.
 - Draft previews are not used by the route planner until this reviewed promotion gate writes a `source_status=reviewed` manifest.
 
 ## Freshness And Confidence

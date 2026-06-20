@@ -21,6 +21,7 @@ from gw2radar.commercial.achievement_route import (
     archive_achievement_route_release_evidence_bundle,
     build_achievement_route_backfill_candidates,
     build_achievement_route_backfill_candidate_readiness,
+    build_achievement_route_release_evidence_archive_diff,
     build_achievement_route_release_readiness,
     build_achievement_route_operator_action_bundle,
     build_achievement_route_operator_release_packet,
@@ -60,6 +61,8 @@ from gw2radar.commercial.achievement_route import (
     render_achievement_route_release_readiness_csv,
     render_achievement_route_release_readiness_markdown,
     render_achievement_route_release_evidence_archive_csv,
+    render_achievement_route_release_evidence_archive_diff_csv,
+    render_achievement_route_release_evidence_archive_diff_markdown,
     render_achievement_route_release_evidence_archive_markdown,
     render_achievement_route_remediation_queue_csv,
     render_achievement_route_remediation_queue_markdown,
@@ -559,9 +562,18 @@ def test_achievement_route_operator_action_bundle_aggregates_and_records_review(
             archived_by="bundle_operator",
             retention_policy="retain_365_days",
         )
+        archive_record_second = archive_achievement_route_release_evidence_bundle(
+            temp_root,
+            audit_root,
+            archived_by="bundle_operator",
+            retention_policy="retain_365_days",
+        )
         archive_index = list_achievement_route_release_evidence_archives(audit_root, archived_by="bundle_operator")
         archive_markdown = render_achievement_route_release_evidence_archive_markdown(archive_index)
         archive_csv = render_achievement_route_release_evidence_archive_csv(archive_index)
+        archive_diff = build_achievement_route_release_evidence_archive_diff(audit_root)
+        archive_diff_markdown = render_achievement_route_release_evidence_archive_diff_markdown(archive_diff)
+        archive_diff_csv = render_achievement_route_release_evidence_archive_diff_csv(archive_diff)
 
         assert initial.schema_version == "gw2radar.achievement_route_operator_action_bundle.v1"
         assert initial.remediation_review is None
@@ -637,10 +649,18 @@ def test_achievement_route_operator_action_bundle_aggregates_and_records_review(
         assert len(archive_record.checksum_sha256) == 64
         assert archive_record.manifest_schema == "gw2radar.achievement_route_unified_release_evidence_bundle.v1"
         assert archive_index.schema_version == "gw2radar.achievement_route_release_evidence_archive_index.v1"
-        assert archive_index.total_records == 1
-        assert archive_index.records[0].archive_id == archive_record.archive_id
+        assert archive_record_second.archive_id != archive_record.archive_id
+        assert archive_index.total_records == 2
+        assert archive_index.records[0].archive_id == archive_record_second.archive_id
         assert "# Achievement Route Release Evidence Archive" in archive_markdown
         assert "archive_id,bundle_id,archived_at" in archive_csv
+        assert archive_diff.schema_version == "gw2radar.achievement_route_release_evidence_archive_diff.v1"
+        assert archive_diff.baseline_archive_id == archive_record.archive_id
+        assert archive_diff.candidate_archive_id == archive_record_second.archive_id
+        assert archive_diff.regression_count == 0
+        assert archive_diff.checksum_changed
+        assert "Achievement Route Release Evidence Archive Diff" in archive_diff_markdown
+        assert "baseline_archive_id,candidate_archive_id,ready" in archive_diff_csv
         assert "secret-key" not in str(updated).lower()
         assert "secret-key" not in str(packet).lower()
         assert "secret-key" not in str(candidates).lower()
@@ -650,6 +670,7 @@ def test_achievement_route_operator_action_bundle_aggregates_and_records_review(
         assert "secret-key" not in str(draft_promotion_audit).lower()
         assert "secret-key" not in str(evidence_bundle).lower()
         assert "secret-key" not in str(archive_index).lower()
+        assert "secret-key" not in str(archive_diff).lower()
     finally:
         rmtree(temp_root, ignore_errors=True)
         rmtree(audit_root, ignore_errors=True)
@@ -1017,6 +1038,9 @@ def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
         release_evidence_archive = client.post(
             "/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/archive?archived_by=api_review_operator&retention_policy=retain_365_days"
         )
+        release_evidence_archive_second = client.post(
+            "/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/archive?archived_by=api_review_operator&retention_policy=retain_365_days"
+        )
         release_evidence_archive_index = client.get(
             "/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/archive?archived_by=api_review_operator"
         )
@@ -1025,6 +1049,15 @@ def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
         )
         release_evidence_archive_csv = client.get(
             "/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/archive?format=csv"
+        )
+        release_evidence_archive_diff = client.get(
+            "/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/archive/diff"
+        )
+        release_evidence_archive_diff_markdown = client.get(
+            "/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/archive/diff?format=markdown"
+        )
+        release_evidence_archive_diff_csv = client.get(
+            "/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/archive/diff?format=csv"
         )
 
         assert blocked_review.status_code == 400
@@ -1099,10 +1132,16 @@ def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
         assert release_evidence_archive.status_code == 200
         assert release_evidence_archive.json()["data"]["release_evidence_archive"]["archived_by"] == "api_review_operator"
         assert len(release_evidence_archive.json()["data"]["release_evidence_archive"]["checksum_sha256"]) == 64
+        assert release_evidence_archive_second.status_code == 200
         assert release_evidence_archive_index.status_code == 200
-        assert release_evidence_archive_index.json()["data"]["release_evidence_archive_index"]["total_records"] == 1
+        assert release_evidence_archive_index.json()["data"]["release_evidence_archive_index"]["total_records"] == 2
         assert "# Achievement Route Release Evidence Archive" in release_evidence_archive_markdown.text
         assert "archive_id,bundle_id,archived_at" in release_evidence_archive_csv.text
+        assert release_evidence_archive_diff.status_code == 200
+        assert release_evidence_archive_diff.json()["data"]["release_evidence_archive_diff"]["regression_count"] == 0
+        assert release_evidence_archive_diff.json()["data"]["release_evidence_archive_diff"]["checksum_changed"] is True
+        assert "# Achievement Route Release Evidence Archive Diff" in release_evidence_archive_diff_markdown.text
+        assert "baseline_archive_id,candidate_archive_id,ready" in release_evidence_archive_diff_csv.text
     finally:
         achievement_route_routes.gateway_factory = original_factory
         achievement_route_routes.source_root = original_source_root

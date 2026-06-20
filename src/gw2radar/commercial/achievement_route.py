@@ -647,6 +647,36 @@ class AchievementRouteReleaseEvidenceArchiveIndex(BaseModel):
     boundary: str = "Archive index exports are metadata-only and must not include raw API keys or private account payloads."
 
 
+class AchievementRouteReleaseEvidenceArchiveDiff(BaseModel):
+    schema_version: str = "gw2radar.achievement_route_release_evidence_archive_diff.v1"
+    generated_at: datetime
+    baseline_archive_id: str | None = None
+    candidate_archive_id: str | None = None
+    ready: bool
+    maturity_label: Literal["blocked", "review_needed", "ready"]
+    regression_count: int
+    improvement_count: int
+    unchanged_count: int
+    source_added: list[str] = Field(default_factory=list)
+    source_removed: list[str] = Field(default_factory=list)
+    artifact_added: list[str] = Field(default_factory=list)
+    artifact_removed: list[str] = Field(default_factory=list)
+    evidence_chain_added: list[str] = Field(default_factory=list)
+    evidence_chain_removed: list[str] = Field(default_factory=list)
+    metric_deltas: dict[str, int] = Field(default_factory=dict)
+    checksum_changed: bool = False
+    maturity_changed: bool = False
+    blocker_delta: int = 0
+    warning_delta: int = 0
+    reviewed_source_delta: int = 0
+    reviewed_step_delta: int = 0
+    findings: list[str] = Field(default_factory=list)
+    regressions: list[str] = Field(default_factory=list)
+    improvements: list[str] = Field(default_factory=list)
+    next_actions: list[str] = Field(default_factory=list)
+    boundary: str = "Release evidence archive diff is metadata-only; it does not publish, edit source manifests, certify live game state, or inspect private account payloads."
+
+
 class AchievementRouteGateway(Protocol):
     def get_batch(
         self,
@@ -2566,6 +2596,202 @@ def render_achievement_route_release_evidence_archive_csv(
     return buffer.getvalue()
 
 
+def build_achievement_route_release_evidence_archive_diff(
+    audit_root: Path = ACHIEVEMENT_ROUTE_AUDIT_ROOT,
+    *,
+    baseline_archive_id: str | None = None,
+    candidate_archive_id: str | None = None,
+) -> AchievementRouteReleaseEvidenceArchiveDiff:
+    index = list_achievement_route_release_evidence_archives(audit_root, limit=200)
+    records_by_id = {record.archive_id: record for record in index.records}
+    if baseline_archive_id:
+        baseline = records_by_id.get(baseline_archive_id)
+    else:
+        baseline = index.records[1] if len(index.records) > 1 else None
+    if candidate_archive_id:
+        candidate = records_by_id.get(candidate_archive_id)
+    else:
+        candidate = index.records[0] if index.records else None
+
+    generated_at = datetime.now(UTC)
+    if baseline is None or candidate is None:
+        return AchievementRouteReleaseEvidenceArchiveDiff(
+            generated_at=generated_at,
+            baseline_archive_id=baseline.archive_id if baseline else baseline_archive_id,
+            candidate_archive_id=candidate.archive_id if candidate else candidate_archive_id,
+            ready=False,
+            maturity_label="review_needed",
+            regression_count=0,
+            improvement_count=0,
+            unchanged_count=0,
+            findings=["At least two release evidence archives are required for diff review."],
+            next_actions=["Archive the current release evidence bundle twice across meaningful review points before diffing."],
+        )
+
+    source_added, source_removed = _set_delta(candidate.source_ids, baseline.source_ids)
+    artifact_added, artifact_removed = _set_delta(candidate.artifacts, baseline.artifacts)
+    evidence_added, evidence_removed = _set_delta(candidate.evidence_chain, baseline.evidence_chain)
+    metric_deltas = {
+        "reviewed_source_count": candidate.reviewed_source_count - baseline.reviewed_source_count,
+        "reviewed_step_count": candidate.reviewed_step_count - baseline.reviewed_step_count,
+        "blocker_count": candidate.blocker_count - baseline.blocker_count,
+        "warning_count": candidate.warning_count - baseline.warning_count,
+    }
+    checksum_changed = candidate.checksum_sha256 != baseline.checksum_sha256
+    maturity_changed = candidate.maturity_label != baseline.maturity_label
+    regressions: list[str] = []
+    improvements: list[str] = []
+    findings: list[str] = []
+    next_actions: list[str] = []
+
+    if metric_deltas["blocker_count"] > 0:
+        regressions.append(f"Blocker count increased by {metric_deltas['blocker_count']}.")
+    if metric_deltas["warning_count"] > 0:
+        regressions.append(f"Warning count increased by {metric_deltas['warning_count']}.")
+    if source_removed:
+        regressions.append("Reviewed source ids were removed: " + ", ".join(source_removed) + ".")
+    if artifact_removed:
+        regressions.append("Release artifacts were removed: " + ", ".join(artifact_removed) + ".")
+    if evidence_removed:
+        regressions.append("Evidence chain refs were removed: " + ", ".join(evidence_removed) + ".")
+    if candidate.maturity_label == "blocked" and baseline.maturity_label != "blocked":
+        regressions.append("Maturity regressed to blocked.")
+
+    if metric_deltas["blocker_count"] < 0:
+        improvements.append(f"Blocker count decreased by {abs(metric_deltas['blocker_count'])}.")
+    if metric_deltas["warning_count"] < 0:
+        improvements.append(f"Warning count decreased by {abs(metric_deltas['warning_count'])}.")
+    if source_added:
+        improvements.append("Reviewed source ids were added: " + ", ".join(source_added) + ".")
+    if artifact_added:
+        improvements.append("Release artifacts were added: " + ", ".join(artifact_added) + ".")
+    if evidence_added:
+        improvements.append("Evidence chain refs were added: " + ", ".join(evidence_added) + ".")
+    if candidate.maturity_label == "ready" and baseline.maturity_label != "ready":
+        improvements.append("Maturity improved to ready.")
+
+    if checksum_changed:
+        findings.append("Archive checksum changed; review the listed metric and evidence-chain deltas.")
+    else:
+        findings.append("Archive checksum is unchanged.")
+    if maturity_changed:
+        findings.append(f"Maturity changed from {baseline.maturity_label} to {candidate.maturity_label}.")
+    if not regressions and not improvements:
+        findings.append("No material metadata changes detected between compared archives.")
+
+    if regressions:
+        next_actions.append("Review every regression before release sign-off.")
+    if source_removed or evidence_removed:
+        next_actions.append("Confirm removed source/evidence refs were intentional and documented.")
+    if checksum_changed and not regressions:
+        next_actions.append("Review checksum change and archive the approved bundle after sign-off.")
+    if not regressions:
+        next_actions.append("No blocking metadata regression detected; continue normal release readiness review.")
+
+    unchanged_count = sum(
+        1
+        for key in ("reviewed_source_count", "reviewed_step_count", "blocker_count", "warning_count")
+        if metric_deltas[key] == 0
+    )
+    ready = not regressions and candidate.maturity_label != "blocked"
+    maturity = "ready" if ready and checksum_changed else "review_needed" if not regressions else "blocked"
+    return AchievementRouteReleaseEvidenceArchiveDiff(
+        generated_at=generated_at,
+        baseline_archive_id=baseline.archive_id,
+        candidate_archive_id=candidate.archive_id,
+        ready=ready,
+        maturity_label=maturity,
+        regression_count=len(regressions),
+        improvement_count=len(improvements),
+        unchanged_count=unchanged_count,
+        source_added=source_added,
+        source_removed=source_removed,
+        artifact_added=artifact_added,
+        artifact_removed=artifact_removed,
+        evidence_chain_added=evidence_added,
+        evidence_chain_removed=evidence_removed,
+        metric_deltas=metric_deltas,
+        checksum_changed=checksum_changed,
+        maturity_changed=maturity_changed,
+        blocker_delta=metric_deltas["blocker_count"],
+        warning_delta=metric_deltas["warning_count"],
+        reviewed_source_delta=metric_deltas["reviewed_source_count"],
+        reviewed_step_delta=metric_deltas["reviewed_step_count"],
+        findings=findings,
+        regressions=regressions,
+        improvements=improvements,
+        next_actions=_unique(next_actions),
+    )
+
+
+def render_achievement_route_release_evidence_archive_diff_markdown(
+    diff: AchievementRouteReleaseEvidenceArchiveDiff,
+) -> str:
+    lines = [
+        "# Achievement Route Release Evidence Archive Diff",
+        "",
+        f"- Baseline archive: {diff.baseline_archive_id or 'None'}",
+        f"- Candidate archive: {diff.candidate_archive_id or 'None'}",
+        f"- Ready: {diff.ready}",
+        f"- Maturity: {diff.maturity_label}",
+        f"- Regressions: {diff.regression_count}",
+        f"- Improvements: {diff.improvement_count}",
+        f"- Checksum changed: {diff.checksum_changed}",
+        f"- Boundary: {diff.boundary}",
+        "",
+        "## Metric Deltas",
+    ]
+    for key, value in diff.metric_deltas.items():
+        lines.append(f"- {key}: {value:+d}")
+    lines.extend(["", "## Regressions"])
+    lines.extend([f"- {item}" for item in diff.regressions] or ["- None"])
+    lines.extend(["", "## Improvements"])
+    lines.extend([f"- {item}" for item in diff.improvements] or ["- None"])
+    lines.extend(["", "## Findings"])
+    lines.extend([f"- {item}" for item in diff.findings] or ["- None"])
+    lines.extend(["", "## Next Actions"])
+    lines.extend([f"- {item}" for item in diff.next_actions] or ["- None"])
+    return "\n".join(lines) + "\n"
+
+
+def render_achievement_route_release_evidence_archive_diff_csv(
+    diff: AchievementRouteReleaseEvidenceArchiveDiff,
+) -> str:
+    buffer = StringIO()
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow(
+        [
+            "baseline_archive_id",
+            "candidate_archive_id",
+            "ready",
+            "maturity_label",
+            "regression_count",
+            "improvement_count",
+            "checksum_changed",
+            "reviewed_source_delta",
+            "reviewed_step_delta",
+            "blocker_delta",
+            "warning_delta",
+        ]
+    )
+    writer.writerow(
+        [
+            diff.baseline_archive_id or "",
+            diff.candidate_archive_id or "",
+            diff.ready,
+            diff.maturity_label,
+            diff.regression_count,
+            diff.improvement_count,
+            diff.checksum_changed,
+            diff.reviewed_source_delta,
+            diff.reviewed_step_delta,
+            diff.blocker_delta,
+            diff.warning_delta,
+        ]
+    )
+    return buffer.getvalue()
+
+
 def build_achievement_route_backfill_candidates(
     source_root: Path = ACHIEVEMENT_ROUTE_SOURCE_ROOT,
     audit_root: Path = ACHIEVEMENT_ROUTE_AUDIT_ROOT,
@@ -3595,6 +3821,12 @@ def _unique(values: list[str]) -> list[str]:
             seen.add(value)
             result.append(value)
     return result
+
+
+def _set_delta(candidate_values: list[str], baseline_values: list[str]) -> tuple[list[str], list[str]]:
+    candidate = set(candidate_values)
+    baseline = set(baseline_values)
+    return sorted(candidate - baseline), sorted(baseline - candidate)
 
 
 def _review_route_step_quality(

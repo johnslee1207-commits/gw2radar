@@ -24,6 +24,7 @@ from gw2radar.commercial.achievement_route import (
     build_achievement_route_operator_action_bundle,
     build_achievement_route_operator_release_packet,
     build_achievement_route_release_readiness,
+    build_achievement_route_release_evidence_archive_diff,
     build_achievement_route_remediation_queue,
     build_achievement_route_remediation_readiness,
     build_achievement_route_source_edit_patch_draft,
@@ -62,6 +63,8 @@ from gw2radar.commercial.achievement_route import (
     render_achievement_route_release_readiness_csv,
     render_achievement_route_release_readiness_markdown,
     render_achievement_route_release_evidence_archive_csv,
+    render_achievement_route_release_evidence_archive_diff_csv,
+    render_achievement_route_release_evidence_archive_diff_markdown,
     render_achievement_route_release_evidence_archive_markdown,
     render_achievement_route_remediation_queue_csv,
     render_achievement_route_remediation_queue_markdown,
@@ -437,6 +440,30 @@ def get_achievement_route_release_evidence_archive(
             media_type="text/csv; charset=utf-8",
         )
     return ApiDataEnvelope(data={"release_evidence_archive_index": index.model_dump(mode="json")})
+
+
+@router.get("/source-quality/remediation-queue/release-evidence-bundle/archive/diff", response_model=None)
+def get_achievement_route_release_evidence_archive_diff(
+    baseline_archive_id: str | None = None,
+    candidate_archive_id: str | None = None,
+    format: str = Query(default="json", pattern="^(json|markdown|csv)$"),
+):
+    diff = build_achievement_route_release_evidence_archive_diff(
+        audit_root,
+        baseline_archive_id=baseline_archive_id,
+        candidate_archive_id=candidate_archive_id,
+    )
+    if format == "markdown":
+        return Response(
+            content=render_achievement_route_release_evidence_archive_diff_markdown(diff),
+            media_type="text/markdown; charset=utf-8",
+        )
+    if format == "csv":
+        return Response(
+            content=render_achievement_route_release_evidence_archive_diff_csv(diff),
+            media_type="text/csv; charset=utf-8",
+        )
+    return ApiDataEnvelope(data={"release_evidence_archive_diff": diff.model_dump(mode="json")})
 
 
 @router.get("/source-quality/remediation-queue/backfill-candidates", response_model=None)

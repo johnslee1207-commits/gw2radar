@@ -279,6 +279,9 @@ function summarizeResult(target, payload) {
     if (data?.release_evidence_archive_index) {
       return `Release evidence archive: ${data.release_evidence_archive_index.total_records} records.`;
     }
+    if (data?.release_evidence_archive_diff) {
+      return `Release evidence diff ${data.release_evidence_archive_diff.maturity_label}: ${data.release_evidence_archive_diff.regression_count} regressions, ${data.release_evidence_archive_diff.improvement_count} improvements.`;
+    }
     if (Array.isArray(data?.sources)) {
       return `${data.sources.length} route source manifests loaded with ${data.reviewed_step_count || 0} reviewed steps.`;
     }
@@ -759,6 +762,13 @@ function renderRouteReleaseEvidenceArchive(indexOrRecord) {
   const count = records ? indexOrRecord.total_records : 1;
   const latest = records ? indexOrRecord.latest_archive_id : indexOrRecord?.archive_id;
   document.querySelector("#route-release-evidence-archive-count").textContent = `${count || 0} archived / ${latest || "--"}`;
+}
+
+function renderRouteReleaseEvidenceArchiveDiff(diff) {
+  const label = diff?.maturity_label || "unknown";
+  const regressions = typeof diff?.regression_count === "number" ? diff.regression_count : "--";
+  const improvements = typeof diff?.improvement_count === "number" ? diff.improvement_count : "--";
+  document.querySelector("#route-release-evidence-diff-count").textContent = `${label} / ${regressions} regressions / ${improvements} improvements`;
 }
 
 function renderRouteOperatorActionBundle(bundle) {
@@ -1695,6 +1705,24 @@ const actions = {
   exportAchievementRouteReleaseEvidenceArchive: () =>
     run("routes", () =>
       fetch("/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/archive?format=csv", {
+        headers: { "Accept": "text/csv" },
+      }).then(async (response) => {
+        const text = await response.text();
+        if (!response.ok) {
+          throw new Error(text || `HTTP ${response.status}`);
+        }
+        return text;
+      }),
+    ),
+  reviewAchievementRouteReleaseEvidenceArchiveDiff: () =>
+    run("routes", async () => {
+      const payload = await fetchJson("/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/archive/diff");
+      renderRouteReleaseEvidenceArchiveDiff(payload?.data?.release_evidence_archive_diff || {});
+      return payload;
+    }),
+  exportAchievementRouteReleaseEvidenceArchiveDiff: () =>
+    run("routes", () =>
+      fetch("/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/archive/diff?format=csv", {
         headers: { "Accept": "text/csv" },
       }).then(async (response) => {
         const text = await response.text();

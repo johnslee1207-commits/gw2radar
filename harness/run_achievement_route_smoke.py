@@ -430,16 +430,20 @@ def main() -> int:
     release_evidence_archive = client.post(
         "/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/archive?archived_by=smoke_operator&retention_policy=retain_365_days"
     )
+    release_evidence_archive_second = client.post(
+        "/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/archive?archived_by=smoke_operator&retention_policy=retain_365_days"
+    )
     release_evidence_archive_payload = _json_response(release_evidence_archive, "achievement route release evidence archive", failures)
     release_evidence_archive_record = (((release_evidence_archive_payload or {}).get("data") or {}).get("release_evidence_archive") or {})
     if release_evidence_archive_record.get("archived_by") != "smoke_operator" or len(release_evidence_archive_record.get("checksum_sha256", "")) != 64:
         failures.append("achievement route release evidence archive did not expose reviewer and checksum")
+    _json_response(release_evidence_archive_second, "achievement route second release evidence archive", failures)
     release_evidence_archive_index = client.get(
         "/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/archive?archived_by=smoke_operator"
     )
     release_evidence_archive_index_payload = _json_response(release_evidence_archive_index, "achievement route release evidence archive index", failures)
     release_evidence_archive_records = (((release_evidence_archive_index_payload or {}).get("data") or {}).get("release_evidence_archive_index") or {}).get("records", [])
-    if not release_evidence_archive_records:
+    if len(release_evidence_archive_records) < 2:
         failures.append("achievement route release evidence archive index did not list archived evidence")
     release_evidence_archive_markdown = client.get(
         "/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/archive?format=markdown"
@@ -451,6 +455,23 @@ def main() -> int:
     )
     if release_evidence_archive_csv.status_code != 200 or "archive_id,bundle_id,archived_at" not in release_evidence_archive_csv.text:
         failures.append("achievement route release evidence archive csv export failed")
+    release_evidence_archive_diff = client.get(
+        "/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/archive/diff"
+    )
+    release_evidence_archive_diff_payload = _json_response(release_evidence_archive_diff, "achievement route release evidence archive diff", failures)
+    release_evidence_diff = (((release_evidence_archive_diff_payload or {}).get("data") or {}).get("release_evidence_archive_diff") or {})
+    if release_evidence_diff.get("regression_count") != 0 or not release_evidence_diff.get("checksum_changed"):
+        failures.append("achievement route release evidence archive diff did not expose expected checksum-only comparison")
+    release_evidence_archive_diff_markdown = client.get(
+        "/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/archive/diff?format=markdown"
+    )
+    if release_evidence_archive_diff_markdown.status_code != 200 or "# Achievement Route Release Evidence Archive Diff" not in release_evidence_archive_diff_markdown.text:
+        failures.append("achievement route release evidence archive diff markdown export failed")
+    release_evidence_archive_diff_csv = client.get(
+        "/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/archive/diff?format=csv"
+    )
+    if release_evidence_archive_diff_csv.status_code != 200 or "baseline_archive_id,candidate_archive_id,ready" not in release_evidence_archive_diff_csv.text:
+        failures.append("achievement route release evidence archive diff csv export failed")
     promoted_sources = client.get("/api/v1/achievement-routes/sources")
     promoted_sources_payload = _json_response(promoted_sources, "promoted route sources", failures)
     promoted_reviewed_step_count = (((promoted_sources_payload or {}).get("data") or {}).get("reviewed_step_count") or 0)
