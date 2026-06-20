@@ -24,6 +24,7 @@ from gw2radar.commercial.achievement_route import (
     build_achievement_route_backfill_candidate_readiness,
     build_achievement_route_operator_action_bundle,
     build_achievement_route_operator_release_packet,
+    build_achievement_route_operator_release_dashboard,
     build_achievement_route_release_readiness,
     build_achievement_route_release_evidence_archive_diff,
     build_achievement_route_remediation_queue,
@@ -59,6 +60,8 @@ from gw2radar.commercial.achievement_route import (
     render_achievement_route_markdown,
     render_achievement_route_operator_action_bundle_csv,
     render_achievement_route_operator_action_bundle_markdown,
+    render_achievement_route_operator_release_dashboard_csv,
+    render_achievement_route_operator_release_dashboard_markdown,
     render_achievement_route_operator_release_packet_csv,
     render_achievement_route_operator_release_packet_markdown,
     render_achievement_route_promotion_audit_csv,
@@ -504,6 +507,24 @@ def get_achievement_route_release_signoff_audit(
             media_type="text/csv; charset=utf-8",
         )
     return ApiDataEnvelope(data={"release_signoff_audit": audit.model_dump(mode="json")})
+
+
+@router.get("/source-quality/remediation-queue/release-dashboard", response_model=None)
+def get_achievement_route_operator_release_dashboard(
+    format: str = Query(default="json", pattern="^(json|markdown|csv)$"),
+):
+    dashboard = build_achievement_route_operator_release_dashboard(source_root, audit_root)
+    if format == "markdown":
+        return Response(
+            content=render_achievement_route_operator_release_dashboard_markdown(dashboard),
+            media_type="text/markdown; charset=utf-8",
+        )
+    if format == "csv":
+        return Response(
+            content=render_achievement_route_operator_release_dashboard_csv(dashboard),
+            media_type="text/csv; charset=utf-8",
+        )
+    return ApiDataEnvelope(data={"operator_release_dashboard": dashboard.model_dump(mode="json")})
 
 
 @router.get("/source-quality/remediation-queue/backfill-candidates", response_model=None)

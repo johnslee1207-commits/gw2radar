@@ -715,6 +715,32 @@ class AchievementRouteReleaseSignoffAuditList(BaseModel):
     boundary: str = "Release sign-off audit exports are metadata-only and must not contain raw API keys or private account payloads."
 
 
+class AchievementRouteOperatorReleaseDashboard(BaseModel):
+    schema_version: str = "gw2radar.achievement_route_operator_release_dashboard.v1"
+    generated_at: datetime
+    ready: bool
+    maturity_label: Literal["blocked", "review_needed", "ready"]
+    bundle_id: str
+    bundle_maturity: str
+    archive_count: int
+    latest_archive_id: str | None = None
+    diff_maturity: str
+    diff_regression_count: int
+    latest_signoff_id: str | None = None
+    latest_signoff_status: str | None = None
+    latest_signoff_reviewer: str | None = None
+    missing_gates: list[str] = Field(default_factory=list)
+    blockers: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    next_actions: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    release_evidence_bundle: AchievementRouteUnifiedReleaseEvidenceBundle
+    release_evidence_archive_index: AchievementRouteReleaseEvidenceArchiveIndex
+    release_evidence_archive_diff: AchievementRouteReleaseEvidenceArchiveDiff
+    release_signoff_audit: AchievementRouteReleaseSignoffAuditList
+    boundary: str = "Operator release dashboard is a read-only metadata summary; it does not publish content, edit source manifests, automate gameplay, or store secrets."
+
+
 class AchievementRouteGateway(Protocol):
     def get_batch(
         self,
@@ -2988,6 +3014,154 @@ def render_achievement_route_release_signoff_audit_csv(
                 record.checksum_changed,
             ]
         )
+    return buffer.getvalue()
+
+
+def build_achievement_route_operator_release_dashboard(
+    source_root: Path = ACHIEVEMENT_ROUTE_SOURCE_ROOT,
+    audit_root: Path = ACHIEVEMENT_ROUTE_AUDIT_ROOT,
+) -> AchievementRouteOperatorReleaseDashboard:
+    bundle = build_achievement_route_unified_release_evidence_bundle(source_root, audit_root)
+    archive_index = list_achievement_route_release_evidence_archives(audit_root, limit=10)
+    diff = build_achievement_route_release_evidence_archive_diff(audit_root)
+    signoff_audit = list_achievement_route_release_signoff_audits(audit_root, limit=10)
+    latest_signoff = signoff_audit.records[0] if signoff_audit.records else None
+    missing_gates: list[str] = []
+    blockers: list[str] = []
+    warnings: list[str] = []
+    next_actions: list[str] = []
+
+    if not archive_index.records:
+        missing_gates.append("release_evidence_archive")
+        blockers.append("No release evidence archive has been recorded.")
+        next_actions.append("Archive the current release evidence bundle before release sign-off.")
+    if diff.baseline_archive_id is None or diff.candidate_archive_id is None:
+        missing_gates.append("release_evidence_archive_diff")
+        blockers.append("Release evidence archive diff is not available.")
+        next_actions.append("Create at least two meaningful release evidence archives before diff review.")
+    if not latest_signoff:
+        missing_gates.append("release_signoff")
+        blockers.append("No release sign-off has been recorded.")
+        next_actions.append("Record confirmed release sign-off after archive and diff review.")
+    elif latest_signoff.status != "signed_off":
+        blockers.append("Latest release sign-off is blocked.")
+        next_actions.extend(latest_signoff.next_actions)
+
+    if bundle.maturity_label == "blocked":
+        blockers.append("Unified release evidence bundle is blocked.")
+    elif bundle.maturity_label == "review_needed":
+        warnings.append("Unified release evidence bundle still requires review.")
+    if diff.regression_count > 0:
+        blockers.extend(diff.regressions)
+        next_actions.append("Resolve or explicitly document every archive diff regression.")
+    elif diff.maturity_label == "review_needed":
+        warnings.append("Release evidence archive diff still requires review.")
+    if bundle.warning_count > 0:
+        warnings.append(f"Unified release evidence bundle has {bundle.warning_count} warnings.")
+
+    ready = not blockers and latest_signoff is not None and latest_signoff.status == "signed_off"
+    maturity = "ready" if ready else "blocked" if blockers else "review_needed"
+    if ready:
+        next_actions.append("Release dashboard is ready; keep bundle, archive, diff, and sign-off exports with the manual release packet.")
+
+    return AchievementRouteOperatorReleaseDashboard(
+        generated_at=datetime.now(UTC),
+        ready=ready,
+        maturity_label=maturity,
+        bundle_id=bundle.bundle_id,
+        bundle_maturity=bundle.maturity_label,
+        archive_count=archive_index.total_records,
+        latest_archive_id=archive_index.latest_archive_id,
+        diff_maturity=diff.maturity_label,
+        diff_regression_count=diff.regression_count,
+        latest_signoff_id=latest_signoff.signoff_id if latest_signoff else None,
+        latest_signoff_status=latest_signoff.status if latest_signoff else None,
+        latest_signoff_reviewer=latest_signoff.reviewer if latest_signoff else None,
+        missing_gates=_unique(missing_gates),
+        blockers=_unique(blockers),
+        warnings=_unique(warnings),
+        next_actions=_unique(next_actions),
+        evidence_refs=[
+            "/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle",
+            "/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/archive",
+            "/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/archive/diff",
+            "/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/signoff-audit",
+        ],
+        release_evidence_bundle=bundle,
+        release_evidence_archive_index=archive_index,
+        release_evidence_archive_diff=diff,
+        release_signoff_audit=signoff_audit,
+    )
+
+
+def render_achievement_route_operator_release_dashboard_markdown(
+    dashboard: AchievementRouteOperatorReleaseDashboard,
+) -> str:
+    lines = [
+        "# Achievement Route Operator Release Dashboard",
+        "",
+        f"- Ready: {dashboard.ready}",
+        f"- Maturity: {dashboard.maturity_label}",
+        f"- Bundle: {dashboard.bundle_id}",
+        f"- Bundle maturity: {dashboard.bundle_maturity}",
+        f"- Archive count: {dashboard.archive_count}",
+        f"- Latest archive: {dashboard.latest_archive_id or 'None'}",
+        f"- Diff maturity: {dashboard.diff_maturity}",
+        f"- Diff regressions: {dashboard.diff_regression_count}",
+        f"- Latest sign-off: {dashboard.latest_signoff_status or 'None'}",
+        f"- Boundary: {dashboard.boundary}",
+        "",
+        "## Missing Gates",
+    ]
+    lines.extend([f"- {item}" for item in dashboard.missing_gates] or ["- None"])
+    lines.extend(["", "## Blockers"])
+    lines.extend([f"- {item}" for item in dashboard.blockers] or ["- None"])
+    lines.extend(["", "## Warnings"])
+    lines.extend([f"- {item}" for item in dashboard.warnings] or ["- None"])
+    lines.extend(["", "## Next Actions"])
+    lines.extend([f"- {item}" for item in dashboard.next_actions] or ["- None"])
+    return "\n".join(lines) + "\n"
+
+
+def render_achievement_route_operator_release_dashboard_csv(
+    dashboard: AchievementRouteOperatorReleaseDashboard,
+) -> str:
+    buffer = StringIO()
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow(
+        [
+            "ready",
+            "maturity_label",
+            "bundle_id",
+            "bundle_maturity",
+            "archive_count",
+            "latest_archive_id",
+            "diff_maturity",
+            "diff_regression_count",
+            "latest_signoff_status",
+            "latest_signoff_reviewer",
+            "missing_gate_count",
+            "blocker_count",
+            "warning_count",
+        ]
+    )
+    writer.writerow(
+        [
+            dashboard.ready,
+            dashboard.maturity_label,
+            dashboard.bundle_id,
+            dashboard.bundle_maturity,
+            dashboard.archive_count,
+            dashboard.latest_archive_id or "",
+            dashboard.diff_maturity,
+            dashboard.diff_regression_count,
+            dashboard.latest_signoff_status or "",
+            dashboard.latest_signoff_reviewer or "",
+            len(dashboard.missing_gates),
+            len(dashboard.blockers),
+            len(dashboard.warnings),
+        ]
+    )
     return buffer.getvalue()
 
 

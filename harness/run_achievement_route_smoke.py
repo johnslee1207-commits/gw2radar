@@ -512,6 +512,19 @@ def main() -> int:
     )
     if release_signoff_audit_csv.status_code != 200 or "signoff_id,signed_off_at,reviewer,status" not in release_signoff_audit_csv.text:
         failures.append("achievement route release sign-off audit csv export failed")
+    release_dashboard = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-dashboard")
+    release_dashboard_payload = _json_response(release_dashboard, "achievement route operator release dashboard", failures)
+    release_dashboard_data = (((release_dashboard_payload or {}).get("data") or {}).get("operator_release_dashboard") or {})
+    if release_dashboard_data.get("archive_count", 0) < 2 or release_dashboard_data.get("diff_regression_count") != 0:
+        failures.append("achievement route operator release dashboard did not summarize archive and diff state")
+    if release_dashboard_data.get("latest_signoff_reviewer") != "smoke_operator":
+        failures.append("achievement route operator release dashboard did not expose latest sign-off reviewer")
+    release_dashboard_markdown = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-dashboard?format=markdown")
+    if release_dashboard_markdown.status_code != 200 or "# Achievement Route Operator Release Dashboard" not in release_dashboard_markdown.text:
+        failures.append("achievement route operator release dashboard markdown export failed")
+    release_dashboard_csv = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-dashboard?format=csv")
+    if release_dashboard_csv.status_code != 200 or "ready,maturity_label,bundle_id" not in release_dashboard_csv.text:
+        failures.append("achievement route operator release dashboard csv export failed")
     promoted_sources = client.get("/api/v1/achievement-routes/sources")
     promoted_sources_payload = _json_response(promoted_sources, "promoted route sources", failures)
     promoted_reviewed_step_count = (((promoted_sources_payload or {}).get("data") or {}).get("reviewed_step_count") or 0)

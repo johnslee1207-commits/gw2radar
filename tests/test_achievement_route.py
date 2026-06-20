@@ -25,6 +25,7 @@ from gw2radar.commercial.achievement_route import (
     build_achievement_route_release_evidence_archive_diff,
     build_achievement_route_release_readiness,
     build_achievement_route_operator_action_bundle,
+    build_achievement_route_operator_release_dashboard,
     build_achievement_route_operator_release_packet,
     build_achievement_route_remediation_queue,
     build_achievement_route_remediation_readiness,
@@ -59,6 +60,8 @@ from gw2radar.commercial.achievement_route import (
     render_achievement_route_promotion_audit_markdown,
     render_achievement_route_operator_action_bundle_csv,
     render_achievement_route_operator_action_bundle_markdown,
+    render_achievement_route_operator_release_dashboard_csv,
+    render_achievement_route_operator_release_dashboard_markdown,
     render_achievement_route_operator_release_packet_csv,
     render_achievement_route_operator_release_packet_markdown,
     render_achievement_route_release_readiness_csv,
@@ -606,6 +609,9 @@ def test_achievement_route_operator_action_bundle_aggregates_and_records_review(
         signoff_audit = list_achievement_route_release_signoff_audits(audit_root, reviewer="bundle_operator")
         signoff_markdown = render_achievement_route_release_signoff_audit_markdown(signoff_audit)
         signoff_csv = render_achievement_route_release_signoff_audit_csv(signoff_audit)
+        release_dashboard = build_achievement_route_operator_release_dashboard(temp_root, audit_root)
+        release_dashboard_markdown = render_achievement_route_operator_release_dashboard_markdown(release_dashboard)
+        release_dashboard_csv = render_achievement_route_operator_release_dashboard_csv(release_dashboard)
 
         assert initial.schema_version == "gw2radar.achievement_route_operator_action_bundle.v1"
         assert initial.remediation_review is None
@@ -701,6 +707,13 @@ def test_achievement_route_operator_action_bundle_aggregates_and_records_review(
         assert signoff_audit.records[0].signoff_id == signoff_record.signoff_id
         assert "# Achievement Route Release Sign-off Audit" in signoff_markdown
         assert "signoff_id,signed_off_at,reviewer,status" in signoff_csv
+        assert release_dashboard.schema_version == "gw2radar.achievement_route_operator_release_dashboard.v1"
+        assert release_dashboard.archive_count == 2
+        assert release_dashboard.latest_archive_id == archive_record_second.archive_id
+        assert release_dashboard.diff_regression_count == 0
+        assert release_dashboard.latest_signoff_id == signoff_record.signoff_id
+        assert "Achievement Route Operator Release Dashboard" in release_dashboard_markdown
+        assert "ready,maturity_label,bundle_id" in release_dashboard_csv
         assert "secret-key" not in str(updated).lower()
         assert "secret-key" not in str(packet).lower()
         assert "secret-key" not in str(candidates).lower()
@@ -712,6 +725,7 @@ def test_achievement_route_operator_action_bundle_aggregates_and_records_review(
         assert "secret-key" not in str(archive_index).lower()
         assert "secret-key" not in str(archive_diff).lower()
         assert "secret-key" not in str(signoff_audit).lower()
+        assert "secret-key" not in str(release_dashboard).lower()
     finally:
         rmtree(temp_root, ignore_errors=True)
         rmtree(audit_root, ignore_errors=True)
@@ -1126,6 +1140,9 @@ def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
         release_signoff_audit_csv = client.get(
             "/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/signoff-audit?format=csv"
         )
+        release_dashboard = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-dashboard")
+        release_dashboard_markdown = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-dashboard?format=markdown")
+        release_dashboard_csv = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-dashboard?format=csv")
 
         assert blocked_review.status_code == 400
         assert review_action.status_code == 200
@@ -1217,6 +1234,12 @@ def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
         assert release_signoff_audit.json()["data"]["release_signoff_audit"]["records"][0]["reviewer"] == "api_review_operator"
         assert "# Achievement Route Release Sign-off Audit" in release_signoff_audit_markdown.text
         assert "signoff_id,signed_off_at,reviewer,status" in release_signoff_audit_csv.text
+        assert release_dashboard.status_code == 200
+        assert release_dashboard.json()["data"]["operator_release_dashboard"]["archive_count"] == 2
+        assert release_dashboard.json()["data"]["operator_release_dashboard"]["diff_regression_count"] == 0
+        assert release_dashboard.json()["data"]["operator_release_dashboard"]["latest_signoff_reviewer"] == "api_review_operator"
+        assert "# Achievement Route Operator Release Dashboard" in release_dashboard_markdown.text
+        assert "ready,maturity_label,bundle_id" in release_dashboard_csv.text
     finally:
         achievement_route_routes.gateway_factory = original_factory
         achievement_route_routes.source_root = original_source_root

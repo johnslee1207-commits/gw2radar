@@ -123,6 +123,10 @@ It also verifies the P23 release sign-off gate:
 operators must explicitly confirm a metadata-only release sign-off after bundle,
 archive, and diff review; sign-off records and audit exports include reviewer,
 status, archive ids, diff ids, regressions, blockers, and safety boundaries.
+It also verifies the P24 operator release dashboard:
+bundle, archive, archive diff, and sign-off state are aggregated into one
+read-only release dashboard with missing gates, blockers, warnings, next
+actions, and Markdown / CSV exports.
 
 ## Account Connection Diagnostic Command
 
@@ -250,7 +254,9 @@ readiness rollup, and visible no-secret boundary copy.
 50. Export release evidence archive diff as Markdown and CSV.
 51. Confirm unconfirmed release sign-off is rejected.
 52. Record confirmed release sign-off and export sign-off audit as Markdown and CSV.
-53. Confirm the route planner ingests the promoted reviewed source.
+53. Load the operator release dashboard and confirm bundle, archive, diff, and sign-off state are summarized.
+54. Export operator release dashboard as Markdown and CSV.
+55. Confirm the route planner ingests the promoted reviewed source.
 
 ## Account Connection Diagnostic Steps
 

@@ -288,6 +288,9 @@ function summarizeResult(target, payload) {
     if (data?.release_signoff_audit) {
       return `${data.release_signoff_audit.records?.length || 0} release sign-off audit records loaded.`;
     }
+    if (data?.operator_release_dashboard) {
+      return `Release dashboard ${data.operator_release_dashboard.maturity_label}: ${data.operator_release_dashboard.blockers?.length || 0} blockers, ${data.operator_release_dashboard.missing_gates?.length || 0} missing gates.`;
+    }
     if (Array.isArray(data?.sources)) {
       return `${data.sources.length} route source manifests loaded with ${data.reviewed_step_count || 0} reviewed steps.`;
     }
@@ -783,6 +786,13 @@ function renderRouteReleaseSignoff(recordOrAudit) {
   const count = records ? records.length : latest?.signoff_id ? 1 : 0;
   const status = latest?.status || "unknown";
   document.querySelector("#route-release-signoff-count").textContent = `${status} / ${count} records`;
+}
+
+function renderRouteOperatorReleaseDashboard(dashboard) {
+  const label = dashboard?.maturity_label || "unknown";
+  const blockers = Array.isArray(dashboard?.blockers) ? dashboard.blockers.length : "--";
+  const missing = Array.isArray(dashboard?.missing_gates) ? dashboard.missing_gates.length : "--";
+  document.querySelector("#route-release-dashboard-count").textContent = `${label} / ${blockers} blockers / ${missing} missing`;
 }
 
 function renderRouteOperatorActionBundle(bundle) {
@@ -1784,6 +1794,24 @@ const actions = {
         return text;
       });
     }),
+  loadAchievementRouteOperatorReleaseDashboard: () =>
+    run("routes", async () => {
+      const payload = await fetchJson("/api/v1/achievement-routes/source-quality/remediation-queue/release-dashboard");
+      renderRouteOperatorReleaseDashboard(payload?.data?.operator_release_dashboard || {});
+      return payload;
+    }),
+  exportAchievementRouteOperatorReleaseDashboard: () =>
+    run("routes", () =>
+      fetch("/api/v1/achievement-routes/source-quality/remediation-queue/release-dashboard?format=csv", {
+        headers: { "Accept": "text/csv" },
+      }).then(async (response) => {
+        const text = await response.text();
+        if (!response.ok) {
+          throw new Error(text || `HTTP ${response.status}`);
+        }
+        return text;
+      }),
+    ),
   importBuild: () =>
     run("build", async () => {
       const payload = await fetchJson("/api/v1/builds/import", {

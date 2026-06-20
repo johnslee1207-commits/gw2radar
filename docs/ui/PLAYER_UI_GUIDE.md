@@ -212,6 +212,7 @@ Operator review gate:
 - `Archive evidence`, `Load evidence archive`, and `Export archive CSV` persist the current evidence bundle as immutable metadata with checksum and retention policy, then list/export the archive index.
 - `Review archive diff` and `Export diff CSV` compare the latest two archived evidence records for checksum changes, source/artifact/evidence-chain deltas, blocker/warning regressions, improvements, and next actions.
 - `Sign off release`, `Load sign-off audit`, and `Export sign-off CSV` record a confirmed metadata-only release sign-off after bundle/archive/diff review and expose reviewer/status audit history.
+- `Release dashboard` and `Export dashboard CSV` aggregate bundle, archive, diff, and sign-off state into one operator release summary with missing gates, blockers, warnings, and next actions.
 
 Advanced operator flow:
 
@@ -243,6 +244,7 @@ Advanced operator flow:
 - `GET /api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/archive/diff` compares archived evidence records with `format=markdown` or `format=csv`.
 - `POST /api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/signoff` records confirmed release sign-off metadata after `confirmed_signoff=true`.
 - `GET /api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/signoff-audit` lists release sign-off records with `format=markdown` or `format=csv`.
+- `GET /api/v1/achievement-routes/source-quality/remediation-queue/release-dashboard` summarizes bundle, archive, diff, and sign-off release state with `format=markdown` or `format=csv`.
 - Draft previews are not used by the route planner until this reviewed promotion gate writes a `source_status=reviewed` manifest.
 
 ## Freshness And Confidence
