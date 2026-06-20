@@ -86,6 +86,10 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert "Load draft promotion audit" in response.text
     assert "Export draft promotion CSV" in response.text
     assert "Draft promotion" in response.text
+    assert "Release evidence bundle" in response.text
+    assert "Export evidence CSV" in response.text
+    assert "Export evidence manifest" in response.text
+    assert "Evidence bundle" in response.text
 
 
 def test_player_ui_static_assets_are_served() -> None:
@@ -177,6 +181,9 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "promoteAchievementRouteDraftSource" in js.text
     assert "loadAchievementRouteDraftSourcePromotionAudit" in js.text
     assert "exportAchievementRouteDraftSourcePromotionAudit" in js.text
+    assert "loadAchievementRouteReleaseEvidenceBundle" in js.text
+    assert "exportAchievementRouteReleaseEvidenceBundle" in js.text
+    assert "exportAchievementRouteReleaseEvidenceBundleManifest" in js.text
     assert "confirmed_manual_review" in js.text
     assert "routeOfficialFetchPreviewPayload" in js.text
     assert "routeReviewPayload" in js.text
@@ -198,6 +205,7 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft/apply-audit" in js.text
     assert "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft/promote-draft-source" in js.text
     assert "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft/promote-draft-source-audit" in js.text
+    assert "/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle" in js.text
 
 
 def test_player_ui_styles_cover_workflow_and_summaries() -> None:

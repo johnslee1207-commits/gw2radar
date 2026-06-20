@@ -409,6 +409,24 @@ def main() -> int:
     )
     if draft_promotion_audit_csv.status_code != 200 or "event_id,promoted_at,reviewer,draft_source_id" not in draft_promotion_audit_csv.text:
         failures.append("achievement route draft source promotion audit csv export failed")
+    release_evidence_bundle = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle")
+    release_evidence_payload = _json_response(release_evidence_bundle, "achievement route unified release evidence bundle", failures)
+    release_evidence = (((release_evidence_payload or {}).get("data") or {}).get("release_evidence_bundle") or {})
+    if release_evidence.get("official_promotion_audit_count", 0) < 1:
+        failures.append("achievement route unified release evidence bundle did not include official promotion audit")
+    if release_evidence.get("patch_apply_audit_count", 0) < 1:
+        failures.append("achievement route unified release evidence bundle did not include patch apply audit")
+    if release_evidence.get("draft_source_promotion_audit_count", 0) < 1:
+        failures.append("achievement route unified release evidence bundle did not include draft source promotion audit")
+    release_evidence_markdown = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle?format=markdown")
+    if release_evidence_markdown.status_code != 200 or "# Achievement Route Unified Release Evidence Bundle" not in release_evidence_markdown.text:
+        failures.append("achievement route unified release evidence bundle markdown export failed")
+    release_evidence_csv = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle?format=csv")
+    if release_evidence_csv.status_code != 200 or "bundle_id,ready,maturity_label" not in release_evidence_csv.text:
+        failures.append("achievement route unified release evidence bundle csv export failed")
+    release_evidence_manifest = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle?format=manifest")
+    if release_evidence_manifest.status_code != 200 or release_evidence_manifest.json().get("bundle_schema") != "gw2radar.achievement_route_unified_release_evidence_bundle.v1":
+        failures.append("achievement route unified release evidence bundle manifest export failed")
     promoted_sources = client.get("/api/v1/achievement-routes/sources")
     promoted_sources_payload = _json_response(promoted_sources, "promoted route sources", failures)
     promoted_reviewed_step_count = (((promoted_sources_payload or {}).get("data") or {}).get("reviewed_step_count") or 0)

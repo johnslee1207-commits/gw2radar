@@ -270,6 +270,9 @@ function summarizeResult(target, payload) {
     if (data?.draft_source_promotion_audit) {
       return `${data.draft_source_promotion_audit.records?.length || 0} draft source promotion audit records loaded.`;
     }
+    if (data?.release_evidence_bundle) {
+      return `Release evidence bundle ${data.release_evidence_bundle.maturity_label}: ${data.release_evidence_bundle.reviewed_source_count} sources, ${data.release_evidence_bundle.blocker_count} blockers.`;
+    }
     if (Array.isArray(data?.sources)) {
       return `${data.sources.length} route source manifests loaded with ${data.reviewed_step_count || 0} reviewed steps.`;
     }
@@ -736,6 +739,13 @@ function renderRouteSourceEditPatchApplyAudit(audit) {
 
 function renderRouteDraftSourcePromotionAudit(audit) {
   document.querySelector("#route-draft-source-promotion-count").textContent = String(audit?.records?.length || 0);
+}
+
+function renderRouteReleaseEvidenceBundle(bundle) {
+  const label = bundle?.maturity_label || "unknown";
+  const sources = typeof bundle?.reviewed_source_count === "number" ? bundle.reviewed_source_count : "--";
+  const blockers = typeof bundle?.blocker_count === "number" ? bundle.blocker_count : "--";
+  document.querySelector("#route-release-evidence-count").textContent = `${label} / ${sources} sources / ${blockers} blockers`;
 }
 
 function renderRouteOperatorActionBundle(bundle) {
@@ -1623,6 +1633,36 @@ const actions = {
         return text;
       });
     }),
+  loadAchievementRouteReleaseEvidenceBundle: () =>
+    run("routes", async () => {
+      const payload = await fetchJson("/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle");
+      renderRouteReleaseEvidenceBundle(payload?.data?.release_evidence_bundle || {});
+      return payload;
+    }),
+  exportAchievementRouteReleaseEvidenceBundle: () =>
+    run("routes", () =>
+      fetch("/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle?format=csv", {
+        headers: { "Accept": "text/csv" },
+      }).then(async (response) => {
+        const text = await response.text();
+        if (!response.ok) {
+          throw new Error(text || `HTTP ${response.status}`);
+        }
+        return text;
+      }),
+    ),
+  exportAchievementRouteReleaseEvidenceBundleManifest: () =>
+    run("routes", () =>
+      fetch("/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle?format=manifest", {
+        headers: { "Accept": "application/json" },
+      }).then(async (response) => {
+        const text = await response.text();
+        if (!response.ok) {
+          throw new Error(text || `HTTP ${response.status}`);
+        }
+        return JSON.parse(text);
+      }),
+    ),
   importBuild: () =>
     run("build", async () => {
       const payload = await fetchJson("/api/v1/builds/import", {

@@ -585,6 +585,35 @@ class AchievementRouteDraftSourcePromotionAuditList(BaseModel):
     boundary: str = "Draft source promotion audit exports are metadata-only and must not contain raw API keys or private account payloads."
 
 
+class AchievementRouteUnifiedReleaseEvidenceBundle(BaseModel):
+    schema_version: str = "gw2radar.achievement_route_unified_release_evidence_bundle.v1"
+    bundle_id: str
+    generated_at: datetime
+    ready: bool
+    maturity_label: Literal["blocked", "review_needed", "ready"]
+    reviewed_source_count: int
+    reviewed_step_count: int
+    official_promotion_audit_count: int
+    patch_apply_audit_count: int
+    draft_source_promotion_audit_count: int
+    quality_score: float
+    release_score: float
+    remediation_score: float
+    blocker_count: int
+    warning_count: int
+    source_ids: list[str]
+    artifacts: list[str]
+    evidence_chain: list[str]
+    manifest: dict[str, Any]
+    release_readiness: AchievementRouteReleaseReadiness
+    quality: AchievementRouteSourceQualityReview
+    operator_release_packet: AchievementRouteOperatorReleasePacket
+    official_promotion_audit: AchievementRoutePromotionAuditList
+    source_patch_apply_audit: AchievementRouteSourceEditPatchApplyAuditList
+    draft_source_promotion_audit: AchievementRouteDraftSourcePromotionAuditList
+    boundary: str = "Unified release evidence bundle is a read-only handoff artifact; it does not publish, edit manifests, automate gameplay, or certify live game state."
+
+
 class AchievementRouteGateway(Protocol):
     def get_batch(
         self,
@@ -2201,6 +2230,161 @@ def render_achievement_route_operator_release_packet_csv(packet: AchievementRout
             packet.open_remediation_items,
             packet.blocker_count,
             packet.warning_count,
+        ]
+    )
+    return buffer.getvalue()
+
+
+def build_achievement_route_unified_release_evidence_bundle(
+    source_root: Path = ACHIEVEMENT_ROUTE_SOURCE_ROOT,
+    audit_root: Path = ACHIEVEMENT_ROUTE_AUDIT_ROOT,
+) -> AchievementRouteUnifiedReleaseEvidenceBundle:
+    release_readiness = build_achievement_route_release_readiness(source_root, audit_root)
+    quality = build_achievement_route_source_quality_review(source_root, audit_root)
+    packet = build_achievement_route_operator_release_packet(source_root, audit_root)
+    official_audit = list_achievement_route_promotion_audits(audit_root, limit=200)
+    patch_apply_audit = list_achievement_route_source_edit_patch_apply_audits(audit_root, limit=200)
+    draft_promotion_audit = list_achievement_route_draft_source_promotion_audits(audit_root, limit=200)
+    source_ids = _unique([review.source_id for review in quality.source_reviews])
+    blockers = [*release_readiness.blockers, *packet.bundle.remediation_readiness.blockers]
+    warnings = [*release_readiness.warnings, *quality.remediation, *packet.bundle.remediation_readiness.warnings]
+    artifacts = [
+        "unified_release_evidence_bundle.md",
+        "unified_release_evidence_bundle.csv",
+        "unified_release_evidence_bundle_manifest.json",
+        "operator_release_packet.md",
+        "promotion_audit.csv",
+        "source_patch_apply_audit.csv",
+        "draft_source_promotion_audit.csv",
+    ]
+    generated_at = datetime.now(UTC)
+    ready = release_readiness.ready and packet.ready and quality.maturity_label == "ready"
+    maturity = "ready" if ready else "blocked" if blockers else "review_needed"
+    manifest = {
+        "bundle_schema": "gw2radar.achievement_route_unified_release_evidence_bundle.v1",
+        "bundle_id": f"route-release-evidence:{generated_at.strftime('%Y%m%d%H%M%S')}",
+        "generated_at": generated_at.isoformat(),
+        "ready": ready,
+        "maturity_label": maturity,
+        "artifacts": artifacts,
+        "source_ids": source_ids,
+        "audit_sources": [
+            "data/achievement_route_audit/promotion_audit.jsonl",
+            "data/achievement_route_audit/source_edit_patch_apply_audit.jsonl",
+            "data/achievement_route_audit/draft_source_promotion_audit.jsonl",
+            "data/achievement_route_audit/remediation_review_audit.jsonl",
+        ],
+        "safety_boundary": "Read-only evidence handoff; no source edit, publish, gameplay automation, or live-state certification.",
+    }
+    return AchievementRouteUnifiedReleaseEvidenceBundle(
+        bundle_id=manifest["bundle_id"],
+        generated_at=generated_at,
+        ready=ready,
+        maturity_label=maturity,
+        reviewed_source_count=release_readiness.reviewed_source_count,
+        reviewed_step_count=release_readiness.reviewed_step_count,
+        official_promotion_audit_count=len(official_audit.records),
+        patch_apply_audit_count=len(patch_apply_audit.records),
+        draft_source_promotion_audit_count=len(draft_promotion_audit.records),
+        quality_score=quality.overall_score,
+        release_score=release_readiness.readiness_score,
+        remediation_score=packet.remediation_score,
+        blocker_count=len(_unique(blockers)),
+        warning_count=len(_unique(warnings)),
+        source_ids=source_ids,
+        artifacts=artifacts,
+        evidence_chain=[
+            "/api/v1/achievement-routes/release-readiness",
+            "/api/v1/achievement-routes/source-quality",
+            "/api/v1/achievement-routes/promotion-audit",
+            "/api/v1/achievement-routes/source-quality/remediation-queue/release-packet",
+            "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft/apply-audit",
+            "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft/promote-draft-source-audit",
+        ],
+        manifest=manifest,
+        release_readiness=release_readiness,
+        quality=quality,
+        operator_release_packet=packet,
+        official_promotion_audit=official_audit,
+        source_patch_apply_audit=patch_apply_audit,
+        draft_source_promotion_audit=draft_promotion_audit,
+    )
+
+
+def render_achievement_route_unified_release_evidence_bundle_markdown(
+    bundle: AchievementRouteUnifiedReleaseEvidenceBundle,
+) -> str:
+    lines = [
+        "# Achievement Route Unified Release Evidence Bundle",
+        "",
+        f"- Bundle: {bundle.bundle_id}",
+        f"- Ready: {bundle.ready}",
+        f"- Maturity: {bundle.maturity_label}",
+        f"- Reviewed sources: {bundle.reviewed_source_count}",
+        f"- Reviewed steps: {bundle.reviewed_step_count}",
+        f"- Quality score: {bundle.quality_score}/100",
+        f"- Release score: {bundle.release_score}/100",
+        f"- Remediation score: {bundle.remediation_score}/100",
+        f"- Official promotion audits: {bundle.official_promotion_audit_count}",
+        f"- Patch apply audits: {bundle.patch_apply_audit_count}",
+        f"- Draft source promotion audits: {bundle.draft_source_promotion_audit_count}",
+        f"- Blockers: {bundle.blocker_count}",
+        f"- Warnings: {bundle.warning_count}",
+        f"- Boundary: {bundle.boundary}",
+        "",
+        "## Source IDs",
+    ]
+    lines.extend([f"- {source_id}" for source_id in bundle.source_ids] or ["- None"])
+    lines.extend(["", "## Release Readiness Blockers"])
+    lines.extend([f"- {item}" for item in bundle.release_readiness.blockers] or ["- None"])
+    lines.extend(["", "## Source Quality Remediation"])
+    lines.extend([f"- {item}" for item in bundle.quality.remediation] or ["- None"])
+    lines.extend(["", "## Evidence Chain"])
+    lines.extend([f"- {item}" for item in bundle.evidence_chain])
+    lines.extend(["", "## Artifacts"])
+    lines.extend([f"- {item}" for item in bundle.artifacts])
+    return "\n".join(lines) + "\n"
+
+
+def render_achievement_route_unified_release_evidence_bundle_csv(
+    bundle: AchievementRouteUnifiedReleaseEvidenceBundle,
+) -> str:
+    buffer = StringIO()
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow(
+        [
+            "bundle_id",
+            "ready",
+            "maturity_label",
+            "reviewed_source_count",
+            "reviewed_step_count",
+            "quality_score",
+            "release_score",
+            "remediation_score",
+            "official_promotion_audit_count",
+            "patch_apply_audit_count",
+            "draft_source_promotion_audit_count",
+            "blocker_count",
+            "warning_count",
+            "source_ids",
+        ]
+    )
+    writer.writerow(
+        [
+            bundle.bundle_id,
+            bundle.ready,
+            bundle.maturity_label,
+            bundle.reviewed_source_count,
+            bundle.reviewed_step_count,
+            bundle.quality_score,
+            bundle.release_score,
+            bundle.remediation_score,
+            bundle.official_promotion_audit_count,
+            bundle.patch_apply_audit_count,
+            bundle.draft_source_promotion_audit_count,
+            bundle.blocker_count,
+            bundle.warning_count,
+            ";".join(bundle.source_ids),
         ]
     )
     return buffer.getvalue()

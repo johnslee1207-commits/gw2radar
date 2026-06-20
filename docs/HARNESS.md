@@ -107,6 +107,10 @@ It also verifies the P19 draft source promotion gate:
 draft source manifests produced by patch apply can be promoted to reviewed
 planner-ingestible manifests only after explicit reviewer confirmation, with
 metadata-only audit export.
+It also verifies the P20 unified release evidence bundle:
+official promotion audit, source patch apply audit, draft source promotion
+audit, source quality, release readiness, and operator release packet state are
+combined into one read-only JSON/Markdown/CSV/manifest evidence bundle.
 
 ## Account Connection Diagnostic Command
 
@@ -226,7 +230,9 @@ readiness rollup, and visible no-secret boundary copy.
 42. Export source edit patch apply audit as Markdown and CSV.
 43. Promote one draft source manifest through the reviewed gate.
 44. Export draft source promotion audit as Markdown and CSV.
-45. Confirm the route planner ingests the promoted reviewed source.
+45. Load unified release evidence bundle and confirm promotion, patch apply, quality, and readiness evidence are aggregated.
+46. Export unified release evidence bundle as Markdown, CSV, and manifest JSON.
+47. Confirm the route planner ingests the promoted reviewed source.
 
 ## Account Connection Diagnostic Steps
 

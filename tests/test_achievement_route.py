@@ -27,6 +27,7 @@ from gw2radar.commercial.achievement_route import (
     build_achievement_route_remediation_readiness,
     build_achievement_route_source_edit_patch_draft,
     build_achievement_route_source_quality_review,
+    build_achievement_route_unified_release_evidence_bundle,
     build_official_achievement_fetch_preview,
     build_achievement_route_plan,
     build_official_achievement_route_preview,
@@ -68,6 +69,8 @@ from gw2radar.commercial.achievement_route import (
     render_achievement_route_source_edit_patch_apply_audit_markdown,
     render_achievement_route_draft_source_promotion_audit_csv,
     render_achievement_route_draft_source_promotion_audit_markdown,
+    render_achievement_route_unified_release_evidence_bundle_csv,
+    render_achievement_route_unified_release_evidence_bundle_markdown,
     render_achievement_route_source_quality_csv,
     render_achievement_route_source_quality_markdown,
     render_official_achievement_fetch_preview_markdown,
@@ -543,6 +546,9 @@ def test_achievement_route_operator_action_bundle_aggregates_and_records_review(
         draft_promotion_markdown = render_achievement_route_draft_source_promotion_audit_markdown(draft_promotion_audit)
         draft_promotion_csv = render_achievement_route_draft_source_promotion_audit_csv(draft_promotion_audit)
         promoted_steps, promoted_summaries = load_reviewed_achievement_route_steps(temp_root)
+        evidence_bundle = build_achievement_route_unified_release_evidence_bundle(temp_root, audit_root)
+        evidence_markdown = render_achievement_route_unified_release_evidence_bundle_markdown(evidence_bundle)
+        evidence_csv = render_achievement_route_unified_release_evidence_bundle_csv(evidence_bundle)
 
         assert initial.schema_version == "gw2radar.achievement_route_operator_action_bundle.v1"
         assert initial.remediation_review is None
@@ -602,6 +608,15 @@ def test_achievement_route_operator_action_bundle_aggregates_and_records_review(
         assert "event_id,promoted_at,reviewer,draft_source_id" in draft_promotion_csv
         assert any(summary.source_id == draft_promotion.reviewed_source_id for summary in promoted_summaries)
         assert any(step.source_id == draft_promotion.reviewed_source_id for step in promoted_steps)
+        assert evidence_bundle.schema_version == "gw2radar.achievement_route_unified_release_evidence_bundle.v1"
+        assert evidence_bundle.reviewed_source_count >= 2
+        assert evidence_bundle.official_promotion_audit_count >= 1
+        assert evidence_bundle.patch_apply_audit_count >= 1
+        assert evidence_bundle.draft_source_promotion_audit_count >= 1
+        assert evidence_bundle.manifest["bundle_schema"] == evidence_bundle.schema_version
+        assert "unified_release_evidence_bundle_manifest.json" in evidence_bundle.artifacts
+        assert "Achievement Route Unified Release Evidence Bundle" in evidence_markdown
+        assert "bundle_id,ready,maturity_label" in evidence_csv
         assert "secret-key" not in str(updated).lower()
         assert "secret-key" not in str(packet).lower()
         assert "secret-key" not in str(candidates).lower()
@@ -609,6 +624,7 @@ def test_achievement_route_operator_action_bundle_aggregates_and_records_review(
         assert "secret-key" not in str(patch_draft).lower()
         assert "secret-key" not in str(apply_audit).lower()
         assert "secret-key" not in str(draft_promotion_audit).lower()
+        assert "secret-key" not in str(evidence_bundle).lower()
     finally:
         rmtree(temp_root, ignore_errors=True)
         rmtree(audit_root, ignore_errors=True)
@@ -969,6 +985,10 @@ def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
         draft_promotion_audit_csv = client.get(
             "/api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft/promote-draft-source-audit?format=csv"
         )
+        release_evidence_bundle = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle")
+        release_evidence_bundle_markdown = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle?format=markdown")
+        release_evidence_bundle_csv = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle?format=csv")
+        release_evidence_bundle_manifest = client.get("/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle?format=manifest")
 
         assert blocked_review.status_code == 400
         assert review_action.status_code == 200
@@ -1032,6 +1052,13 @@ def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
         assert draft_promotion_audit.json()["data"]["draft_source_promotion_audit"]["records"][0]["draft_source_id"] == draft_source_id
         assert "# Achievement Route Draft Source Promotion Audit" in draft_promotion_audit_markdown.text
         assert "event_id,promoted_at,reviewer,draft_source_id" in draft_promotion_audit_csv.text
+        assert release_evidence_bundle.status_code == 200
+        assert release_evidence_bundle.json()["data"]["release_evidence_bundle"]["official_promotion_audit_count"] >= 1
+        assert release_evidence_bundle.json()["data"]["release_evidence_bundle"]["patch_apply_audit_count"] >= 1
+        assert release_evidence_bundle.json()["data"]["release_evidence_bundle"]["draft_source_promotion_audit_count"] >= 1
+        assert "# Achievement Route Unified Release Evidence Bundle" in release_evidence_bundle_markdown.text
+        assert "bundle_id,ready,maturity_label" in release_evidence_bundle_csv.text
+        assert release_evidence_bundle_manifest.json()["bundle_schema"] == "gw2radar.achievement_route_unified_release_evidence_bundle.v1"
     finally:
         achievement_route_routes.gateway_factory = original_factory
         achievement_route_routes.source_root = original_source_root

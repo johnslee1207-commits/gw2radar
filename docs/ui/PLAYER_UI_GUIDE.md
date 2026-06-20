@@ -208,6 +208,7 @@ Operator review gate:
 - `Source patch draft` and `Export source patch CSV` turn resolved backfill candidates into deterministic patch operations for manual source manifest editing; they do not apply the edits automatically.
 - `Apply source patch draft`, `Load source patch audit`, and `Export source patch audit CSV` write a new draft source manifest after manual confirmation and expose metadata-only audit records; reviewed ingestion still requires a later promotion gate.
 - `Promote draft source`, `Load draft promotion audit`, and `Export draft promotion CSV` promote a draft source manifest into reviewed planner-ingestible guidance only after explicit reviewer confirmation.
+- `Release evidence bundle`, `Export evidence CSV`, and `Export evidence manifest` combine promotion, patch apply, draft promotion, source quality, release readiness, and release packet evidence into one read-only handoff bundle.
 
 Advanced operator flow:
 
@@ -233,6 +234,7 @@ Advanced operator flow:
 - `GET /api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft/apply-audit` lists patch apply records and supports `format=markdown` or `format=csv`.
 - `POST /api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft/promote-draft-source` promotes a confirmed draft source manifest into reviewed planner-ingestible guidance.
 - `GET /api/v1/achievement-routes/source-quality/remediation-queue/backfill-candidates/source-edit-patch-draft/promote-draft-source-audit` lists draft source promotion records and supports `format=markdown` or `format=csv`.
+- `GET /api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle` exports the unified route source release evidence bundle with `format=markdown`, `format=csv`, or `format=manifest`.
 - Draft previews are not used by the route planner until this reviewed promotion gate writes a `source_status=reviewed` manifest.
 
 ## Freshness And Confidence

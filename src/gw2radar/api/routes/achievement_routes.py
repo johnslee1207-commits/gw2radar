@@ -27,6 +27,7 @@ from gw2radar.commercial.achievement_route import (
     build_achievement_route_remediation_readiness,
     build_achievement_route_source_edit_patch_draft,
     build_achievement_route_source_quality_review,
+    build_achievement_route_unified_release_evidence_bundle,
     build_official_achievement_fetch_preview,
     build_achievement_route_plan,
     build_official_achievement_route_preview,
@@ -70,6 +71,8 @@ from gw2radar.commercial.achievement_route import (
     render_achievement_route_source_edit_patch_apply_audit_markdown,
     render_achievement_route_draft_source_promotion_audit_csv,
     render_achievement_route_draft_source_promotion_audit_markdown,
+    render_achievement_route_unified_release_evidence_bundle_csv,
+    render_achievement_route_unified_release_evidence_bundle_markdown,
     render_achievement_route_source_quality_csv,
     render_achievement_route_source_quality_markdown,
     render_official_achievement_fetch_preview_markdown,
@@ -367,6 +370,29 @@ def get_achievement_route_operator_release_packet(
             media_type="application/json; charset=utf-8",
         )
     return ApiDataEnvelope(data={"operator_release_packet": packet.model_dump(mode="json")})
+
+
+@router.get("/source-quality/remediation-queue/release-evidence-bundle", response_model=None)
+def get_achievement_route_unified_release_evidence_bundle(
+    format: str = Query(default="json", pattern="^(json|markdown|csv|manifest)$"),
+):
+    bundle = build_achievement_route_unified_release_evidence_bundle(source_root, audit_root)
+    if format == "markdown":
+        return Response(
+            content=render_achievement_route_unified_release_evidence_bundle_markdown(bundle),
+            media_type="text/markdown; charset=utf-8",
+        )
+    if format == "csv":
+        return Response(
+            content=render_achievement_route_unified_release_evidence_bundle_csv(bundle),
+            media_type="text/csv; charset=utf-8",
+        )
+    if format == "manifest":
+        return Response(
+            content=json.dumps(bundle.manifest, indent=2),
+            media_type="application/json; charset=utf-8",
+        )
+    return ApiDataEnvelope(data={"release_evidence_bundle": bundle.model_dump(mode="json")})
 
 
 @router.get("/source-quality/remediation-queue/backfill-candidates", response_model=None)
