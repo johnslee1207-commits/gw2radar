@@ -95,6 +95,11 @@ def get_account_connection_diagnostic() -> dict:
     return _with_key_store(_build_account_connection_diagnostic)
 
 
+@router.get("/first-run-summary")
+def get_account_first_run_summary() -> dict:
+    return _with_key_store(_build_account_first_run_summary)
+
+
 @router.post("/debug-bundle")
 def post_account_debug_bundle(request: DebugBundleRequest) -> dict:
     def build_bundle(store: EncryptedApiKeyStore) -> dict:
@@ -679,6 +684,163 @@ def _build_account_connection_diagnostic(store: EncryptedApiKeyStore) -> dict:
         },
         "next_actions": _diagnostic_next_actions(checks),
         "boundary": "Read-only diagnostic. Raw API keys and private item payloads are not returned.",
+    }
+
+
+def _build_account_first_run_summary(store: EncryptedApiKeyStore) -> dict:
+    diagnostic = _build_account_connection_diagnostic(store)
+    key_configured = bool(diagnostic["key_status"].get("is_configured"))
+    permission_report = diagnostic["permission_report"]
+    missing_required = permission_report.get("missing_required_permissions", [])
+    limited_permissions = bool(permission_report.get("limited_mode")) or bool(missing_required)
+    sync_status = diagnostic["sync_status"]
+    counts = sync_status.get("counts", {})
+    queued_count = int(counts.get("queued") or 0)
+    syncing_count = int(counts.get("syncing") or 0)
+    delayed_count = int(counts.get("delayed") or 0)
+    failed_count = int(counts.get("failed") or 0)
+    succeeded_count = int(counts.get("succeeded") or 0)
+    has_queue_history = bool(sync_status.get("latest")) or succeeded_count > 0
+    snapshot = diagnostic["snapshot_summary"]
+    private_count = int(snapshot.get("private_player_state_count") or 0)
+    synced_snapshot_count = int(snapshot.get("synced_character_snapshot_count") or 0)
+    synced_gear_count = int(snapshot.get("synced_gear_count") or 0)
+
+    if not key_configured:
+        summary_status = "missing_key"
+        player_message = "No GW2 API key is saved yet, so account-aware results cannot be produced."
+        primary_action = {"action_id": "focus_api_key_input", "label": "Paste key"}
+    elif limited_permissions:
+        summary_status = "limited_permissions"
+        player_message = "The saved key is visible, but required permissions are missing or could not be confirmed."
+        primary_action = {"action_id": "focus_api_key_input", "label": "Update key"}
+    elif not has_queue_history:
+        summary_status = "sync_not_started"
+        player_message = "The key and permissions look usable, but no account sync job has been queued yet."
+        primary_action = {"action_id": "enqueueSync", "label": "Sync now"}
+    elif queued_count or syncing_count or delayed_count:
+        summary_status = "sync_pending"
+        player_message = "Account sync is queued or waiting; results will appear after the worker writes the private snapshot."
+        primary_action = {"action_id": "drainSync", "label": "Drain one job"}
+    elif failed_count and private_count == 0:
+        summary_status = "sync_failed"
+        player_message = "The latest account sync did not write private account summaries."
+        primary_action = {"action_id": "enqueueSync", "label": "Retry sync"}
+    elif private_count == 0:
+        summary_status = "private_layer_empty"
+        player_message = "The sync lifecycle is visible, but the private player-state layer is still empty."
+        primary_action = {"action_id": "drainSync", "label": "Drain one job"}
+    elif synced_snapshot_count == 0:
+        summary_status = "character_snapshot_empty"
+        player_message = "Private account summaries exist, but no synced official character snapshot is available for Build Fit."
+        primary_action = {"action_id": "enqueueSync", "label": "Resync account"}
+    elif synced_gear_count == 0:
+        summary_status = "gear_bridge_empty"
+        player_message = "A synced character snapshot exists, but no gear entries are ready for Build Fit conversion."
+        primary_action = {"action_id": "loadCharacterSnapshots", "label": "Load snapshots"}
+    else:
+        summary_status = "ready"
+        player_message = "Account connection is ready; account value, Build Fit, Legendary, and Market evidence can use private summaries."
+        primary_action = {"action_id": "refreshDashboard", "label": "Refresh dashboard"}
+
+    cards = [
+        _first_run_card(
+            "api_key",
+            "API key",
+            "ready" if key_configured else "blocked",
+            "Saved and masked." if key_configured else "No saved key.",
+            "focus_api_key_input" if not key_configured else None,
+            "Paste key" if not key_configured else None,
+        ),
+        _first_run_card(
+            "permissions",
+            "Permissions",
+            "blocked" if limited_permissions else "ready",
+            "Missing: " + ", ".join(missing_required) if missing_required else "Required account permissions are ready.",
+            "focus_api_key_input" if limited_permissions else None,
+            "Update key" if limited_permissions else None,
+        ),
+        _first_run_card(
+            "sync_queue",
+            "Sync queue",
+            "pending" if queued_count or syncing_count or delayed_count else "ready" if has_queue_history else "empty",
+            f"queued {queued_count}, syncing {syncing_count}, delayed {delayed_count}, succeeded {succeeded_count}, failed {failed_count}",
+            "enqueueSync" if not has_queue_history else "drainSync" if queued_count or syncing_count or delayed_count else None,
+            "Sync now" if not has_queue_history else "Drain one job" if queued_count or syncing_count or delayed_count else None,
+        ),
+        _first_run_card(
+            "private_layer",
+            "Private layer",
+            "ready" if private_count > 0 else "empty",
+            f"{private_count} private player-state summary records.",
+            "drainSync" if key_configured and private_count == 0 else None,
+            "Drain one job" if key_configured and private_count == 0 else None,
+        ),
+        _first_run_card(
+            "character_snapshot",
+            "Character snapshot",
+            "ready" if synced_snapshot_count > 0 else "empty",
+            f"{synced_snapshot_count} synced character snapshots, {synced_gear_count} synced gear entries.",
+            "loadCharacterSnapshots" if synced_snapshot_count > 0 else "enqueueSync" if key_configured else None,
+            "Load snapshots" if synced_snapshot_count > 0 else "Resync account" if key_configured else None,
+        ),
+    ]
+    return {
+        "schema_version": "gw2radar.account_first_run_summary.v1",
+        "summary_status": summary_status,
+        "diagnostic_status": diagnostic["summary_status"],
+        "player_message": player_message,
+        "primary_action": primary_action,
+        "cards": cards,
+        "result_targets": [
+            {
+                "target_id": "account_value",
+                "label": "Account Value",
+                "status": "ready" if key_configured and not limited_permissions and private_count > 0 else "waiting_for_private_layer",
+                "evidence": f"{private_count} private summary records available.",
+            },
+            {
+                "target_id": "build_fit",
+                "label": "Build Fit",
+                "status": "ready" if key_configured and not limited_permissions and synced_gear_count > 0 else "waiting_for_synced_gear",
+                "evidence": f"{synced_gear_count} synced gear entries available.",
+            },
+            {
+                "target_id": "support_handoff",
+                "label": "Support Handoff",
+                "status": "ready" if diagnostic["summary_status"] == "ready" else "diagnostic_needed",
+                "evidence": f"Diagnostic status {diagnostic['summary_status']}.",
+            },
+        ],
+        "next_actions": _diagnostic_next_actions(diagnostic["checks"]) if summary_status != "ready" else [
+            "Refresh the dashboard and then open the opportunity you want to evaluate.",
+            "Generate a support handoff only if account-aware output still looks empty.",
+        ],
+        "evidence_refs": [
+            "/account/api-key/status",
+            "/account/api-key/permissions",
+            "/api/v1/account/sync/status",
+            "/account/diagnostic",
+        ],
+        "boundary": "First-run summary is read-only and excludes raw API keys, private source payloads, and full account item lists.",
+    }
+
+
+def _first_run_card(
+    card_id: str,
+    label: str,
+    status: str,
+    message: str,
+    fix_action_id: str | None = None,
+    fix_label: str | None = None,
+) -> dict:
+    return {
+        "card_id": card_id,
+        "label": label,
+        "status": status,
+        "message": message,
+        "fix_action_id": fix_action_id,
+        "fix_label": fix_label,
     }
 
 

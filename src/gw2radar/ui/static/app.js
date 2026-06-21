@@ -1357,6 +1357,48 @@ function renderConnectionDiagnostic(report) {
   }
 }
 
+function renderFirstRunSummary(summary) {
+  const list = document.querySelector("#first-run-summary");
+  if (!list) {
+    return;
+  }
+  list.innerHTML = "";
+  if (!summary) {
+    list.textContent = "Refresh status to see why account-aware results may still be empty.";
+    return;
+  }
+  appendCompactBridgeRow(
+    list,
+    summary.summary_status || "unknown",
+    summary.player_message || "No first-run summary is available.",
+    summary.summary_status === "ready" ? "info" : "warn"
+  );
+  for (const card of (summary.cards || []).slice(0, 5)) {
+    const row = document.createElement("div");
+    const label = document.createElement("strong");
+    const body = document.createElement("span");
+    row.className = `compact-list-row ${card.status === "ready" ? "info" : "warn"}`;
+    label.textContent = `${card.label || "Status"} · ${card.status || "unknown"}`;
+    body.textContent = card.message || "";
+    row.append(label, body);
+    if (card.fix_action_id && card.fix_label) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "diagnostic-fix";
+      button.textContent = card.fix_label;
+      button.addEventListener("click", (event) => {
+        event.preventDefault();
+        runDiagnosticFix(card.fix_action_id);
+      });
+      row.appendChild(button);
+    }
+    list.appendChild(row);
+  }
+  for (const target of (summary.result_targets || []).slice(0, 3)) {
+    appendCompactBridgeRow(list, target.label || "Result", `${target.status || "unknown"} · ${target.evidence || ""}`, target.status === "ready" ? "info" : "warn");
+  }
+}
+
 function diagnosticDetailsText(details) {
   const parts = [];
   if (details.missing_required_permissions?.length) {
@@ -1840,7 +1882,15 @@ const actions = {
       renderPlayerHistoryCorrelation(correlation?.data?.correlation || {});
       const sessionPacket = await fetchJson("/api/v1/player/session-packet?limit=10");
       renderPlayerSessionPacket(sessionPacket?.data?.session_packet || {});
-      return { account: key, sync, dashboard, holdings, value, readiness, correlation, sessionPacket };
+      const firstRun = await fetchJson("/account/first-run-summary");
+      renderFirstRunSummary(firstRun);
+      return { account: key, sync, dashboard, holdings, value, readiness, correlation, sessionPacket, first_run: firstRun };
+    }),
+  firstRunSummary: () =>
+    run("dashboard", async () => {
+      const payload = await fetchJson("/account/first-run-summary");
+      renderFirstRunSummary(payload);
+      return payload;
     }),
   playerReadiness: () =>
     run("dashboard", async () => {
@@ -2147,11 +2197,13 @@ const actions = {
       renderPermissionReport(payload.permission_report || {});
       updateStatusFromSync(payload.sync_status || {});
       renderConnectionDiagnostic(payload);
+      const firstRun = await fetchJson("/account/first-run-summary");
+      renderFirstRunSummary(firstRun);
       markStep("connect", payload.summary_status === "ready" ? "Connection ready" : "Connection needs review", payload.summary_status === "ready");
       if (payload.summary_status === "ready") {
         markStep("plan", "Account bridge ready");
       }
-      return payload;
+      return { diagnostic: payload, first_run: firstRun };
     }),
   exportDebugBundle: () =>
     run("connect", async () => {
@@ -2161,12 +2213,16 @@ const actions = {
       });
       downloadJson(`gw2radar-account-debug-${new Date().toISOString().replace(/[:.]/g, "-")}.json`, payload);
       renderConnectionDiagnostic({ checks: payload.diagnostic_summary?.checks || [] });
+      const firstRun = await fetchJson("/account/first-run-summary");
+      renderFirstRunSummary(firstRun);
       return payload;
     }),
   deleteApiKey: () =>
     run("privacy", async () => {
       const payload = await fetchJson("/account/api-key", { method: "DELETE" });
       updateStatusFromKey({ has_key: false });
+      const firstRun = await fetchJson("/account/first-run-summary");
+      renderFirstRunSummary(firstRun);
       return payload;
     }),
   deleteSnapshot: () =>
@@ -2196,6 +2252,8 @@ const actions = {
       updateStatusFromSync(drained);
       const status = await fetchJson("/api/v1/account/sync/status");
       updateStatusFromSync(status);
+      const firstRun = await fetchJson("/account/first-run-summary");
+      renderFirstRunSummary(firstRun);
       let dashboard = null;
       let characterSnapshots = null;
       if (drained.status === "succeeded") {
@@ -2218,6 +2276,7 @@ const actions = {
           holdings,
           value,
           character_snapshots: characterSnapshots,
+          first_run: firstRun,
           boundary: "Sync now queues one account snapshot job, drains one local worker job, then refreshes dashboard, holdings, and Build Fit character snapshots when successful.",
         };
       }
@@ -2227,6 +2286,7 @@ const actions = {
         status,
         dashboard,
         character_snapshots: characterSnapshots,
+        first_run: firstRun,
         boundary: "Sync now queues one account snapshot job, drains one local worker job, then refreshes dashboard and Build Fit character snapshots when successful.",
       };
     }),
@@ -2242,15 +2302,21 @@ const actions = {
         const characterSnapshots = await fetchJson("/api/v1/builds/character-snapshots");
         state.characterSnapshots = characterSnapshots?.data?.snapshots || [];
         renderCharacterSnapshots(state.characterSnapshots);
-        return { drained: payload, holdings, value, character_snapshots: characterSnapshots };
+        const firstRun = await fetchJson("/account/first-run-summary");
+        renderFirstRunSummary(firstRun);
+        return { drained: payload, holdings, value, character_snapshots: characterSnapshots, first_run: firstRun };
       }
+      const firstRun = await fetchJson("/account/first-run-summary");
+      renderFirstRunSummary(firstRun);
       return payload;
     }),
   syncStatus: () =>
     run("connect", async () => {
       const payload = await fetchJson("/api/v1/account/sync/status");
       updateStatusFromSync(payload);
-      return payload;
+      const firstRun = await fetchJson("/account/first-run-summary");
+      renderFirstRunSummary(firstRun);
+      return { sync: payload, first_run: firstRun };
     }),
   loadMock: () => run("connect", () => fetchJson("/mock/load", { method: "POST" })),
   loadGoals: () => run("returner", () => fetchJson("/goals")),

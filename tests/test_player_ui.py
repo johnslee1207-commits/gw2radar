@@ -31,6 +31,8 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert "Workflow readiness" in response.text
     assert "No dashboard summary yet." in response.text
     assert "Check readiness" in response.text
+    assert "Explain empty results" in response.text
+    assert "Refresh status to see why account-aware results may still be empty." in response.text
     assert "Player Readiness" in response.text
     assert "Run Check readiness to inspect the full player path." in response.text
     assert "Export readiness MD" in response.text
@@ -226,6 +228,10 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "/account/api-key" in js.text
     assert "/account/api-key/permissions" in js.text
     assert "/account/diagnostic" in js.text
+    assert "/account/first-run-summary" in js.text
+    assert "firstRunSummary" in js.text
+    assert "renderFirstRunSummary" in js.text
+    assert "#first-run-summary" in js.text
     assert "/account/debug-bundle" in js.text
     assert "/api/v1/player/dashboard" in js.text
     assert "/api/v1/player/readiness" in js.text

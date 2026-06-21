@@ -110,6 +110,7 @@ def main() -> int:
         stored = client.put("/account/api-key", json={"api_key": pasted_key})
         status = client.get("/account/api-key/status")
         permissions = client.get("/account/api-key/permissions")
+        first_run_before_sync = client.get("/account/first-run-summary")
         enqueue = client.post("/api/v1/account/sync")
         queued_status = client.get("/api/v1/account/sync/status")
         drained = client.post("/api/v1/account/sync/drain-one")
@@ -125,6 +126,7 @@ def main() -> int:
         )
         synced_status = client.get("/api/v1/account/sync/status")
         api_diagnostic = client.get("/account/diagnostic")
+        first_run_after_sync = client.get("/account/first-run-summary")
         account_holdings = client.get("/api/v1/player/account-holdings")
         account_value = client.get("/api/v1/player/account-value")
         snapshots = client.get("/api/v1/builds/character-snapshots")
@@ -139,7 +141,22 @@ def main() -> int:
 
         all_payload_text = "\n".join(
             str(response.text)
-            for response in [stored, status, permissions, enqueue, queued_status, drained, price_snapshot, synced_status, api_diagnostic, account_holdings, account_value, snapshots]
+            for response in [
+                stored,
+                status,
+                permissions,
+                first_run_before_sync,
+                enqueue,
+                queued_status,
+                drained,
+                price_snapshot,
+                synced_status,
+                api_diagnostic,
+                first_run_after_sync,
+                account_holdings,
+                account_value,
+                snapshots,
+            ]
         )
         if account_gear is not None:
             all_payload_text += str(account_gear.text)
@@ -148,12 +165,29 @@ def main() -> int:
         _add(checks, "key status is configured without raw key leakage", status.status_code == 200 and status.json().get("is_configured") is True, status.text)
         _add(checks, "permission inspection is ready", permissions.status_code == 200 and permissions.json().get("limited_mode") is False and permissions.json().get("missing_required_permissions") == [], permissions.text)
         _add(checks, "permission inspection explains value analysis readiness", permissions.status_code == 200 and permissions.json().get("value_analysis_readiness", {}).get("status") in {"ready", "limited"} and permissions.json().get("unlocked_analysis_modules"), permissions.text)
+        _add(
+            checks,
+            "first-run summary explains pre-sync empty results",
+            first_run_before_sync.status_code == 200
+            and first_run_before_sync.json().get("schema_version") == "gw2radar.account_first_run_summary.v1"
+            and first_run_before_sync.json().get("summary_status") == "sync_not_started"
+            and first_run_before_sync.json().get("primary_action", {}).get("action_id") == "enqueueSync",
+            first_run_before_sync.text,
+        )
         _add(checks, "account sync queues endpoint-level work", enqueue.status_code == 200 and enqueue.json().get("status") == "queued" and len(enqueue.json().get("endpoint_progress", [])) == 9, enqueue.text)
         _add(checks, "queued sync status is visible", queued_status.status_code == 200 and queued_status.json().get("counts", {}).get("queued") == 1, queued_status.text)
         _add(checks, "drain-one succeeds and writes player state", drained.status_code == 200 and drained.json().get("status") == "succeeded" and drained.json().get("updated_player_state", 0) >= 5, drained.text)
         _add(checks, "manual price snapshot records account value evidence", price_snapshot.status_code == 200 and price_snapshot.json().get("data", {}).get("snapshot", {}).get("item_id") == "gw2:item:19721", price_snapshot.text)
         _add(checks, "post-drain status exposes succeeded endpoints", synced_status.status_code == 200 and synced_status.json().get("counts", {}).get("succeeded") == 1, synced_status.text)
         _add(checks, "read-only API diagnostic reports ready lifecycle", api_diagnostic.status_code == 200 and api_diagnostic.json().get("summary_status") == "ready" and {check.get("status") for check in api_diagnostic.json().get("checks", [])} == {"pass"}, api_diagnostic.text)
+        _add(
+            checks,
+            "first-run summary reports ready result targets after sync",
+            first_run_after_sync.status_code == 200
+            and first_run_after_sync.json().get("summary_status") == "ready"
+            and {target.get("status") for target in first_run_after_sync.json().get("result_targets", [])} == {"ready"},
+            first_run_after_sync.text,
+        )
         holding_counts = account_holdings.json().get("data", {}).get("account_holding_index", {}).get("location_counts", {}) if account_holdings.status_code == 200 else {}
         _add(checks, "private account holding index summarizes synced state", account_holdings.status_code == 200 and account_holdings.json().get("data", {}).get("account_holding_index", {}).get("holding_count", 0) >= 8 and holding_counts.get("wallet") == 1 and holding_counts.get("shared_inventory") == 1 and holding_counts.get("tradingpost_buy") == 1 and holding_counts.get("tradingpost_sell") == 1, account_holdings.text)
         _add(checks, "account value snapshot reports conservative totals", account_value.status_code == 200 and account_value.json().get("data", {}).get("account_value_snapshot", {}).get("summary", {}).get("total_value_buy_copper", 0) >= 420000 and account_value.json().get("data", {}).get("account_value_snapshot", {}).get("summary", {}).get("unpriced_holding_count", 0) >= 1, account_value.text)

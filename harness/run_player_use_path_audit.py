@@ -85,6 +85,21 @@ def main() -> int:
             "mature_ui_shell",
             "GET /player and /player-ui/app.js expose required workflow markers.",
         )
+        first_run_summary = _json(client.get("/account/first-run-summary"), "load first-run empty-result summary", checks)
+        _add(
+            checks,
+            "account_first_run_summary",
+            "First-run summary explains missing, pending, limited, queue, and private-layer states before account-aware results exist.",
+            first_run_summary.get("schema_version") == "gw2radar.account_first_run_summary.v1"
+            and first_run_summary.get("summary_status") == "missing_key"
+            and _get(first_run_summary, "primary_action", "action_id") == "focus_api_key_input"
+            and {"api_key", "permissions", "sync_queue", "private_layer", "character_snapshot"}
+            <= {card.get("card_id") for card in first_run_summary.get("cards", [])}
+            and "raw api keys" in first_run_summary.get("boundary", "").lower()
+            and "secret-key" not in json.dumps(first_run_summary).lower(),
+            "mature_first_run_empty_result_guidance",
+            f"{first_run_summary.get('summary_status', 'unknown')} with {len(first_run_summary.get('cards', []))} state cards.",
+        )
 
         _json(client.post("/mock/load"), "load demo graph", checks)
         player_readiness = _json(client.get("/api/v1/player/readiness"), "load player readiness", checks)
@@ -865,6 +880,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "## Semantic Graph Summary",
             "",
             "- `ApiKeyConnection` gates account-aware recommendations through permission checks and sync status.",
+            "- `AccountFirstRunSummary` explains empty account-aware result states across missing key, limited permissions, sync queue, and private-layer write gates.",
             "- `PrivatePlayerState` stores private account summaries separately from public game and KB layers.",
             "- `AccountValueSnapshot` normalizes holdings, price coverage, source diagnostics, and remediation actions.",
             "- `AccountValueHistory` stores privacy-safe value coverage snapshots and compares value/coverage/freshness deltas.",
@@ -893,7 +909,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Next Priority",
             "",
-            "Harden real-account first-run UX by surfacing pending, empty, limited-permission, queue, and private-layer write states directly in the player dashboard.",
+            "Add a persistent account sync worker loop with retry/backoff, queue health API, and operator-visible job diagnostics.",
             "",
         ]
     )
