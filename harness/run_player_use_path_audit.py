@@ -100,6 +100,20 @@ def main() -> int:
             "mature_first_run_empty_result_guidance",
             f"{first_run_summary.get('summary_status', 'unknown')} with {len(first_run_summary.get('cards', []))} state cards.",
         )
+        account_sync_health = _json(client.get("/api/v1/account/sync/health"), "load account sync worker health", checks)
+        _add(
+            checks,
+            "account_sync_worker_health",
+            "Account sync worker health exposes queue depth, retry depth, failed depth, latest jobs, and safe next actions.",
+            account_sync_health.get("schema_version") == "gw2radar.account_sync_worker_health.v1"
+            and account_sync_health.get("health_status") in {"idle", "active", "waiting_retry", "ready", "needs_review"}
+            and isinstance(account_sync_health.get("counts"), dict)
+            and isinstance(account_sync_health.get("latest"), list)
+            and "raw api keys" in account_sync_health.get("boundary", "").lower()
+            and "secret-key" not in json.dumps(account_sync_health).lower(),
+            "mature_account_sync_worker_health",
+            f"{account_sync_health.get('health_status', 'unknown')} with queue depth {account_sync_health.get('queue_depth', 0)}.",
+        )
 
         _json(client.post("/mock/load"), "load demo graph", checks)
         player_readiness = _json(client.get("/api/v1/player/readiness"), "load player readiness", checks)
@@ -881,6 +895,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "- `ApiKeyConnection` gates account-aware recommendations through permission checks and sync status.",
             "- `AccountFirstRunSummary` explains empty account-aware result states across missing key, limited permissions, sync queue, and private-layer write gates.",
+            "- `AccountSyncWorkerHealth` exposes bounded worker-loop health, queue depth, retry depth, failed depth, latest jobs, and safe next actions.",
             "- `PrivatePlayerState` stores private account summaries separately from public game and KB layers.",
             "- `AccountValueSnapshot` normalizes holdings, price coverage, source diagnostics, and remediation actions.",
             "- `AccountValueHistory` stores privacy-safe value coverage snapshots and compares value/coverage/freshness deltas.",
@@ -909,7 +924,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Next Priority",
             "",
-            "Add a persistent account sync worker loop with retry/backoff, queue health API, and operator-visible job diagnostics.",
+            "Add gateway contract hardening for user-facing rate-limit, permission, and endpoint failure envelopes across account sync and official refresh.",
             "",
         ]
     )

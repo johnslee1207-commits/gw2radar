@@ -117,10 +117,92 @@ class AccountSyncCoordinator:
             ],
         }
 
+    def health(self) -> dict:
+        status = self.status()
+        counts = status.get("counts", {})
+        latest = status.get("latest", [])
+        queued = int(counts.get("queued") or 0)
+        delayed = int(counts.get("delayed") or 0)
+        processing = int(counts.get("processing") or 0)
+        failed = int(counts.get("failed") or 0)
+        succeeded = int(counts.get("succeeded") or 0)
+        if failed:
+            health_status = "needs_review"
+        elif processing or queued:
+            health_status = "active"
+        elif delayed:
+            health_status = "waiting_retry"
+        elif succeeded:
+            health_status = "ready"
+        else:
+            health_status = "idle"
+        next_actions = []
+        if queued or processing:
+            next_actions.append("Run the account sync worker loop or wait for the local worker to finish queued jobs.")
+        if delayed:
+            next_actions.append("Wait for the retry window, then run the worker loop again.")
+        if failed:
+            next_actions.append("Open the latest job diagnostics and requeue after fixing the failure.")
+        if not latest:
+            next_actions.append("Queue account sync before expecting account-aware results.")
+        if not next_actions:
+            next_actions.append("Queue sync again only when the player wants fresher account data.")
+        return {
+            "schema_version": "gw2radar.account_sync_worker_health.v1",
+            "health_status": health_status,
+            "counts": counts,
+            "latest": latest,
+            "queue_depth": queued + delayed + processing,
+            "retry_depth": delayed,
+            "failed_depth": failed,
+            "endpoint_progress": status.get("endpoint_progress", []),
+            "next_actions": next_actions,
+            "boundary": "Account sync worker health is metadata-only and excludes raw API keys and private account payloads.",
+        }
+
+    def run_worker(self, *, max_jobs: int = 3, worker_id: str = "account-sync-worker-loop") -> dict:
+        max_jobs = max(1, min(int(max_jobs or 1), 25))
+        results: list[dict] = []
+        for _index in range(max_jobs):
+            result = self._drain_one_with_worker(worker_id)
+            results.append(result)
+            if result.get("status") == "idle":
+                break
+        processed = [result for result in results if result.get("status") != "idle"]
+        succeeded = [result for result in processed if result.get("status") == "succeeded"]
+        delayed = [result for result in processed if result.get("status") == "delayed"]
+        failed = [result for result in processed if result.get("status") in {"failed", "skipped"}]
+        health = self.health()
+        if failed:
+            worker_status = "needs_review"
+        elif delayed:
+            worker_status = "waiting_retry"
+        elif succeeded:
+            worker_status = "drained"
+        else:
+            worker_status = "idle"
+        return {
+            "schema_version": "gw2radar.account_sync_worker_run.v1",
+            "worker_status": worker_status,
+            "worker_id": worker_id,
+            "max_jobs": max_jobs,
+            "processed_count": len(processed),
+            "succeeded_count": len(succeeded),
+            "delayed_count": len(delayed),
+            "failed_count": len(failed),
+            "results": results,
+            "health": health,
+            "next_actions": health.get("next_actions", []),
+            "boundary": "Account sync worker loop is explicit and bounded; it does not run as an unmanaged background daemon or expose raw API keys.",
+        }
+
     def drain_one(self) -> dict:
+        return self._drain_one_with_worker("account-sync-drain-one")
+
+    def _drain_one_with_worker(self, worker_id: str) -> dict:
         api_key = self._require_api_key()
         repo = RefreshQueueRepository(self.session)
-        task = repo.lease_next("account-sync-drain-one", datetime.now(timezone.utc))
+        task = repo.lease_next(worker_id, datetime.now(timezone.utc))
         if task is None:
             return {"status": "idle"}
         if task.task_type is not RefreshTaskType.ACCOUNT_SNAPSHOT_SYNC:

@@ -113,6 +113,7 @@ def main() -> int:
         first_run_before_sync = client.get("/account/first-run-summary")
         enqueue = client.post("/api/v1/account/sync")
         queued_status = client.get("/api/v1/account/sync/status")
+        queued_health = client.get("/api/v1/account/sync/health")
         drained = client.post("/api/v1/account/sync/drain-one")
         price_snapshot = client.post(
             "/api/v1/market/snapshots",
@@ -125,6 +126,7 @@ def main() -> int:
             },
         )
         synced_status = client.get("/api/v1/account/sync/status")
+        ready_health = client.get("/api/v1/account/sync/health")
         api_diagnostic = client.get("/account/diagnostic")
         first_run_after_sync = client.get("/account/first-run-summary")
         account_holdings = client.get("/api/v1/player/account-holdings")
@@ -148,9 +150,11 @@ def main() -> int:
                 first_run_before_sync,
                 enqueue,
                 queued_status,
+                queued_health,
                 drained,
                 price_snapshot,
                 synced_status,
+                ready_health,
                 api_diagnostic,
                 first_run_after_sync,
                 account_holdings,
@@ -176,9 +180,27 @@ def main() -> int:
         )
         _add(checks, "account sync queues endpoint-level work", enqueue.status_code == 200 and enqueue.json().get("status") == "queued" and len(enqueue.json().get("endpoint_progress", [])) == 9, enqueue.text)
         _add(checks, "queued sync status is visible", queued_status.status_code == 200 and queued_status.json().get("counts", {}).get("queued") == 1, queued_status.text)
+        _add(
+            checks,
+            "account sync worker health reports active queue",
+            queued_health.status_code == 200
+            and queued_health.json().get("schema_version") == "gw2radar.account_sync_worker_health.v1"
+            and queued_health.json().get("health_status") == "active"
+            and queued_health.json().get("queue_depth") == 1,
+            queued_health.text,
+        )
         _add(checks, "drain-one succeeds and writes player state", drained.status_code == 200 and drained.json().get("status") == "succeeded" and drained.json().get("updated_player_state", 0) >= 5, drained.text)
         _add(checks, "manual price snapshot records account value evidence", price_snapshot.status_code == 200 and price_snapshot.json().get("data", {}).get("snapshot", {}).get("item_id") == "gw2:item:19721", price_snapshot.text)
         _add(checks, "post-drain status exposes succeeded endpoints", synced_status.status_code == 200 and synced_status.json().get("counts", {}).get("succeeded") == 1, synced_status.text)
+        _add(
+            checks,
+            "account sync worker health reports ready after drain",
+            ready_health.status_code == 200
+            and ready_health.json().get("schema_version") == "gw2radar.account_sync_worker_health.v1"
+            and ready_health.json().get("health_status") == "ready"
+            and ready_health.json().get("counts", {}).get("succeeded") == 1,
+            ready_health.text,
+        )
         _add(checks, "read-only API diagnostic reports ready lifecycle", api_diagnostic.status_code == 200 and api_diagnostic.json().get("summary_status") == "ready" and {check.get("status") for check in api_diagnostic.json().get("checks", [])} == {"pass"}, api_diagnostic.text)
         _add(
             checks,

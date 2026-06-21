@@ -205,6 +205,42 @@ def test_account_sync_drain_one_persists_private_layer_snapshot() -> None:
         _teardown_temp_api(temp_dir, original_factory)
 
 
+def test_account_sync_worker_health_and_bounded_run_drain_queue() -> None:
+    temp_dir, original_factory = _setup_temp_api("sync-worker")
+    raw_key = "12345678-abcdef-secret-key"
+    try:
+        client = TestClient(app)
+        assert client.put("/account/api-key", json={"api_key": raw_key}).status_code == 200
+
+        idle_health = client.get("/api/v1/account/sync/health")
+        queued = client.post("/api/v1/account/sync")
+        active_health = client.get("/api/v1/account/sync/health")
+        run = client.post("/api/v1/account/sync/worker/run?max_jobs=3&worker_id=test-worker")
+        ready_health = client.get("/api/v1/account/sync/health")
+
+        assert idle_health.status_code == 200
+        assert idle_health.json()["schema_version"] == "gw2radar.account_sync_worker_health.v1"
+        assert idle_health.json()["health_status"] == "idle"
+        assert idle_health.json()["queue_depth"] == 0
+        assert queued.status_code == 200
+        assert active_health.json()["health_status"] == "active"
+        assert active_health.json()["queue_depth"] == 1
+        assert run.status_code == 200
+        assert run.json()["schema_version"] == "gw2radar.account_sync_worker_run.v1"
+        assert run.json()["worker_status"] == "drained"
+        assert run.json()["worker_id"] == "test-worker"
+        assert run.json()["processed_count"] == 1
+        assert run.json()["succeeded_count"] == 1
+        assert run.json()["health"]["health_status"] == "ready"
+        assert ready_health.json()["health_status"] == "ready"
+        assert ready_health.json()["counts"]["succeeded"] == 1
+        assert raw_key not in str(idle_health.json())
+        assert raw_key not in str(active_health.json())
+        assert raw_key not in str(run.json())
+    finally:
+        _teardown_temp_api(temp_dir, original_factory)
+
+
 def test_account_sync_drain_one_idle_without_task() -> None:
     temp_dir, original_factory = _setup_temp_api("sync-idle")
     try:

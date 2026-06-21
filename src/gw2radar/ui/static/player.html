@@ -381,9 +381,12 @@
                 <button data-action="enqueueSync">Sync now</button>
                 <button data-action="drainSync">Drain one job</button>
                 <button data-action="syncStatus">Sync status</button>
+                <button data-action="accountSyncWorkerRun">Run sync worker</button>
+                <button data-action="accountSyncHealth">Queue health</button>
                 <button data-action="loadMock">Load demo graph</button>
                 <button class="danger-action" data-action="deleteSnapshot">Delete snapshot</button>
               </div>
+              <div id="account-sync-health" class="compact-list">Load queue health to inspect worker depth, retry state, and latest job diagnostics.</div>
               <div class="diagnostic-grid" id="connection-diagnostic-grid" aria-live="polite">
                 Run connection diagnostic to inspect key, permissions, sync, and Build Fit bridge status.
               </div>

@@ -103,6 +103,9 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert "Delete all private data" in response.text
     assert "Check permissions" in response.text
     assert "Sync now" in response.text
+    assert "Run sync worker" in response.text
+    assert "Queue health" in response.text
+    assert "Load queue health to inspect worker depth, retry state, and latest job diagnostics." in response.text
     assert "Shared inventory" in response.text
     assert "TP buys" in response.text
     assert "TP sells" in response.text
@@ -229,8 +232,13 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "/account/api-key/permissions" in js.text
     assert "/account/diagnostic" in js.text
     assert "/account/first-run-summary" in js.text
+    assert "/api/v1/account/sync/health" in js.text
+    assert "/api/v1/account/sync/worker/run" in js.text
     assert "firstRunSummary" in js.text
     assert "renderFirstRunSummary" in js.text
+    assert "accountSyncWorkerRun" in js.text
+    assert "accountSyncHealth" in js.text
+    assert "renderAccountSyncHealth" in js.text
     assert "#first-run-summary" in js.text
     assert "/account/debug-bundle" in js.text
     assert "/api/v1/player/dashboard" in js.text

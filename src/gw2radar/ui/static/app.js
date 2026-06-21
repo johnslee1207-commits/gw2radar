@@ -1357,6 +1357,36 @@ function renderConnectionDiagnostic(report) {
   }
 }
 
+function renderAccountSyncHealth(health) {
+  const list = document.querySelector("#account-sync-health");
+  if (!list) {
+    return;
+  }
+  list.innerHTML = "";
+  if (!health) {
+    list.textContent = "No account sync worker health is available yet.";
+    return;
+  }
+  appendCompactBridgeRow(
+    list,
+    health.health_status || health.worker_status || "unknown",
+    `queue ${health.queue_depth ?? 0} · retry ${health.retry_depth ?? 0} · failed ${health.failed_depth ?? 0}`,
+    ["ready", "idle", "drained"].includes(health.health_status || health.worker_status) ? "info" : "warn"
+  );
+  const latest = Array.isArray(health.latest) ? health.latest : health.health?.latest || [];
+  latest.slice(0, 3).forEach((job) => {
+    appendCompactBridgeRow(
+      list,
+      job.status || "job",
+      `${job.task_id || "task"} · attempts ${job.attempt_count ?? 0} · ${job.last_error_code || "no error"}`,
+      job.status === "succeeded" ? "info" : "warn"
+    );
+  });
+  (health.next_actions || health.health?.next_actions || []).slice(0, 3).forEach((action) => {
+    appendCompactBridgeRow(list, "Next", action, "warn");
+  });
+}
+
 function renderFirstRunSummary(summary) {
   const list = document.querySelector("#first-run-summary");
   if (!list) {
@@ -2252,6 +2282,8 @@ const actions = {
       updateStatusFromSync(drained);
       const status = await fetchJson("/api/v1/account/sync/status");
       updateStatusFromSync(status);
+      const health = await fetchJson("/api/v1/account/sync/health");
+      renderAccountSyncHealth(health);
       const firstRun = await fetchJson("/account/first-run-summary");
       renderFirstRunSummary(firstRun);
       let dashboard = null;
@@ -2272,6 +2304,7 @@ const actions = {
           queued,
           drained,
           status,
+          health,
           dashboard,
           holdings,
           value,
@@ -2284,6 +2317,7 @@ const actions = {
         queued,
         drained,
         status,
+        health,
         dashboard,
         character_snapshots: characterSnapshots,
         first_run: firstRun,
@@ -2304,19 +2338,40 @@ const actions = {
         renderCharacterSnapshots(state.characterSnapshots);
         const firstRun = await fetchJson("/account/first-run-summary");
         renderFirstRunSummary(firstRun);
-        return { drained: payload, holdings, value, character_snapshots: characterSnapshots, first_run: firstRun };
+        const health = await fetchJson("/api/v1/account/sync/health");
+        renderAccountSyncHealth(health);
+        return { drained: payload, holdings, value, character_snapshots: characterSnapshots, first_run: firstRun, health };
       }
       const firstRun = await fetchJson("/account/first-run-summary");
       renderFirstRunSummary(firstRun);
-      return payload;
+      const health = await fetchJson("/api/v1/account/sync/health");
+      renderAccountSyncHealth(health);
+      return { drained: payload, first_run: firstRun, health };
     }),
   syncStatus: () =>
     run("connect", async () => {
       const payload = await fetchJson("/api/v1/account/sync/status");
       updateStatusFromSync(payload);
+      const health = await fetchJson("/api/v1/account/sync/health");
+      renderAccountSyncHealth(health);
       const firstRun = await fetchJson("/account/first-run-summary");
       renderFirstRunSummary(firstRun);
-      return { sync: payload, first_run: firstRun };
+      return { sync: payload, health, first_run: firstRun };
+    }),
+  accountSyncHealth: () =>
+    run("connect", async () => {
+      const health = await fetchJson("/api/v1/account/sync/health");
+      renderAccountSyncHealth(health);
+      return health;
+    }),
+  accountSyncWorkerRun: () =>
+    run("connect", async () => {
+      const payload = await fetchJson("/api/v1/account/sync/worker/run?max_jobs=3", { method: "POST" });
+      renderAccountSyncHealth(payload.health || payload);
+      updateStatusFromSync(payload.health || {});
+      const firstRun = await fetchJson("/account/first-run-summary");
+      renderFirstRunSummary(firstRun);
+      return { worker: payload, first_run: firstRun };
     }),
   loadMock: () => run("connect", () => fetchJson("/mock/load", { method: "POST" })),
   loadGoals: () => run("returner", () => fetchJson("/goals")),

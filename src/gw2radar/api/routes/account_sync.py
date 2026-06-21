@@ -23,9 +23,19 @@ def get_account_sync_status() -> dict:
     return _with_coordinator(lambda coordinator: coordinator.status())
 
 
+@router.get("/health")
+def get_account_sync_worker_health() -> dict:
+    return _with_coordinator(lambda coordinator: coordinator.health())
+
+
 @router.post("/drain-one")
 def drain_one_account_sync() -> dict:
     return _with_coordinator(lambda coordinator: coordinator.drain_one())
+
+
+@router.post("/worker/run")
+def run_account_sync_worker(max_jobs: int = 3, worker_id: str = "account-sync-worker-loop") -> dict:
+    return _with_coordinator(lambda coordinator: coordinator.run_worker(max_jobs=max_jobs, worker_id=worker_id))
 
 
 def _with_coordinator(callback):
