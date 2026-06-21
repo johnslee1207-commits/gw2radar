@@ -6,7 +6,13 @@ from uuid import uuid4
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from gw2radar.commercial.account_value import AccountValueSnapshot, build_account_value_snapshot
+from gw2radar.commercial.account_value import (
+    AccountValueEvidenceBridge,
+    AccountValueSnapshot,
+    build_account_value_evidence_bridge,
+    build_account_value_snapshot,
+    render_account_value_evidence_bridge_markdown,
+)
 from gw2radar.db.models import BuildModel, utc_now
 from gw2radar.graph.graph_query import GraphData
 from gw2radar.kb.kb_models import KnowledgeReviewStatus, KnowledgeRule
@@ -137,6 +143,7 @@ class GearTransitionPlan(BaseModel):
     account_bound_notes: list[str] = Field(default_factory=list)
     reserved_goal_notes: list[str] = Field(default_factory=list)
     unpriced_notes: list[str] = Field(default_factory=list)
+    account_value_evidence: AccountValueEvidenceBridge | None = None
     recommendation_boundary: str = "informational_manual_actions_only"
 
 
@@ -425,8 +432,10 @@ def enrich_transition_plan_with_value_snapshot(
     plan: GearTransitionPlan,
     snapshot: AccountValueSnapshot,
 ) -> GearTransitionPlan:
+    evidence = build_account_value_evidence_bridge(snapshot)
     value_context = [
         f"Account value context: {snapshot.summary.priced_holding_count} priced holdings, {snapshot.summary.unpriced_holding_count} unpriced holdings, {snapshot.summary.account_bound_holding_count} account-bound holdings.",
+        f"Evidence bridge coverage: value {evidence.value_coverage_percent}% / price {evidence.price_coverage_percent}% / freshness {evidence.freshness_label}.",
         f"Conservative net sell value after trading post fees: {snapshot.summary.net_sell_value_copper} copper.",
     ]
     account_bound_notes = [
@@ -456,6 +465,7 @@ def enrich_transition_plan_with_value_snapshot(
             "account_bound_notes": account_bound_notes,
             "reserved_goal_notes": reserved_goal_notes,
             "unpriced_notes": unpriced_notes,
+            "account_value_evidence": evidence,
         }
     )
 
@@ -537,6 +547,11 @@ def render_build_fit_report(result: BuildFitResult) -> str:
         "",
         "## Account Value Context",
         *(result.transition_plan.value_context or ["- No account value snapshot was attached."]),
+        *(
+            ["", *render_account_value_evidence_bridge_markdown(result.transition_plan.account_value_evidence)]
+            if result.transition_plan.account_value_evidence
+            else []
+        ),
         *(["", "## Reserved Goal Materials", *[f"- {note}" for note in result.transition_plan.reserved_goal_notes]] if result.transition_plan.reserved_goal_notes else []),
         *(["", "## Unpriced Or Account-Bound Notes", *[f"- {note}" for note in [*result.transition_plan.account_bound_notes, *result.transition_plan.unpriced_notes]]] if result.transition_plan.account_bound_notes or result.transition_plan.unpriced_notes else []),
         "",

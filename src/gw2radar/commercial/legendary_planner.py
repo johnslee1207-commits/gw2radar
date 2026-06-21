@@ -6,6 +6,12 @@ from uuid import uuid4
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from gw2radar.commercial.account_value import (
+    AccountValueEvidenceBridge,
+    build_account_value_evidence_bridge,
+    build_account_value_snapshot,
+    render_account_value_evidence_bridge_markdown,
+)
 from gw2radar.db.models import GoalPortfolioModel, LegendaryGoalModel, utc_now
 from gw2radar.graph.graph_query import GraphData
 from gw2radar.inference.goal_gap import calculate_goal_gap
@@ -128,6 +134,7 @@ class LegendaryPlannerResult(BaseModel):
     weekly_route: list[str]
     do_not_sell: list[MaterialReservation]
     evidence_refs: list[str]
+    account_value_evidence: AccountValueEvidenceBridge | None = None
 
 
 class LegendaryActionPlan(BaseModel):
@@ -347,6 +354,7 @@ def recompute_legendary_plan(session: Session, graph: GraphData, user_id: str = 
     cheap_path = _build_path(missing_entries, LegendaryPathType.CHEAP)
     fast_path = _build_path(missing_entries, LegendaryPathType.FAST)
     do_not_sell = _build_reservations(graph, requirement_index, goal_refs_by_requirement)
+    value_snapshot = build_account_value_snapshot(graph, session, top_limit=10000)
     return LegendaryPlannerResult(
         portfolio=portfolio,
         shared_requirements=sorted(shared, key=lambda item: item.name),
@@ -359,6 +367,7 @@ def recompute_legendary_plan(session: Session, graph: GraphData, user_id: str = 
         weekly_route=_build_route(graph, "weekly"),
         do_not_sell=sorted(do_not_sell, key=lambda item: item.name),
         evidence_refs=list(graph.evidence.keys()),
+        account_value_evidence=build_account_value_evidence_bridge(value_snapshot),
     )
 
 
@@ -416,6 +425,11 @@ def render_legendary_planner_report(result: LegendaryPlannerResult) -> str:
         "## Do-Not-Sell List",
         *[f"- {item.name}: {item.explanation}" for item in result.do_not_sell],
         "",
+        *(
+            [*render_account_value_evidence_bridge_markdown(result.account_value_evidence), ""]
+            if result.account_value_evidence
+            else []
+        ),
         "## Evidence Notes",
         f"- Evidence refs: {', '.join(result.evidence_refs) if result.evidence_refs else 'none'}",
         "- Data freshness: refresh account and market snapshots before costly manual decisions.",

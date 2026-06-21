@@ -443,6 +443,14 @@ def _account_value_manifest(snapshot: AccountValueSnapshot | None) -> dict:
         "account_bound_holding_count": snapshot.summary.account_bound_holding_count,
         "reserved_holding_count": snapshot.summary.reserved_holding_count,
         "warning_count": len(snapshot.warnings),
+        "evidence_bridge": {
+            "schema_version": "gw2radar.account_value_evidence_bridge.v1",
+            "value_coverage_percent": snapshot.diagnostics.value_coverage_percent,
+            "price_coverage_percent": snapshot.diagnostics.price_coverage_percent,
+            "freshness_label": snapshot.diagnostics.freshness_label,
+            "source_summary_count": len(snapshot.diagnostics.source_insights),
+            "remediation_action_count": len(snapshot.diagnostics.remediation_actions),
+        },
         "boundary": "Summary metadata only; excludes raw API keys and private source payload details.",
     }
 

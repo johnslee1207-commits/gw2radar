@@ -133,6 +133,18 @@ class AccountValueDiagnostics(BaseModel):
     visualization_notes: list[str] = Field(default_factory=list)
 
 
+class AccountValueEvidenceBridge(BaseModel):
+    schema_version: str = "gw2radar.account_value_evidence_bridge.v1"
+    value_coverage_percent: float = 0.0
+    price_coverage_percent: float = 0.0
+    freshness_label: str = "unknown"
+    source_summary: list[str] = Field(default_factory=list)
+    remediation_summary: list[str] = Field(default_factory=list)
+    do_not_sell_note_count: int = 0
+    warning_count: int = 0
+    boundary: str = "Account value evidence is summary-only planning context; it excludes raw API keys and private source payloads."
+
+
 class AccountValueSnapshot(BaseModel):
     schema_version: str = "gw2radar.account_value_snapshot.v1"
     account_id: str | None
@@ -283,6 +295,8 @@ def render_account_value_snapshot_markdown(snapshot: AccountValueSnapshot) -> st
             for row in snapshot.by_location
         ],
         "",
+        *render_account_value_evidence_bridge_markdown(build_account_value_evidence_bridge(snapshot)),
+        "",
         "## Source Diagnostics",
         *[
             f"- {row.label}: {row.readiness_label}, {row.price_coverage_percent}% priced, {row.action_hint}"
@@ -299,6 +313,40 @@ def render_account_value_snapshot_markdown(snapshot: AccountValueSnapshot) -> st
         *[f"- {boundary}" for boundary in snapshot.safety_boundaries],
     ]
     return "\n".join(lines) + "\n"
+
+
+def build_account_value_evidence_bridge(snapshot: AccountValueSnapshot) -> AccountValueEvidenceBridge:
+    return AccountValueEvidenceBridge(
+        value_coverage_percent=snapshot.diagnostics.value_coverage_percent,
+        price_coverage_percent=snapshot.diagnostics.price_coverage_percent,
+        freshness_label=snapshot.diagnostics.freshness_label,
+        source_summary=[
+            f"{source.label}: {source.readiness_label}, {source.price_coverage_percent}% priced, {source.holding_count} holdings"
+            for source in snapshot.diagnostics.source_insights[:6]
+        ],
+        remediation_summary=[
+            f"{action.priority} {action.label}: {action.reason}"
+            for action in snapshot.diagnostics.remediation_actions[:6]
+        ],
+        do_not_sell_note_count=snapshot.summary.reserved_holding_count,
+        warning_count=len(snapshot.warnings),
+    )
+
+
+def render_account_value_evidence_bridge_markdown(bridge: AccountValueEvidenceBridge) -> list[str]:
+    return [
+        "## Account Value Evidence Bridge",
+        f"- Value coverage: {bridge.value_coverage_percent}%",
+        f"- Price coverage: {bridge.price_coverage_percent}%",
+        f"- Freshness: {bridge.freshness_label}",
+        f"- Do-not-sell note count: {bridge.do_not_sell_note_count}",
+        f"- Warning count: {bridge.warning_count}",
+        "- Source summary:",
+        *([f"  - {line}" for line in bridge.source_summary] or ["  - No source summary available."]),
+        "- Remediation summary:",
+        *([f"  - {line}" for line in bridge.remediation_summary] or ["  - No remediation summary available."]),
+        f"- Boundary: {bridge.boundary}",
+    ]
 
 
 def render_account_value_snapshot_csv(snapshot: AccountValueSnapshot) -> str:

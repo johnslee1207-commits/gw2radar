@@ -77,12 +77,14 @@ def test_build_fit_api_import_fit_transition_and_paid_report() -> None:
         assert fit.json()["data"]["fit"]["score"]["playable_now"] is True
         assert fit.json()["data"]["fit"]["upgrade_effects"][0]["evidence_source"] == "reviewed_kb_rule"
         assert fit.json()["data"]["fit"]["transition_plan"]["value_context"]
+        assert fit.json()["data"]["fit"]["transition_plan"]["account_value_evidence"]["schema_version"] == "gw2radar.account_value_evidence_bridge.v1"
         assert any(
             "reserved for active goals" in note
             for note in fit.json()["data"]["fit"]["transition_plan"]["reserved_goal_notes"]
         )
         assert transition.status_code == 200
         assert transition.json()["data"]["transition_plan"]["value_context"]
+        assert transition.json()["data"]["transition_plan"]["account_value_evidence"]["price_coverage_percent"] >= 0
         assert transition.json()["data"]["transition_plan"]["reserved_goal_notes"]
         assert locked.status_code == 403
 

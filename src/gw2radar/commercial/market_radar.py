@@ -7,7 +7,15 @@ from sqlalchemy.orm import Session
 
 from gw2radar.db.models import MarketSnapshotModel, MarketWatchlistModel, utc_now
 from gw2radar.graph.graph_query import GraphData
-from gw2radar.commercial.account_value import build_account_holding_index, build_account_value_snapshot, build_goal_reservation_index
+from gw2radar.commercial.account_value import (
+    AccountValueEvidenceBridge,
+    AccountValueSnapshot,
+    build_account_holding_index,
+    build_account_value_evidence_bridge,
+    build_account_value_snapshot,
+    build_goal_reservation_index,
+    render_account_value_evidence_bridge_markdown,
+)
 from gw2radar.ingest.gateway_status import GatewayStatus
 from gw2radar.inference.goal_gap import calculate_goal_gap
 
@@ -99,6 +107,7 @@ class MarketRadarReport(BaseModel):
     trends: list[PriceTrend]
     goal_cost_index: GoalCostIndex | None = None
     signals: list[MarketSignal]
+    account_value_evidence: AccountValueEvidenceBridge | None = None
 
 
 class OfficialPriceRefreshResult(BaseModel):
@@ -257,11 +266,17 @@ def calculate_goal_cost_index(session: Session, graph: GraphData, goal_id: str) 
     )
 
 
-def infer_market_signals(session: Session, graph: GraphData, goal_id: str) -> list[MarketSignal]:
+def infer_market_signals(
+    session: Session,
+    graph: GraphData,
+    goal_id: str,
+    value_snapshot: AccountValueSnapshot | None = None,
+) -> list[MarketSignal]:
     trends = {trend.item_id: trend for trend in calculate_price_trends(session)}
+    value_snapshot = value_snapshot or build_account_value_snapshot(graph, session, top_limit=10000)
     value_by_entity = {
         holding.entity_id: holding
-        for holding in build_account_value_snapshot(graph, session, top_limit=10000).top_holdings
+        for holding in value_snapshot.top_holdings
     }
     reservations = build_goal_reservation_index(session, graph)
     gap = calculate_goal_gap(graph, goal_id)
@@ -342,11 +357,13 @@ def build_market_radar_report(
     watchlist = list_watchlist(session, user_id)
     watch_ids = [item.item_id for item in watchlist] or None
     trends = calculate_price_trends(session, watch_ids)
+    value_snapshot = build_account_value_snapshot(graph, session, top_limit=10000)
     return MarketRadarReport(
         watchlist=watchlist,
         trends=trends,
         goal_cost_index=calculate_goal_cost_index(session, graph, goal_id),
-        signals=infer_market_signals(session, graph, goal_id),
+        signals=infer_market_signals(session, graph, goal_id, value_snapshot),
+        account_value_evidence=build_account_value_evidence_bridge(value_snapshot),
     )
 
 
@@ -375,6 +392,11 @@ def render_market_report(report: MarketRadarReport) -> str:
             for signal in report.signals
         ],
         "",
+        *(
+            [*render_account_value_evidence_bridge_markdown(report.account_value_evidence), ""]
+            if report.account_value_evidence
+            else []
+        ),
         "## Boundaries",
         "- Recommendations are observation and planning guidance only.",
         "- This report never places orders, never automates trades, and never supports real-money exchange.",

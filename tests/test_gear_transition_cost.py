@@ -54,8 +54,11 @@ def test_value_snapshot_enriches_transition_plan_context() -> None:
         report = render_build_fit_report(result)
 
         assert enriched.value_context
+        assert enriched.account_value_evidence is not None
+        assert enriched.account_value_evidence.schema_version == "gw2radar.account_value_evidence_bridge.v1"
         assert enriched.reserved_goal_notes
         assert "Account Value Context" in report
+        assert "Account Value Evidence Bridge" in report
         assert "avoid using it as gear-conversion budget" in report
     finally:
         close_database()

@@ -67,7 +67,11 @@ def test_report_artifacts_do_not_leak_api_key_or_private_payload() -> None:
         assert "raw private account payload" not in combined.lower()
         build_manifest = Path(str(build_job.manifest_path)).read_text(encoding="utf-8")
         assert '"account_value_snapshot"' in build_manifest
+        assert '"evidence_bridge"' in build_manifest
+        assert '"gw2radar.account_value_evidence_bridge.v1"' in build_manifest
         assert '"enabled": true' in build_manifest
-        assert "Account Value Snapshot" in Path(str(build_job.artifact_path)).read_text(encoding="utf-8")
+        build_artifact = Path(str(build_job.artifact_path)).read_text(encoding="utf-8")
+        assert "Account Value Snapshot" in build_artifact
+        assert "Account Value Evidence Bridge" in build_artifact
     finally:
         close_database()

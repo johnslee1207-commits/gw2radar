@@ -103,10 +103,15 @@ def test_legendary_catalog_and_actions_cover_player_guide_goal_choices() -> None
         assert {"Aurora", "Vision", "Conflux", "Ad Infinitum", "Legendary Weapon", "Legendary Armor", "Custom Goal"}.issubset(goal_names)
 
         created = client.post("/api/v1/legendary/goals", json={"graph_goal_id": "gw2:goal:vision", "priority": 2})
+        planner = client.post("/api/v1/legendary/recompute")
         actions = client.get("/api/v1/legendary/actions")
+        planner_payload = planner.json()["data"]["planner"]
         plan = actions.json()["data"]["action_plan"]
 
         assert created.status_code == 200
+        assert planner.status_code == 200
+        assert planner_payload["account_value_evidence"]["schema_version"] == "gw2radar.account_value_evidence_bridge.v1"
+        assert planner_payload["account_value_evidence"]["remediation_summary"]
         assert actions.status_code == 200
         assert plan["today_actions"]
         assert plan["this_week_actions"]

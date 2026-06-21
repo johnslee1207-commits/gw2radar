@@ -22,6 +22,9 @@ def test_market_report_does_not_create_auto_trading_language() -> None:
             report = build_market_radar_report(session, graph)
             text = render_market_report(report).lower()
 
+        assert report.account_value_evidence is not None
+        assert report.account_value_evidence.schema_version == "gw2radar.account_value_evidence_bridge.v1"
+        assert "account value evidence bridge" in text
         assert "automated order" not in text
         assert "never places orders" in text
         assert "real-money exchange" in text
