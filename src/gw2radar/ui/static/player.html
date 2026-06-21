@@ -128,6 +128,9 @@
               <button class="secondary-action" data-action="loadPlayerReadinessHistory">Load readiness history</button>
               <button class="secondary-action" data-action="exportPlayerReadinessHistoryMarkdown">Export history MD</button>
               <button class="secondary-action" data-action="exportPlayerReadinessHistoryCsv">Export history CSV</button>
+              <button class="secondary-action" data-action="loadPlayerHistoryCorrelation">Load history correlation</button>
+              <button class="secondary-action" data-action="exportPlayerHistoryCorrelationMarkdown">Export correlation MD</button>
+              <button class="secondary-action" data-action="exportPlayerHistoryCorrelationCsv">Export correlation CSV</button>
               <button class="secondary-action" data-action="exportAccountValueMarkdown">Export value MD</button>
               <button class="secondary-action" data-action="exportAccountValueCsv">Export value CSV</button>
             </div>
@@ -174,6 +177,18 @@
               <div id="player-readiness-checks" class="compact-list">Run Check readiness to inspect the full player path.</div>
               <h3>Readiness history</h3>
               <div id="player-readiness-history" class="compact-list">Save two readiness snapshots to compare sync and price-refresh changes.</div>
+            </article>
+            <article class="panel">
+              <div class="panel-title">
+                <span class="marker amber"></span>
+                <h3>History Correlation</h3>
+              </div>
+              <dl class="metric-list">
+                <div><dt>Status</dt><dd id="history-correlation-status">Not loaded</dd></div>
+                <div><dt>Readiness delta</dt><dd id="history-correlation-readiness-delta">--</dd></div>
+                <div><dt>Price coverage delta</dt><dd id="history-correlation-price-delta">--</dd></div>
+              </dl>
+              <div id="history-correlation-list" class="compact-list">Load history correlation after saving readiness and value snapshots.</div>
             </article>
             <article class="panel">
               <div class="panel-title">

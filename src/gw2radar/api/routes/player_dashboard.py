@@ -14,11 +14,14 @@ from gw2radar.commercial.account_value import (
     render_account_value_snapshot_markdown,
 )
 from gw2radar.commercial.player_intelligence import (
+    build_player_history_correlation,
     build_data_freshness_annotations,
     build_player_dashboard_plan,
     build_player_readiness_summary,
     list_player_readiness_history,
     record_player_readiness_snapshot,
+    render_player_history_correlation_csv,
+    render_player_history_correlation_markdown,
     render_player_readiness_history_csv,
     render_player_readiness_history_markdown,
     render_player_readiness_csv,
@@ -157,3 +160,25 @@ def get_player_account_value_history(format: str = "json", limit: int = 10) -> A
             headers={"Content-Disposition": 'attachment; filename="account_value_history.csv"'},
         )
     return ApiDataEnvelope(data={"history": history.model_dump(mode="json")})
+
+
+@router.get("/history/correlation", response_model=None)
+def get_player_history_correlation(format: str = "json", limit: int = 10) -> ApiDataEnvelope | Response:
+    init_db()
+    with db_session.SessionLocal() as session:
+        readiness_history = list_player_readiness_history(session, limit=limit)
+        account_value_history = list_account_value_history(session, limit=limit)
+        correlation = build_player_history_correlation(readiness_history, account_value_history)
+    if format == "markdown":
+        return Response(
+            content=render_player_history_correlation_markdown(correlation),
+            media_type="text/markdown; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="player_history_correlation.md"'},
+        )
+    if format == "csv":
+        return Response(
+            content=render_player_history_correlation_csv(correlation),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="player_history_correlation.csv"'},
+        )
+    return ApiDataEnvelope(data={"correlation": correlation.model_dump(mode="json")})

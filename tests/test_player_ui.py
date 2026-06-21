@@ -39,6 +39,11 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert "Load readiness history" in response.text
     assert "Export history MD" in response.text
     assert "Export history CSV" in response.text
+    assert "Load history correlation" in response.text
+    assert "Export correlation MD" in response.text
+    assert "Export correlation CSV" in response.text
+    assert "History Correlation" in response.text
+    assert "Load history correlation after saving readiness and value snapshots." in response.text
     assert "Readiness history" in response.text
     assert "Save two readiness snapshots to compare sync and price-refresh changes." in response.text
     assert "Account Value Coverage" in response.text
@@ -212,6 +217,16 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "gw2radar-player-readiness-history.md" in js.text
     assert "gw2radar-player-readiness-history.csv" in js.text
     assert "renderPlayerReadinessHistory" in js.text
+    assert "loadPlayerHistoryCorrelation" in js.text
+    assert "exportPlayerHistoryCorrelationMarkdown" in js.text
+    assert "exportPlayerHistoryCorrelationCsv" in js.text
+    assert "/api/v1/player/history/correlation?limit=10" in js.text
+    assert "/api/v1/player/history/correlation?format=markdown&limit=10" in js.text
+    assert "/api/v1/player/history/correlation?format=csv&limit=10" in js.text
+    assert "gw2radar-player-history-correlation.md" in js.text
+    assert "gw2radar-player-history-correlation.csv" in js.text
+    assert "renderPlayerHistoryCorrelation" in js.text
+    assert "gw2radar.player_history_correlation.v1" in js.text
     assert "renderPlayerReadiness" in js.text
     assert "readinessCheckClass" in js.text
     assert "gw2radar.player_readiness_summary.v1" in js.text or "readiness_score" in js.text

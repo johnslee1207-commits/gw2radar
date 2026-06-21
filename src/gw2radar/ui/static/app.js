@@ -123,6 +123,13 @@ function summarizeResult(target, payload) {
       const readiness = data.readiness.data.readiness;
       return `Player readiness ${readiness.readiness_label}: ${readiness.readiness_score}/100 across ${readiness.checks?.length || 0} checks.`;
     }
+    if (data?.correlation?.data?.correlation) {
+      const correlation = data.correlation.data.correlation;
+      return `History correlation ${correlation.status}: readiness delta ${correlation.readiness_score_delta || 0}, price coverage delta ${correlation.price_coverage_delta || 0}.`;
+    }
+    if (data?.correlation?.schema_version === "gw2radar.player_history_correlation.v1") {
+      return `History correlation ${data.correlation.status}: readiness delta ${data.correlation.readiness_score_delta || 0}, price coverage delta ${data.correlation.price_coverage_delta || 0}.`;
+    }
     if (data?.refresh?.data?.official_price_refresh) {
       const refresh = data.refresh.data.official_price_refresh;
       return `Official price refresh ${refresh.status}: ${refresh.refreshed_item_count || 0}/${refresh.requested_item_count || 0} items refreshed.`;
@@ -894,6 +901,48 @@ function renderAccountValueHistory(history) {
   });
 }
 
+function renderPlayerHistoryCorrelation(correlation) {
+  const status = document.querySelector("#history-correlation-status");
+  const readinessDelta = document.querySelector("#history-correlation-readiness-delta");
+  const priceDelta = document.querySelector("#history-correlation-price-delta");
+  const list = document.querySelector("#history-correlation-list");
+  if (!status || !readinessDelta || !priceDelta || !list) {
+    return;
+  }
+  status.textContent = correlation?.status || "unknown";
+  readinessDelta.textContent =
+    typeof correlation?.readiness_score_delta === "number" ? `${correlation.readiness_score_delta}` : "--";
+  priceDelta.textContent =
+    typeof correlation?.price_coverage_delta === "number" ? `${correlation.price_coverage_delta}` : "--";
+  list.innerHTML = "";
+  const notes = correlation?.correlation_notes || [];
+  const actions = correlation?.next_actions || [];
+  if (!notes.length && !actions.length) {
+    list.textContent = "No history correlation is available yet.";
+    return;
+  }
+  notes.slice(0, 5).forEach((note) => {
+    const item = document.createElement("div");
+    const title = document.createElement("strong");
+    const body = document.createElement("span");
+    item.className = `compact-list-row ${correlation.status === "needs_review" ? "warn" : "info"}`;
+    title.textContent = "Note";
+    body.textContent = note;
+    item.append(title, body);
+    list.appendChild(item);
+  });
+  actions.slice(0, 4).forEach((action) => {
+    const item = document.createElement("div");
+    const title = document.createElement("strong");
+    const body = document.createElement("span");
+    item.className = "compact-list-row";
+    title.textContent = "Next";
+    body.textContent = action;
+    item.append(title, body);
+    list.appendChild(item);
+  });
+}
+
 function valueReadinessClass(label) {
   if (label === "ready") {
     return "info";
@@ -1518,7 +1567,9 @@ const actions = {
       renderAccountValueSummary(value?.data?.account_value_snapshot || {});
       const readiness = await fetchJson("/api/v1/player/readiness");
       renderPlayerReadiness(readiness?.data?.readiness || {});
-      return { account: key, sync, dashboard, holdings, value, readiness };
+      const correlation = await fetchJson("/api/v1/player/history/correlation?limit=10");
+      renderPlayerHistoryCorrelation(correlation?.data?.correlation || {});
+      return { account: key, sync, dashboard, holdings, value, readiness, correlation };
     }),
   playerReadiness: () =>
     run("dashboard", async () => {
@@ -1569,6 +1620,28 @@ const actions = {
         response.text()
       );
       downloadText("gw2radar-player-readiness-history.csv", text, "text/csv");
+      return text;
+    }),
+  loadPlayerHistoryCorrelation: () =>
+    run("dashboard", async () => {
+      const correlation = await fetchJson("/api/v1/player/history/correlation?limit=10");
+      renderPlayerHistoryCorrelation(correlation?.data?.correlation || {});
+      return correlation;
+    }),
+  exportPlayerHistoryCorrelationMarkdown: () =>
+    run("dashboard", async () => {
+      const text = await fetch("/api/v1/player/history/correlation?format=markdown&limit=10").then((response) =>
+        response.text()
+      );
+      downloadText("gw2radar-player-history-correlation.md", text, "text/markdown");
+      return text;
+    }),
+  exportPlayerHistoryCorrelationCsv: () =>
+    run("dashboard", async () => {
+      const text = await fetch("/api/v1/player/history/correlation?format=csv&limit=10").then((response) =>
+        response.text()
+      );
+      downloadText("gw2radar-player-history-correlation.csv", text, "text/csv");
       return text;
     }),
   exportAccountValueMarkdown: () =>

@@ -199,6 +199,33 @@ def main() -> int:
             "mature_value_history",
             f"{len(value_history.get('snapshots', []))} snapshots with comparison {(_get(value_history, 'comparison', 'status') or 'missing')}.",
         )
+        history_correlation = _json(
+            client.get("/api/v1/player/history/correlation?limit=10"),
+            "load player history correlation",
+            checks,
+        )
+        correlation = _get(history_correlation, "data", "correlation") or {}
+        correlation_md = client.get("/api/v1/player/history/correlation?format=markdown")
+        correlation_csv = client.get("/api/v1/player/history/correlation?format=csv")
+        _add(
+            checks,
+            "player_history_correlation",
+            "Readiness and account value histories are correlated into one privacy-safe explanation view.",
+            correlation.get("schema_version") == "gw2radar.player_history_correlation.v1"
+            and correlation.get("readiness_snapshot_count", 0) >= 2
+            and correlation.get("account_value_snapshot_count", 0) >= 2
+            and isinstance(correlation.get("correlation_notes"), list)
+            and isinstance(correlation.get("next_actions"), list)
+            and correlation_md.status_code == 200
+            and "# Player History Correlation" in correlation_md.text
+            and correlation_csv.status_code == 200
+            and "readiness_score_delta" in correlation_csv.text
+            and "price_coverage_delta" in correlation_csv.text
+            and "api_key" not in json.dumps(correlation).lower()
+            and "api_key" not in (correlation_md.text + correlation_csv.text).lower(),
+            "mature_history_correlation",
+            f"{correlation.get('status', 'missing')} with readiness delta {correlation.get('readiness_score_delta', 0)} and price coverage delta {correlation.get('price_coverage_delta', 0)}.",
+        )
 
         imported = _json(client.post("/api/v1/builds/import", json=_sample_build_import()), "import build", checks)
         build_id = _get(imported, "data", "build", "build_id") or "missing-build-id"
@@ -404,6 +431,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "- `PlayerReadinessSummary` aggregates sync, account value, Legendary, Market, and Build Fit bridge checks into one dashboard action.",
             "- `PlayerReadinessExport` renders the readiness summary as Markdown and CSV for player/support comparison across sessions.",
             "- `PlayerReadinessHistory` stores privacy-safe readiness snapshots and compares the latest two score/check states.",
+            "- `PlayerHistoryCorrelation` explains readiness deltas alongside account value, price coverage, and warning deltas.",
             "- `ReportArtifactManifest` records bridge metadata without storing raw API keys or unredacted private payloads.",
             "",
             "## Known Limits",
@@ -414,7 +442,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Next Priority",
             "",
-            "Correlate readiness history with account value history in one comparison endpoint and UI panel.",
+            "Add an operator-friendly player session packet that bundles readiness, value, correlation, and debug-safe evidence for support review.",
             "",
         ]
     )

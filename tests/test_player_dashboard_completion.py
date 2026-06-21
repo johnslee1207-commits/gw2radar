@@ -226,6 +226,60 @@ def test_player_account_value_history_records_and_exports_snapshot_comparison() 
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
+def test_player_history_correlation_combines_readiness_and_value_history() -> None:
+    temp_dir = Path(".test_tmp") / f"player-history-correlation-{uuid4().hex}"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        configure_database(f"sqlite:///{temp_dir / 'history-correlation.db'}")
+        init_db()
+        state.reset_cached_graph()
+        client = TestClient(app)
+        assert client.post("/mock/load").status_code == 200
+        with db_session.SessionLocal() as session:
+            record_price_snapshot(
+                session,
+                PriceSnapshotInput(
+                    item_id="gw2:item:mystic_coin",
+                    item_name="Mystic Coin",
+                    buy_price_copper=12000,
+                    sell_price_copper=12500,
+                    volume=10000,
+                ),
+            )
+
+        assert client.post("/api/v1/player/readiness/history?source=test_correlation").status_code == 200
+        assert client.post("/api/v1/player/account-value/history?source=test_correlation").status_code == 200
+        assert client.post("/api/v1/player/readiness/history?source=test_correlation").status_code == 200
+        assert client.post("/api/v1/player/account-value/history?source=test_correlation").status_code == 200
+
+        response = client.get("/api/v1/player/history/correlation?limit=10")
+        correlation = response.json()["data"]["correlation"]
+        markdown = client.get("/api/v1/player/history/correlation?format=markdown")
+        csv = client.get("/api/v1/player/history/correlation?format=csv")
+
+        assert response.status_code == 200
+        assert correlation["schema_version"] == "gw2radar.player_history_correlation.v1"
+        assert correlation["status"] in {"unchanged", "changed", "improved", "needs_review"}
+        assert correlation["readiness_snapshot_count"] >= 2
+        assert correlation["account_value_snapshot_count"] >= 2
+        assert isinstance(correlation["correlation_notes"], list)
+        assert isinstance(correlation["next_actions"], list)
+        assert "api_key" not in str(correlation).lower()
+        assert markdown.status_code == 200
+        assert "# Player History Correlation" in markdown.text
+        assert "## Correlation Notes" in markdown.text
+        assert "api_key" not in markdown.text.lower()
+        assert csv.status_code == 200
+        assert "metric,value" in csv.text
+        assert "readiness_score_delta" in csv.text
+        assert "price_coverage_delta" in csv.text
+        assert "api_key" not in csv.text.lower()
+    finally:
+        close_database()
+        state.reset_cached_graph()
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
 def test_legendary_catalog_and_actions_cover_player_guide_goal_choices() -> None:
     temp_dir = Path(".test_tmp") / f"legendary-catalog-{uuid4().hex}"
     temp_dir.mkdir(parents=True, exist_ok=True)

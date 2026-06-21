@@ -5,7 +5,11 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from gw2radar.commercial.account_value import AccountValueSnapshot, build_account_value_evidence_bridge
+from gw2radar.commercial.account_value import (
+    AccountValueHistory,
+    AccountValueSnapshot,
+    build_account_value_evidence_bridge,
+)
 from gw2radar.commercial.legendary_planner import recompute_legendary_plan
 from gw2radar.commercial.market_radar import build_market_radar_report
 from gw2radar.db.models import PlayerReadinessSnapshotModel
@@ -88,6 +92,21 @@ class PlayerReadinessHistory(BaseModel):
     schema_version: str = "gw2radar.player_readiness_history.v1"
     snapshots: list[PlayerReadinessSnapshot]
     comparison: PlayerReadinessHistoryComparison
+    safety_boundaries: list[str] = Field(default_factory=list)
+
+
+class PlayerHistoryCorrelation(BaseModel):
+    schema_version: str = "gw2radar.player_history_correlation.v1"
+    status: str
+    readiness_snapshot_count: int = 0
+    account_value_snapshot_count: int = 0
+    readiness_score_delta: float = 0.0
+    total_value_buy_delta_copper: int = 0
+    price_coverage_delta: float = 0.0
+    value_coverage_delta: float = 0.0
+    correlation_notes: list[str] = Field(default_factory=list)
+    next_actions: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
     safety_boundaries: list[str] = Field(default_factory=list)
 
 
@@ -430,6 +449,115 @@ def render_player_readiness_history_csv(history: PlayerReadinessHistory) -> str:
     return "\n".join(rows) + "\n"
 
 
+def build_player_history_correlation(
+    readiness_history: PlayerReadinessHistory,
+    account_value_history: AccountValueHistory,
+) -> PlayerHistoryCorrelation:
+    readiness_comparison = readiness_history.comparison
+    value_comparison = account_value_history.comparison
+    notes: list[str] = []
+    actions: list[str] = []
+    if len(readiness_history.snapshots) < 2 or len(account_value_history.snapshots) < 2:
+        return PlayerHistoryCorrelation(
+            status="insufficient_history",
+            readiness_snapshot_count=len(readiness_history.snapshots),
+            account_value_snapshot_count=len(account_value_history.snapshots),
+            correlation_notes=["Save at least two readiness snapshots and two account value snapshots before correlation."],
+            next_actions=["Run Check readiness, save readiness snapshot, refresh account value, then save value snapshot twice across meaningful changes."],
+            safety_boundaries=_history_correlation_boundaries(),
+        )
+    readiness_delta = readiness_comparison.score_delta
+    value_delta = value_comparison.total_value_buy_delta_copper
+    price_delta = value_comparison.price_coverage_delta
+    value_coverage_delta = value_comparison.value_coverage_delta
+    if readiness_delta > 0 and price_delta >= 0:
+        status = "improved"
+        notes.append("Readiness improved while price coverage stayed flat or improved.")
+    elif readiness_delta < 0 and price_delta < 0:
+        status = "needs_review"
+        notes.append("Readiness regressed alongside lower price coverage; stale or missing prices may be contributing.")
+        actions.append("Refresh official prices and rerun readiness before making planning decisions.")
+    elif readiness_delta == 0 and value_delta == 0 and price_delta == 0 and value_coverage_delta == 0:
+        status = "unchanged"
+        notes.append("Readiness and account value coverage are unchanged between the latest snapshots.")
+    else:
+        status = "changed"
+        notes.append("Readiness and account value moved differently; inspect changed checks and value warnings together.")
+    if value_comparison.warning_codes_added:
+        notes.append(f"New value warnings appeared: {', '.join(value_comparison.warning_codes_added)}.")
+        actions.append("Review value warnings before manual sell, craft, or gear decisions.")
+    if readiness_comparison.changed_checks:
+        notes.append(f"Readiness checks changed: {', '.join(readiness_comparison.changed_checks)}.")
+    if price_delta > 0:
+        actions.append("Price coverage improved; rerun Market Radar and Legendary cheap/fast path for fresher planning.")
+    if not actions:
+        actions.append("Keep using paired snapshots after sync or price refresh to make changes explainable.")
+    return PlayerHistoryCorrelation(
+        status=status,
+        readiness_snapshot_count=len(readiness_history.snapshots),
+        account_value_snapshot_count=len(account_value_history.snapshots),
+        readiness_score_delta=readiness_delta,
+        total_value_buy_delta_copper=value_delta,
+        price_coverage_delta=price_delta,
+        value_coverage_delta=value_coverage_delta,
+        correlation_notes=notes,
+        next_actions=actions,
+        evidence_refs=[
+            readiness_comparison.latest_snapshot_id or "missing_readiness_latest",
+            readiness_comparison.baseline_snapshot_id or "missing_readiness_baseline",
+            value_comparison.latest_snapshot_id or "missing_value_latest",
+            value_comparison.baseline_snapshot_id or "missing_value_baseline",
+        ],
+        safety_boundaries=_history_correlation_boundaries(),
+    )
+
+
+def render_player_history_correlation_markdown(correlation: PlayerHistoryCorrelation) -> str:
+    lines = [
+        "# Player History Correlation",
+        "",
+        f"- Schema: {correlation.schema_version}",
+        f"- Status: {correlation.status}",
+        f"- Readiness snapshots: {correlation.readiness_snapshot_count}",
+        f"- Account value snapshots: {correlation.account_value_snapshot_count}",
+        f"- Readiness score delta: {correlation.readiness_score_delta}",
+        f"- Total value delta: {correlation.total_value_buy_delta_copper} copper",
+        f"- Price coverage delta: {correlation.price_coverage_delta}",
+        f"- Value coverage delta: {correlation.value_coverage_delta}",
+        "",
+        "## Correlation Notes",
+        "",
+        *[f"- {note}" for note in correlation.correlation_notes],
+        "",
+        "## Next Actions",
+        "",
+        *[f"- {action}" for action in correlation.next_actions],
+        "",
+        "## Safety Boundaries",
+        "",
+        *[f"- {boundary}" for boundary in correlation.safety_boundaries],
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def render_player_history_correlation_csv(correlation: PlayerHistoryCorrelation) -> str:
+    rows = [
+        "metric,value",
+        f"schema_version,{_csv(correlation.schema_version)}",
+        f"status,{_csv(correlation.status)}",
+        f"readiness_snapshot_count,{_csv(str(correlation.readiness_snapshot_count))}",
+        f"account_value_snapshot_count,{_csv(str(correlation.account_value_snapshot_count))}",
+        f"readiness_score_delta,{_csv(str(correlation.readiness_score_delta))}",
+        f"total_value_buy_delta_copper,{_csv(str(correlation.total_value_buy_delta_copper))}",
+        f"price_coverage_delta,{_csv(str(correlation.price_coverage_delta))}",
+        f"value_coverage_delta,{_csv(str(correlation.value_coverage_delta))}",
+        f"correlation_notes,{_csv('; '.join(correlation.correlation_notes))}",
+        f"next_actions,{_csv('; '.join(correlation.next_actions))}",
+        f"evidence_refs,{_csv('; '.join(correlation.evidence_refs))}",
+    ]
+    return "\n".join(rows) + "\n"
+
+
 def _do_not_sell_alerts(graph: GraphData, goal_id: str) -> list[str]:
     if goal_id not in graph.entities:
         return ["Load an active goal before generating do-not-sell alerts."]
@@ -532,3 +660,11 @@ def _compare_readiness_snapshots(snapshots: list[PlayerReadinessSnapshot]) -> Pl
         regressed_checks=regressed,
         summary=f"Latest readiness {direction}: score delta {score_delta}, changed checks {len(changed)}.",
     )
+
+
+def _history_correlation_boundaries() -> list[str]:
+    return [
+        "Correlation is explanatory planning metadata only.",
+        "GW2Radar does not infer causality, automate trades, change gear, craft items, or guarantee outcomes.",
+        "Raw API keys and private account source payloads are excluded from history correlation output.",
+    ]
