@@ -35,6 +35,12 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert "Run Check readiness to inspect the full player path." in response.text
     assert "Export readiness MD" in response.text
     assert "Export readiness CSV" in response.text
+    assert "Save readiness snapshot" in response.text
+    assert "Load readiness history" in response.text
+    assert "Export history MD" in response.text
+    assert "Export history CSV" in response.text
+    assert "Readiness history" in response.text
+    assert "Save two readiness snapshots to compare sync and price-refresh changes." in response.text
     assert "Account Value Coverage" in response.text
     assert "Location breakdown" in response.text
     assert "Status breakdown" in response.text
@@ -190,6 +196,16 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "/api/v1/player/readiness?format=csv" in js.text
     assert "gw2radar-player-readiness.md" in js.text
     assert "gw2radar-player-readiness.csv" in js.text
+    assert "savePlayerReadinessSnapshot" in js.text
+    assert "loadPlayerReadinessHistory" in js.text
+    assert "exportPlayerReadinessHistoryMarkdown" in js.text
+    assert "exportPlayerReadinessHistoryCsv" in js.text
+    assert "/api/v1/player/readiness/history?source=player_dashboard" in js.text
+    assert "/api/v1/player/readiness/history?format=markdown&limit=10" in js.text
+    assert "/api/v1/player/readiness/history?format=csv&limit=10" in js.text
+    assert "gw2radar-player-readiness-history.md" in js.text
+    assert "gw2radar-player-readiness-history.csv" in js.text
+    assert "renderPlayerReadinessHistory" in js.text
     assert "renderPlayerReadiness" in js.text
     assert "readinessCheckClass" in js.text
     assert "gw2radar.player_readiness_summary.v1" in js.text or "readiness_score" in js.text

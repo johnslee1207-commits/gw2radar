@@ -1,9 +1,14 @@
+from datetime import datetime
+from uuid import uuid4
+
 from pydantic import BaseModel, Field
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from gw2radar.commercial.account_value import AccountValueSnapshot, build_account_value_evidence_bridge
 from gw2radar.commercial.legendary_planner import recompute_legendary_plan
 from gw2radar.commercial.market_radar import build_market_radar_report
+from gw2radar.db.models import PlayerReadinessSnapshotModel
 from gw2radar.graph.graph_query import GraphData
 from gw2radar.inference.action_generator import generate_actions
 from gw2radar.inference.goal_gap import calculate_goal_gap
@@ -51,6 +56,38 @@ class PlayerReadinessSummary(BaseModel):
     readiness_score: float
     checks: list[PlayerReadinessCheck]
     next_actions: list[str]
+    safety_boundaries: list[str] = Field(default_factory=list)
+
+
+class PlayerReadinessSnapshot(BaseModel):
+    schema_version: str = "gw2radar.player_readiness_snapshot.v1"
+    snapshot_id: str
+    user_id: str
+    source: str
+    created_at: datetime
+    readiness_label: str
+    readiness_score: float
+    checks: list[PlayerReadinessCheck]
+    next_actions: list[str]
+    safety_boundaries: list[str] = Field(default_factory=list)
+
+
+class PlayerReadinessHistoryComparison(BaseModel):
+    schema_version: str = "gw2radar.player_readiness_history_comparison.v1"
+    status: str
+    baseline_snapshot_id: str | None = None
+    latest_snapshot_id: str | None = None
+    score_delta: float = 0.0
+    changed_checks: list[str] = Field(default_factory=list)
+    improved_checks: list[str] = Field(default_factory=list)
+    regressed_checks: list[str] = Field(default_factory=list)
+    summary: str
+
+
+class PlayerReadinessHistory(BaseModel):
+    schema_version: str = "gw2radar.player_readiness_history.v1"
+    snapshots: list[PlayerReadinessSnapshot]
+    comparison: PlayerReadinessHistoryComparison
     safety_boundaries: list[str] = Field(default_factory=list)
 
 
@@ -280,6 +317,119 @@ def render_player_readiness_csv(readiness: PlayerReadinessSummary) -> str:
     return "\n".join(rows) + "\n"
 
 
+def record_player_readiness_snapshot(
+    session: Session,
+    readiness: PlayerReadinessSummary,
+    *,
+    user_id: str = "local-user",
+    source: str = "player_dashboard",
+) -> PlayerReadinessSnapshot:
+    snapshot_id = f"readiness_{uuid4().hex}"
+    row = PlayerReadinessSnapshotModel(
+        snapshot_id=snapshot_id,
+        user_id=user_id,
+        source=source,
+        readiness_label=readiness.readiness_label,
+        readiness_score=readiness.readiness_score,
+        checks_json=[check.model_dump(mode="json") for check in readiness.checks],
+        next_actions_json=list(readiness.next_actions),
+        safety_boundaries_json=list(readiness.safety_boundaries),
+        properties_json={"summary_schema_version": readiness.schema_version},
+    )
+    session.add(row)
+    session.commit()
+    session.refresh(row)
+    return _snapshot_from_row(row)
+
+
+def list_player_readiness_history(
+    session: Session,
+    *,
+    user_id: str = "local-user",
+    limit: int = 10,
+) -> PlayerReadinessHistory:
+    safe_limit = max(1, min(limit, 50))
+    rows = session.scalars(
+        select(PlayerReadinessSnapshotModel)
+        .where(PlayerReadinessSnapshotModel.user_id == user_id)
+        .order_by(PlayerReadinessSnapshotModel.created_at.desc())
+        .limit(safe_limit)
+    ).all()
+    snapshots = [_snapshot_from_row(row) for row in rows]
+    return PlayerReadinessHistory(
+        snapshots=snapshots,
+        comparison=_compare_readiness_snapshots(snapshots),
+        safety_boundaries=[
+            "History snapshots contain summary readiness metadata only.",
+            "Raw API keys and private account source payloads are never stored in readiness history.",
+            "Score changes are planning signals, not guarantees of build, market, or crafting outcomes.",
+        ],
+    )
+
+
+def render_player_readiness_history_markdown(history: PlayerReadinessHistory) -> str:
+    lines = [
+        "# Player Readiness History",
+        "",
+        f"- Schema: {history.schema_version}",
+        f"- Snapshots: {len(history.snapshots)}",
+        f"- Comparison: {history.comparison.summary}",
+        f"- Score delta: {history.comparison.score_delta}",
+        "",
+        "## Snapshots",
+        "",
+    ]
+    for snapshot in history.snapshots:
+        lines.extend(
+            [
+                f"### {snapshot.created_at.isoformat()}",
+                "",
+                f"- Snapshot id: `{snapshot.snapshot_id}`",
+                f"- Source: {snapshot.source}",
+                f"- Readiness: {snapshot.readiness_label} {snapshot.readiness_score}/100",
+                f"- Checks: {len(snapshot.checks)}",
+                "",
+            ]
+        )
+    lines.extend(["## Changed Checks", ""])
+    lines.extend(f"- {item}" for item in history.comparison.changed_checks or ["No check status changes available."])
+    lines.extend(["", "## Safety Boundaries", ""])
+    lines.extend(f"- {boundary}" for boundary in history.safety_boundaries)
+    return "\n".join(lines) + "\n"
+
+
+def render_player_readiness_history_csv(history: PlayerReadinessHistory) -> str:
+    rows = ["snapshot_id,created_at,source,readiness_label,readiness_score,check_id,check_status"]
+    for snapshot in history.snapshots:
+        for check in snapshot.checks:
+            rows.append(
+                ",".join(
+                    [
+                        _csv(snapshot.snapshot_id),
+                        _csv(snapshot.created_at.isoformat()),
+                        _csv(snapshot.source),
+                        _csv(snapshot.readiness_label),
+                        _csv(str(snapshot.readiness_score)),
+                        _csv(check.check_id),
+                        _csv(check.status),
+                    ]
+                )
+            )
+    rows.extend(
+        [
+            "",
+            "comparison_key,comparison_value",
+            f"status,{_csv(history.comparison.status)}",
+            f"baseline_snapshot_id,{_csv(history.comparison.baseline_snapshot_id or '')}",
+            f"latest_snapshot_id,{_csv(history.comparison.latest_snapshot_id or '')}",
+            f"score_delta,{_csv(str(history.comparison.score_delta))}",
+            f"changed_checks,{_csv('; '.join(history.comparison.changed_checks))}",
+            f"summary,{_csv(history.comparison.summary)}",
+        ]
+    )
+    return "\n".join(rows) + "\n"
+
+
 def _do_not_sell_alerts(graph: GraphData, goal_id: str) -> list[str]:
     if goal_id not in graph.entities:
         return ["Load an active goal before generating do-not-sell alerts."]
@@ -336,3 +486,49 @@ def _csv(value: str) -> str:
     if any(char in text for char in [",", '"', "\n"]):
         return f'"{text.replace(chr(34), chr(34) + chr(34))}"'
     return text
+
+
+def _snapshot_from_row(row: PlayerReadinessSnapshotModel) -> PlayerReadinessSnapshot:
+    return PlayerReadinessSnapshot(
+        snapshot_id=row.snapshot_id,
+        user_id=row.user_id,
+        source=row.source,
+        created_at=row.created_at,
+        readiness_label=row.readiness_label,
+        readiness_score=row.readiness_score,
+        checks=[PlayerReadinessCheck(**item) for item in row.checks_json],
+        next_actions=list(row.next_actions_json),
+        safety_boundaries=list(row.safety_boundaries_json),
+    )
+
+
+def _compare_readiness_snapshots(snapshots: list[PlayerReadinessSnapshot]) -> PlayerReadinessHistoryComparison:
+    if len(snapshots) < 2:
+        return PlayerReadinessHistoryComparison(
+            status="insufficient_history",
+            latest_snapshot_id=snapshots[0].snapshot_id if snapshots else None,
+            summary="Save at least two readiness snapshots before comparing changes.",
+        )
+    latest = snapshots[0]
+    baseline = snapshots[1]
+    latest_checks = {check.check_id: check.status for check in latest.checks}
+    baseline_checks = {check.check_id: check.status for check in baseline.checks}
+    changed = [
+        check_id
+        for check_id in sorted(set(latest_checks) | set(baseline_checks))
+        if latest_checks.get(check_id) != baseline_checks.get(check_id)
+    ]
+    improved = [check_id for check_id in changed if latest_checks.get(check_id) == "ready"]
+    regressed = [check_id for check_id in changed if baseline_checks.get(check_id) == "ready"]
+    score_delta = round(latest.readiness_score - baseline.readiness_score, 2)
+    direction = "unchanged" if score_delta == 0 and not changed else "improved" if score_delta > 0 else "regressed" if score_delta < 0 else "changed"
+    return PlayerReadinessHistoryComparison(
+        status=direction,
+        baseline_snapshot_id=baseline.snapshot_id,
+        latest_snapshot_id=latest.snapshot_id,
+        score_delta=score_delta,
+        changed_checks=changed,
+        improved_checks=improved,
+        regressed_checks=regressed,
+        summary=f"Latest readiness {direction}: score delta {score_delta}, changed checks {len(changed)}.",
+    )

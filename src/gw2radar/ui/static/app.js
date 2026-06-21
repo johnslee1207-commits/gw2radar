@@ -678,6 +678,34 @@ function renderPlayerReadiness(readiness) {
   }
 }
 
+function renderPlayerReadinessHistory(history) {
+  const list = document.querySelector("#player-readiness-history");
+  if (!list) {
+    return;
+  }
+  list.innerHTML = "";
+  const snapshots = history?.snapshots || [];
+  const comparison = history?.comparison || {};
+  const summary = document.createElement("div");
+  const name = document.createElement("strong");
+  const detail = document.createElement("span");
+  summary.className = `compact-list-row ${comparison.status === "regressed" ? "warn" : "info"}`;
+  name.textContent = comparison.summary || "Save at least two readiness snapshots before comparing changes.";
+  detail.textContent = `${snapshots.length} snapshots, delta ${comparison.score_delta || 0}`;
+  summary.append(name, detail);
+  list.appendChild(summary);
+  snapshots.slice(0, 5).forEach((snapshot) => {
+    const item = document.createElement("div");
+    const title = document.createElement("strong");
+    const meta = document.createElement("span");
+    item.className = "compact-list-row";
+    title.textContent = `${snapshot.readiness_label || "unknown"} ${snapshot.readiness_score || 0}/100`;
+    meta.textContent = `${snapshot.source || "player_dashboard"} - ${snapshot.created_at || snapshot.snapshot_id}`;
+    item.append(title, meta);
+    list.appendChild(item);
+  });
+}
+
 function readinessCheckClass(status) {
   if (status === "ready") {
     return "info";
@@ -1484,6 +1512,35 @@ const actions = {
     run("dashboard", async () => {
       const text = await fetch("/api/v1/player/readiness?format=csv").then((response) => response.text());
       downloadText("gw2radar-player-readiness.csv", text, "text/csv");
+      return text;
+    }),
+  savePlayerReadinessSnapshot: () =>
+    run("dashboard", async () => {
+      const saved = await fetchJson("/api/v1/player/readiness/history?source=player_dashboard", { method: "POST" });
+      const history = await fetchJson("/api/v1/player/readiness/history?limit=10");
+      renderPlayerReadinessHistory(history?.data?.history || {});
+      return { saved, history };
+    }),
+  loadPlayerReadinessHistory: () =>
+    run("dashboard", async () => {
+      const history = await fetchJson("/api/v1/player/readiness/history?limit=10");
+      renderPlayerReadinessHistory(history?.data?.history || {});
+      return history;
+    }),
+  exportPlayerReadinessHistoryMarkdown: () =>
+    run("dashboard", async () => {
+      const text = await fetch("/api/v1/player/readiness/history?format=markdown&limit=10").then((response) =>
+        response.text()
+      );
+      downloadText("gw2radar-player-readiness-history.md", text, "text/markdown");
+      return text;
+    }),
+  exportPlayerReadinessHistoryCsv: () =>
+    run("dashboard", async () => {
+      const text = await fetch("/api/v1/player/readiness/history?format=csv&limit=10").then((response) =>
+        response.text()
+      );
+      downloadText("gw2radar-player-readiness-history.csv", text, "text/csv");
       return text;
     }),
   exportAccountValueMarkdown: () =>

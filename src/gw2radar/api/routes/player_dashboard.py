@@ -13,6 +13,10 @@ from gw2radar.commercial.player_intelligence import (
     build_data_freshness_annotations,
     build_player_dashboard_plan,
     build_player_readiness_summary,
+    list_player_readiness_history,
+    record_player_readiness_snapshot,
+    render_player_readiness_history_csv,
+    render_player_readiness_history_markdown,
     render_player_readiness_csv,
     render_player_readiness_markdown,
 )
@@ -49,6 +53,37 @@ def get_player_readiness(format: str = "json") -> ApiDataEnvelope | Response:
             headers={"Content-Disposition": 'attachment; filename="player_readiness_summary.csv"'},
         )
     return ApiDataEnvelope(data={"readiness": readiness.model_dump(mode="json")})
+
+
+@router.post("/readiness/history", response_model=ApiDataEnvelope)
+def post_player_readiness_history_snapshot(source: str = "player_dashboard") -> ApiDataEnvelope:
+    graph = get_graph()
+    init_db()
+    with db_session.SessionLocal() as session:
+        snapshot = build_account_value_snapshot(graph, session)
+        readiness = build_player_readiness_summary(graph, session, snapshot)
+        history_snapshot = record_player_readiness_snapshot(session, readiness, source=source)
+    return ApiDataEnvelope(data={"snapshot": history_snapshot.model_dump(mode="json")})
+
+
+@router.get("/readiness/history", response_model=None)
+def get_player_readiness_history(format: str = "json", limit: int = 10) -> ApiDataEnvelope | Response:
+    init_db()
+    with db_session.SessionLocal() as session:
+        history = list_player_readiness_history(session, limit=limit)
+    if format == "markdown":
+        return Response(
+            content=render_player_readiness_history_markdown(history),
+            media_type="text/markdown; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="player_readiness_history.md"'},
+        )
+    if format == "csv":
+        return Response(
+            content=render_player_readiness_history_csv(history),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="player_readiness_history.csv"'},
+        )
+    return ApiDataEnvelope(data={"history": history.model_dump(mode="json")})
 
 
 @router.get("/freshness-annotations", response_model=ApiDataEnvelope)

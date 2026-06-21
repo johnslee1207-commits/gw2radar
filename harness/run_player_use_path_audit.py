@@ -111,6 +111,43 @@ def main() -> int:
             "mature_readiness_exports",
             "GET /api/v1/player/readiness supports markdown and csv formats without raw secret fields.",
         )
+        first_history = _json(
+            client.post("/api/v1/player/readiness/history?source=player_use_path_audit"),
+            "save first player readiness history snapshot",
+            checks,
+        )
+        second_history = _json(
+            client.post("/api/v1/player/readiness/history?source=player_use_path_audit"),
+            "save second player readiness history snapshot",
+            checks,
+        )
+        readiness_history = _json(
+            client.get("/api/v1/player/readiness/history?limit=10"),
+            "load player readiness history",
+            checks,
+        )
+        readiness_history_md = client.get("/api/v1/player/readiness/history?format=markdown")
+        readiness_history_csv = client.get("/api/v1/player/readiness/history?format=csv")
+        history = _get(readiness_history, "data", "history") or {}
+        _add(
+            checks,
+            "player_readiness_history",
+            "Player readiness history records privacy-safe snapshots and compares the latest two runs.",
+            _get(first_history, "data", "snapshot", "schema_version") == "gw2radar.player_readiness_snapshot.v1"
+            and _get(second_history, "data", "snapshot", "schema_version") == "gw2radar.player_readiness_snapshot.v1"
+            and history.get("schema_version") == "gw2radar.player_readiness_history.v1"
+            and len(history.get("snapshots", [])) >= 2
+            and _get(history, "comparison", "schema_version") == "gw2radar.player_readiness_history_comparison.v1"
+            and readiness_history_md.status_code == 200
+            and "# Player Readiness History" in readiness_history_md.text
+            and readiness_history_csv.status_code == 200
+            and "snapshot_id,created_at,source,readiness_label,readiness_score,check_id,check_status"
+            in readiness_history_csv.text
+            and "api_key" not in json.dumps(history).lower()
+            and "api_key" not in (readiness_history_md.text + readiness_history_csv.text).lower(),
+            "mature_readiness_history",
+            f"{len(history.get('snapshots', []))} snapshots with comparison {(_get(history, 'comparison', 'status') or 'missing')}.",
+        )
         account_value = _json(client.get("/api/v1/player/account-value"), "load account value snapshot", checks)
         value_snapshot = _get(account_value, "data", "account_value_snapshot") or {}
         bridge = _get(value_snapshot, "diagnostics") or {}
@@ -329,6 +366,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "- `AccountValueEvidenceBridge` carries the same summary-only evidence into Build Fit, Legendary Planner, Market Radar, and report artifacts.",
             "- `PlayerReadinessSummary` aggregates sync, account value, Legendary, Market, and Build Fit bridge checks into one dashboard action.",
             "- `PlayerReadinessExport` renders the readiness summary as Markdown and CSV for player/support comparison across sessions.",
+            "- `PlayerReadinessHistory` stores privacy-safe readiness snapshots and compares the latest two score/check states.",
             "- `ReportArtifactManifest` records bridge metadata without storing raw API keys or unredacted private payloads.",
             "",
             "## Known Limits",
@@ -339,7 +377,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Next Priority",
             "",
-            "Add optional readiness history snapshots so senior players can compare sync and price-refresh changes over time.",
+            "Add account value history snapshots so readiness deltas can be correlated with value coverage and price-refresh changes.",
             "",
         ]
     )

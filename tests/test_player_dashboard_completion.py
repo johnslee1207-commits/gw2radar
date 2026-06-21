@@ -86,6 +86,46 @@ def test_player_readiness_endpoint_aggregates_commercial_path_checks() -> None:
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
+def test_player_readiness_history_records_and_exports_snapshot_comparison() -> None:
+    temp_dir = Path(".test_tmp") / f"player-readiness-history-{uuid4().hex}"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        configure_database(f"sqlite:///{temp_dir / 'readiness-history.db'}")
+        init_db()
+        state.reset_cached_graph()
+        client = TestClient(app)
+        assert client.post("/mock/load").status_code == 200
+
+        first = client.post("/api/v1/player/readiness/history?source=test_snapshot")
+        second = client.post("/api/v1/player/readiness/history?source=test_snapshot")
+        history_response = client.get("/api/v1/player/readiness/history?limit=10")
+        history = history_response.json()["data"]["history"]
+        markdown = client.get("/api/v1/player/readiness/history?format=markdown")
+        csv = client.get("/api/v1/player/readiness/history?format=csv")
+
+        assert first.status_code == 200
+        assert second.status_code == 200
+        assert first.json()["data"]["snapshot"]["schema_version"] == "gw2radar.player_readiness_snapshot.v1"
+        assert history_response.status_code == 200
+        assert history["schema_version"] == "gw2radar.player_readiness_history.v1"
+        assert len(history["snapshots"]) == 2
+        assert history["comparison"]["schema_version"] == "gw2radar.player_readiness_history_comparison.v1"
+        assert history["comparison"]["status"] in {"unchanged", "changed", "improved", "regressed"}
+        assert "api_key" not in str(history).lower()
+        assert markdown.status_code == 200
+        assert "# Player Readiness History" in markdown.text
+        assert "## Snapshots" in markdown.text
+        assert "api_key" not in markdown.text.lower()
+        assert csv.status_code == 200
+        assert "snapshot_id,created_at,source,readiness_label,readiness_score,check_id,check_status" in csv.text
+        assert "comparison_key,comparison_value" in csv.text
+        assert "api_key" not in csv.text.lower()
+    finally:
+        close_database()
+        state.reset_cached_graph()
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
 def test_player_account_value_endpoint_exports_dashboard_ready_snapshot() -> None:
     temp_dir = Path(".test_tmp") / f"player-account-value-{uuid4().hex}"
     temp_dir.mkdir(parents=True, exist_ok=True)

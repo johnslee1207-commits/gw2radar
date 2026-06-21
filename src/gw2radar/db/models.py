@@ -299,6 +299,21 @@ class MarketWatchlistModel(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 
+class PlayerReadinessSnapshotModel(Base):
+    __tablename__ = "player_readiness_snapshots"
+
+    snapshot_id: Mapped[str] = mapped_column(String, primary_key=True)
+    user_id: Mapped[str] = mapped_column(String, default="local-user")
+    source: Mapped[str] = mapped_column(String, default="player_dashboard")
+    readiness_label: Mapped[str] = mapped_column(String, nullable=False)
+    readiness_score: Mapped[float] = mapped_column(Float, default=0.0)
+    checks_json: Mapped[list] = mapped_column(JSON, default=list)
+    next_actions_json: Mapped[list] = mapped_column(JSON, default=list)
+    safety_boundaries_json: Mapped[list] = mapped_column(JSON, default=list)
+    properties_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
 class CmsPageModel(Base):
     __tablename__ = "cms_pages"
 

@@ -124,6 +124,10 @@
               <button class="secondary-action" data-action="playerReadiness">Check readiness</button>
               <button class="secondary-action" data-action="exportPlayerReadinessMarkdown">Export readiness MD</button>
               <button class="secondary-action" data-action="exportPlayerReadinessCsv">Export readiness CSV</button>
+              <button class="secondary-action" data-action="savePlayerReadinessSnapshot">Save readiness snapshot</button>
+              <button class="secondary-action" data-action="loadPlayerReadinessHistory">Load readiness history</button>
+              <button class="secondary-action" data-action="exportPlayerReadinessHistoryMarkdown">Export history MD</button>
+              <button class="secondary-action" data-action="exportPlayerReadinessHistoryCsv">Export history CSV</button>
               <button class="secondary-action" data-action="exportAccountValueMarkdown">Export value MD</button>
               <button class="secondary-action" data-action="exportAccountValueCsv">Export value CSV</button>
             </div>
@@ -168,6 +172,8 @@
                 <div><dt>Checks</dt><dd id="player-readiness-check-count">--</dd></div>
               </dl>
               <div id="player-readiness-checks" class="compact-list">Run Check readiness to inspect the full player path.</div>
+              <h3>Readiness history</h3>
+              <div id="player-readiness-history" class="compact-list">Save two readiness snapshots to compare sync and price-refresh changes.</div>
             </article>
             <article class="panel">
               <div class="panel-title">
