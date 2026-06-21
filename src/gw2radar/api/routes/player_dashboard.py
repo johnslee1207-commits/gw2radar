@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
+from pydantic import BaseModel
 
 from gw2radar.api.envelope import ApiDataEnvelope
 from gw2radar.api.state import get_graph
@@ -18,6 +19,7 @@ from gw2radar.commercial.player_intelligence import (
     build_data_freshness_annotations,
     build_player_dashboard_plan,
     build_player_session_packet,
+    build_player_support_handoff_bundle,
     build_player_readiness_summary,
     list_player_readiness_history,
     list_player_session_packet_artifacts,
@@ -27,6 +29,8 @@ from gw2radar.commercial.player_intelligence import (
     render_player_history_correlation_markdown,
     render_player_session_packet_csv,
     render_player_session_packet_markdown,
+    render_player_support_handoff_csv,
+    render_player_support_handoff_markdown,
     render_player_readiness_history_csv,
     render_player_readiness_history_markdown,
     render_player_readiness_csv,
@@ -37,6 +41,10 @@ from gw2radar.db import session as db_session
 from gw2radar.db.init_db import init_db
 
 router = APIRouter(prefix="/api/v1/player", tags=["player-dashboard"])
+
+
+class PlayerSupportHandoffRequest(BaseModel):
+    debug_bundle: dict | None = None
 
 
 @router.get("/dashboard", response_model=ApiDataEnvelope)
@@ -262,3 +270,45 @@ def get_player_session_packet_artifact_file(artifact_id: str, file_name: str) ->
     elif file_name.endswith(".csv"):
         media_type = "text/csv; charset=utf-8"
     return Response(content=path.read_text(encoding="utf-8"), media_type=media_type)
+
+
+@router.post("/support-handoff", response_model=None)
+def post_player_support_handoff(
+    request: PlayerSupportHandoffRequest | None = None,
+    format: str = "json",
+    limit: int = 10,
+) -> ApiDataEnvelope | Response:
+    graph = get_graph()
+    init_db()
+    with db_session.SessionLocal() as session:
+        account_value = build_account_value_snapshot(graph, session)
+        readiness = build_player_readiness_summary(graph, session, account_value)
+        readiness_history = list_player_readiness_history(session, limit=limit)
+        account_value_history = list_account_value_history(session, limit=limit)
+        correlation = build_player_history_correlation(readiness_history, account_value_history)
+        packet = build_player_session_packet(
+            graph,
+            readiness,
+            account_value,
+            readiness_history,
+            account_value_history,
+            correlation,
+        )
+    artifact_bundle = write_player_session_packet_artifacts(packet)
+    handoff = build_player_support_handoff_bundle(
+        session_artifact_bundle=artifact_bundle,
+        debug_bundle=request.debug_bundle if request else None,
+    )
+    if format == "markdown":
+        return Response(
+            content=render_player_support_handoff_markdown(handoff),
+            media_type="text/markdown; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="player_support_handoff.md"'},
+        )
+    if format == "csv":
+        return Response(
+            content=render_player_support_handoff_csv(handoff),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="player_support_handoff.csv"'},
+        )
+    return ApiDataEnvelope(data={"support_handoff": handoff.model_dump(mode="json")})

@@ -19,6 +19,7 @@ from gw2radar.db.models import PlayerReadinessSnapshotModel
 from gw2radar.graph.graph_query import GraphData
 from gw2radar.inference.action_generator import generate_actions
 from gw2radar.inference.goal_gap import calculate_goal_gap
+from gw2radar.support.account_debug_bundle_review import SupportReviewReport, review_account_debug_bundle
 
 
 PLAYER_SESSION_PACKET_ARTIFACT_ROOT = Path("src/gw2radar/reports/artifacts/player_session_packets")
@@ -147,6 +148,22 @@ class PlayerSessionPacketArtifactBundle(BaseModel):
     manifest_path: str
     checksum_sha256: str
     boundary: str = "Player session packet artifacts are local support handoff files; they exclude raw keys and raw private source payloads."
+
+
+class PlayerSupportHandoffBundle(BaseModel):
+    schema_version: str = "gw2radar.player_support_handoff_bundle.v1"
+    handoff_id: str
+    generated_at: datetime
+    support_status: str
+    session_artifact_bundle: PlayerSessionPacketArtifactBundle
+    debug_bundle_review: dict
+    recommended_next_actions: list[str] = Field(default_factory=list)
+    evidence_chain: list[str] = Field(default_factory=list)
+    manifest: dict = Field(default_factory=dict)
+    boundary: str = (
+        "Support handoff bundles contain artifact metadata, checksums, and review summaries only; "
+        "raw keys, raw debug bundles, private account payloads, and full artifact contents are excluded."
+    )
 
 
 def build_data_freshness_annotations(graph: GraphData) -> list[FreshnessAnnotation]:
@@ -821,6 +838,122 @@ def resolve_player_session_packet_artifact_path(
     if not candidate.exists() or not candidate.is_file():
         return None
     return candidate
+
+
+def build_player_support_handoff_bundle(
+    *,
+    session_artifact_bundle: PlayerSessionPacketArtifactBundle,
+    debug_bundle: dict | None = None,
+) -> PlayerSupportHandoffBundle:
+    generated_at = datetime.now(timezone.utc)
+    review = review_account_debug_bundle(debug_bundle) if debug_bundle is not None else _missing_debug_bundle_review()
+    review_payload = review.model_dump(mode="json")
+    recommended_next_actions = _support_handoff_next_actions(review, session_artifact_bundle)
+    evidence_chain = [
+        f"session_artifact:{session_artifact_bundle.artifact_id}",
+        f"session_manifest:{session_artifact_bundle.manifest_path}",
+        f"session_checksum:{session_artifact_bundle.checksum_sha256}",
+        f"debug_bundle_review:{review.overall_status}",
+    ]
+    return PlayerSupportHandoffBundle(
+        handoff_id=f"player-support-handoff-{generated_at.strftime('%Y%m%dT%H%M%S%fZ')}-{uuid4().hex[:8]}",
+        generated_at=generated_at,
+        support_status="ready" if review.overall_status == "ready" else "needs_review",
+        session_artifact_bundle=session_artifact_bundle,
+        debug_bundle_review=review_payload,
+        recommended_next_actions=recommended_next_actions,
+        evidence_chain=evidence_chain,
+        manifest={
+            "schema_version": "gw2radar.player_support_handoff_manifest.v1",
+            "contains_raw_key": False,
+            "contains_raw_debug_bundle": False,
+            "contains_private_source_payload": False,
+            "contains_full_artifact_contents": False,
+            "artifact_file_count": session_artifact_bundle.file_count,
+            "artifact_checksum_sha256": session_artifact_bundle.checksum_sha256,
+            "debug_bundle_schema_version": review.bundle_schema_version,
+            "debug_bundle_overall_status": review.overall_status,
+        },
+    )
+
+
+def render_player_support_handoff_markdown(bundle: PlayerSupportHandoffBundle) -> str:
+    review = bundle.debug_bundle_review
+    lines = [
+        "# Player Support Handoff Bundle",
+        "",
+        f"- Handoff id: {bundle.handoff_id}",
+        f"- Status: {bundle.support_status}",
+        f"- Generated: {bundle.generated_at.isoformat()}",
+        f"- Session artifact: {bundle.session_artifact_bundle.artifact_id}",
+        f"- Session checksum: {bundle.session_artifact_bundle.checksum_sha256}",
+        f"- Debug review status: {review.get('overall_status', 'unknown')}",
+        "",
+        "## Recommended Next Actions",
+        "",
+    ]
+    lines.extend(f"- {action}" for action in bundle.recommended_next_actions)
+    lines.extend(["", "## Evidence Chain", ""])
+    lines.extend(f"- {item}" for item in bundle.evidence_chain)
+    lines.extend(["", "## Artifact Files", ""])
+    for file in bundle.session_artifact_bundle.files:
+        lines.append(f"- {file.file_name}: {file.relative_path} ({file.checksum_sha256})")
+    lines.extend(["", "## Debug Review Findings", ""])
+    findings = review.get("findings", [])
+    if not findings:
+        lines.append("- No blocking debug review finding is present.")
+    for finding in findings:
+        lines.append(
+            f"- [{finding.get('severity', 'info')}] {finding.get('finding_id', 'finding')}: "
+            f"{finding.get('recommended_action', '')}"
+        )
+    lines.extend(["", "## Boundary", "", f"- {bundle.boundary}"])
+    return "\n".join(lines) + "\n"
+
+
+def render_player_support_handoff_csv(bundle: PlayerSupportHandoffBundle) -> str:
+    rows = [
+        "metric,value",
+        f"schema_version,{_csv(bundle.schema_version)}",
+        f"handoff_id,{_csv(bundle.handoff_id)}",
+        f"support_status,{_csv(bundle.support_status)}",
+        f"generated_at,{_csv(bundle.generated_at.isoformat())}",
+        f"session_artifact_id,{_csv(bundle.session_artifact_bundle.artifact_id)}",
+        f"session_checksum_sha256,{_csv(bundle.session_artifact_bundle.checksum_sha256)}",
+        f"artifact_file_count,{_csv(str(bundle.session_artifact_bundle.file_count))}",
+        f"debug_bundle_overall_status,{_csv(str(bundle.debug_bundle_review.get('overall_status', 'unknown')))}",
+        f"contains_raw_key,{_csv(str(bundle.manifest.get('contains_raw_key')))}",
+        f"contains_raw_debug_bundle,{_csv(str(bundle.manifest.get('contains_raw_debug_bundle')))}",
+        f"contains_private_source_payload,{_csv(str(bundle.manifest.get('contains_private_source_payload')))}",
+        f"recommended_next_actions,{_csv('; '.join(bundle.recommended_next_actions))}",
+        f"evidence_chain,{_csv('; '.join(bundle.evidence_chain))}",
+    ]
+    return "\n".join(rows) + "\n"
+
+
+def _missing_debug_bundle_review() -> SupportReviewReport:
+    report = review_account_debug_bundle({})
+    report.overall_status = "debug_bundle_not_provided"
+    report.summary = "No account debug bundle was included in this support handoff."
+    return report
+
+
+def _support_handoff_next_actions(
+    review: SupportReviewReport,
+    session_artifact_bundle: PlayerSessionPacketArtifactBundle,
+) -> list[str]:
+    actions = [
+        f"Open {session_artifact_bundle.manifest_path} and verify the checksum before reviewing packet files.",
+        "Use packet.md for player-facing context and packet.csv for quick triage.",
+    ]
+    if review.overall_status == "debug_bundle_not_provided":
+        actions.append("Ask the player to export a fresh debug bundle from Connect and attach it to a new handoff.")
+    elif review.findings:
+        actions.extend(finding.recommended_action for finding in review.findings[:5])
+    else:
+        actions.append("No account connection blocker is visible; continue normal Build Fit and value-analysis verification.")
+    actions.append("Do not request raw keys or private account payloads during support follow-up.")
+    return actions
 
 
 def _do_not_sell_alerts(graph: GraphData, goal_id: str) -> list[str]:

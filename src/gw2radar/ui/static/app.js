@@ -996,6 +996,33 @@ function renderPlayerSessionPacketArtifacts(bundles) {
   });
 }
 
+function renderPlayerSupportHandoff(handoff) {
+  const list = document.querySelector("#support-handoff-summary");
+  if (!list) {
+    return;
+  }
+  list.innerHTML = "";
+  if (!handoff) {
+    list.textContent = "No support handoff has been created yet.";
+    return;
+  }
+  appendCompactBridgeRow(
+    list,
+    handoff.support_status || "unknown",
+    `${handoff.handoff_id || "handoff"} · checksum ${String(handoff.session_artifact_bundle?.checksum_sha256 || "").slice(0, 12)}`,
+    handoff.support_status === "ready" ? "info" : "warn"
+  );
+  appendCompactBridgeRow(
+    list,
+    "Debug review",
+    handoff.debug_bundle_review?.overall_status || "unknown",
+    handoff.debug_bundle_review?.overall_status === "ready" ? "info" : "warn"
+  );
+  (handoff.recommended_next_actions || []).slice(0, 4).forEach((action) => {
+    appendCompactBridgeRow(list, "Next", action, "warn");
+  });
+}
+
 function valueReadinessClass(label) {
   if (label === "ready") {
     return "info";
@@ -1733,6 +1760,21 @@ const actions = {
       const bundles = await fetchJson("/api/v1/player/session-packet/artifacts?limit=10");
       renderPlayerSessionPacketArtifacts(bundles?.data?.artifact_bundles || []);
       return bundles;
+    }),
+  createPlayerSupportHandoff: () =>
+    run("dashboard", async () => {
+      const debugBundle = await fetchJson("/account/debug-bundle", {
+        method: "POST",
+        body: JSON.stringify(debugBundleClientState()),
+      });
+      const handoff = await fetchJson("/api/v1/player/support-handoff?limit=10", {
+        method: "POST",
+        body: JSON.stringify({ debug_bundle: debugBundle }),
+      });
+      renderPlayerSupportHandoff(handoff?.data?.support_handoff || null);
+      const bundles = await fetchJson("/api/v1/player/session-packet/artifacts?limit=10");
+      renderPlayerSessionPacketArtifacts(bundles?.data?.artifact_bundles || []);
+      return { handoff, bundles };
     }),
   exportAccountValueMarkdown: () =>
     run("dashboard", async () => {

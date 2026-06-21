@@ -290,6 +290,50 @@ def main() -> int:
             "mature_session_packet_artifacts",
             f"{artifact_bundle.get('file_count', 0)} files with checksum {str(artifact_bundle.get('checksum_sha256', ''))[:12]}.",
         )
+        debug_bundle = _json(
+            client.post(
+                "/account/debug-bundle",
+                json={"active_view": "build", "active_build_id": "audit-build", "player_intent": "support_handoff"},
+            ),
+            "export account debug bundle for support handoff",
+            checks,
+        )
+        support_handoff_response = _json(
+            client.post("/api/v1/player/support-handoff?limit=10", json={"debug_bundle": debug_bundle}),
+            "create player support handoff",
+            checks,
+        )
+        support_handoff = _get(support_handoff_response, "data", "support_handoff") or {}
+        support_handoff_md = client.post(
+            "/api/v1/player/support-handoff?format=markdown&limit=10",
+            json={"debug_bundle": debug_bundle},
+        )
+        support_handoff_csv = client.post(
+            "/api/v1/player/support-handoff?format=csv&limit=10",
+            json={"debug_bundle": debug_bundle},
+        )
+        _add(
+            checks,
+            "player_support_handoff",
+            "Support handoff combines session packet artifacts with account debug review metadata.",
+            support_handoff.get("schema_version") == "gw2radar.player_support_handoff_bundle.v1"
+            and _get(support_handoff, "session_artifact_bundle", "schema_version")
+            == "gw2radar.player_session_packet_artifact_bundle.v1"
+            and _get(support_handoff, "debug_bundle_review", "schema_version") == "gw2radar.account_debug_bundle_review.v1"
+            and _get(support_handoff, "manifest", "contains_raw_key") is False
+            and _get(support_handoff, "manifest", "contains_raw_debug_bundle") is False
+            and _get(support_handoff, "manifest", "contains_private_source_payload") is False
+            and len(str(_get(support_handoff, "session_artifact_bundle", "checksum_sha256") or "")) == 64
+            and bool(support_handoff.get("recommended_next_actions"))
+            and support_handoff_md.status_code == 200
+            and "# Player Support Handoff Bundle" in support_handoff_md.text
+            and support_handoff_csv.status_code == 200
+            and "support_status" in support_handoff_csv.text
+            and "private_payload" not in json.dumps(support_handoff).lower()
+            and "private_payload" not in (support_handoff_md.text + support_handoff_csv.text).lower(),
+            "mature_support_handoff",
+            f"{support_handoff.get('support_status', 'unknown')} with {len(support_handoff.get('recommended_next_actions', []))} next actions.",
+        )
 
         imported = _json(client.post("/api/v1/builds/import", json=_sample_build_import()), "import build", checks)
         build_id = _get(imported, "data", "build", "build_id") or "missing-build-id"
@@ -504,6 +548,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "- `PlayerHistoryCorrelation` explains readiness deltas alongside account value, price coverage, and warning deltas.",
             "- `PlayerSessionPacket` packages readiness, value, correlation, and debug-safe support prompts without raw private payloads.",
             "- `PlayerSessionPacketArtifacts` writes local JSON/Markdown/CSV/manifest files with checksums and path-safe retrieval.",
+            "- `PlayerSupportHandoffBundle` combines packet artifact metadata with account debug review status for privacy-safe support triage.",
             "- `ReportArtifactManifest` records bridge metadata without storing raw API keys or unredacted private payloads.",
             "",
             "## Known Limits",
@@ -514,7 +559,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Next Priority",
             "",
-            "Add a one-click support handoff bundle that includes session packet artifacts and account debug bundle review metadata.",
+            "Add local support handoff artifact files and path-safe retrieval so handoff bundles can be archived with checksums.",
             "",
         ]
     )

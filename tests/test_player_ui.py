@@ -47,9 +47,11 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert "Export packet CSV" in response.text
     assert "Write packet files" in response.text
     assert "Load packet files" in response.text
+    assert "Create support handoff" in response.text
     assert "Session Packet" in response.text
     assert "Load session packet to prepare a debug-safe support summary." in response.text
     assert "Write packet files to create a checksum manifest for support handoff." in response.text
+    assert "Create support handoff after connection diagnostic and packet files are ready." in response.text
     assert "History Correlation" in response.text
     assert "Load history correlation after saving readiness and value snapshots." in response.text
     assert "Readiness history" in response.text
@@ -249,6 +251,9 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "loadPlayerSessionPacketArtifacts" in js.text
     assert "/api/v1/player/session-packet/artifacts?limit=10" in js.text
     assert "renderPlayerSessionPacketArtifacts" in js.text
+    assert "createPlayerSupportHandoff" in js.text
+    assert "/api/v1/player/support-handoff?limit=10" in js.text
+    assert "renderPlayerSupportHandoff" in js.text
     assert "renderPlayerReadiness" in js.text
     assert "readinessCheckClass" in js.text
     assert "gw2radar.player_readiness_summary.v1" in js.text or "readiness_score" in js.text
