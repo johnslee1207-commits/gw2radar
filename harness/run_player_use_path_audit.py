@@ -337,6 +337,54 @@ def main() -> int:
             "mature_support_case_incident_dashboard",
             f"{len(support_case_incident_dashboard.get('status_cards', []))} cards with status {support_case_incident_dashboard.get('support_status', 'missing')}.",
         )
+        support_case_incident_packet_response = _json(
+            client.post("/api/v1/player/support-case/incident-packet?limit=20"),
+            "write support case incident packet",
+            checks,
+        )
+        support_case_incident_packet = _get(
+            support_case_incident_packet_response,
+            "data",
+            "support_case_incident_packet",
+        ) or {}
+        support_case_incident_packets_response = _json(
+            client.get("/api/v1/player/support-case/incident-packet?limit=10"),
+            "list support case incident packets",
+            checks,
+        )
+        support_case_incident_packet_id = support_case_incident_packet.get("packet_id", "")
+        support_case_incident_packet_manifest = client.get(
+            f"/api/v1/player/support-case/incident-packet/{support_case_incident_packet_id}/manifest.json"
+        )
+        support_case_incident_packet_markdown = client.get(
+            f"/api/v1/player/support-case/incident-packet/{support_case_incident_packet_id}/dashboard.md"
+        )
+        support_case_incident_packet_blocked = client.get(
+            f"/api/v1/player/support-case/incident-packet/{support_case_incident_packet_id}/../manifest.json"
+        )
+        _add(
+            checks,
+            "support_case_incident_packet",
+            "Support case incident packet writes dashboard JSON, Markdown, CSV, and manifest files with checksums and path-safe retrieval.",
+            support_case_incident_packet.get("schema_version")
+            == "gw2radar.support_case_incident_packet_manifest.v1"
+            and support_case_incident_packet.get("file_count") == 4
+            and len(str(support_case_incident_packet.get("checksum_sha256", ""))) == 64
+            and support_case_incident_packet.get("contains_raw_key") is False
+            and support_case_incident_packet.get("contains_private_source_payload") is False
+            and {"dashboard.json", "dashboard.md", "dashboard.csv", "manifest.json"}
+            == {file.get("file_name") for file in support_case_incident_packet.get("files", [])}
+            and _get(support_case_incident_packets_response, "data", "support_case_incident_packets", 0, "packet_id")
+            == support_case_incident_packet_id
+            and support_case_incident_packet_manifest.status_code == 200
+            and "gw2radar.support_case_incident_packet_manifest.v1" in support_case_incident_packet_manifest.text
+            and support_case_incident_packet_markdown.status_code == 200
+            and "# Support Case Incident Dashboard" in support_case_incident_packet_markdown.text
+            and support_case_incident_packet_blocked.status_code == 404
+            and "secret-key" not in json.dumps(support_case_incident_packet).lower(),
+            "mature_support_case_incident_packet",
+            f"4 files with checksum {str(support_case_incident_packet.get('checksum_sha256', ''))[:12]}.",
+        )
         player_readiness = _json(client.get("/api/v1/player/readiness"), "load player readiness", checks)
         readiness = _get(player_readiness, "data", "readiness") or {}
         _add(
@@ -1130,6 +1178,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "- `GatewayIncidentHistory` persists metadata-only incident snapshots, compares retry/failure deltas, and exports Markdown/CSV support evidence.",
             "- `GatewayIncidentReviewNote` lets support annotate, assign, close, and export metadata-only incident follow-up state.",
             "- `SupportCaseIncidentDashboard` aggregates gateway incidents, support review audits, and handoff readiness into one operator case view.",
+            "- `SupportCaseIncidentPacket` writes dashboard JSON/Markdown/CSV/manifest files with checksums and path-safe retrieval.",
             "- `PrivatePlayerState` stores private account summaries separately from public game and KB layers.",
             "- `AccountValueSnapshot` normalizes holdings, price coverage, source diagnostics, and remediation actions.",
             "- `AccountValueHistory` stores privacy-safe value coverage snapshots and compares value/coverage/freshness deltas.",
@@ -1158,7 +1207,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Next Priority",
             "",
-            "Package the support case incident dashboard into a deterministic case packet with manifest, Markdown, CSV, and checksum exports.",
+            "Add a read-only zip bundle and verification import for support case incident packets.",
             "",
         ]
     )

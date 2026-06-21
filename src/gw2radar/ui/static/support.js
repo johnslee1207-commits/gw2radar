@@ -26,6 +26,8 @@ const refreshGatewayNotesButton = document.querySelector("#refresh-gateway-notes
 const exportGatewayNotesMdButton = document.querySelector("#export-gateway-notes-md-button");
 const exportGatewayNotesCsvButton = document.querySelector("#export-gateway-notes-csv-button");
 const refreshIncidentDashboardButton = document.querySelector("#refresh-incident-dashboard-button");
+const writeIncidentPacketButton = document.querySelector("#write-incident-packet-button");
+const loadIncidentPacketsButton = document.querySelector("#load-incident-packets-button");
 const exportIncidentDashboardMdButton = document.querySelector("#export-incident-dashboard-md-button");
 const exportIncidentDashboardCsvButton = document.querySelector("#export-incident-dashboard-csv-button");
 const summary = document.querySelector("#support-summary");
@@ -60,6 +62,7 @@ const gatewayNoteSummary = document.querySelector("#gateway-note-summary");
 const gatewayNoteList = document.querySelector("#gateway-note-list");
 const incidentDashboardSummary = document.querySelector("#incident-dashboard-summary");
 const incidentDashboardCards = document.querySelector("#incident-dashboard-cards");
+const incidentPacketList = document.querySelector("#incident-packet-list");
 const output = document.querySelector("#support-output");
 let lastBundle = null;
 let lastReview = null;
@@ -323,6 +326,20 @@ function exportSupportCaseIncidentDashboard(format) {
   window.location.href = `/api/v1/player/support-case/incident-dashboard?format=${format}&limit=20`;
 }
 
+async function writeSupportCaseIncidentPacket() {
+  const response = await fetch("/api/v1/player/support-case/incident-packet?limit=20", { method: "POST" });
+  const payload = await response.json();
+  output.textContent = JSON.stringify(payload, null, 2);
+  incidentDashboardSummary.textContent = `Support case incident packet written: ${payload.data?.support_case_incident_packet?.packet_id || "unknown"}.`;
+  await loadSupportCaseIncidentPackets();
+}
+
+async function loadSupportCaseIncidentPackets() {
+  const response = await fetch("/api/v1/player/support-case/incident-packet?limit=10");
+  const payload = await response.json();
+  renderSupportCaseIncidentPackets(payload.data?.support_case_incident_packets || []);
+}
+
 function renderSupportCaseIncidentDashboard(dashboard) {
   const cards = Array.isArray(dashboard.status_cards) ? dashboard.status_cards : [];
   incidentDashboardSummary.textContent = `${dashboard.support_status || "unknown"} · ${dashboard.maturity_label || "unknown"} · gateway notes ${dashboard.gateway_note_count || 0} · support audits ${dashboard.support_audit_count || 0}.`;
@@ -340,6 +357,26 @@ function renderSupportCaseIncidentDashboard(dashboard) {
     summaryText.textContent = card.summary || "";
     item.append(title, summaryText);
     incidentDashboardCards.appendChild(item);
+  }
+}
+
+function renderSupportCaseIncidentPackets(packets) {
+  incidentPacketList.innerHTML = "";
+  if (!packets.length) {
+    incidentPacketList.textContent = "No support case incident packets are available yet.";
+    return;
+  }
+  for (const packet of packets) {
+    const item = document.createElement("article");
+    item.className = "support-audit-record info";
+    const title = document.createElement("strong");
+    title.textContent = `${packet.support_status || "unknown"} · ${packet.packet_id}`;
+    const meta = document.createElement("span");
+    meta.textContent = `${packet.file_count || 0} files · checksum ${packet.checksum_sha256 || "none"}`;
+    const links = document.createElement("p");
+    links.textContent = `Manifest: /api/v1/player/support-case/incident-packet/${packet.packet_id}/manifest.json`;
+    item.append(title, meta, links);
+    incidentPacketList.appendChild(item);
   }
 }
 
@@ -751,6 +788,10 @@ exportGatewayNotesMdButton?.addEventListener("click", () => exportGatewayInciden
 exportGatewayNotesCsvButton?.addEventListener("click", () => exportGatewayIncidentNotes("csv"));
 
 refreshIncidentDashboardButton?.addEventListener("click", refreshSupportCaseIncidentDashboard);
+
+writeIncidentPacketButton?.addEventListener("click", writeSupportCaseIncidentPacket);
+
+loadIncidentPacketsButton?.addEventListener("click", loadSupportCaseIncidentPackets);
 
 exportIncidentDashboardMdButton?.addEventListener("click", () => exportSupportCaseIncidentDashboard("markdown"));
 

@@ -75,8 +75,11 @@ from gw2radar.commercial.gateway_incidents import (
 )
 from gw2radar.commercial.support_case_incidents import (
     build_support_case_incident_dashboard,
+    list_support_case_incident_packets,
+    resolve_support_case_incident_packet_path,
     render_support_case_incident_dashboard_csv,
     render_support_case_incident_dashboard_markdown,
+    write_support_case_incident_packet,
 )
 from gw2radar.db import session as db_session
 from gw2radar.db.init_db import init_db
@@ -642,6 +645,45 @@ def get_player_support_handoff_dashboard(format: str = "json") -> ApiDataEnvelop
 
 @router.get("/support-case/incident-dashboard", response_model=None)
 def get_player_support_case_incident_dashboard(format: str = "json", limit: int = 20) -> ApiDataEnvelope | Response:
+    dashboard = _build_support_case_incident_dashboard(limit=limit)
+    if format == "markdown":
+        return Response(
+            content=render_support_case_incident_dashboard_markdown(dashboard),
+            media_type="text/markdown; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="support_case_incident_dashboard.md"'},
+        )
+    if format == "csv":
+        return Response(
+            content=render_support_case_incident_dashboard_csv(dashboard),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="support_case_incident_dashboard.csv"'},
+        )
+    return ApiDataEnvelope(data={"support_case_incident_dashboard": dashboard.model_dump(mode="json")})
+
+
+@router.post("/support-case/incident-packet", response_model=ApiDataEnvelope)
+def post_player_support_case_incident_packet(limit: int = 20) -> ApiDataEnvelope:
+    dashboard = _build_support_case_incident_dashboard(limit=limit)
+    packet = write_support_case_incident_packet(dashboard)
+    return ApiDataEnvelope(data={"support_case_incident_packet": packet.model_dump(mode="json")})
+
+
+@router.get("/support-case/incident-packet", response_model=ApiDataEnvelope)
+def get_player_support_case_incident_packets(limit: int = 20) -> ApiDataEnvelope:
+    packets = list_support_case_incident_packets(limit=limit)
+    return ApiDataEnvelope(data={"support_case_incident_packets": [packet.model_dump(mode="json") for packet in packets]})
+
+
+@router.get("/support-case/incident-packet/{packet_id}/{file_name}", response_model=None)
+def get_player_support_case_incident_packet_file(packet_id: str, file_name: str) -> Response:
+    path = resolve_support_case_incident_packet_path(packet_id, file_name)
+    if path is None:
+        raise HTTPException(status_code=404, detail="Support case incident packet file not found")
+    media_type = "application/json" if file_name.endswith(".json") else "text/markdown" if file_name.endswith(".md") else "text/csv" if file_name.endswith(".csv") else "text/plain"
+    return Response(content=path.read_text(encoding="utf-8"), media_type=f"{media_type}; charset=utf-8")
+
+
+def _build_support_case_incident_dashboard(limit: int = 20):
     _ensure_player_support_handoff_artifact()
     if not list_player_support_handoff_zip_verification_audits(limit=1).records:
         record_player_support_handoff_zip_verification_audit(
@@ -657,26 +699,13 @@ def get_player_support_case_incident_dashboard(format: str = "json", limit: int 
         support_audits = list_support_review_audits(session, limit=limit)
         support_metrics = build_support_review_metrics(support_audits)
     handoff_dashboard = build_player_support_handoff_dashboard()
-    dashboard = build_support_case_incident_dashboard(
+    return build_support_case_incident_dashboard(
         gateway_history=gateway_history,
         gateway_notes=gateway_notes,
         support_audits=support_audits,
         support_metrics=support_metrics,
         handoff_dashboard=handoff_dashboard,
     )
-    if format == "markdown":
-        return Response(
-            content=render_support_case_incident_dashboard_markdown(dashboard),
-            media_type="text/markdown; charset=utf-8",
-            headers={"Content-Disposition": 'attachment; filename="support_case_incident_dashboard.md"'},
-        )
-    if format == "csv":
-        return Response(
-            content=render_support_case_incident_dashboard_csv(dashboard),
-            media_type="text/csv; charset=utf-8",
-            headers={"Content-Disposition": 'attachment; filename="support_case_incident_dashboard.csv"'},
-        )
-    return ApiDataEnvelope(data={"support_case_incident_dashboard": dashboard.model_dump(mode="json")})
 
 
 @router.post("/support-handoff/final-archive", response_model=ApiDataEnvelope)

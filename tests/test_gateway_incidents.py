@@ -155,6 +155,8 @@ def test_player_gateway_incident_timeline_correlates_refresh_events_without_secr
         incident_dashboard = client.get("/api/v1/player/support-case/incident-dashboard?limit=20")
         incident_dashboard_md = client.get("/api/v1/player/support-case/incident-dashboard?format=markdown&limit=20")
         incident_dashboard_csv = client.get("/api/v1/player/support-case/incident-dashboard?format=csv&limit=20")
+        incident_packet = client.post("/api/v1/player/support-case/incident-packet?limit=20")
+        incident_packets = client.get("/api/v1/player/support-case/incident-packet?limit=10")
         session_packet = client.get("/api/v1/player/session-packet?limit=10")
 
         assert first_snapshot.status_code == 200
@@ -202,6 +204,31 @@ def test_player_gateway_incident_timeline_correlates_refresh_events_without_secr
         assert "# Support Case Incident Dashboard" in incident_dashboard_md.text
         assert incident_dashboard_csv.status_code == 200
         assert "ready,maturity_label,support_status" in incident_dashboard_csv.text
+        assert incident_packet.status_code == 200
+        packet_payload = incident_packet.json()["data"]["support_case_incident_packet"]
+        assert packet_payload["schema_version"] == "gw2radar.support_case_incident_packet_manifest.v1"
+        assert packet_payload["file_count"] == 4
+        assert len(packet_payload["checksum_sha256"]) == 64
+        assert packet_payload["contains_raw_key"] is False
+        assert packet_payload["contains_private_source_payload"] is False
+        assert {file["file_name"] for file in packet_payload["files"]} == {
+            "dashboard.json",
+            "dashboard.md",
+            "dashboard.csv",
+            "manifest.json",
+        }
+        assert incident_packets.status_code == 200
+        assert incident_packets.json()["data"]["support_case_incident_packets"][0]["packet_id"] == packet_payload["packet_id"]
+        manifest = client.get(f"/api/v1/player/support-case/incident-packet/{packet_payload['packet_id']}/manifest.json")
+        packet_md = client.get(f"/api/v1/player/support-case/incident-packet/{packet_payload['packet_id']}/dashboard.md")
+        blocked_path = client.get(f"/api/v1/player/support-case/incident-packet/{packet_payload['packet_id']}/../manifest.json")
+        missing_file = client.get(f"/api/v1/player/support-case/incident-packet/{packet_payload['packet_id']}/secret.txt")
+        assert manifest.status_code == 200
+        assert "gw2radar.support_case_incident_packet_manifest.v1" in manifest.text
+        assert packet_md.status_code == 200
+        assert "# Support Case Incident Dashboard" in packet_md.text
+        assert blocked_path.status_code == 404
+        assert missing_file.status_code == 404
         assert session_packet.status_code == 200
         packet = session_packet.json()["data"]["session_packet"]
         assert packet["gateway_incident_history"]["schema_version"] == "gw2radar.gateway_incident_history.v1"
