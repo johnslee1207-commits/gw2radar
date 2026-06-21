@@ -1,9 +1,11 @@
 from datetime import datetime, timedelta, timezone
+from uuid import uuid4
 
 from pydantic import BaseModel, Field
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from gw2radar.db.models import LegendaryGoalModel, MarketSnapshotModel
+from gw2radar.db.models import AccountValueSnapshotModel, LegendaryGoalModel, MarketSnapshotModel
 from gw2radar.graph.graph_query import GraphData
 from gw2radar.inference.goal_gap import calculate_goal_gap
 from gw2radar.ontology.graph_layers import GraphLayer
@@ -155,6 +157,47 @@ class AccountValueSnapshot(BaseModel):
     warnings: list[AccountValueWarning] = Field(default_factory=list)
     diagnostics: AccountValueDiagnostics = Field(default_factory=AccountValueDiagnostics)
     assumptions: list[str] = Field(default_factory=list)
+    safety_boundaries: list[str] = Field(default_factory=list)
+
+
+class AccountValueHistorySnapshot(BaseModel):
+    schema_version: str = "gw2radar.account_value_history_snapshot.v1"
+    snapshot_id: str
+    user_id: str
+    source: str
+    account_id: str | None = None
+    created_at: datetime
+    total_value_buy_copper: int = 0
+    net_sell_value_copper: int = 0
+    value_coverage_percent: float = 0.0
+    price_coverage_percent: float = 0.0
+    freshness_label: str = "unknown"
+    summary: dict = Field(default_factory=dict)
+    diagnostics: dict = Field(default_factory=dict)
+    top_holdings: list[dict] = Field(default_factory=list)
+    warning_codes: list[str] = Field(default_factory=list)
+    safety_boundaries: list[str] = Field(default_factory=list)
+
+
+class AccountValueHistoryComparison(BaseModel):
+    schema_version: str = "gw2radar.account_value_history_comparison.v1"
+    status: str
+    baseline_snapshot_id: str | None = None
+    latest_snapshot_id: str | None = None
+    total_value_buy_delta_copper: int = 0
+    net_sell_value_delta_copper: int = 0
+    value_coverage_delta: float = 0.0
+    price_coverage_delta: float = 0.0
+    freshness_changed: bool = False
+    warning_codes_added: list[str] = Field(default_factory=list)
+    warning_codes_removed: list[str] = Field(default_factory=list)
+    summary: str
+
+
+class AccountValueHistory(BaseModel):
+    schema_version: str = "gw2radar.account_value_history.v1"
+    snapshots: list[AccountValueHistorySnapshot]
+    comparison: AccountValueHistoryComparison
     safety_boundaries: list[str] = Field(default_factory=list)
 
 
@@ -370,6 +413,148 @@ def render_account_value_snapshot_csv(snapshot: AccountValueSnapshot) -> str:
             )
         )
     return "\n".join(lines) + "\n"
+
+
+def record_account_value_history_snapshot(
+    session: Session,
+    snapshot: AccountValueSnapshot,
+    *,
+    user_id: str = "local-user",
+    source: str = "player_dashboard",
+) -> AccountValueHistorySnapshot:
+    snapshot_id = f"account_value_{uuid4().hex}"
+    warning_codes = sorted({warning.warning_code for warning in snapshot.warnings})
+    row = AccountValueSnapshotModel(
+        snapshot_id=snapshot_id,
+        user_id=user_id,
+        source=source,
+        account_id=snapshot.account_id,
+        total_value_buy_copper=snapshot.summary.total_value_buy_copper,
+        net_sell_value_copper=snapshot.summary.net_sell_value_copper,
+        value_coverage_percent=snapshot.diagnostics.value_coverage_percent,
+        price_coverage_percent=snapshot.diagnostics.price_coverage_percent,
+        freshness_label=snapshot.diagnostics.freshness_label,
+        summary_json=snapshot.summary.model_dump(mode="json"),
+        diagnostics_json={
+            "schema_version": snapshot.diagnostics.schema_version,
+            "source_insights": [item.model_dump(mode="json") for item in snapshot.diagnostics.source_insights[:8]],
+            "remediation_actions": [item.model_dump(mode="json") for item in snapshot.diagnostics.remediation_actions[:8]],
+            "visualization_notes": list(snapshot.diagnostics.visualization_notes),
+        },
+        top_holdings_json=[
+            {
+                "entity_id": holding.entity_id,
+                "canonical_name": holding.canonical_name,
+                "location_type": holding.location_type,
+                "valuation_status": holding.valuation_status,
+                "value_buy_copper": holding.value_buy_copper,
+                "net_sell_value_copper": holding.net_sell_value_copper,
+            }
+            for holding in snapshot.top_holdings[:10]
+        ],
+        warning_codes_json=warning_codes,
+        safety_boundaries_json=list(snapshot.safety_boundaries),
+    )
+    session.add(row)
+    session.commit()
+    session.refresh(row)
+    return _account_value_history_snapshot_from_row(row)
+
+
+def list_account_value_history(
+    session: Session,
+    *,
+    user_id: str = "local-user",
+    limit: int = 10,
+) -> AccountValueHistory:
+    safe_limit = max(1, min(limit, 50))
+    rows = session.scalars(
+        select(AccountValueSnapshotModel)
+        .where(AccountValueSnapshotModel.user_id == user_id)
+        .order_by(AccountValueSnapshotModel.created_at.desc())
+        .limit(safe_limit)
+    ).all()
+    snapshots = [_account_value_history_snapshot_from_row(row) for row in rows]
+    return AccountValueHistory(
+        snapshots=snapshots,
+        comparison=_compare_account_value_snapshots(snapshots),
+        safety_boundaries=[
+            "Account value history stores summary metrics only.",
+            "Raw API keys and private account source payloads are never stored in account value history.",
+            "Value changes are planning signals and may reflect price freshness, sync coverage, or manual snapshots.",
+        ],
+    )
+
+
+def render_account_value_history_markdown(history: AccountValueHistory) -> str:
+    lines = [
+        "# Account Value History",
+        "",
+        f"- Schema: {history.schema_version}",
+        f"- Snapshots: {len(history.snapshots)}",
+        f"- Comparison: {history.comparison.summary}",
+        f"- Total value delta: {history.comparison.total_value_buy_delta_copper} copper",
+        f"- Price coverage delta: {history.comparison.price_coverage_delta}",
+        "",
+        "## Snapshots",
+        "",
+    ]
+    for snapshot in history.snapshots:
+        lines.extend(
+            [
+                f"### {snapshot.created_at.isoformat()}",
+                "",
+                f"- Snapshot id: `{snapshot.snapshot_id}`",
+                f"- Source: {snapshot.source}",
+                f"- Total buy value: {snapshot.total_value_buy_copper} copper",
+                f"- Net sell value: {snapshot.net_sell_value_copper} copper",
+                f"- Value coverage: {snapshot.value_coverage_percent}%",
+                f"- Price coverage: {snapshot.price_coverage_percent}%",
+                f"- Freshness: {snapshot.freshness_label}",
+                f"- Warning codes: {', '.join(snapshot.warning_codes) if snapshot.warning_codes else 'none'}",
+                "",
+            ]
+        )
+    lines.extend(["## Safety Boundaries", ""])
+    lines.extend(f"- {boundary}" for boundary in history.safety_boundaries)
+    return "\n".join(lines) + "\n"
+
+
+def render_account_value_history_csv(history: AccountValueHistory) -> str:
+    rows = [
+        "snapshot_id,created_at,source,total_value_buy_copper,net_sell_value_copper,value_coverage_percent,price_coverage_percent,freshness_label,warning_codes"
+    ]
+    for snapshot in history.snapshots:
+        rows.append(
+            ",".join(
+                [
+                    _csv(snapshot.snapshot_id),
+                    _csv(snapshot.created_at.isoformat()),
+                    _csv(snapshot.source),
+                    _csv(snapshot.total_value_buy_copper),
+                    _csv(snapshot.net_sell_value_copper),
+                    _csv(snapshot.value_coverage_percent),
+                    _csv(snapshot.price_coverage_percent),
+                    _csv(snapshot.freshness_label),
+                    _csv("; ".join(snapshot.warning_codes)),
+                ]
+            )
+        )
+    rows.extend(
+        [
+            "",
+            "comparison_key,comparison_value",
+            f"status,{_csv(history.comparison.status)}",
+            f"baseline_snapshot_id,{_csv(history.comparison.baseline_snapshot_id or '')}",
+            f"latest_snapshot_id,{_csv(history.comparison.latest_snapshot_id or '')}",
+            f"total_value_buy_delta_copper,{_csv(history.comparison.total_value_buy_delta_copper)}",
+            f"net_sell_value_delta_copper,{_csv(history.comparison.net_sell_value_delta_copper)}",
+            f"value_coverage_delta,{_csv(history.comparison.value_coverage_delta)}",
+            f"price_coverage_delta,{_csv(history.comparison.price_coverage_delta)}",
+            f"summary,{_csv(history.comparison.summary)}",
+        ]
+    )
+    return "\n".join(rows) + "\n"
 
 
 def _holding_from_state(graph: GraphData, state) -> AccountHolding | None:
@@ -809,3 +994,64 @@ def _csv(value: object) -> str:
     text = "" if value is None else str(value)
     escaped = text.replace('"', '""')
     return f'"{escaped}"'
+
+
+def _account_value_history_snapshot_from_row(row: AccountValueSnapshotModel) -> AccountValueHistorySnapshot:
+    return AccountValueHistorySnapshot(
+        snapshot_id=row.snapshot_id,
+        user_id=row.user_id,
+        source=row.source,
+        account_id=row.account_id,
+        created_at=row.created_at,
+        total_value_buy_copper=row.total_value_buy_copper,
+        net_sell_value_copper=row.net_sell_value_copper,
+        value_coverage_percent=row.value_coverage_percent,
+        price_coverage_percent=row.price_coverage_percent,
+        freshness_label=row.freshness_label,
+        summary=dict(row.summary_json),
+        diagnostics=dict(row.diagnostics_json),
+        top_holdings=list(row.top_holdings_json),
+        warning_codes=list(row.warning_codes_json),
+        safety_boundaries=list(row.safety_boundaries_json),
+    )
+
+
+def _compare_account_value_snapshots(snapshots: list[AccountValueHistorySnapshot]) -> AccountValueHistoryComparison:
+    if len(snapshots) < 2:
+        return AccountValueHistoryComparison(
+            status="insufficient_history",
+            latest_snapshot_id=snapshots[0].snapshot_id if snapshots else None,
+            summary="Save at least two account value snapshots before comparing price or sync changes.",
+        )
+    latest = snapshots[0]
+    baseline = snapshots[1]
+    total_delta = latest.total_value_buy_copper - baseline.total_value_buy_copper
+    net_delta = latest.net_sell_value_copper - baseline.net_sell_value_copper
+    value_coverage_delta = round(latest.value_coverage_percent - baseline.value_coverage_percent, 2)
+    price_coverage_delta = round(latest.price_coverage_percent - baseline.price_coverage_percent, 2)
+    added = sorted(set(latest.warning_codes) - set(baseline.warning_codes))
+    removed = sorted(set(baseline.warning_codes) - set(latest.warning_codes))
+    if total_delta == 0 and value_coverage_delta == 0 and price_coverage_delta == 0 and not added and not removed:
+        status = "unchanged"
+    elif total_delta >= 0 and price_coverage_delta >= 0 and not added:
+        status = "improved"
+    elif total_delta < 0 or price_coverage_delta < 0 or added:
+        status = "needs_review"
+    else:
+        status = "changed"
+    return AccountValueHistoryComparison(
+        status=status,
+        baseline_snapshot_id=baseline.snapshot_id,
+        latest_snapshot_id=latest.snapshot_id,
+        total_value_buy_delta_copper=total_delta,
+        net_sell_value_delta_copper=net_delta,
+        value_coverage_delta=value_coverage_delta,
+        price_coverage_delta=price_coverage_delta,
+        freshness_changed=latest.freshness_label != baseline.freshness_label,
+        warning_codes_added=added,
+        warning_codes_removed=removed,
+        summary=(
+            f"Latest account value {status}: buy value delta {total_delta} copper, "
+            f"price coverage delta {price_coverage_delta}, warning changes +{len(added)}/-{len(removed)}."
+        ),
+    )

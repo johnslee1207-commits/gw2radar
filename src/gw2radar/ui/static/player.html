@@ -188,6 +188,10 @@
               </dl>
               <div class="button-row">
                 <button class="secondary-action" data-action="refreshOfficialPrices">Refresh official prices</button>
+                <button class="secondary-action" data-action="saveAccountValueSnapshot">Save value snapshot</button>
+                <button class="secondary-action" data-action="loadAccountValueHistory">Load value history</button>
+                <button class="secondary-action" data-action="exportAccountValueHistoryMarkdown">Export value history MD</button>
+                <button class="secondary-action" data-action="exportAccountValueHistoryCsv">Export value history CSV</button>
               </div>
               <div class="result-summary" id="price-remediation-summary">Refresh status to inspect missing or stale price coverage.</div>
               <div class="value-dashboard-detail">
@@ -199,6 +203,8 @@
                 <div id="value-source-insights" class="compact-list">Refresh status to load source coverage.</div>
                 <h4>Next value actions</h4>
                 <div id="value-remediation-actions" class="compact-list">Refresh status to load remediation actions.</div>
+                <h4>Value history</h4>
+                <div id="account-value-history" class="compact-list">Save two value snapshots to compare sync and price-refresh changes.</div>
               </div>
             </article>
             <article class="panel">

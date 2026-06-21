@@ -163,6 +163,42 @@ def main() -> int:
             "mature_evidence_spine",
             "GET /api/v1/player/account-value returns account_value_snapshot.diagnostics.",
         )
+        first_value_history = _json(
+            client.post("/api/v1/player/account-value/history?source=player_use_path_audit"),
+            "save first account value history snapshot",
+            checks,
+        )
+        second_value_history = _json(
+            client.post("/api/v1/player/account-value/history?source=player_use_path_audit"),
+            "save second account value history snapshot",
+            checks,
+        )
+        value_history_response = _json(
+            client.get("/api/v1/player/account-value/history?limit=10"),
+            "load account value history",
+            checks,
+        )
+        value_history_md = client.get("/api/v1/player/account-value/history?format=markdown")
+        value_history_csv = client.get("/api/v1/player/account-value/history?format=csv")
+        value_history = _get(value_history_response, "data", "history") or {}
+        _add(
+            checks,
+            "account_value_history",
+            "Account value history records privacy-safe value coverage snapshots and compares the latest two runs.",
+            _get(first_value_history, "data", "snapshot", "schema_version") == "gw2radar.account_value_history_snapshot.v1"
+            and _get(second_value_history, "data", "snapshot", "schema_version") == "gw2radar.account_value_history_snapshot.v1"
+            and value_history.get("schema_version") == "gw2radar.account_value_history.v1"
+            and len(value_history.get("snapshots", [])) >= 2
+            and _get(value_history, "comparison", "schema_version") == "gw2radar.account_value_history_comparison.v1"
+            and value_history_md.status_code == 200
+            and "# Account Value History" in value_history_md.text
+            and value_history_csv.status_code == 200
+            and "snapshot_id,created_at,source,total_value_buy_copper" in value_history_csv.text
+            and "api_key" not in json.dumps(value_history).lower()
+            and "api_key" not in (value_history_md.text + value_history_csv.text).lower(),
+            "mature_value_history",
+            f"{len(value_history.get('snapshots', []))} snapshots with comparison {(_get(value_history, 'comparison', 'status') or 'missing')}.",
+        )
 
         imported = _json(client.post("/api/v1/builds/import", json=_sample_build_import()), "import build", checks)
         build_id = _get(imported, "data", "build", "build_id") or "missing-build-id"
@@ -363,6 +399,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "- `ApiKeyConnection` gates account-aware recommendations through permission checks and sync status.",
             "- `PrivatePlayerState` stores private account summaries separately from public game and KB layers.",
             "- `AccountValueSnapshot` normalizes holdings, price coverage, source diagnostics, and remediation actions.",
+            "- `AccountValueHistory` stores privacy-safe value coverage snapshots and compares value/coverage/freshness deltas.",
             "- `AccountValueEvidenceBridge` carries the same summary-only evidence into Build Fit, Legendary Planner, Market Radar, and report artifacts.",
             "- `PlayerReadinessSummary` aggregates sync, account value, Legendary, Market, and Build Fit bridge checks into one dashboard action.",
             "- `PlayerReadinessExport` renders the readiness summary as Markdown and CSV for player/support comparison across sessions.",
@@ -377,7 +414,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Next Priority",
             "",
-            "Add account value history snapshots so readiness deltas can be correlated with value coverage and price-refresh changes.",
+            "Correlate readiness history with account value history in one comparison endpoint and UI panel.",
             "",
         ]
     )

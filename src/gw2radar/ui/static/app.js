@@ -866,6 +866,34 @@ function renderValueRemediationActions(actions) {
   }
 }
 
+function renderAccountValueHistory(history) {
+  const element = document.querySelector("#account-value-history");
+  if (!element) {
+    return;
+  }
+  element.innerHTML = "";
+  const snapshots = history?.snapshots || [];
+  const comparison = history?.comparison || {};
+  const summary = document.createElement("div");
+  const title = document.createElement("strong");
+  const detail = document.createElement("span");
+  summary.className = `compact-list-row ${comparison.status === "needs_review" ? "warn" : "info"}`;
+  title.textContent = comparison.summary || "Save at least two account value snapshots before comparing changes.";
+  detail.textContent = `${snapshots.length} snapshots, price coverage delta ${comparison.price_coverage_delta || 0}`;
+  summary.append(title, detail);
+  element.appendChild(summary);
+  snapshots.slice(0, 5).forEach((snapshot) => {
+    const item = document.createElement("div");
+    const name = document.createElement("strong");
+    const body = document.createElement("span");
+    item.className = "compact-list-row";
+    name.textContent = `${formatCopper(snapshot.total_value_buy_copper || 0)} · ${snapshot.freshness_label || "unknown"}`;
+    body.textContent = `value ${snapshot.value_coverage_percent || 0}% / price ${snapshot.price_coverage_percent || 0}% - ${snapshot.created_at || snapshot.snapshot_id}`;
+    item.append(name, body);
+    element.appendChild(item);
+  });
+}
+
 function valueReadinessClass(label) {
   if (label === "ready") {
     return "info";
@@ -1553,6 +1581,35 @@ const actions = {
     run("dashboard", async () => {
       const text = await fetch("/api/v1/player/account-value?format=csv").then((response) => response.text());
       downloadText("gw2radar-account-value.csv", text, "text/csv");
+      return text;
+    }),
+  saveAccountValueSnapshot: () =>
+    run("dashboard", async () => {
+      const saved = await fetchJson("/api/v1/player/account-value/history?source=player_dashboard", { method: "POST" });
+      const history = await fetchJson("/api/v1/player/account-value/history?limit=10");
+      renderAccountValueHistory(history?.data?.history || {});
+      return { saved, history };
+    }),
+  loadAccountValueHistory: () =>
+    run("dashboard", async () => {
+      const history = await fetchJson("/api/v1/player/account-value/history?limit=10");
+      renderAccountValueHistory(history?.data?.history || {});
+      return history;
+    }),
+  exportAccountValueHistoryMarkdown: () =>
+    run("dashboard", async () => {
+      const text = await fetch("/api/v1/player/account-value/history?format=markdown&limit=10").then((response) =>
+        response.text()
+      );
+      downloadText("gw2radar-account-value-history.md", text, "text/markdown");
+      return text;
+    }),
+  exportAccountValueHistoryCsv: () =>
+    run("dashboard", async () => {
+      const text = await fetch("/api/v1/player/account-value/history?format=csv&limit=10").then((response) =>
+        response.text()
+      );
+      downloadText("gw2radar-account-value-history.csv", text, "text/csv");
       return text;
     }),
   refreshOfficialPrices: () =>

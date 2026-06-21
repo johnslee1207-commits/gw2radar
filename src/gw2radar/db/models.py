@@ -314,6 +314,26 @@ class PlayerReadinessSnapshotModel(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 
+class AccountValueSnapshotModel(Base):
+    __tablename__ = "account_value_snapshots"
+
+    snapshot_id: Mapped[str] = mapped_column(String, primary_key=True)
+    user_id: Mapped[str] = mapped_column(String, default="local-user")
+    source: Mapped[str] = mapped_column(String, default="player_dashboard")
+    account_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    total_value_buy_copper: Mapped[int] = mapped_column(Integer, default=0)
+    net_sell_value_copper: Mapped[int] = mapped_column(Integer, default=0)
+    value_coverage_percent: Mapped[float] = mapped_column(Float, default=0.0)
+    price_coverage_percent: Mapped[float] = mapped_column(Float, default=0.0)
+    freshness_label: Mapped[str] = mapped_column(String, default="unknown")
+    summary_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    diagnostics_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    top_holdings_json: Mapped[list] = mapped_column(JSON, default=list)
+    warning_codes_json: Mapped[list] = mapped_column(JSON, default=list)
+    safety_boundaries_json: Mapped[list] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
 class CmsPageModel(Base):
     __tablename__ = "cms_pages"
 

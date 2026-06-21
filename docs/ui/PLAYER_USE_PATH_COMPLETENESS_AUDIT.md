@@ -3,7 +3,7 @@
 - Schema: gw2radar.player_use_path_completeness_audit.v1
 - Maturity label: ready
 - Readiness score: 100.0
-- Passed checks: 9
+- Passed checks: 10
 - Failed checks: 0
 - Privacy boundary: raw API keys and private source payloads must not appear in this audit.
 
@@ -16,6 +16,7 @@
 | `player_readiness_exports` | PASS | mature_readiness_exports | GET /api/v1/player/readiness supports markdown and csv formats without raw secret fields. | None for MVP depth. |
 | `player_readiness_history` | PASS | mature_readiness_history | 2 snapshots with comparison unchanged. | None for MVP depth. |
 | `account_value_diagnostics` | PASS | mature_evidence_spine | GET /api/v1/player/account-value returns account_value_snapshot.diagnostics. | None for MVP depth. |
+| `account_value_history` | PASS | mature_value_history | 2 snapshots with comparison unchanged. | None for MVP depth. |
 | `build_fit_bridge` | PASS | mature_semantic_bridge | gw2radar.account_value_evidence_bridge.v1 with 3 source summaries and 2 remediation items. | None for MVP depth. |
 | `legendary_bridge` | PASS | mature_semantic_bridge | gw2radar.account_value_evidence_bridge.v1 with 3 source summaries and 2 remediation items. | None for MVP depth. |
 | `market_bridge` | PASS | mature_semantic_bridge | gw2radar.account_value_evidence_bridge.v1 with 3 source summaries and 2 remediation items. | None for MVP depth. |
@@ -26,6 +27,7 @@
 - `ApiKeyConnection` gates account-aware recommendations through permission checks and sync status.
 - `PrivatePlayerState` stores private account summaries separately from public game and KB layers.
 - `AccountValueSnapshot` normalizes holdings, price coverage, source diagnostics, and remediation actions.
+- `AccountValueHistory` stores privacy-safe value coverage snapshots and compares value/coverage/freshness deltas.
 - `AccountValueEvidenceBridge` carries the same summary-only evidence into Build Fit, Legendary Planner, Market Radar, and report artifacts.
 - `PlayerReadinessSummary` aggregates sync, account value, Legendary, Market, and Build Fit bridge checks into one dashboard action.
 - `PlayerReadinessExport` renders the readiness summary as Markdown and CSV for player/support comparison across sessions.
@@ -40,4 +42,4 @@
 
 ## Next Priority
 
-Add account value history snapshots so readiness deltas can be correlated with value coverage and price-refresh changes.
+Correlate readiness history with account value history in one comparison endpoint and UI panel.

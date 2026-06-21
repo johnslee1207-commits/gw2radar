@@ -58,6 +58,12 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert "Run fit score or transition plan to inspect account value evidence." in response.text
     assert "Export value MD" in response.text
     assert "Export value CSV" in response.text
+    assert "Save value snapshot" in response.text
+    assert "Load value history" in response.text
+    assert "Export value history MD" in response.text
+    assert "Export value history CSV" in response.text
+    assert "Value history" in response.text
+    assert "Save two value snapshots to compare sync and price-refresh changes." in response.text
     assert "Delete all private data" in response.text
     assert "Check permissions" in response.text
     assert "Sync now" in response.text
@@ -232,6 +238,16 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "Official price refresh" in js.text
     assert "exportAccountValueMarkdown" in js.text
     assert "exportAccountValueCsv" in js.text
+    assert "saveAccountValueSnapshot" in js.text
+    assert "loadAccountValueHistory" in js.text
+    assert "exportAccountValueHistoryMarkdown" in js.text
+    assert "exportAccountValueHistoryCsv" in js.text
+    assert "/api/v1/player/account-value/history?source=player_dashboard" in js.text
+    assert "/api/v1/player/account-value/history?format=markdown&limit=10" in js.text
+    assert "/api/v1/player/account-value/history?format=csv&limit=10" in js.text
+    assert "gw2radar-account-value-history.md" in js.text
+    assert "gw2radar-account-value-history.csv" in js.text
+    assert "renderAccountValueHistory" in js.text
     assert "downloadText" in js.text
     assert "/api/v1/player/freshness-annotations" in js.text
     assert "/api/v1/legendary/goals/catalog" in js.text

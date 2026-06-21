@@ -175,6 +175,57 @@ def test_player_account_value_endpoint_exports_dashboard_ready_snapshot() -> Non
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
+def test_player_account_value_history_records_and_exports_snapshot_comparison() -> None:
+    temp_dir = Path(".test_tmp") / f"player-account-value-history-{uuid4().hex}"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        configure_database(f"sqlite:///{temp_dir / 'account-value-history.db'}")
+        init_db()
+        state.reset_cached_graph()
+        client = TestClient(app)
+        assert client.post("/mock/load").status_code == 200
+        with db_session.SessionLocal() as session:
+            record_price_snapshot(
+                session,
+                PriceSnapshotInput(
+                    item_id="gw2:item:mystic_coin",
+                    item_name="Mystic Coin",
+                    buy_price_copper=12000,
+                    sell_price_copper=12500,
+                    volume=10000,
+                ),
+            )
+
+        first = client.post("/api/v1/player/account-value/history?source=test_snapshot")
+        second = client.post("/api/v1/player/account-value/history?source=test_snapshot")
+        history_response = client.get("/api/v1/player/account-value/history?limit=10")
+        history = history_response.json()["data"]["history"]
+        markdown = client.get("/api/v1/player/account-value/history?format=markdown")
+        csv = client.get("/api/v1/player/account-value/history?format=csv")
+
+        assert first.status_code == 200
+        assert second.status_code == 200
+        assert first.json()["data"]["snapshot"]["schema_version"] == "gw2radar.account_value_history_snapshot.v1"
+        assert history_response.status_code == 200
+        assert history["schema_version"] == "gw2radar.account_value_history.v1"
+        assert len(history["snapshots"]) == 2
+        assert history["comparison"]["schema_version"] == "gw2radar.account_value_history_comparison.v1"
+        assert history["comparison"]["status"] in {"unchanged", "changed", "improved", "needs_review"}
+        assert "api_key" not in str(history).lower()
+        assert markdown.status_code == 200
+        assert "# Account Value History" in markdown.text
+        assert "## Snapshots" in markdown.text
+        assert "api_key" not in markdown.text.lower()
+        assert csv.status_code == 200
+        assert "snapshot_id,created_at,source,total_value_buy_copper" in csv.text
+        assert "comparison_key,comparison_value" in csv.text
+        assert "api_key" not in csv.text.lower()
+    finally:
+        close_database()
+        state.reset_cached_graph()
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
 def test_legendary_catalog_and_actions_cover_player_guide_goal_choices() -> None:
     temp_dir = Path(".test_tmp") / f"legendary-catalog-{uuid4().hex}"
     temp_dir.mkdir(parents=True, exist_ok=True)
