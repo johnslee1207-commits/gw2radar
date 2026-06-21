@@ -105,8 +105,10 @@ def get_market_signals(goal_id: str = "gw2:goal:aurora") -> ApiDataEnvelope:
         raise HTTPException(status_code=404, detail="Goal not found")
     init_db()
     with db_session.SessionLocal() as session:
-        signals = [signal.model_dump(mode="json") for signal in infer_market_signals(session, graph, goal_id)]
-    return ApiDataEnvelope(data={"signals": signals})
+        report = build_market_radar_report(session, graph, goal_id, DEFAULT_USER_ID)
+        signals = [signal.model_dump(mode="json") for signal in report.signals]
+        evidence = report.account_value_evidence.model_dump(mode="json") if report.account_value_evidence else None
+    return ApiDataEnvelope(data={"signals": signals, "account_value_evidence": evidence})
 
 
 @router.post("/report", response_model=ApiDataEnvelope)

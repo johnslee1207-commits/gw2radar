@@ -805,6 +805,42 @@ function valueReadinessClass(label) {
   return "";
 }
 
+function renderAccountValueEvidenceBridge(selector, bridge) {
+  const element = document.querySelector(selector);
+  if (!element) {
+    return;
+  }
+  element.innerHTML = "";
+  if (!bridge) {
+    element.textContent = "No account value evidence bridge is available yet.";
+    return;
+  }
+  const rows = [
+    ["Coverage", `value ${bridge.value_coverage_percent || 0}% / price ${bridge.price_coverage_percent || 0}% / ${bridge.freshness_label || "unknown"}`],
+    ["Do-not-sell", `${bridge.do_not_sell_note_count || 0} reserved holdings / ${bridge.warning_count || 0} warnings`],
+  ];
+  for (const [label, detail] of rows) {
+    appendCompactBridgeRow(element, label, detail, "info");
+  }
+  for (const source of (bridge.source_summary || []).slice(0, 3)) {
+    appendCompactBridgeRow(element, "Source", source, "");
+  }
+  for (const action of (bridge.remediation_summary || []).slice(0, 3)) {
+    appendCompactBridgeRow(element, "Action", action, "warn");
+  }
+}
+
+function appendCompactBridgeRow(element, label, detail, className) {
+  const item = document.createElement("div");
+  const name = document.createElement("strong");
+  const body = document.createElement("span");
+  item.className = `compact-list-row ${className || ""}`;
+  name.textContent = label;
+  body.textContent = detail;
+  item.append(name, body);
+  element.appendChild(item);
+}
+
 function remediationMessage(warning) {
   const message = warning.player_message || "";
   if (warning.warning_code === "missing_price") {
@@ -1578,7 +1614,12 @@ const actions = {
     }),
   legendaryPortfolio: () => run("legendary", () => fetchJson("/api/v1/legendary/portfolio")),
   legendaryActions: () => run("legendary", () => fetchJson("/api/v1/legendary/actions")),
-  legendaryRecompute: () => run("legendary", () => fetchJson("/api/v1/legendary/recompute", { method: "POST" })),
+  legendaryRecompute: () =>
+    run("legendary", async () => {
+      const payload = await fetchJson("/api/v1/legendary/recompute", { method: "POST" });
+      renderAccountValueEvidenceBridge("#legendary-value-evidence", payload?.data?.planner?.account_value_evidence);
+      return payload;
+    }),
   legendaryDoNotSell: () => run("legendary", () => fetchJson("/api/v1/legendary/do-not-sell")),
   legendaryReport: () =>
     run("legendary", () =>
@@ -1613,7 +1654,12 @@ const actions = {
       }),
     ),
   goalCostIndex: () => run("legendary", () => fetchJson("/api/v1/market/goal-cost-index?goal_id=gw2:goal:aurora")),
-  marketSignals: () => run("legendary", () => fetchJson("/api/v1/market/signals?goal_id=gw2:goal:aurora")),
+  marketSignals: () =>
+    run("legendary", async () => {
+      const payload = await fetchJson("/api/v1/market/signals?goal_id=gw2:goal:aurora");
+      renderAccountValueEvidenceBridge("#market-value-evidence", payload?.data?.account_value_evidence);
+      return payload;
+    }),
   loadAchievementRouteSources: () =>
     run("routes", async () => {
       const payload = await fetchJson("/api/v1/achievement-routes/sources");
@@ -2440,19 +2486,23 @@ const actions = {
     }),
   listBuilds: () => run("build", () => fetchJson("/api/v1/builds")),
   evaluateBuild: () =>
-    run("build", () =>
-      fetchJson("/api/v1/builds/fit", {
+    run("build", async () => {
+      const payload = await fetchJson("/api/v1/builds/fit", {
         method: "POST",
         body: JSON.stringify({ build_id: requireActiveBuildId(), account_gear: accountGearPayload() }),
-      }),
-    ),
+      });
+      renderAccountValueEvidenceBridge("#build-value-evidence", payload?.data?.fit?.transition_plan?.account_value_evidence);
+      return payload;
+    }),
   transitionPlan: () =>
-    run("build", () =>
-      fetchJson("/api/v1/builds/transition-plan", {
+    run("build", async () => {
+      const payload = await fetchJson("/api/v1/builds/transition-plan", {
         method: "POST",
         body: JSON.stringify({ build_id: requireActiveBuildId(), account_gear: accountGearPayload() }),
-      }),
-    ),
+      });
+      renderAccountValueEvidenceBridge("#build-value-evidence", payload?.data?.transition_plan?.account_value_evidence);
+      return payload;
+    }),
   buildFreshness: () => run("build", () => fetchJson(`/api/v1/builds/${encodeURIComponent(requireActiveBuildId())}/patch-freshness`)),
   previewBuildUpgradeRules: () =>
     run("build", async () => {

@@ -39,6 +39,12 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert "Value Warnings" in response.text
     assert "Refresh official prices" in response.text
     assert "Refresh status to inspect missing or stale price coverage." in response.text
+    assert "Legendary value evidence" in response.text
+    assert "Market value evidence" in response.text
+    assert "Build value evidence" in response.text
+    assert "Run cheap/fast path to inspect account value evidence." in response.text
+    assert "Load market signals to inspect account value evidence." in response.text
+    assert "Run fit score or transition plan to inspect account value evidence." in response.text
     assert "Export value MD" in response.text
     assert "Export value CSV" in response.text
     assert "Delete all private data" in response.text
@@ -180,6 +186,12 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "renderPriceRemediationSummary" in js.text
     assert "renderValueSourceInsights" in js.text
     assert "renderValueRemediationActions" in js.text
+    assert "renderAccountValueEvidenceBridge" in js.text
+    assert "appendCompactBridgeRow" in js.text
+    assert "#legendary-value-evidence" in js.text
+    assert "#market-value-evidence" in js.text
+    assert "#build-value-evidence" in js.text
+    assert "account_value_evidence" in js.text
     assert "valueReadinessClass" in js.text
     assert "price_coverage_percent" in js.text
     assert "remediationMessage" in js.text
