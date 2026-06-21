@@ -119,6 +119,10 @@ function renderActionList(selector, actions) {
 function summarizeResult(target, payload) {
   const data = payload?.data || payload;
   if (target === "dashboard") {
+    if (data?.readiness?.data?.readiness) {
+      const readiness = data.readiness.data.readiness;
+      return `Player readiness ${readiness.readiness_label}: ${readiness.readiness_score}/100 across ${readiness.checks?.length || 0} checks.`;
+    }
     if (data?.refresh?.data?.official_price_refresh) {
       const refresh = data.refresh.data.official_price_refresh;
       return `Official price refresh ${refresh.status}: ${refresh.refreshed_item_count || 0}/${refresh.requested_item_count || 0} items refreshed.`;
@@ -643,6 +647,45 @@ function renderAccountValueSummary(snapshot) {
   renderPriceRemediationSummary(snapshot);
   renderValueSourceInsights(snapshot.diagnostics?.source_insights || []);
   renderValueRemediationActions(snapshot.diagnostics?.remediation_actions || []);
+}
+
+function renderPlayerReadiness(readiness) {
+  const label = document.querySelector("#player-readiness-label");
+  const score = document.querySelector("#player-readiness-score");
+  const count = document.querySelector("#player-readiness-check-count");
+  const list = document.querySelector("#player-readiness-checks");
+  if (!label || !score || !count || !list) {
+    return;
+  }
+  label.textContent = readiness?.readiness_label || "unknown";
+  score.textContent = typeof readiness?.readiness_score === "number" ? `${readiness.readiness_score}/100` : "--";
+  count.textContent = `${readiness?.checks?.length || 0}`;
+  list.innerHTML = "";
+  const checks = readiness?.checks || [];
+  if (!checks.length) {
+    list.textContent = "No readiness checks are available yet.";
+    return;
+  }
+  for (const check of checks) {
+    const item = document.createElement("div");
+    const name = document.createElement("strong");
+    const detail = document.createElement("span");
+    item.className = `compact-list-row ${readinessCheckClass(check.status)}`;
+    name.textContent = `${check.label || check.check_id}: ${check.status || "unknown"}`;
+    detail.textContent = check.status === "ready" ? check.evidence || "" : `${check.evidence || ""} Next: ${check.next_action || ""}`;
+    item.append(name, detail);
+    list.appendChild(item);
+  }
+}
+
+function readinessCheckClass(status) {
+  if (status === "ready") {
+    return "info";
+  }
+  if (status === "blocked" || status === "needs_sync" || status === "needs_data" || status === "needs_price") {
+    return "warn";
+  }
+  return "";
 }
 
 function formatCopper(value) {
@@ -1417,7 +1460,19 @@ const actions = {
       renderHoldingSummary(holdings?.data?.account_holding_index || {});
       const value = await fetchJson("/api/v1/player/account-value");
       renderAccountValueSummary(value?.data?.account_value_snapshot || {});
-      return { account: key, sync, dashboard, holdings, value };
+      const readiness = await fetchJson("/api/v1/player/readiness");
+      renderPlayerReadiness(readiness?.data?.readiness || {});
+      return { account: key, sync, dashboard, holdings, value, readiness };
+    }),
+  playerReadiness: () =>
+    run("dashboard", async () => {
+      const sync = await fetchJson("/api/v1/account/sync/status");
+      updateStatusFromSync(sync);
+      const value = await fetchJson("/api/v1/player/account-value");
+      renderAccountValueSummary(value?.data?.account_value_snapshot || {});
+      const readiness = await fetchJson("/api/v1/player/readiness");
+      renderPlayerReadiness(readiness?.data?.readiness || {});
+      return { sync, value, readiness };
     }),
   exportAccountValueMarkdown: () =>
     run("dashboard", async () => {

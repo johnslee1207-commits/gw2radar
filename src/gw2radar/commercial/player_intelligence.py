@@ -1,5 +1,9 @@
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
+from gw2radar.commercial.account_value import AccountValueSnapshot, build_account_value_evidence_bridge
+from gw2radar.commercial.legendary_planner import recompute_legendary_plan
+from gw2radar.commercial.market_radar import build_market_radar_report
 from gw2radar.graph.graph_query import GraphData
 from gw2radar.inference.action_generator import generate_actions
 from gw2radar.inference.goal_gap import calculate_goal_gap
@@ -31,6 +35,23 @@ class PlayerDashboardPlan(BaseModel):
     do_not_sell_alerts: list[str]
     data_freshness: list[FreshnessAnnotation]
     assumptions: list[str] = Field(default_factory=list)
+
+
+class PlayerReadinessCheck(BaseModel):
+    check_id: str
+    label: str
+    status: str
+    evidence: str
+    next_action: str
+
+
+class PlayerReadinessSummary(BaseModel):
+    schema_version: str = "gw2radar.player_readiness_summary.v1"
+    readiness_label: str
+    readiness_score: float
+    checks: list[PlayerReadinessCheck]
+    next_actions: list[str]
+    safety_boundaries: list[str] = Field(default_factory=list)
 
 
 def build_data_freshness_annotations(graph: GraphData) -> list[FreshnessAnnotation]:
@@ -134,6 +155,58 @@ def build_player_dashboard_plan(graph: GraphData, goal_id: str = "gw2:goal:auror
     )
 
 
+def build_player_readiness_summary(
+    graph: GraphData,
+    session: Session,
+    value_snapshot: AccountValueSnapshot,
+    *,
+    goal_id: str = "gw2:goal:aurora",
+) -> PlayerReadinessSummary:
+    bridge = build_account_value_evidence_bridge(value_snapshot)
+    checks = [
+        PlayerReadinessCheck(
+            check_id="account_sync",
+            label="Account sync",
+            status="ready" if graph.player_state else "needs_sync",
+            evidence=f"{len(graph.player_state)} private player-state summaries available.",
+            next_action="Run Sync now from Connect before trusting account-aware plans.",
+        ),
+        PlayerReadinessCheck(
+            check_id="account_value",
+            label="Account value diagnostics",
+            status="ready" if value_snapshot.diagnostics.source_insights else "needs_data",
+            evidence=f"Value coverage {bridge.value_coverage_percent}% and price coverage {bridge.price_coverage_percent}%.",
+            next_action="Refresh official prices or add manual snapshots for unpriced holdings.",
+        ),
+        _legendary_readiness_check(graph, session, goal_id),
+        _market_readiness_check(graph, session, goal_id),
+        PlayerReadinessCheck(
+            check_id="build_fit_bridge",
+            label="Build Fit evidence bridge",
+            status="ready" if bridge.schema_version == "gw2radar.account_value_evidence_bridge.v1" else "blocked",
+            evidence=f"{len(bridge.source_summary)} value sources and {len(bridge.remediation_summary)} remediation hints are bridgeable into Build Fit.",
+            next_action="Import a build and run Fit score or Transition plan to attach this bridge.",
+        ),
+    ]
+    ready_count = sum(1 for check in checks if check.status == "ready")
+    score = round(ready_count / len(checks) * 100, 2) if checks else 0.0
+    blockers = [check for check in checks if check.status == "blocked"]
+    needs_review = [check for check in checks if check.status not in {"ready", "blocked"}]
+    label = "ready" if not blockers and not needs_review else "blocked" if blockers else "needs_review"
+    return PlayerReadinessSummary(
+        readiness_label=label,
+        readiness_score=score,
+        checks=checks,
+        next_actions=[check.next_action for check in checks if check.status != "ready"][:5]
+        or ["All readiness checks are ready at MVP depth; proceed with manual planning review."],
+        safety_boundaries=[
+            "This readiness card is planning guidance only.",
+            "GW2Radar never places trades, changes gear, crafts items, or guarantees outcomes.",
+            "Raw API keys and private source payloads are excluded from readiness output.",
+        ],
+    )
+
+
 def render_freshness_markdown(graph: GraphData) -> str:
     lines = ["## Data Freshness & Source Confidence"]
     for annotation in build_data_freshness_annotations(graph):
@@ -158,3 +231,42 @@ def _do_not_sell_alerts(graph: GraphData, goal_id: str) -> list[str]:
         if graph.quantity_owned(item.entity_id) > 0
     ]
     return alerts[:5] or ["No owned active-goal materials detected; verify manually before selling."]
+
+
+def _legendary_readiness_check(graph: GraphData, session: Session, goal_id: str) -> PlayerReadinessCheck:
+    if goal_id not in graph.entities:
+        return PlayerReadinessCheck(
+            check_id="legendary_planner",
+            label="Legendary Planner",
+            status="blocked",
+            evidence=f"Goal {goal_id} is not loaded.",
+            next_action="Load the demo graph or select an available legendary goal.",
+        )
+    planner = recompute_legendary_plan(session, graph)
+    bridge_ready = planner.account_value_evidence is not None
+    return PlayerReadinessCheck(
+        check_id="legendary_planner",
+        label="Legendary Planner",
+        status="ready" if planner.portfolio.goals and bridge_ready else "needs_goal",
+        evidence=f"{len(planner.portfolio.goals)} goals, {len(planner.do_not_sell)} do-not-sell notes, bridge {str(bridge_ready).lower()}.",
+        next_action="Add or prioritize a legendary goal, then run Cheap/fast path.",
+    )
+
+
+def _market_readiness_check(graph: GraphData, session: Session, goal_id: str) -> PlayerReadinessCheck:
+    if goal_id not in graph.entities:
+        return PlayerReadinessCheck(
+            check_id="market_radar",
+            label="Market Radar",
+            status="blocked",
+            evidence=f"Goal {goal_id} is not loaded.",
+            next_action="Load a goal before market signal review.",
+        )
+    report = build_market_radar_report(session, graph, goal_id)
+    return PlayerReadinessCheck(
+        check_id="market_radar",
+        label="Market Radar",
+        status="ready" if report.account_value_evidence is not None else "needs_price",
+        evidence=f"{len(report.signals)} market signals and {len(report.trends)} watched price trends available.",
+        next_action="Record or refresh price snapshots, then run Market signals.",
+    )

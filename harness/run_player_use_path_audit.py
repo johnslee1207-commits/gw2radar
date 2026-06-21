@@ -66,6 +66,8 @@ def main() -> int:
                 for marker in [
                     "GW2 API key",
                     "Sync controls",
+                    "Check readiness",
+                    "Player Readiness",
                     "Refresh official prices",
                     "Legendary value evidence",
                     "Market value evidence",
@@ -80,6 +82,19 @@ def main() -> int:
         )
 
         _json(client.post("/mock/load"), "load demo graph", checks)
+        player_readiness = _json(client.get("/api/v1/player/readiness"), "load player readiness", checks)
+        readiness = _get(player_readiness, "data", "readiness") or {}
+        _add(
+            checks,
+            "player_readiness_action",
+            "One-click player readiness action aggregates sync, account value, legendary, market, and build-fit bridge checks.",
+            readiness.get("schema_version") == "gw2radar.player_readiness_summary.v1"
+            and {"account_sync", "account_value", "legendary_planner", "market_radar", "build_fit_bridge"}
+            <= {check.get("check_id") for check in readiness.get("checks", [])}
+            and "api_key" not in json.dumps(readiness).lower(),
+            "mature_dashboard_readiness",
+            f"{readiness.get('readiness_label', 'missing')} at {readiness.get('readiness_score', 0)}/100 with {len(readiness.get('checks', []))} checks.",
+        )
         account_value = _json(client.get("/api/v1/player/account-value"), "load account value snapshot", checks)
         value_snapshot = _get(account_value, "data", "account_value_snapshot") or {}
         bridge = _get(value_snapshot, "diagnostics") or {}
@@ -296,6 +311,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "- `PrivatePlayerState` stores private account summaries separately from public game and KB layers.",
             "- `AccountValueSnapshot` normalizes holdings, price coverage, source diagnostics, and remediation actions.",
             "- `AccountValueEvidenceBridge` carries the same summary-only evidence into Build Fit, Legendary Planner, Market Radar, and report artifacts.",
+            "- `PlayerReadinessSummary` aggregates sync, account value, Legendary, Market, and Build Fit bridge checks into one dashboard action.",
             "- `ReportArtifactManifest` records bridge metadata without storing raw API keys or unredacted private payloads.",
             "",
             "## Known Limits",
@@ -306,7 +322,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Next Priority",
             "",
-            "Add a player-facing one-click readiness action that runs sync status, account value, legendary recompute, market signals, and build fit bridge checks into a single dashboard card.",
+            "Add optional CSV/Markdown export for player readiness so support and senior players can compare readiness changes across sessions.",
             "",
         ]
     )

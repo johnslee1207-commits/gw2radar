@@ -38,6 +38,44 @@ def test_player_dashboard_returns_best_actions_and_freshness_annotations() -> No
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
+def test_player_readiness_endpoint_aggregates_commercial_path_checks() -> None:
+    temp_dir = Path(".test_tmp") / f"player-readiness-{uuid4().hex}"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        configure_database(f"sqlite:///{temp_dir / 'readiness.db'}")
+        init_db()
+        state.reset_cached_graph()
+        client = TestClient(app)
+        assert client.post("/mock/load").status_code == 200
+        with db_session.SessionLocal() as session:
+            record_price_snapshot(
+                session,
+                PriceSnapshotInput(
+                    item_id="gw2:item:mystic_coin",
+                    item_name="Mystic Coin",
+                    buy_price_copper=12000,
+                    sell_price_copper=12500,
+                    volume=10000,
+                ),
+            )
+
+        response = client.get("/api/v1/player/readiness")
+        readiness = response.json()["data"]["readiness"]
+        check_ids = {check["check_id"] for check in readiness["checks"]}
+
+        assert response.status_code == 200
+        assert readiness["schema_version"] == "gw2radar.player_readiness_summary.v1"
+        assert readiness["readiness_label"] in {"ready", "needs_review", "blocked"}
+        assert readiness["readiness_score"] >= 0
+        assert {"account_sync", "account_value", "legendary_planner", "market_radar", "build_fit_bridge"} <= check_ids
+        assert "api_key" not in str(readiness).lower()
+        assert "never places trades" in " ".join(readiness["safety_boundaries"])
+    finally:
+        close_database()
+        state.reset_cached_graph()
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
 def test_player_account_value_endpoint_exports_dashboard_ready_snapshot() -> None:
     temp_dir = Path(".test_tmp") / f"player-account-value-{uuid4().hex}"
     temp_dir.mkdir(parents=True, exist_ok=True)

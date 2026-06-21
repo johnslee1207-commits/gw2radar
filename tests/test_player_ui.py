@@ -30,6 +30,9 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert "No gameplay automation" in response.text
     assert "Workflow readiness" in response.text
     assert "No dashboard summary yet." in response.text
+    assert "Check readiness" in response.text
+    assert "Player Readiness" in response.text
+    assert "Run Check readiness to inspect the full player path." in response.text
     assert "Account Value Coverage" in response.text
     assert "Location breakdown" in response.text
     assert "Status breakdown" in response.text
@@ -177,6 +180,11 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "/account/diagnostic" in js.text
     assert "/account/debug-bundle" in js.text
     assert "/api/v1/player/dashboard" in js.text
+    assert "/api/v1/player/readiness" in js.text
+    assert "playerReadiness" in js.text
+    assert "renderPlayerReadiness" in js.text
+    assert "readinessCheckClass" in js.text
+    assert "gw2radar.player_readiness_summary.v1" in js.text or "readiness_score" in js.text
     assert "/api/v1/player/account-holdings" in js.text
     assert "/api/v1/player/account-value" in js.text
     assert "renderAccountValueSummary" in js.text

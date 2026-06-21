@@ -121,6 +121,7 @@
             </div>
             <div class="button-row">
               <button class="secondary-action" data-action="refreshDashboard">Refresh status</button>
+              <button class="secondary-action" data-action="playerReadiness">Check readiness</button>
               <button class="secondary-action" data-action="exportAccountValueMarkdown">Export value MD</button>
               <button class="secondary-action" data-action="exportAccountValueCsv">Export value CSV</button>
             </div>
@@ -153,6 +154,18 @@
                 <div><dt>Data freshness</dt><dd>Requires sync check</dd></div>
                 <div><dt>Safety</dt><dd>Private data stays in local private layer</dd></div>
               </dl>
+            </article>
+            <article class="panel">
+              <div class="panel-title">
+                <span class="marker green"></span>
+                <h3>Player Readiness</h3>
+              </div>
+              <dl class="metric-list">
+                <div><dt>Status</dt><dd id="player-readiness-label">Not checked</dd></div>
+                <div><dt>Score</dt><dd id="player-readiness-score">--</dd></div>
+                <div><dt>Checks</dt><dd id="player-readiness-check-count">--</dd></div>
+              </dl>
+              <div id="player-readiness-checks" class="compact-list">Run Check readiness to inspect the full player path.</div>
             </article>
             <article class="panel">
               <div class="panel-title">

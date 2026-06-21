@@ -12,6 +12,7 @@ from gw2radar.commercial.account_value import (
 from gw2radar.commercial.player_intelligence import (
     build_data_freshness_annotations,
     build_player_dashboard_plan,
+    build_player_readiness_summary,
 )
 from gw2radar.db import session as db_session
 from gw2radar.db.init_db import init_db
@@ -24,6 +25,16 @@ def get_player_dashboard() -> ApiDataEnvelope:
     graph = get_graph()
     plan = build_player_dashboard_plan(graph)
     return ApiDataEnvelope(data={"dashboard": plan.model_dump(mode="json")})
+
+
+@router.get("/readiness", response_model=ApiDataEnvelope)
+def get_player_readiness() -> ApiDataEnvelope:
+    graph = get_graph()
+    init_db()
+    with db_session.SessionLocal() as session:
+        snapshot = build_account_value_snapshot(graph, session)
+        readiness = build_player_readiness_summary(graph, session, snapshot)
+    return ApiDataEnvelope(data={"readiness": readiness.model_dump(mode="json")})
 
 
 @router.get("/freshness-annotations", response_model=ApiDataEnvelope)
