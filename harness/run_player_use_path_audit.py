@@ -30,6 +30,7 @@ from gw2radar.db.session import close_database, configure_database  # noqa: E402
 
 
 AUDIT_PATH = ROOT / "docs" / "ui" / "PLAYER_USE_PATH_COMPLETENESS_AUDIT.md"
+SESSION_PACKET_ARTIFACT_ROOT = ROOT / "src" / "gw2radar" / "reports" / "artifacts" / "player_session_packets"
 
 
 @dataclass
@@ -253,6 +254,42 @@ def main() -> int:
             "mature_session_packet",
             f"{len(session_packet.get('debug_safe_evidence', []))} evidence rows and {len(session_packet.get('support_review_prompts', []))} support prompts.",
         )
+        shutil.rmtree(SESSION_PACKET_ARTIFACT_ROOT, ignore_errors=True)
+        artifact_response = _json(
+            client.post("/api/v1/player/session-packet/artifacts?limit=10"),
+            "write player session packet artifacts",
+            checks,
+        )
+        artifact_bundle = _get(artifact_response, "data", "artifact_bundle") or {}
+        artifact_id = artifact_bundle.get("artifact_id", "missing-artifact")
+        artifact_index = _json(
+            client.get("/api/v1/player/session-packet/artifacts?limit=10"),
+            "load player session packet artifact index",
+            checks,
+        )
+        artifact_manifest = client.get(f"/api/v1/player/session-packet/artifacts/{artifact_id}/manifest.json")
+        artifact_markdown = client.get(f"/api/v1/player/session-packet/artifacts/{artifact_id}/packet.md")
+        artifact_blocked = client.get(f"/api/v1/player/session-packet/artifacts/{artifact_id}/secret.txt")
+        _add(
+            checks,
+            "player_session_packet_artifacts",
+            "Player session packet can be written as local files with manifest, checksums, and path-safe retrieval.",
+            artifact_bundle.get("schema_version") == "gw2radar.player_session_packet_artifact_bundle.v1"
+            and artifact_bundle.get("file_count") == 4
+            and len(str(artifact_bundle.get("checksum_sha256", ""))) == 64
+            and {"packet.json", "packet.md", "packet.csv", "manifest.json"}
+            == {file.get("file_name") for file in artifact_bundle.get("files", [])}
+            and _get(artifact_index, "data", "artifact_bundles", 0, "artifact_id") == artifact_id
+            and artifact_manifest.status_code == 200
+            and "gw2radar.player_session_packet_artifact_manifest.v1" in artifact_manifest.text
+            and artifact_markdown.status_code == 200
+            and "# Player Session Packet" in artifact_markdown.text
+            and artifact_blocked.status_code == 404
+            and "api_key" not in json.dumps(artifact_bundle).lower()
+            and "api_key" not in (artifact_manifest.text + artifact_markdown.text).lower(),
+            "mature_session_packet_artifacts",
+            f"{artifact_bundle.get('file_count', 0)} files with checksum {str(artifact_bundle.get('checksum_sha256', ''))[:12]}.",
+        )
 
         imported = _json(client.post("/api/v1/builds/import", json=_sample_build_import()), "import build", checks)
         build_id = _get(imported, "data", "build", "build_id") or "missing-build-id"
@@ -336,6 +373,7 @@ def main() -> int:
         state.reset_cached_graph()
         shutil.rmtree(temp_dir, ignore_errors=True)
         shutil.rmtree(ROOT / "outputs", ignore_errors=True)
+        shutil.rmtree(SESSION_PACKET_ARTIFACT_ROOT, ignore_errors=True)
 
     failed = [check for check in checks if not check.passed]
     if failed:
@@ -405,9 +443,14 @@ def _add_bridge_check(checks: list[AuditCheck], check_id: str, label: str, bridg
     )
 
 
-def _get(data: dict, *path: str):
+def _get(data: dict, *path):
     cursor = data
     for key in path:
+        if isinstance(cursor, list) and isinstance(key, int):
+            if key < 0 or key >= len(cursor):
+                return None
+            cursor = cursor[key]
+            continue
         if not isinstance(cursor, dict):
             return None
         cursor = cursor.get(key)
@@ -460,6 +503,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "- `PlayerReadinessHistory` stores privacy-safe readiness snapshots and compares the latest two score/check states.",
             "- `PlayerHistoryCorrelation` explains readiness deltas alongside account value, price coverage, and warning deltas.",
             "- `PlayerSessionPacket` packages readiness, value, correlation, and debug-safe support prompts without raw private payloads.",
+            "- `PlayerSessionPacketArtifacts` writes local JSON/Markdown/CSV/manifest files with checksums and path-safe retrieval.",
             "- `ReportArtifactManifest` records bridge metadata without storing raw API keys or unredacted private payloads.",
             "",
             "## Known Limits",
@@ -470,7 +514,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Next Priority",
             "",
-            "Add a local player session packet artifact writer with manifest, checksum, and path-safe retrieval for support handoff.",
+            "Add a one-click support handoff bundle that includes session packet artifacts and account debug bundle review metadata.",
             "",
         ]
     )

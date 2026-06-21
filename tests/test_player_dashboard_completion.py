@@ -337,6 +337,65 @@ def test_player_session_packet_bundles_debug_safe_support_evidence() -> None:
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
+def test_player_session_packet_artifact_writer_manifest_and_safe_retrieval() -> None:
+    temp_dir = Path(".test_tmp") / f"player-session-packet-artifact-{uuid4().hex}"
+    artifact_root = Path("src/gw2radar/reports/artifacts/player_session_packets")
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        shutil.rmtree(artifact_root, ignore_errors=True)
+        configure_database(f"sqlite:///{temp_dir / 'session-packet-artifact.db'}")
+        init_db()
+        state.reset_cached_graph()
+        client = TestClient(app)
+        assert client.post("/mock/load").status_code == 200
+        with db_session.SessionLocal() as session:
+            record_price_snapshot(
+                session,
+                PriceSnapshotInput(
+                    item_id="gw2:item:mystic_coin",
+                    item_name="Mystic Coin",
+                    buy_price_copper=12000,
+                    sell_price_copper=12500,
+                    volume=10000,
+                ),
+            )
+
+        assert client.post("/api/v1/player/readiness/history?source=test_artifact").status_code == 200
+        assert client.post("/api/v1/player/account-value/history?source=test_artifact").status_code == 200
+        assert client.post("/api/v1/player/readiness/history?source=test_artifact").status_code == 200
+        assert client.post("/api/v1/player/account-value/history?source=test_artifact").status_code == 200
+
+        created = client.post("/api/v1/player/session-packet/artifacts?limit=10")
+        bundle = created.json()["data"]["artifact_bundle"]
+        listed = client.get("/api/v1/player/session-packet/artifacts?limit=10")
+        artifact_id = bundle["artifact_id"]
+        manifest = client.get(f"/api/v1/player/session-packet/artifacts/{artifact_id}/manifest.json")
+        packet_md = client.get(f"/api/v1/player/session-packet/artifacts/{artifact_id}/packet.md")
+        blocked = client.get(f"/api/v1/player/session-packet/artifacts/{artifact_id}/../manifest.json")
+        missing = client.get(f"/api/v1/player/session-packet/artifacts/{artifact_id}/secret.txt")
+
+        assert created.status_code == 200
+        assert bundle["schema_version"] == "gw2radar.player_session_packet_artifact_bundle.v1"
+        assert bundle["file_count"] == 4
+        assert len(bundle["checksum_sha256"]) == 64
+        assert {file["file_name"] for file in bundle["files"]} == {"packet.json", "packet.md", "packet.csv", "manifest.json"}
+        assert all(len(file["checksum_sha256"]) == 64 for file in bundle["files"])
+        assert listed.status_code == 200
+        assert listed.json()["data"]["artifact_bundles"][0]["artifact_id"] == artifact_id
+        assert manifest.status_code == 200
+        assert "gw2radar.player_session_packet_artifact_manifest.v1" in manifest.text
+        assert packet_md.status_code == 200
+        assert "# Player Session Packet" in packet_md.text
+        assert "api_key" not in manifest.text.lower() + packet_md.text.lower()
+        assert blocked.status_code == 404
+        assert missing.status_code == 404
+    finally:
+        close_database()
+        state.reset_cached_graph()
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        shutil.rmtree(artifact_root, ignore_errors=True)
+
+
 def test_legendary_catalog_and_actions_cover_player_guide_goal_choices() -> None:
     temp_dir = Path(".test_tmp") / f"legendary-catalog-{uuid4().hex}"
     temp_dir.mkdir(parents=True, exist_ok=True)

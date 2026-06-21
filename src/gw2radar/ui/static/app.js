@@ -973,6 +973,29 @@ function renderPlayerSessionPacket(packet) {
   });
 }
 
+function renderPlayerSessionPacketArtifacts(bundles) {
+  const list = document.querySelector("#session-packet-artifacts");
+  if (!list) {
+    return;
+  }
+  list.innerHTML = "";
+  const items = Array.isArray(bundles) ? bundles : [];
+  if (!items.length) {
+    list.textContent = "No session packet files have been written yet.";
+    return;
+  }
+  items.slice(0, 5).forEach((bundle) => {
+    const item = document.createElement("div");
+    const title = document.createElement("strong");
+    const body = document.createElement("span");
+    item.className = "compact-list-row info";
+    title.textContent = `${bundle.artifact_id || "artifact"} · ${bundle.file_count || 0} files`;
+    body.textContent = `checksum ${String(bundle.checksum_sha256 || "").slice(0, 12)} · manifest ${bundle.manifest_path || ""}`;
+    item.append(title, body);
+    list.appendChild(item);
+  });
+}
+
 function valueReadinessClass(label) {
   if (label === "ready") {
     return "info";
@@ -1697,6 +1720,19 @@ const actions = {
       );
       downloadText("gw2radar-player-session-packet.csv", text, "text/csv");
       return text;
+    }),
+  writePlayerSessionPacketArtifacts: () =>
+    run("dashboard", async () => {
+      const payload = await fetchJson("/api/v1/player/session-packet/artifacts?limit=10", { method: "POST" });
+      const bundles = await fetchJson("/api/v1/player/session-packet/artifacts?limit=10");
+      renderPlayerSessionPacketArtifacts(bundles?.data?.artifact_bundles || []);
+      return { payload, bundles };
+    }),
+  loadPlayerSessionPacketArtifacts: () =>
+    run("dashboard", async () => {
+      const bundles = await fetchJson("/api/v1/player/session-packet/artifacts?limit=10");
+      renderPlayerSessionPacketArtifacts(bundles?.data?.artifact_bundles || []);
+      return bundles;
     }),
   exportAccountValueMarkdown: () =>
     run("dashboard", async () => {

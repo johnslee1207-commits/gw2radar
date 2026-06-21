@@ -1,4 +1,7 @@
+import hashlib
+import json
 from datetime import datetime, timezone
+from pathlib import Path
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -16,6 +19,10 @@ from gw2radar.db.models import PlayerReadinessSnapshotModel
 from gw2radar.graph.graph_query import GraphData
 from gw2radar.inference.action_generator import generate_actions
 from gw2radar.inference.goal_gap import calculate_goal_gap
+
+
+PLAYER_SESSION_PACKET_ARTIFACT_ROOT = Path("src/gw2radar/reports/artifacts/player_session_packets")
+PLAYER_SESSION_PACKET_ARTIFACT_FILES = {"packet.json", "packet.md", "packet.csv", "manifest.json"}
 
 
 class FreshnessAnnotation(BaseModel):
@@ -120,6 +127,26 @@ class PlayerSessionPacket(BaseModel):
     support_review_prompts: list[str] = Field(default_factory=list)
     export_manifest: dict = Field(default_factory=dict)
     safety_boundaries: list[str] = Field(default_factory=list)
+
+
+class PlayerSessionPacketArtifactFile(BaseModel):
+    file_name: str
+    relative_path: str
+    media_type: str
+    size_bytes: int
+    checksum_sha256: str
+
+
+class PlayerSessionPacketArtifactBundle(BaseModel):
+    schema_version: str = "gw2radar.player_session_packet_artifact_bundle.v1"
+    artifact_id: str
+    artifact_root: str
+    generated_at: datetime
+    file_count: int
+    files: list[PlayerSessionPacketArtifactFile]
+    manifest_path: str
+    checksum_sha256: str
+    boundary: str = "Player session packet artifacts are local support handoff files; they exclude raw keys and raw private source payloads."
 
 
 def build_data_freshness_annotations(graph: GraphData) -> list[FreshnessAnnotation]:
@@ -682,6 +709,120 @@ def render_player_session_packet_csv(packet: PlayerSessionPacket) -> str:
     return "\n".join(rows) + "\n"
 
 
+def write_player_session_packet_artifacts(
+    packet: PlayerSessionPacket,
+    *,
+    artifact_root: Path | None = None,
+) -> PlayerSessionPacketArtifactBundle:
+    root = artifact_root or PLAYER_SESSION_PACKET_ARTIFACT_ROOT
+    generated_at = datetime.now(timezone.utc)
+    artifact_id = f"player-session-packet-{generated_at.strftime('%Y%m%dT%H%M%S%fZ')}-{uuid4().hex[:8]}"
+    artifact_dir = root / artifact_id
+    artifact_dir.mkdir(parents=True, exist_ok=False)
+    contents = {
+        "packet.json": packet.model_dump_json(indent=2),
+        "packet.md": render_player_session_packet_markdown(packet),
+        "packet.csv": render_player_session_packet_csv(packet),
+    }
+    files: list[PlayerSessionPacketArtifactFile] = []
+    for file_name, text in contents.items():
+        file_path = artifact_dir / file_name
+        file_path.write_text(text, encoding="utf-8")
+        files.append(_artifact_file_entry(root, file_path, file_name, _packet_media_type(file_name), text))
+    manifest_payload = {
+        "schema_version": "gw2radar.player_session_packet_artifact_manifest.v1",
+        "artifact_id": artifact_id,
+        "generated_at": generated_at.isoformat(),
+        "packet_schema": packet.schema_version,
+        "files": [file.model_dump(mode="json") for file in files],
+        "contains_raw_key": False,
+        "contains_private_source_payload": False,
+        "contains_full_holding_list": False,
+        "safety_boundaries": list(packet.safety_boundaries),
+    }
+    manifest_text = json.dumps(manifest_payload, indent=2, sort_keys=True)
+    manifest_path = artifact_dir / "manifest.json"
+    manifest_path.write_text(manifest_text, encoding="utf-8")
+    manifest_file = _artifact_file_entry(root, manifest_path, "manifest.json", "application/json", manifest_text)
+    files.append(manifest_file)
+    bundle_checksum = hashlib.sha256(
+        "\n".join(f"{file.file_name}:{file.checksum_sha256}" for file in sorted(files, key=lambda item: item.file_name)).encode("utf-8")
+    ).hexdigest()
+    return PlayerSessionPacketArtifactBundle(
+        artifact_id=artifact_id,
+        artifact_root=root.as_posix(),
+        generated_at=generated_at,
+        file_count=len(files),
+        files=files,
+        manifest_path=manifest_file.relative_path,
+        checksum_sha256=bundle_checksum,
+    )
+
+
+def list_player_session_packet_artifacts(
+    *,
+    artifact_root: Path | None = None,
+    limit: int = 20,
+) -> list[PlayerSessionPacketArtifactBundle]:
+    root = artifact_root or PLAYER_SESSION_PACKET_ARTIFACT_ROOT
+    if not root.exists():
+        return []
+    bundles: list[PlayerSessionPacketArtifactBundle] = []
+    for artifact_dir in sorted([path for path in root.iterdir() if path.is_dir()], key=lambda item: item.name, reverse=True)[: max(1, min(limit, 100))]:
+        manifest_path = artifact_dir / "manifest.json"
+        if not manifest_path.exists():
+            continue
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        files = [
+            PlayerSessionPacketArtifactFile(**file)
+            for file in manifest.get("files", [])
+            if file.get("file_name") in PLAYER_SESSION_PACKET_ARTIFACT_FILES
+        ]
+        manifest_text = manifest_path.read_text(encoding="utf-8")
+        manifest_file = _artifact_file_entry(root, manifest_path, "manifest.json", "application/json", manifest_text)
+        if not any(file.file_name == "manifest.json" for file in files):
+            files.append(manifest_file)
+        bundle_checksum = hashlib.sha256(
+            "\n".join(f"{file.file_name}:{file.checksum_sha256}" for file in sorted(files, key=lambda item: item.file_name)).encode("utf-8")
+        ).hexdigest()
+        bundles.append(
+            PlayerSessionPacketArtifactBundle(
+                artifact_id=artifact_dir.name,
+                artifact_root=root.as_posix(),
+                generated_at=datetime.fromisoformat(manifest["generated_at"]),
+                file_count=len(files),
+                files=files,
+                manifest_path=manifest_file.relative_path,
+                checksum_sha256=bundle_checksum,
+            )
+        )
+    return bundles
+
+
+def resolve_player_session_packet_artifact_path(
+    artifact_id: str,
+    file_name: str,
+    *,
+    artifact_root: Path | None = None,
+) -> Path | None:
+    if "/" in artifact_id or "\\" in artifact_id or ".." in artifact_id:
+        return None
+    if file_name not in PLAYER_SESSION_PACKET_ARTIFACT_FILES:
+        return None
+    root = (artifact_root or PLAYER_SESSION_PACKET_ARTIFACT_ROOT).resolve()
+    candidate = (root / artifact_id / file_name).resolve()
+    try:
+        candidate.relative_to(root)
+    except ValueError:
+        return None
+    if not candidate.exists() or not candidate.is_file():
+        return None
+    return candidate
+
+
 def _do_not_sell_alerts(graph: GraphData, goal_id: str) -> list[str]:
     if goal_id not in graph.entities:
         return ["Load an active goal before generating do-not-sell alerts."]
@@ -810,3 +951,23 @@ def _session_packet_support_prompts(
         prompts.append("Session looks consistent at MVP depth; recommend normal manual planning review.")
     prompts.append("Never request raw API keys or raw private account payloads from the player.")
     return prompts
+
+
+def _artifact_file_entry(root: Path, file_path: Path, file_name: str, media_type: str, text: str) -> PlayerSessionPacketArtifactFile:
+    return PlayerSessionPacketArtifactFile(
+        file_name=file_name,
+        relative_path=file_path.relative_to(root).as_posix(),
+        media_type=media_type,
+        size_bytes=len(text.encode("utf-8")),
+        checksum_sha256=hashlib.sha256(text.encode("utf-8")).hexdigest(),
+    )
+
+
+def _packet_media_type(file_name: str) -> str:
+    if file_name.endswith(".json"):
+        return "application/json"
+    if file_name.endswith(".md"):
+        return "text/markdown; charset=utf-8"
+    if file_name.endswith(".csv"):
+        return "text/csv; charset=utf-8"
+    return "text/plain; charset=utf-8"

@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 
 from gw2radar.api.envelope import ApiDataEnvelope
@@ -20,7 +20,9 @@ from gw2radar.commercial.player_intelligence import (
     build_player_session_packet,
     build_player_readiness_summary,
     list_player_readiness_history,
+    list_player_session_packet_artifacts,
     record_player_readiness_snapshot,
+    resolve_player_session_packet_artifact_path,
     render_player_history_correlation_csv,
     render_player_history_correlation_markdown,
     render_player_session_packet_csv,
@@ -29,6 +31,7 @@ from gw2radar.commercial.player_intelligence import (
     render_player_readiness_history_markdown,
     render_player_readiness_csv,
     render_player_readiness_markdown,
+    write_player_session_packet_artifacts,
 )
 from gw2radar.db import session as db_session
 from gw2radar.db.init_db import init_db
@@ -218,3 +221,44 @@ def get_player_session_packet(format: str = "json", limit: int = 10) -> ApiDataE
             headers={"Content-Disposition": 'attachment; filename="player_session_packet.csv"'},
         )
     return ApiDataEnvelope(data={"session_packet": packet.model_dump(mode="json")})
+
+
+@router.post("/session-packet/artifacts", response_model=ApiDataEnvelope)
+def post_player_session_packet_artifacts(limit: int = 10) -> ApiDataEnvelope:
+    graph = get_graph()
+    init_db()
+    with db_session.SessionLocal() as session:
+        account_value = build_account_value_snapshot(graph, session)
+        readiness = build_player_readiness_summary(graph, session, account_value)
+        readiness_history = list_player_readiness_history(session, limit=limit)
+        account_value_history = list_account_value_history(session, limit=limit)
+        correlation = build_player_history_correlation(readiness_history, account_value_history)
+        packet = build_player_session_packet(
+            graph,
+            readiness,
+            account_value,
+            readiness_history,
+            account_value_history,
+            correlation,
+        )
+    bundle = write_player_session_packet_artifacts(packet)
+    return ApiDataEnvelope(data={"artifact_bundle": bundle.model_dump(mode="json")})
+
+
+@router.get("/session-packet/artifacts", response_model=ApiDataEnvelope)
+def get_player_session_packet_artifacts(limit: int = 20) -> ApiDataEnvelope:
+    bundles = list_player_session_packet_artifacts(limit=limit)
+    return ApiDataEnvelope(data={"artifact_bundles": [bundle.model_dump(mode="json") for bundle in bundles]})
+
+
+@router.get("/session-packet/artifacts/{artifact_id}/{file_name}", response_model=None)
+def get_player_session_packet_artifact_file(artifact_id: str, file_name: str) -> Response:
+    path = resolve_player_session_packet_artifact_path(artifact_id, file_name)
+    if path is None:
+        raise HTTPException(status_code=404, detail="Player session packet artifact not found")
+    media_type = "application/json"
+    if file_name.endswith(".md"):
+        media_type = "text/markdown; charset=utf-8"
+    elif file_name.endswith(".csv"):
+        media_type = "text/csv; charset=utf-8"
+    return Response(content=path.read_text(encoding="utf-8"), media_type=media_type)

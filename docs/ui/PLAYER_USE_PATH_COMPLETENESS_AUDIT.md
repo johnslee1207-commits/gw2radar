@@ -3,7 +3,7 @@
 - Schema: gw2radar.player_use_path_completeness_audit.v1
 - Maturity label: ready
 - Readiness score: 100.0
-- Passed checks: 12
+- Passed checks: 13
 - Failed checks: 0
 - Privacy boundary: raw API keys and private source payloads must not appear in this audit.
 
@@ -19,6 +19,7 @@
 | `account_value_history` | PASS | mature_value_history | 2 snapshots with comparison unchanged. | None for MVP depth. |
 | `player_history_correlation` | PASS | mature_history_correlation | unchanged with readiness delta 0.0 and price coverage delta 0.0. | None for MVP depth. |
 | `player_session_packet` | PASS | mature_session_packet | 5 evidence rows and 3 support prompts. | None for MVP depth. |
+| `player_session_packet_artifacts` | PASS | mature_session_packet_artifacts | 4 files with checksum 9c36aca4e001. | None for MVP depth. |
 | `build_fit_bridge` | PASS | mature_semantic_bridge | gw2radar.account_value_evidence_bridge.v1 with 3 source summaries and 2 remediation items. | None for MVP depth. |
 | `legendary_bridge` | PASS | mature_semantic_bridge | gw2radar.account_value_evidence_bridge.v1 with 3 source summaries and 2 remediation items. | None for MVP depth. |
 | `market_bridge` | PASS | mature_semantic_bridge | gw2radar.account_value_evidence_bridge.v1 with 3 source summaries and 2 remediation items. | None for MVP depth. |
@@ -36,6 +37,7 @@
 - `PlayerReadinessHistory` stores privacy-safe readiness snapshots and compares the latest two score/check states.
 - `PlayerHistoryCorrelation` explains readiness deltas alongside account value, price coverage, and warning deltas.
 - `PlayerSessionPacket` packages readiness, value, correlation, and debug-safe support prompts without raw private payloads.
+- `PlayerSessionPacketArtifacts` writes local JSON/Markdown/CSV/manifest files with checksums and path-safe retrieval.
 - `ReportArtifactManifest` records bridge metadata without storing raw API keys or unredacted private payloads.
 
 ## Known Limits
@@ -46,4 +48,4 @@
 
 ## Next Priority
 
-Add a local player session packet artifact writer with manifest, checksum, and path-safe retrieval for support handoff.
+Add a one-click support handoff bundle that includes session packet artifacts and account debug bundle review metadata.
