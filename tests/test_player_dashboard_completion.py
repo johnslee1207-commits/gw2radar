@@ -659,6 +659,59 @@ def test_player_support_handoff_zip_verification_audit_trail_exports_metadata_on
         shutil.rmtree(handoff_artifact_root, ignore_errors=True)
 
 
+def test_player_support_handoff_readiness_checklist_summarizes_transfer_gates() -> None:
+    temp_dir = Path(".test_tmp") / f"player-support-handoff-readiness-{uuid4().hex}"
+    packet_artifact_root = Path("src/gw2radar/reports/artifacts/player_session_packets")
+    handoff_artifact_root = Path("src/gw2radar/reports/artifacts/player_support_handoffs")
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        shutil.rmtree(packet_artifact_root, ignore_errors=True)
+        shutil.rmtree(handoff_artifact_root, ignore_errors=True)
+        configure_database(f"sqlite:///{temp_dir / 'support-handoff-readiness.db'}")
+        init_db()
+        state.reset_cached_graph()
+        client = TestClient(app)
+        assert client.post("/mock/load").status_code == 200
+
+        debug_bundle = client.post(
+            "/account/debug-bundle",
+            json={"active_view": "build", "active_build_id": "sample-build", "player_intent": "support_readiness"},
+        ).json()
+        assert client.post("/api/v1/player/support-handoff/artifacts?limit=10", json={"debug_bundle": debug_bundle}).status_code == 200
+        assert client.post(
+            "/api/v1/player/support-handoff/artifacts/bundle/verification-audit",
+            json={"reviewer": "readiness", "notes": ["Readiness test recorded verification."]},
+        ).status_code == 200
+
+        response = client.get("/api/v1/player/support-handoff/readiness-checklist")
+        markdown = client.get("/api/v1/player/support-handoff/readiness-checklist?format=markdown")
+        csv = client.get("/api/v1/player/support-handoff/readiness-checklist?format=csv")
+        checklist = response.json()["data"]["support_handoff_readiness_checklist"]
+
+        assert response.status_code == 200
+        assert checklist["schema_version"] == "gw2radar.player_support_handoff_readiness_checklist.v1"
+        assert checklist["ready"] is True
+        assert checklist["maturity_label"] == "ready"
+        assert checklist["artifact_file_count"] == 4
+        assert checklist["zip_file_count"] == 4
+        assert checklist["zip_verification_ready"] is True
+        assert checklist["verification_audit_count"] >= 1
+        assert checklist["missing_gates"] == []
+        assert checklist["blockers"] == []
+        assert checklist["next_actions"]
+        assert markdown.status_code == 200
+        assert "# Player Support Handoff Readiness Checklist" in markdown.text
+        assert csv.status_code == 200
+        assert "ready,maturity_label,latest_artifact_id" in csv.text
+        assert "secret-key" not in (str(checklist) + markdown.text + csv.text).lower()
+    finally:
+        close_database()
+        state.reset_cached_graph()
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        shutil.rmtree(packet_artifact_root, ignore_errors=True)
+        shutil.rmtree(handoff_artifact_root, ignore_errors=True)
+
+
 def test_legendary_catalog_and_actions_cover_player_guide_goal_choices() -> None:
     temp_dir = Path(".test_tmp") / f"legendary-catalog-{uuid4().hex}"
     temp_dir.mkdir(parents=True, exist_ok=True)

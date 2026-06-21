@@ -256,6 +256,30 @@ class PlayerSupportHandoffZipVerificationAuditList(BaseModel):
     boundary: str = "Support handoff verification audit exports are metadata-only and exclude zip content and secrets."
 
 
+class PlayerSupportHandoffReadinessChecklist(BaseModel):
+    schema_version: str = "gw2radar.player_support_handoff_readiness_checklist.v1"
+    generated_at: datetime
+    ready: bool
+    maturity_label: str
+    latest_artifact_id: str | None = None
+    artifact_file_count: int = 0
+    zip_checksum_sha256: str | None = None
+    zip_file_count: int = 0
+    zip_verification_ready: bool = False
+    verification_audit_count: int = 0
+    latest_verification_audit_id: str | None = None
+    checklist_items: list[str] = Field(default_factory=list)
+    missing_gates: list[str] = Field(default_factory=list)
+    blockers: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    next_actions: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    boundary: str = (
+        "Support handoff readiness is metadata-only; it summarizes artifact, zip, verification, and audit gates "
+        "without storing raw keys, raw debug bundles, private account payloads, or zip bytes."
+    )
+
+
 def build_data_freshness_annotations(graph: GraphData) -> list[FreshnessAnnotation]:
     has_evidence = bool(graph.evidence)
     has_private_state = bool(graph.player_state)
@@ -1357,6 +1381,153 @@ def render_player_support_handoff_zip_verification_audit_csv(
     return "\n".join(rows) + "\n"
 
 
+def build_player_support_handoff_readiness_checklist(
+    *,
+    artifact_root: Path | None = None,
+    audit_root: Path | None = None,
+) -> PlayerSupportHandoffReadinessChecklist:
+    artifacts = list_player_support_handoff_artifacts(artifact_root=artifact_root, limit=1)
+    latest_artifact = artifacts[0] if artifacts else None
+    missing_gates: list[str] = []
+    blockers: list[str] = []
+    warnings: list[str] = []
+    zip_manifest: PlayerSupportHandoffZipManifest | None = None
+    zip_verification: PlayerSupportHandoffZipVerification | None = None
+    if latest_artifact is None:
+        missing_gates.append("support handoff artifact files")
+    else:
+        if latest_artifact.file_count < 4:
+            missing_gates.append("support handoff required artifact files")
+        try:
+            zip_manifest, zip_bytes = build_player_support_handoff_zip_bundle(artifact_root=artifact_root)
+            zip_verification = verify_player_support_handoff_zip_bundle(
+                zip_bytes,
+                expected_checksum_sha256=zip_manifest.checksum_sha256,
+            )
+        except ValueError as exc:
+            blockers.append(str(exc))
+    if zip_manifest is None or zip_manifest.file_count < 4:
+        missing_gates.append("support handoff zip bundle")
+    if zip_verification is None or not zip_verification.ready:
+        missing_gates.append("support handoff zip verification")
+    audit = list_player_support_handoff_zip_verification_audits(audit_root=audit_root, limit=1)
+    latest_audit = audit.records[0] if audit.records else None
+    if latest_audit is None:
+        missing_gates.append("support handoff zip verification audit")
+    elif not latest_audit.ready:
+        missing_gates.append("latest support handoff zip verification audit ready state")
+    if zip_verification:
+        blockers.extend(zip_verification.blockers)
+        warnings.extend(zip_verification.warnings)
+    if latest_audit:
+        blockers.extend(latest_audit.blockers)
+        warnings.extend(latest_audit.warnings)
+    ready = not missing_gates and not blockers
+    if blockers:
+        maturity_label = "blocked"
+    elif missing_gates or warnings:
+        maturity_label = "review_needed"
+    else:
+        maturity_label = "ready"
+    next_actions = (
+        [
+            "Resolve missing support handoff gates before asking the player to transfer the zip.",
+            "Re-run zip verification and record a fresh audit after blockers are fixed.",
+        ]
+        if not ready
+        else [
+            "Attach the support handoff zip, verification audit export, and readiness checklist to the support case.",
+            "Continue troubleshooting without requesting raw API keys or private account payloads.",
+        ]
+    )
+    return PlayerSupportHandoffReadinessChecklist(
+        generated_at=datetime.now(timezone.utc),
+        ready=ready,
+        maturity_label=maturity_label,
+        latest_artifact_id=latest_artifact.artifact_id if latest_artifact else None,
+        artifact_file_count=latest_artifact.file_count if latest_artifact else 0,
+        zip_checksum_sha256=zip_manifest.checksum_sha256 if zip_manifest else None,
+        zip_file_count=zip_manifest.file_count if zip_manifest else 0,
+        zip_verification_ready=zip_verification.ready if zip_verification else False,
+        verification_audit_count=len(audit.records),
+        latest_verification_audit_id=latest_audit.audit_id if latest_audit else None,
+        checklist_items=[
+            "Support handoff artifact files written and indexed.",
+            "Support handoff zip bundle generated from whitelist files.",
+            "Support handoff zip verified without executing content.",
+            "Support handoff zip verification audit recorded as metadata only.",
+        ],
+        missing_gates=_unique_text(missing_gates),
+        blockers=_unique_text(blockers),
+        warnings=_unique_text(warnings),
+        next_actions=next_actions,
+        evidence_refs=[
+            "/api/v1/player/support-handoff/artifacts",
+            "/api/v1/player/support-handoff/artifacts/bundle",
+            "/api/v1/player/support-handoff/artifacts/bundle/verify",
+            "/api/v1/player/support-handoff/artifacts/bundle/verification-audit",
+        ],
+    )
+
+
+def render_player_support_handoff_readiness_checklist_markdown(
+    checklist: PlayerSupportHandoffReadinessChecklist,
+) -> str:
+    lines = [
+        "# Player Support Handoff Readiness Checklist",
+        "",
+        f"- Ready: {checklist.ready}",
+        f"- Maturity: {checklist.maturity_label}",
+        f"- Latest artifact: {checklist.latest_artifact_id or 'None'}",
+        f"- Artifact files: {checklist.artifact_file_count}",
+        f"- Zip files: {checklist.zip_file_count}",
+        f"- Zip checksum: {checklist.zip_checksum_sha256 or 'None'}",
+        f"- Zip verification ready: {checklist.zip_verification_ready}",
+        f"- Verification audit records: {checklist.verification_audit_count}",
+        f"- Boundary: {checklist.boundary}",
+        "",
+        "## Checklist",
+    ]
+    lines.extend(f"- {item}" for item in checklist.checklist_items)
+    lines.extend(["", "## Missing Gates"])
+    lines.extend(f"- {item}" for item in checklist.missing_gates) if checklist.missing_gates else lines.append("- None")
+    lines.extend(["", "## Blockers"])
+    lines.extend(f"- {item}" for item in checklist.blockers) if checklist.blockers else lines.append("- None")
+    lines.extend(["", "## Warnings"])
+    lines.extend(f"- {item}" for item in checklist.warnings) if checklist.warnings else lines.append("- None")
+    lines.extend(["", "## Next Actions"])
+    lines.extend(f"- {item}" for item in checklist.next_actions)
+    return "\n".join(lines) + "\n"
+
+
+def render_player_support_handoff_readiness_checklist_csv(
+    checklist: PlayerSupportHandoffReadinessChecklist,
+) -> str:
+    rows = [
+        "ready,maturity_label,latest_artifact_id,artifact_file_count,zip_file_count,zip_verification_ready,verification_audit_count,missing_gate_count,blocker_count,warning_count",
+        ",".join(
+            [
+                _csv(str(checklist.ready)),
+                _csv(checklist.maturity_label),
+                _csv(checklist.latest_artifact_id or ""),
+                _csv(str(checklist.artifact_file_count)),
+                _csv(str(checklist.zip_file_count)),
+                _csv(str(checklist.zip_verification_ready)),
+                _csv(str(checklist.verification_audit_count)),
+                _csv(str(len(checklist.missing_gates))),
+                _csv(str(len(checklist.blockers))),
+                _csv(str(len(checklist.warnings))),
+            ]
+        ),
+        "section,value",
+    ]
+    rows.extend(f"missing_gate,{_csv(item)}" for item in checklist.missing_gates)
+    rows.extend(f"blocker,{_csv(item)}" for item in checklist.blockers)
+    rows.extend(f"warning,{_csv(item)}" for item in checklist.warnings)
+    rows.extend(f"next_action,{_csv(item)}" for item in checklist.next_actions)
+    return "\n".join(rows) + "\n"
+
+
 def _missing_debug_bundle_review() -> SupportReviewReport:
     report = review_account_debug_bundle({})
     report.overall_status = "debug_bundle_not_provided"
@@ -1422,6 +1593,16 @@ def _safe_support_text(value: str | None, *, max_length: int) -> str:
     text = " ".join(str(value or "").split())
     cleaned = "".join(character for character in text if character.isprintable())
     return (cleaned or "support")[:max_length]
+
+
+def _unique_text(items: list[str]) -> list[str]:
+    seen: set[str] = set()
+    unique: list[str] = []
+    for item in items:
+        if item and item not in seen:
+            unique.append(item)
+            seen.add(item)
+    return unique
 
 
 def _do_not_sell_alerts(graph: GraphData, goal_id: str) -> list[str]:

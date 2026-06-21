@@ -1091,6 +1091,30 @@ function renderPlayerSupportHandoffZipAudit(audit) {
   });
 }
 
+function renderPlayerSupportHandoffReadiness(checklist) {
+  const list = document.querySelector("#support-handoff-readiness");
+  if (!list) {
+    return;
+  }
+  list.innerHTML = "";
+  if (!checklist) {
+    list.textContent = "No support handoff readiness checklist is available yet.";
+    return;
+  }
+  appendCompactBridgeRow(
+    list,
+    checklist.ready ? "ready" : "review",
+    `${checklist.maturity_label || "unknown"} · artifacts ${checklist.artifact_file_count || 0} · zip ${checklist.zip_file_count || 0}`,
+    checklist.ready ? "info" : "warn"
+  );
+  (checklist.missing_gates || []).slice(0, 4).forEach((gate) => {
+    appendCompactBridgeRow(list, "Missing", gate, "warn");
+  });
+  (checklist.next_actions || []).slice(0, 3).forEach((action) => {
+    appendCompactBridgeRow(list, "Next", action, checklist.ready ? "info" : "warn");
+  });
+}
+
 function valueReadinessClass(label) {
   if (label === "ready") {
     return "info";
@@ -1906,6 +1930,12 @@ const actions = {
       const audit = await fetchJson("/api/v1/player/support-handoff/artifacts/bundle/verification-audit?limit=10");
       renderPlayerSupportHandoffZipAudit(audit?.data?.support_handoff_zip_verification_audit || {});
       return audit;
+    }),
+  loadPlayerSupportHandoffReadiness: () =>
+    run("dashboard", async () => {
+      const checklist = await fetchJson("/api/v1/player/support-handoff/readiness-checklist");
+      renderPlayerSupportHandoffReadiness(checklist?.data?.support_handoff_readiness_checklist || {});
+      return checklist;
     }),
   exportAccountValueMarkdown: () =>
     run("dashboard", async () => {

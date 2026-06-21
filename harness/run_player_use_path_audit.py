@@ -486,6 +486,41 @@ def main() -> int:
             "mature_support_handoff_zip_audit",
             f"{len(audit_list.get('records', []))} audit records for support handoff zip verification.",
         )
+        support_handoff_readiness_response = _json(
+            client.get("/api/v1/player/support-handoff/readiness-checklist"),
+            "load player support handoff readiness checklist",
+            checks,
+        )
+        support_handoff_readiness = _get(
+            support_handoff_readiness_response,
+            "data",
+            "support_handoff_readiness_checklist",
+        ) or {}
+        support_handoff_readiness_md = client.get("/api/v1/player/support-handoff/readiness-checklist?format=markdown")
+        support_handoff_readiness_csv = client.get("/api/v1/player/support-handoff/readiness-checklist?format=csv")
+        _add(
+            checks,
+            "player_support_handoff_readiness",
+            "Support handoff readiness checklist summarizes artifact, zip, verification, and audit gates.",
+            support_handoff_readiness.get("schema_version")
+            == "gw2radar.player_support_handoff_readiness_checklist.v1"
+            and support_handoff_readiness.get("ready") is True
+            and support_handoff_readiness.get("maturity_label") == "ready"
+            and support_handoff_readiness.get("artifact_file_count") == 4
+            and support_handoff_readiness.get("zip_file_count") == 4
+            and support_handoff_readiness.get("zip_verification_ready") is True
+            and int(support_handoff_readiness.get("verification_audit_count") or 0) >= 1
+            and not support_handoff_readiness.get("missing_gates")
+            and not support_handoff_readiness.get("blockers")
+            and support_handoff_readiness_md.status_code == 200
+            and "# Player Support Handoff Readiness Checklist" in support_handoff_readiness_md.text
+            and support_handoff_readiness_csv.status_code == 200
+            and "ready,maturity_label,latest_artifact_id" in support_handoff_readiness_csv.text
+            and "secret-key" not in json.dumps(support_handoff_readiness).lower()
+            and "secret-key" not in (support_handoff_readiness_md.text + support_handoff_readiness_csv.text).lower(),
+            "mature_support_handoff_readiness",
+            f"{support_handoff_readiness.get('maturity_label', 'unknown')} with {support_handoff_readiness.get('verification_audit_count', 0)} audit records.",
+        )
 
         imported = _json(client.post("/api/v1/builds/import", json=_sample_build_import()), "import build", checks)
         build_id = _get(imported, "data", "build", "build_id") or "missing-build-id"
@@ -705,6 +740,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "- `PlayerSupportHandoffArtifacts` archives handoff JSON/Markdown/CSV/manifest files with checksums and path-safe retrieval.",
             "- `PlayerSupportHandoffZipVerification` transfers handoff artifacts as a read-only zip and verifies schema, checksum, whitelist, and no-secret boundaries from bytes.",
             "- `PlayerSupportHandoffZipVerificationAudit` records verification outcomes as metadata-only support evidence without storing zip bytes.",
+            "- `PlayerSupportHandoffReadinessChecklist` summarizes artifact, zip, verification, and audit gates for support operators.",
             "- `ReportArtifactManifest` records bridge metadata without storing raw API keys or unredacted private payloads.",
             "",
             "## Known Limits",
@@ -715,7 +751,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Next Priority",
             "",
-            "Add a support handoff readiness checklist that summarizes artifact, zip verification, and audit gates for support operators.",
+            "Add a support handoff operator runbook/export packet that packages the checklist, audit summary, and safe next steps for support workflows.",
             "",
         ]
     )

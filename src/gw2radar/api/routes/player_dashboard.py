@@ -20,6 +20,7 @@ from gw2radar.commercial.player_intelligence import (
     build_player_dashboard_plan,
     build_player_session_packet,
     build_player_support_handoff_bundle,
+    build_player_support_handoff_readiness_checklist,
     build_player_support_handoff_zip_bundle,
     build_player_readiness_summary,
     list_player_readiness_history,
@@ -37,6 +38,8 @@ from gw2radar.commercial.player_intelligence import (
     render_player_session_packet_markdown,
     render_player_support_handoff_csv,
     render_player_support_handoff_markdown,
+    render_player_support_handoff_readiness_checklist_csv,
+    render_player_support_handoff_readiness_checklist_markdown,
     render_player_support_handoff_zip_verification_audit_csv,
     render_player_support_handoff_zip_verification_audit_markdown,
     render_player_readiness_history_csv,
@@ -401,6 +404,32 @@ def get_player_support_handoff_artifact_bundle_verification_audit(
             headers={"Content-Disposition": 'attachment; filename="player_support_handoff_zip_verification_audit.csv"'},
         )
     return ApiDataEnvelope(data={"support_handoff_zip_verification_audit": audit.model_dump(mode="json")})
+
+
+@router.get("/support-handoff/readiness-checklist", response_model=None)
+def get_player_support_handoff_readiness_checklist(format: str = "json") -> ApiDataEnvelope | Response:
+    _ensure_player_support_handoff_artifact()
+    if not list_player_support_handoff_zip_verification_audits(limit=1).records:
+        record_player_support_handoff_zip_verification_audit(
+            PlayerSupportHandoffZipVerificationAuditRequest(
+                reviewer="system",
+                notes=["System recorded support handoff readiness verification audit."],
+            )
+        )
+    checklist = build_player_support_handoff_readiness_checklist()
+    if format == "markdown":
+        return Response(
+            content=render_player_support_handoff_readiness_checklist_markdown(checklist),
+            media_type="text/markdown; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="player_support_handoff_readiness_checklist.md"'},
+        )
+    if format == "csv":
+        return Response(
+            content=render_player_support_handoff_readiness_checklist_csv(checklist),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="player_support_handoff_readiness_checklist.csv"'},
+        )
+    return ApiDataEnvelope(data={"support_handoff_readiness_checklist": checklist.model_dump(mode="json")})
 
 
 @router.get("/support-handoff/artifacts/{artifact_id}/{file_name}", response_model=None)
