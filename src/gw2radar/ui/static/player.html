@@ -131,6 +131,9 @@
               <button class="secondary-action" data-action="loadPlayerHistoryCorrelation">Load history correlation</button>
               <button class="secondary-action" data-action="exportPlayerHistoryCorrelationMarkdown">Export correlation MD</button>
               <button class="secondary-action" data-action="exportPlayerHistoryCorrelationCsv">Export correlation CSV</button>
+              <button class="secondary-action" data-action="loadPlayerSessionPacket">Load session packet</button>
+              <button class="secondary-action" data-action="exportPlayerSessionPacketMarkdown">Export packet MD</button>
+              <button class="secondary-action" data-action="exportPlayerSessionPacketCsv">Export packet CSV</button>
               <button class="secondary-action" data-action="exportAccountValueMarkdown">Export value MD</button>
               <button class="secondary-action" data-action="exportAccountValueCsv">Export value CSV</button>
             </div>
@@ -189,6 +192,18 @@
                 <div><dt>Price coverage delta</dt><dd id="history-correlation-price-delta">--</dd></div>
               </dl>
               <div id="history-correlation-list" class="compact-list">Load history correlation after saving readiness and value snapshots.</div>
+            </article>
+            <article class="panel">
+              <div class="panel-title">
+                <span class="marker amber"></span>
+                <h3>Session Packet</h3>
+              </div>
+              <dl class="metric-list">
+                <div><dt>Schema</dt><dd id="session-packet-schema">Not loaded</dd></div>
+                <div><dt>Evidence</dt><dd id="session-packet-evidence-count">--</dd></div>
+                <div><dt>Support prompts</dt><dd id="session-packet-prompt-count">--</dd></div>
+              </dl>
+              <div id="session-packet-list" class="compact-list">Load session packet to prepare a debug-safe support summary.</div>
             </article>
             <article class="panel">
               <div class="panel-title">

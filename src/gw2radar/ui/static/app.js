@@ -130,6 +130,13 @@ function summarizeResult(target, payload) {
     if (data?.correlation?.schema_version === "gw2radar.player_history_correlation.v1") {
       return `History correlation ${data.correlation.status}: readiness delta ${data.correlation.readiness_score_delta || 0}, price coverage delta ${data.correlation.price_coverage_delta || 0}.`;
     }
+    if (data?.session_packet?.schema_version === "gw2radar.player_session_packet.v1") {
+      return `Session packet ready: ${data.session_packet.debug_safe_evidence?.length || 0} evidence rows and ${data.session_packet.support_review_prompts?.length || 0} support prompts.`;
+    }
+    if (data?.sessionPacket?.data?.session_packet) {
+      const packet = data.sessionPacket.data.session_packet;
+      return `Session packet ready: ${packet.debug_safe_evidence?.length || 0} evidence rows and ${packet.support_review_prompts?.length || 0} support prompts.`;
+    }
     if (data?.refresh?.data?.official_price_refresh) {
       const refresh = data.refresh.data.official_price_refresh;
       return `Official price refresh ${refresh.status}: ${refresh.refreshed_item_count || 0}/${refresh.requested_item_count || 0} items refreshed.`;
@@ -943,6 +950,29 @@ function renderPlayerHistoryCorrelation(correlation) {
   });
 }
 
+function renderPlayerSessionPacket(packet) {
+  const schema = document.querySelector("#session-packet-schema");
+  const evidenceCount = document.querySelector("#session-packet-evidence-count");
+  const promptCount = document.querySelector("#session-packet-prompt-count");
+  const list = document.querySelector("#session-packet-list");
+  if (!schema || !evidenceCount || !promptCount || !list) {
+    return;
+  }
+  schema.textContent = packet?.schema_version || "unknown";
+  evidenceCount.textContent = `${packet?.debug_safe_evidence?.length || 0}`;
+  promptCount.textContent = `${packet?.support_review_prompts?.length || 0}`;
+  list.innerHTML = "";
+  const rows = [
+    ["Readiness", `${packet?.readiness_summary?.label || "unknown"} ${packet?.readiness_summary?.score || 0}/100`],
+    ["Value", `price ${packet?.account_value_summary?.price_coverage_percent || 0}% / ${packet?.account_value_summary?.freshness_label || "unknown"}`],
+    ["Correlation", packet?.history_correlation?.status || "unknown"],
+  ];
+  rows.forEach(([label, detail]) => appendCompactBridgeRow(list, label, detail, "info"));
+  (packet?.support_review_prompts || []).slice(0, 4).forEach((prompt) => {
+    appendCompactBridgeRow(list, "Support", prompt, "warn");
+  });
+}
+
 function valueReadinessClass(label) {
   if (label === "ready") {
     return "info";
@@ -1569,7 +1599,9 @@ const actions = {
       renderPlayerReadiness(readiness?.data?.readiness || {});
       const correlation = await fetchJson("/api/v1/player/history/correlation?limit=10");
       renderPlayerHistoryCorrelation(correlation?.data?.correlation || {});
-      return { account: key, sync, dashboard, holdings, value, readiness, correlation };
+      const sessionPacket = await fetchJson("/api/v1/player/session-packet?limit=10");
+      renderPlayerSessionPacket(sessionPacket?.data?.session_packet || {});
+      return { account: key, sync, dashboard, holdings, value, readiness, correlation, sessionPacket };
     }),
   playerReadiness: () =>
     run("dashboard", async () => {
@@ -1642,6 +1674,28 @@ const actions = {
         response.text()
       );
       downloadText("gw2radar-player-history-correlation.csv", text, "text/csv");
+      return text;
+    }),
+  loadPlayerSessionPacket: () =>
+    run("dashboard", async () => {
+      const packet = await fetchJson("/api/v1/player/session-packet?limit=10");
+      renderPlayerSessionPacket(packet?.data?.session_packet || {});
+      return packet;
+    }),
+  exportPlayerSessionPacketMarkdown: () =>
+    run("dashboard", async () => {
+      const text = await fetch("/api/v1/player/session-packet?format=markdown&limit=10").then((response) =>
+        response.text()
+      );
+      downloadText("gw2radar-player-session-packet.md", text, "text/markdown");
+      return text;
+    }),
+  exportPlayerSessionPacketCsv: () =>
+    run("dashboard", async () => {
+      const text = await fetch("/api/v1/player/session-packet?format=csv&limit=10").then((response) =>
+        response.text()
+      );
+      downloadText("gw2radar-player-session-packet.csv", text, "text/csv");
       return text;
     }),
   exportAccountValueMarkdown: () =>

@@ -42,6 +42,11 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert "Load history correlation" in response.text
     assert "Export correlation MD" in response.text
     assert "Export correlation CSV" in response.text
+    assert "Load session packet" in response.text
+    assert "Export packet MD" in response.text
+    assert "Export packet CSV" in response.text
+    assert "Session Packet" in response.text
+    assert "Load session packet to prepare a debug-safe support summary." in response.text
     assert "History Correlation" in response.text
     assert "Load history correlation after saving readiness and value snapshots." in response.text
     assert "Readiness history" in response.text
@@ -227,6 +232,16 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "gw2radar-player-history-correlation.csv" in js.text
     assert "renderPlayerHistoryCorrelation" in js.text
     assert "gw2radar.player_history_correlation.v1" in js.text
+    assert "loadPlayerSessionPacket" in js.text
+    assert "exportPlayerSessionPacketMarkdown" in js.text
+    assert "exportPlayerSessionPacketCsv" in js.text
+    assert "/api/v1/player/session-packet?limit=10" in js.text
+    assert "/api/v1/player/session-packet?format=markdown&limit=10" in js.text
+    assert "/api/v1/player/session-packet?format=csv&limit=10" in js.text
+    assert "gw2radar-player-session-packet.md" in js.text
+    assert "gw2radar-player-session-packet.csv" in js.text
+    assert "renderPlayerSessionPacket" in js.text
+    assert "gw2radar.player_session_packet.v1" in js.text
     assert "renderPlayerReadiness" in js.text
     assert "readinessCheckClass" in js.text
     assert "gw2radar.player_readiness_summary.v1" in js.text or "readiness_score" in js.text

@@ -280,6 +280,63 @@ def test_player_history_correlation_combines_readiness_and_value_history() -> No
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
+def test_player_session_packet_bundles_debug_safe_support_evidence() -> None:
+    temp_dir = Path(".test_tmp") / f"player-session-packet-{uuid4().hex}"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        configure_database(f"sqlite:///{temp_dir / 'session-packet.db'}")
+        init_db()
+        state.reset_cached_graph()
+        client = TestClient(app)
+        assert client.post("/mock/load").status_code == 200
+        with db_session.SessionLocal() as session:
+            record_price_snapshot(
+                session,
+                PriceSnapshotInput(
+                    item_id="gw2:item:mystic_coin",
+                    item_name="Mystic Coin",
+                    buy_price_copper=12000,
+                    sell_price_copper=12500,
+                    volume=10000,
+                ),
+            )
+
+        assert client.post("/api/v1/player/readiness/history?source=test_packet").status_code == 200
+        assert client.post("/api/v1/player/account-value/history?source=test_packet").status_code == 200
+        assert client.post("/api/v1/player/readiness/history?source=test_packet").status_code == 200
+        assert client.post("/api/v1/player/account-value/history?source=test_packet").status_code == 200
+
+        response = client.get("/api/v1/player/session-packet?limit=10")
+        packet = response.json()["data"]["session_packet"]
+        markdown = client.get("/api/v1/player/session-packet?format=markdown")
+        csv = client.get("/api/v1/player/session-packet?format=csv")
+
+        assert response.status_code == 200
+        assert packet["schema_version"] == "gw2radar.player_session_packet.v1"
+        assert packet["readiness_summary"]["schema_version"] == "gw2radar.player_readiness_summary.v1"
+        assert packet["account_value_summary"]["schema_version"] == "gw2radar.account_value_snapshot.v1"
+        assert packet["history_correlation"]["schema_version"] == "gw2radar.player_history_correlation.v1"
+        assert packet["export_manifest"]["contains_raw_key"] is False
+        assert packet["export_manifest"]["contains_private_source_payload"] is False
+        assert packet["export_manifest"]["contains_full_holding_list"] is False
+        assert packet["debug_safe_evidence"]
+        assert packet["support_review_prompts"]
+        assert "api_key" not in str(packet).lower()
+        assert "private_payload" not in str(packet).lower()
+        assert markdown.status_code == 200
+        assert "# Player Session Packet" in markdown.text
+        assert "## Debug-Safe Evidence" in markdown.text
+        assert "api_key" not in markdown.text.lower()
+        assert csv.status_code == 200
+        assert "metric,value" in csv.text
+        assert "contains_raw_key" in csv.text
+        assert "api_key" not in csv.text.lower()
+    finally:
+        close_database()
+        state.reset_cached_graph()
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
 def test_legendary_catalog_and_actions_cover_player_guide_goal_choices() -> None:
     temp_dir = Path(".test_tmp") / f"legendary-catalog-{uuid4().hex}"
     temp_dir.mkdir(parents=True, exist_ok=True)

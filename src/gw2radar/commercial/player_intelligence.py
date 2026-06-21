@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -107,6 +107,18 @@ class PlayerHistoryCorrelation(BaseModel):
     correlation_notes: list[str] = Field(default_factory=list)
     next_actions: list[str] = Field(default_factory=list)
     evidence_refs: list[str] = Field(default_factory=list)
+    safety_boundaries: list[str] = Field(default_factory=list)
+
+
+class PlayerSessionPacket(BaseModel):
+    schema_version: str = "gw2radar.player_session_packet.v1"
+    generated_at: datetime
+    readiness_summary: dict
+    account_value_summary: dict
+    history_correlation: PlayerHistoryCorrelation
+    debug_safe_evidence: list[str] = Field(default_factory=list)
+    support_review_prompts: list[str] = Field(default_factory=list)
+    export_manifest: dict = Field(default_factory=dict)
     safety_boundaries: list[str] = Field(default_factory=list)
 
 
@@ -558,6 +570,118 @@ def render_player_history_correlation_csv(correlation: PlayerHistoryCorrelation)
     return "\n".join(rows) + "\n"
 
 
+def build_player_session_packet(
+    graph: GraphData,
+    readiness: PlayerReadinessSummary,
+    account_value: AccountValueSnapshot,
+    readiness_history: PlayerReadinessHistory,
+    account_value_history: AccountValueHistory,
+    history_correlation: PlayerHistoryCorrelation,
+) -> PlayerSessionPacket:
+    warning_codes = sorted({warning.warning_code for warning in account_value.warnings})
+    readiness_checks = {check.check_id: check.status for check in readiness.checks}
+    value_summary = account_value.summary.model_dump(mode="json")
+    diagnostics = account_value.diagnostics
+    return PlayerSessionPacket(
+        generated_at=datetime.now(timezone.utc),
+        readiness_summary={
+            "schema_version": readiness.schema_version,
+            "label": readiness.readiness_label,
+            "score": readiness.readiness_score,
+            "checks": readiness_checks,
+            "next_actions": list(readiness.next_actions),
+        },
+        account_value_summary={
+            "schema_version": account_value.schema_version,
+            "account_id_present": bool(account_value.account_id),
+            "summary": value_summary,
+            "value_coverage_percent": diagnostics.value_coverage_percent,
+            "price_coverage_percent": diagnostics.price_coverage_percent,
+            "freshness_label": diagnostics.freshness_label,
+            "source_insight_count": len(diagnostics.source_insights),
+            "remediation_action_count": len(diagnostics.remediation_actions),
+            "top_holding_count": len(account_value.top_holdings),
+            "warning_codes": warning_codes,
+        },
+        history_correlation=history_correlation,
+        debug_safe_evidence=[
+            f"private_player_state_count={len(graph.player_state)}",
+            f"readiness_history_snapshots={len(readiness_history.snapshots)}",
+            f"account_value_history_snapshots={len(account_value_history.snapshots)}",
+            f"value_warning_codes={','.join(warning_codes) if warning_codes else 'none'}",
+            f"correlation_status={history_correlation.status}",
+        ],
+        support_review_prompts=_session_packet_support_prompts(readiness, account_value, history_correlation),
+        export_manifest={
+            "formats": ["json", "markdown", "csv"],
+            "contains_raw_key": False,
+            "contains_private_source_payload": False,
+            "contains_full_holding_list": False,
+            "source_endpoints": [
+                "/api/v1/player/readiness",
+                "/api/v1/player/account-value",
+                "/api/v1/player/history/correlation",
+            ],
+        },
+        safety_boundaries=[
+            "Session packet is support-review metadata only.",
+            "It excludes raw API keys, raw GW2 API payloads, and full private holding lists.",
+            "It does not automate trades, change gear, craft items, or guarantee outcomes.",
+        ],
+    )
+
+
+def render_player_session_packet_markdown(packet: PlayerSessionPacket) -> str:
+    lines = [
+        "# Player Session Packet",
+        "",
+        f"- Schema: {packet.schema_version}",
+        f"- Generated: {packet.generated_at.isoformat()}",
+        f"- Readiness: {packet.readiness_summary.get('label')} {packet.readiness_summary.get('score')}/100",
+        f"- Account value freshness: {packet.account_value_summary.get('freshness_label')}",
+        f"- Price coverage: {packet.account_value_summary.get('price_coverage_percent')}%",
+        f"- Correlation status: {packet.history_correlation.status}",
+        "",
+        "## Debug-Safe Evidence",
+        "",
+        *[f"- {item}" for item in packet.debug_safe_evidence],
+        "",
+        "## Support Review Prompts",
+        "",
+        *[f"- {prompt}" for prompt in packet.support_review_prompts],
+        "",
+        "## Export Manifest",
+        "",
+        f"- Contains raw key: {packet.export_manifest.get('contains_raw_key')}",
+        f"- Contains private source payload: {packet.export_manifest.get('contains_private_source_payload')}",
+        f"- Contains full holding list: {packet.export_manifest.get('contains_full_holding_list')}",
+        "",
+        "## Safety Boundaries",
+        "",
+        *[f"- {boundary}" for boundary in packet.safety_boundaries],
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def render_player_session_packet_csv(packet: PlayerSessionPacket) -> str:
+    rows = [
+        "metric,value",
+        f"schema_version,{_csv(packet.schema_version)}",
+        f"generated_at,{_csv(packet.generated_at.isoformat())}",
+        f"readiness_label,{_csv(str(packet.readiness_summary.get('label', '')))}",
+        f"readiness_score,{_csv(str(packet.readiness_summary.get('score', '')))}",
+        f"account_value_freshness,{_csv(str(packet.account_value_summary.get('freshness_label', '')))}",
+        f"value_coverage_percent,{_csv(str(packet.account_value_summary.get('value_coverage_percent', '')))}",
+        f"price_coverage_percent,{_csv(str(packet.account_value_summary.get('price_coverage_percent', '')))}",
+        f"history_correlation_status,{_csv(packet.history_correlation.status)}",
+        f"debug_safe_evidence,{_csv('; '.join(packet.debug_safe_evidence))}",
+        f"support_review_prompts,{_csv('; '.join(packet.support_review_prompts))}",
+        f"contains_raw_key,{_csv(str(packet.export_manifest.get('contains_raw_key')))}",
+        f"contains_private_source_payload,{_csv(str(packet.export_manifest.get('contains_private_source_payload')))}",
+    ]
+    return "\n".join(rows) + "\n"
+
+
 def _do_not_sell_alerts(graph: GraphData, goal_id: str) -> list[str]:
     if goal_id not in graph.entities:
         return ["Load an active goal before generating do-not-sell alerts."]
@@ -668,3 +792,21 @@ def _history_correlation_boundaries() -> list[str]:
         "GW2Radar does not infer causality, automate trades, change gear, craft items, or guarantee outcomes.",
         "Raw API keys and private account source payloads are excluded from history correlation output.",
     ]
+
+
+def _session_packet_support_prompts(
+    readiness: PlayerReadinessSummary,
+    account_value: AccountValueSnapshot,
+    correlation: PlayerHistoryCorrelation,
+) -> list[str]:
+    prompts: list[str] = []
+    if readiness.readiness_label != "ready":
+        prompts.append("Review non-ready readiness checks before asking the player for more data.")
+    if account_value.diagnostics.price_coverage_percent < 100:
+        prompts.append("Explain which price coverage gaps remain and suggest a safe refresh path.")
+    if correlation.status in {"needs_review", "changed"}:
+        prompts.append("Compare readiness and value history together before attributing the change to sync or prices.")
+    if not prompts:
+        prompts.append("Session looks consistent at MVP depth; recommend normal manual planning review.")
+    prompts.append("Never request raw API keys or raw private account payloads from the player.")
+    return prompts

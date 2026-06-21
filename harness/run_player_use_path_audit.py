@@ -226,6 +226,33 @@ def main() -> int:
             "mature_history_correlation",
             f"{correlation.get('status', 'missing')} with readiness delta {correlation.get('readiness_score_delta', 0)} and price coverage delta {correlation.get('price_coverage_delta', 0)}.",
         )
+        session_packet_response = _json(
+            client.get("/api/v1/player/session-packet?limit=10"),
+            "load player session packet",
+            checks,
+        )
+        session_packet = _get(session_packet_response, "data", "session_packet") or {}
+        session_packet_md = client.get("/api/v1/player/session-packet?format=markdown")
+        session_packet_csv = client.get("/api/v1/player/session-packet?format=csv")
+        _add(
+            checks,
+            "player_session_packet",
+            "Player session packet bundles readiness, value, correlation, and debug-safe support prompts.",
+            session_packet.get("schema_version") == "gw2radar.player_session_packet.v1"
+            and _get(session_packet, "history_correlation", "schema_version") == "gw2radar.player_history_correlation.v1"
+            and _get(session_packet, "export_manifest", "contains_raw_key") is False
+            and _get(session_packet, "export_manifest", "contains_private_source_payload") is False
+            and isinstance(session_packet.get("debug_safe_evidence"), list)
+            and isinstance(session_packet.get("support_review_prompts"), list)
+            and session_packet_md.status_code == 200
+            and "# Player Session Packet" in session_packet_md.text
+            and session_packet_csv.status_code == 200
+            and "contains_raw_key" in session_packet_csv.text
+            and "api_key" not in json.dumps(session_packet).lower()
+            and "api_key" not in (session_packet_md.text + session_packet_csv.text).lower(),
+            "mature_session_packet",
+            f"{len(session_packet.get('debug_safe_evidence', []))} evidence rows and {len(session_packet.get('support_review_prompts', []))} support prompts.",
+        )
 
         imported = _json(client.post("/api/v1/builds/import", json=_sample_build_import()), "import build", checks)
         build_id = _get(imported, "data", "build", "build_id") or "missing-build-id"
@@ -432,6 +459,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "- `PlayerReadinessExport` renders the readiness summary as Markdown and CSV for player/support comparison across sessions.",
             "- `PlayerReadinessHistory` stores privacy-safe readiness snapshots and compares the latest two score/check states.",
             "- `PlayerHistoryCorrelation` explains readiness deltas alongside account value, price coverage, and warning deltas.",
+            "- `PlayerSessionPacket` packages readiness, value, correlation, and debug-safe support prompts without raw private payloads.",
             "- `ReportArtifactManifest` records bridge metadata without storing raw API keys or unredacted private payloads.",
             "",
             "## Known Limits",
@@ -442,7 +470,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Next Priority",
             "",
-            "Add an operator-friendly player session packet that bundles readiness, value, correlation, and debug-safe evidence for support review.",
+            "Add a local player session packet artifact writer with manifest, checksum, and path-safe retrieval for support handoff.",
             "",
         ]
     )

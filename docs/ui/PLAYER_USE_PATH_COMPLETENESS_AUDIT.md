@@ -3,7 +3,7 @@
 - Schema: gw2radar.player_use_path_completeness_audit.v1
 - Maturity label: ready
 - Readiness score: 100.0
-- Passed checks: 11
+- Passed checks: 12
 - Failed checks: 0
 - Privacy boundary: raw API keys and private source payloads must not appear in this audit.
 
@@ -18,6 +18,7 @@
 | `account_value_diagnostics` | PASS | mature_evidence_spine | GET /api/v1/player/account-value returns account_value_snapshot.diagnostics. | None for MVP depth. |
 | `account_value_history` | PASS | mature_value_history | 2 snapshots with comparison unchanged. | None for MVP depth. |
 | `player_history_correlation` | PASS | mature_history_correlation | unchanged with readiness delta 0.0 and price coverage delta 0.0. | None for MVP depth. |
+| `player_session_packet` | PASS | mature_session_packet | 5 evidence rows and 3 support prompts. | None for MVP depth. |
 | `build_fit_bridge` | PASS | mature_semantic_bridge | gw2radar.account_value_evidence_bridge.v1 with 3 source summaries and 2 remediation items. | None for MVP depth. |
 | `legendary_bridge` | PASS | mature_semantic_bridge | gw2radar.account_value_evidence_bridge.v1 with 3 source summaries and 2 remediation items. | None for MVP depth. |
 | `market_bridge` | PASS | mature_semantic_bridge | gw2radar.account_value_evidence_bridge.v1 with 3 source summaries and 2 remediation items. | None for MVP depth. |
@@ -34,6 +35,7 @@
 - `PlayerReadinessExport` renders the readiness summary as Markdown and CSV for player/support comparison across sessions.
 - `PlayerReadinessHistory` stores privacy-safe readiness snapshots and compares the latest two score/check states.
 - `PlayerHistoryCorrelation` explains readiness deltas alongside account value, price coverage, and warning deltas.
+- `PlayerSessionPacket` packages readiness, value, correlation, and debug-safe support prompts without raw private payloads.
 - `ReportArtifactManifest` records bridge metadata without storing raw API keys or unredacted private payloads.
 
 ## Known Limits
@@ -44,4 +46,4 @@
 
 ## Next Priority
 
-Add an operator-friendly player session packet that bundles readiness, value, correlation, and debug-safe evidence for support review.
+Add a local player session packet artifact writer with manifest, checksum, and path-safe retrieval for support handoff.
