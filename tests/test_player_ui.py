@@ -381,6 +381,7 @@ def test_player_ui_docs_cover_required_flows() -> None:
         "REPORT_CENTER_UI_FLOW.md",
         "PRIVACY_SAFETY_UI_FLOW.md",
         "PLAYER_UI_SEMANTIC_GRAPH_AUDIT.md",
+        "PLAYER_USE_PATH_COMPLETENESS_AUDIT.md",
     ]
 
     combined = "\n".join((docs_root / name).read_text(encoding="utf-8") for name in required)
@@ -399,4 +400,7 @@ def test_player_ui_docs_cover_required_flows() -> None:
     assert "Delete all private data" in combined
     assert "Run connection diagnostic" in combined
     assert "Export debug bundle" in combined
+    assert "Player Use Path Completeness Audit" in combined
+    assert "gw2radar.player_use_path_completeness_audit.v1" in combined
+    assert "AccountValueEvidenceBridge" in combined
     assert "promote-reviewed" in combined

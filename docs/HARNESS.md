@@ -162,6 +162,19 @@ inspection, account sync enqueue/status/drain-one, private-layer graph writes,
 synced character snapshot exposure, Build Fit account-gear conversion, and raw
 key non-leakage.
 
+## Player Use Path Completeness Audit Command
+
+```bash
+python harness/run_player_use_path_audit.py
+```
+
+This audit path verifies the player-facing journey from `/player` shell through
+account value diagnostics, Build Fit, Legendary Planner, Market Radar, and paid
+report artifact metadata. It writes
+`docs/ui/PLAYER_USE_PATH_COMPLETENESS_AUDIT.md` with an executable checklist,
+semantic graph summary, known limits, and next priority. The audit is
+summary-only and must not include raw API keys or private source payloads.
+
 ## Account Debug Bundle Review Command
 
 ```bash
