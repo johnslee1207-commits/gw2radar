@@ -827,7 +827,10 @@ achievement_api_access</textarea>
               <p class="eyebrow">Trust signal</p>
               <h2 id="freshness-title">Data Freshness</h2>
             </div>
-            <button data-action="refreshFreshness">Refresh freshness</button>
+            <div class="button-row">
+              <button data-action="refreshFreshness">Refresh freshness</button>
+              <button class="secondary-action" data-action="loadPublicRefreshHealth">Public refresh health</button>
+            </div>
           </div>
           <div class="dashboard-grid">
             <article class="panel">
@@ -836,7 +839,11 @@ achievement_api_access</textarea>
             </article>
             <article class="panel">
               <h3>Market Prices</h3>
-              <p class="freshness-value">Manual snapshots only; verify before purchases or sales.</p>
+              <p class="freshness-value" id="freshness-market-card">Manual snapshots only; verify before purchases or sales.</p>
+            </article>
+            <article class="panel">
+              <h3>Public Refresh Queue</h3>
+              <div id="public-refresh-health" class="compact-list">Load public refresh health to inspect retry/backoff state for public facts.</div>
             </article>
             <article class="panel">
               <h3>Build Sources</h3>

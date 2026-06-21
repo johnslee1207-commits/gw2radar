@@ -139,7 +139,8 @@ function summarizeResult(target, payload) {
     }
     if (data?.refresh?.data?.official_price_refresh) {
       const refresh = data.refresh.data.official_price_refresh;
-      return `Official price refresh ${refresh.status}: ${refresh.refreshed_item_count || 0}/${refresh.requested_item_count || 0} items refreshed.`;
+      const action = refresh.player_action ? ` ${refresh.player_action}` : "";
+      return `Official price refresh ${refresh.status}: ${refresh.refreshed_item_count || 0}/${refresh.requested_item_count || 0} items refreshed.${action}`;
     }
     if (data?.dashboard) {
       const count = data.dashboard.today_best_actions?.length || 0;
@@ -394,6 +395,9 @@ function summarizeResult(target, payload) {
     return "Report center updated. Products and pricing come from backend configuration.";
   }
   if (target === "freshness") {
+    if (data?.public_refresh_health?.schema_version === "gw2radar.public_refresh_worker_health.v1") {
+      return `Public refresh health ${data.public_refresh_health.health_status}: queue ${data.public_refresh_health.queue_depth || 0}, retry ${data.public_refresh_health.retry_depth || 0}, failed ${data.public_refresh_health.failed_depth || 0}.`;
+    }
     return "Freshness state refreshed. Stale data means recommendations need manual review.";
   }
   if (target === "privacy") {
@@ -1387,6 +1391,40 @@ function renderAccountSyncHealth(health) {
   });
 }
 
+function renderPublicRefreshHealth(health) {
+  const list = document.querySelector("#public-refresh-health");
+  if (!list) {
+    return;
+  }
+  list.innerHTML = "";
+  if (!health) {
+    list.textContent = "No public refresh worker health is available yet.";
+    return;
+  }
+  appendCompactBridgeRow(
+    list,
+    health.health_status || "unknown",
+    `queue ${health.queue_depth ?? 0} · retry ${health.retry_depth ?? 0} · failed ${health.failed_depth ?? 0}`,
+    ["idle", "active"].includes(health.health_status) ? "info" : "warn"
+  );
+  (health.latest || []).slice(0, 3).forEach((job) => {
+    const retryAt = job.next_attempt_at ? ` · next ${new Date(job.next_attempt_at).toLocaleTimeString()}` : "";
+    appendCompactBridgeRow(
+      list,
+      `${job.endpoint || "public"} · ${job.status || "job"}`,
+      `attempts ${job.attempt_count ?? 0}/${job.max_attempts ?? 0} · ${job.last_error_code || "no error"}${retryAt}`,
+      job.status === "succeeded" ? "info" : "warn"
+    );
+  });
+  (health.next_actions || []).slice(0, 3).forEach((action) => {
+    appendCompactBridgeRow(list, "Next", action, "warn");
+  });
+  const marketCard = document.querySelector("#freshness-market-card");
+  if (marketCard) {
+    marketCard.textContent = `Public refresh worker ${health.health_status || "unknown"}; price refresh still requires official market refresh.`;
+  }
+}
+
 function renderFirstRunSummary(summary) {
   const list = document.querySelector("#first-run-summary");
   if (!list) {
@@ -2203,6 +2241,11 @@ const actions = {
   refreshOfficialPrices: () =>
     run("dashboard", async () => {
       const refresh = await fetchJson("/api/v1/market/snapshots/official-refresh", { method: "POST" });
+      const priceRefresh = refresh?.data?.official_price_refresh || {};
+      const marketCard = document.querySelector("#freshness-market-card");
+      if (marketCard) {
+        marketCard.textContent = priceRefresh.player_action || `Official price refresh ${priceRefresh.status || "checked"}.`;
+      }
       const value = await fetchJson("/api/v1/player/account-value");
       renderAccountValueSummary(value?.data?.account_value_snapshot || {});
       return { refresh, value };
@@ -3409,17 +3452,26 @@ const actions = {
     run("freshness", async () => {
       const sync = await fetchJson("/api/v1/account/sync/status");
       const market = await fetchJson("/api/v1/market/patch-freshness");
+      const publicRefreshHealth = await fetchJson("/api/v1/public/refresh/health");
       const annotations = await fetchJson("/api/v1/player/freshness-annotations");
       updateStatusFromSync(sync);
+      renderPublicRefreshHealth(publicRefreshHealth);
       renderFreshnessAnnotations(annotations?.data?.annotations || []);
       return {
         account_snapshot: sync,
         market_patch_freshness: market,
+        public_refresh_health: publicRefreshHealth,
         freshness_annotations: annotations,
         build_sources: "Check per imported build.",
         knowledge_rules: "Reviewed enabled rules only.",
         boundary: "Planning guidance only; refresh stale data before manual action.",
       };
+    }),
+  loadPublicRefreshHealth: () =>
+    run("freshness", async () => {
+      const publicRefreshHealth = await fetchJson("/api/v1/public/refresh/health");
+      renderPublicRefreshHealth(publicRefreshHealth);
+      return { public_refresh_health: publicRefreshHealth };
     }),
   openArtifact: () => {
     const artifactId = document.querySelector("#artifact-id").value;

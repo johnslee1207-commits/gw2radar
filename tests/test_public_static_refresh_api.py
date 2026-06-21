@@ -36,6 +36,17 @@ class PublicRefreshGateway:
         )
 
 
+class DelayedPublicRefreshGateway:
+    def get_batch(self, endpoint, *, ids, params=None, api_key=None, priority="P3"):
+        return GatewayResult(
+            status=GatewayStatus.RATE_LIMITED_RETRYING,
+            endpoint=endpoint,
+            request_id="req:public:rate-limit",
+            retry_after_seconds=30,
+            diagnostics={"params_hash": "safe-public-hash"},
+        )
+
+
 def test_public_static_refresh_enqueue_status_and_drain() -> None:
     temp_dir, original_factory, gateway = _setup_temp_api("public-refresh")
     try:
@@ -70,6 +81,35 @@ def test_public_static_refresh_enqueue_status_and_drain() -> None:
         _teardown_temp_api(temp_dir, original_factory)
 
 
+def test_public_static_refresh_health_exposes_retry_backoff_without_private_payloads() -> None:
+    temp_dir, original_factory, _gateway = _setup_temp_api("public-refresh-health")
+    gateway = DelayedPublicRefreshGateway()
+    public_refresh_route.gateway_factory = lambda: gateway
+    try:
+        client = TestClient(app)
+        queued = client.post(
+            "/api/v1/public/refresh",
+            json={"endpoint": "/v2/items", "ids": [19721], "chunk_size": 1},
+        )
+        drained = client.post("/api/v1/public/refresh/drain-one")
+        health = client.get("/api/v1/public/refresh/health")
+
+        assert queued.status_code == 200
+        assert drained.status_code == 200
+        assert drained.json()["status"] == "delayed"
+        assert drained.json()["retry_after_seconds"] == 30
+        payload = health.json()
+        assert payload["schema_version"] == "gw2radar.public_refresh_worker_health.v1"
+        assert payload["health_status"] == "waiting_retry"
+        assert payload["retry_depth"] == 1
+        assert payload["latest"][0]["last_error_code"] == "rate_limited_retrying"
+        assert payload["latest"][0]["next_attempt_at"] is not None
+        assert "raw api keys" in payload["boundary"].lower()
+        assert "secret-key" not in str(payload).lower()
+    finally:
+        _teardown_temp_api(temp_dir, original_factory)
+
+
 def test_public_static_refresh_rejects_unsupported_endpoint() -> None:
     temp_dir, original_factory, _gateway = _setup_temp_api("public-refresh-bad")
     try:
@@ -79,6 +119,9 @@ def test_public_static_refresh_rejects_unsupported_endpoint() -> None:
         )
         assert response.status_code == 400
         assert response.json()["ok"] is False
+        assert response.json()["error"]["code"] == "public_refresh_bad_request"
+        assert response.json()["error"]["details"]["retryable"] is False
+        assert response.json()["error"]["details"]["player_action"].startswith("Use one of the supported")
         assert "Unsupported public static endpoint" in response.json()["error"]["message"]
     finally:
         _teardown_temp_api(temp_dir, original_factory)

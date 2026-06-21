@@ -76,6 +76,62 @@ class PublicRefreshCoordinator:
             ],
         }
 
+    def health(self) -> dict:
+        repo = RefreshQueueRepository(self.session)
+        counts = {status.value: 0 for status in RefreshQueueStatus}
+        latest = []
+        for status in RefreshQueueStatus:
+            items = [
+                item
+                for item in repo.list_by_status(status, as_items=True)
+                if item.task_type is RefreshTaskType.PUBLIC_STATIC_REFRESH
+            ]
+            counts[status.value] = len(items)
+            latest.extend(items)
+        latest = sorted(latest, key=lambda item: item.updated_at, reverse=True)[:5]
+        queue_depth = counts[RefreshQueueStatus.QUEUED.value] + counts[RefreshQueueStatus.PROCESSING.value]
+        retry_depth = counts[RefreshQueueStatus.DELAYED.value]
+        failed_depth = counts[RefreshQueueStatus.FAILED.value]
+        if failed_depth:
+            health_status = "needs_review"
+        elif retry_depth:
+            health_status = "waiting_retry"
+        elif queue_depth:
+            health_status = "active"
+        else:
+            health_status = "idle"
+        next_actions = []
+        if retry_depth:
+            next_actions.append("Wait for the GW2 API backoff window, then run drain-one again.")
+        if failed_depth:
+            next_actions.append("Review the latest public refresh error code before enqueueing more ids.")
+        if not latest:
+            next_actions.append("Queue a public static refresh when item, achievement, currency, or recipe facts are stale.")
+        return {
+            "schema_version": "gw2radar.public_refresh_worker_health.v1",
+            "health_status": health_status,
+            "counts": counts,
+            "queue_depth": queue_depth,
+            "retry_depth": retry_depth,
+            "failed_depth": failed_depth,
+            "latest": [
+                {
+                    "task_id": item.id,
+                    "endpoint": item.endpoint,
+                    "status": item.status.value,
+                    "attempt_count": item.attempt_count,
+                    "max_attempts": item.max_attempts,
+                    "next_attempt_at": item.next_attempt_at.isoformat() if item.next_attempt_at else None,
+                    "last_error_code": item.last_error_code,
+                    "params_hash": item.params_hash,
+                    "updated_at": item.updated_at.isoformat(),
+                }
+                for item in latest
+            ],
+            "next_actions": next_actions,
+            "boundary": "Public refresh health is metadata-only; it must not include raw API keys or private account payloads.",
+        }
+
     def drain_one(self) -> dict:
         repo = RefreshQueueRepository(self.session)
         task = repo.lease_next("public-refresh-drain-one", datetime.now(timezone.utc))
@@ -105,5 +161,6 @@ class PublicRefreshCoordinator:
             task.id,
             error_code=result["status"],
             error_message="Public static refresh returned non-ok status.",
+            retry_after_seconds=result.get("retry_after_seconds"),
         )
         return {**result, "status": "delayed", "task_id": task.id}

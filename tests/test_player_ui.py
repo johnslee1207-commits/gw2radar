@@ -117,6 +117,8 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert "Generate full report" in response.text
     assert "Mock returner checkout" in response.text
     assert "Refresh freshness to load recommendation-level source confidence." in response.text
+    assert "Public refresh health" in response.text
+    assert "Load public refresh health to inspect retry/backoff state for public facts." in response.text
     assert "Operator review gate" in response.text
     assert "Official achievement ids" in response.text
     assert "Fetch preview" in response.text
@@ -353,6 +355,11 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "renderAccountValueHistory" in js.text
     assert "downloadText" in js.text
     assert "/api/v1/player/freshness-annotations" in js.text
+    assert "/api/v1/public/refresh/health" in js.text
+    assert "loadPublicRefreshHealth" in js.text
+    assert "renderPublicRefreshHealth" in js.text
+    assert "gw2radar.public_refresh_worker_health.v1" in js.text
+    assert "player_action" in js.text
     assert "/api/v1/legendary/goals/catalog" in js.text
     assert "/api/v1/legendary/actions" in js.text
     assert "/api/v1/returner/report" in js.text

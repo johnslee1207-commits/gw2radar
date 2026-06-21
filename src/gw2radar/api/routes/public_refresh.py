@@ -34,6 +34,11 @@ def get_public_refresh_status() -> dict:
     return _with_coordinator(lambda coordinator: coordinator.status())
 
 
+@router.get("/health")
+def get_public_refresh_health() -> dict:
+    return _with_coordinator(lambda coordinator: coordinator.health())
+
+
 @router.post("/drain-one")
 def drain_one_public_refresh() -> dict:
     return _with_coordinator(lambda coordinator: coordinator.drain_one())
@@ -51,4 +56,13 @@ def _with_coordinator(callback):
         try:
             return callback(coordinator)
         except ValueError as error:
-            raise HTTPException(status_code=400, detail=str(error)) from error
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "code": "public_refresh_bad_request",
+                    "message": str(error),
+                    "retryable": False,
+                    "player_action": "Use one of the supported public static endpoints before queueing refresh.",
+                    "supported_endpoints": ["/v2/items", "/v2/achievements", "/v2/currencies", "/v2/recipes"],
+                },
+            ) from error

@@ -25,10 +25,13 @@ if str(SRC) not in sys.path:
 
 from gw2radar.api import state  # noqa: E402
 from gw2radar.api.main import app  # noqa: E402
+from gw2radar.api.routes import market as market_route  # noqa: E402
 from gw2radar.commercial.report_engine import create_report_entitlement, ensure_default_report_products  # noqa: E402
 from gw2radar.db import session as db_session  # noqa: E402
 from gw2radar.db.init_db import init_db  # noqa: E402
 from gw2radar.db.session import close_database, configure_database  # noqa: E402
+from gw2radar.ingest.gateway_status import GatewayStatus  # noqa: E402
+from gw2radar.ingest.gw2_api_gateway import GatewayResult  # noqa: E402
 
 
 AUDIT_PATH = ROOT / "docs" / "ui" / "PLAYER_USE_PATH_COMPLETENESS_AUDIT.md"
@@ -47,15 +50,35 @@ class AuditCheck:
     limitation: str = "None for MVP depth."
 
 
+class AuditMarketPriceGateway:
+    def get_batch(self, endpoint, *, ids, params=None, api_key=None, priority="P3"):
+        return GatewayResult(
+            status=GatewayStatus.OK,
+            endpoint=endpoint,
+            request_id="audit:market-price",
+            payload=[
+                {
+                    "id": int(item_id),
+                    "buys": {"unit_price": 12000 + int(item_id), "quantity": 10},
+                    "sells": {"unit_price": 12500 + int(item_id), "quantity": 20},
+                }
+                for item_id in ids
+            ],
+            evidence_id="audit:evidence:market-price",
+        )
+
+
 def main() -> int:
     temp_dir = ROOT / ".test_tmp" / f"player-use-path-audit-{uuid4().hex}"
     temp_dir.mkdir(parents=True, exist_ok=True)
     checks: list[AuditCheck] = []
+    original_market_gateway_factory = market_route.gateway_factory
 
     try:
         configure_database(f"sqlite:///{temp_dir / 'player-use-path.db'}")
         init_db()
         state.reset_cached_graph()
+        market_route.gateway_factory = lambda: AuditMarketPriceGateway()
         client = TestClient(app)
 
         page = client.get("/player")
@@ -130,8 +153,41 @@ def main() -> int:
             "mature_gateway_error_contract",
             str(_get(contract_payload, "error", "code") or "missing_error_code"),
         )
+        public_refresh_health = _json(client.get("/api/v1/public/refresh/health"), "load public refresh worker health", checks)
+        _add(
+            checks,
+            "public_refresh_worker_health",
+            "Public refresh worker health exposes queue depth, retry depth, failed depth, latest jobs, and safe next actions.",
+            public_refresh_health.get("schema_version") == "gw2radar.public_refresh_worker_health.v1"
+            and public_refresh_health.get("health_status") in {"idle", "active", "waiting_retry", "needs_review"}
+            and isinstance(public_refresh_health.get("counts"), dict)
+            and isinstance(public_refresh_health.get("latest"), list)
+            and "raw api keys" in public_refresh_health.get("boundary", "").lower()
+            and "secret-key" not in json.dumps(public_refresh_health).lower(),
+            "mature_public_refresh_worker_health",
+            f"{public_refresh_health.get('health_status', 'unknown')} with queue depth {public_refresh_health.get('queue_depth', 0)}.",
+        )
 
         _json(client.post("/mock/load"), "load demo graph", checks)
+        market_price_refresh = _json(
+            client.post("/api/v1/market/snapshots/official-refresh?chunk_size=50"),
+            "refresh official market prices",
+            checks,
+        )
+        market_refresh = _get(market_price_refresh, "data", "official_price_refresh") or {}
+        _add(
+            checks,
+            "market_price_refresh_diagnostics",
+            "Official market price refresh returns status, player action, retry diagnostics, and no-trading boundary even when no prices are refreshed.",
+            market_refresh.get("schema_version") == "gw2radar.official_price_refresh.v1"
+            and market_refresh.get("status") in {"succeeded", "idle", "refresh_pending"}
+            and isinstance(market_refresh.get("gateway_diagnostics"), list)
+            and bool(market_refresh.get("player_action"))
+            and "does not trade" in market_refresh.get("boundary", "").lower()
+            and "secret-key" not in json.dumps(market_refresh).lower(),
+            "mature_market_price_refresh_diagnostics",
+            f"{market_refresh.get('status', 'missing')} with {len(market_refresh.get('gateway_diagnostics', []))} gateway diagnostics.",
+        )
         player_readiness = _json(client.get("/api/v1/player/readiness"), "load player readiness", checks)
         readiness = _get(player_readiness, "data", "readiness") or {}
         _add(
@@ -783,6 +839,7 @@ def main() -> int:
         )
         _write_audit(checks)
     finally:
+        market_route.gateway_factory = original_market_gateway_factory
         close_database()
         state.reset_cached_graph()
         shutil.rmtree(temp_dir, ignore_errors=True)
@@ -913,6 +970,8 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "- `AccountFirstRunSummary` explains empty account-aware result states across missing key, limited permissions, sync queue, and private-layer write gates.",
             "- `AccountSyncWorkerHealth` exposes bounded worker-loop health, queue depth, retry depth, failed depth, latest jobs, and safe next actions.",
             "- `AccountSyncGatewayContract` returns structured user-facing error envelopes for missing key, permission, rate-limit, and API client failure states.",
+            "- `PublicRefreshWorkerHealth` exposes public static refresh queue depth, retry depth, failed depth, latest jobs, and safe next actions.",
+            "- `MarketPriceRefreshDiagnostics` explains official commerce price refresh status, retryability, player action, and no-trading boundary.",
             "- `PrivatePlayerState` stores private account summaries separately from public game and KB layers.",
             "- `AccountValueSnapshot` normalizes holdings, price coverage, source diagnostics, and remediation actions.",
             "- `AccountValueHistory` stores privacy-safe value coverage snapshots and compares value/coverage/freshness deltas.",
@@ -935,13 +994,13 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Known Limits",
             "",
-            "- Official price refresh depends on the external GW2 API gateway; this audit verifies the UI/API contract and existing dedicated refresh tests cover gateway behavior.",
+            "- Official price refresh depends on the external GW2 API gateway; this audit verifies the UI/API contract and dedicated refresh tests cover delayed gateway behavior.",
             "- The audit uses demo graph and deterministic local database data; real player accounts can still encounter GW2 API rate limits or missing optional permissions.",
             "- UI validation here is static plus API-level; full browser visual polish should remain covered by browser screenshot checks when layout changes are substantial.",
             "",
             "## Next Priority",
             "",
-            "Extend gateway contract hardening to public official refresh and market price refresh, then surface retry/backoff diagnostics in the player dashboard.",
+            "Add a consolidated player-facing gateway incident timeline that correlates account sync, public refresh, and market refresh retry events.",
             "",
         ]
     )

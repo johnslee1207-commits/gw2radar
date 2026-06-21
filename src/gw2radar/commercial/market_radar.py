@@ -119,6 +119,9 @@ class OfficialPriceRefreshResult(BaseModel):
     chunks: int
     source: str = "official_commerce_api"
     warnings: list[str] = Field(default_factory=list)
+    gateway_diagnostics: list[dict] = Field(default_factory=list)
+    retry_after_seconds: int | None = None
+    player_action: str = "Refresh official prices before relying on account-value market coverage."
     boundary: str = "Official price refresh stores public price observations only; it does not trade or inspect private payloads."
 
 
@@ -159,11 +162,25 @@ def refresh_official_price_snapshots_for_account(
         )
     refreshed = 0
     chunks = 0
+    diagnostics: list[dict] = []
+    retry_after_seconds: int | None = None
     for chunk in _chunks(item_ids, max(1, chunk_size)):
         chunks += 1
         result = gateway.get_batch("/v2/commerce/prices", ids=chunk, priority="P2")
         if result.status not in {GatewayStatus.OK, GatewayStatus.CACHE_HIT}:
             warnings.append(f"Chunk {chunks} returned {result.status.value}; retry later.")
+            retry_after_seconds = result.retry_after_seconds or retry_after_seconds
+            diagnostics.append(
+                {
+                    "endpoint": result.endpoint,
+                    "request_id": result.request_id,
+                    "status": result.status.value,
+                    "retryable": result.status
+                    in {GatewayStatus.RATE_LIMITED_RETRYING, GatewayStatus.REFRESH_PENDING},
+                    "retry_after_seconds": result.retry_after_seconds,
+                    "diagnostics": dict(result.diagnostics or {}),
+                }
+            )
             continue
         rows = result.payload if isinstance(result.payload, list) else [result.payload]
         for row in rows:
@@ -191,7 +208,22 @@ def refresh_official_price_snapshots_for_account(
         skipped_item_count=max(len(item_ids) - refreshed, 0),
         chunks=chunks,
         warnings=warnings,
+        gateway_diagnostics=diagnostics,
+        retry_after_seconds=retry_after_seconds,
+        player_action=_official_price_player_action(refreshed, len(item_ids), diagnostics),
     )
+
+
+def _official_price_player_action(refreshed: int, requested: int, diagnostics: list[dict]) -> str:
+    if requested == 0:
+        return "Sync account holdings first so official prices know which item ids to refresh."
+    if not diagnostics:
+        return "Official prices refreshed; rerun account value or readiness to update coverage."
+    if any(item.get("retryable") for item in diagnostics):
+        return "GW2 API price refresh is delayed; wait for the retry window, then refresh official prices again."
+    if refreshed:
+        return "Some prices refreshed and some failed; rerun once, then inspect the gateway diagnostics if gaps remain."
+    return "Official price refresh failed before any prices were recorded; inspect gateway diagnostics before relying on market coverage."
 
 
 def add_watchlist_item(

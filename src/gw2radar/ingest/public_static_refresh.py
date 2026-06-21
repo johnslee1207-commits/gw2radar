@@ -43,6 +43,10 @@ def refresh_public_static(
                 "updated_entities": updated,
                 "chunks": len(chunks),
                 "evidence_ids": evidence_ids,
+                "endpoint": endpoint,
+                "request_id": result.request_id,
+                "retry_after_seconds": result.retry_after_seconds,
+                "diagnostics": dict(result.diagnostics or {}),
             }
         if result.evidence_id:
             evidence_writer = getattr(gateway, "evidence_writer", EvidenceWriter())

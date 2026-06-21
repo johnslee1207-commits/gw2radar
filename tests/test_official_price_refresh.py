@@ -40,6 +40,17 @@ class OfficialPriceGateway:
         )
 
 
+class RateLimitedOfficialPriceGateway:
+    def get_batch(self, endpoint, *, ids, params=None, api_key=None, priority="P3"):
+        return GatewayResult(
+            status=GatewayStatus.RATE_LIMITED_RETRYING,
+            endpoint=endpoint,
+            request_id="price:rate-limit",
+            retry_after_seconds=30,
+            diagnostics={"params_hash": "safe-price-hash"},
+        )
+
+
 def test_official_price_refresh_records_public_snapshots_for_account_holdings() -> None:
     temp_dir = Path(".test_tmp") / f"official-price-refresh-{uuid4().hex}"
     temp_dir.mkdir(parents=True, exist_ok=True)
@@ -91,3 +102,60 @@ def test_official_price_refresh_records_public_snapshots_for_account_holdings() 
         close_database()
         state.reset_cached_graph()
         shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def test_official_price_refresh_returns_gateway_diagnostics_when_delayed() -> None:
+    temp_dir = Path(".test_tmp") / f"official-price-refresh-delayed-{uuid4().hex}"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    original_factory = market_route.gateway_factory
+    gateway = RateLimitedOfficialPriceGateway()
+    try:
+        configure_database(f"sqlite:///{temp_dir / 'market.db'}")
+        init_db()
+        state.reset_cached_graph()
+        market_route.gateway_factory = lambda: gateway
+        client = TestClient(app)
+        assert client.post("/mock/load").status_code == 200
+        _add_private_holding("gw2:item:19721", "Glob of Ectoplasm", quantity=7)
+
+        response = client.post("/api/v1/market/snapshots/official-refresh?chunk_size=2")
+
+        assert response.status_code == 200
+        refresh = response.json()["data"]["official_price_refresh"]
+        assert refresh["schema_version"] == "gw2radar.official_price_refresh.v1"
+        assert refresh["status"] == "refresh_pending"
+        assert refresh["requested_item_count"] >= 1
+        assert refresh["refreshed_item_count"] == 0
+        assert refresh["retry_after_seconds"] == 30
+        assert refresh["gateway_diagnostics"][0]["status"] == "rate_limited_retrying"
+        assert refresh["gateway_diagnostics"][0]["retryable"] is True
+        assert refresh["player_action"].startswith("GW2 API price refresh is delayed")
+        assert "secret-key" not in str(refresh).lower()
+    finally:
+        market_route.gateway_factory = original_factory
+        close_database()
+        state.reset_cached_graph()
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def _add_private_holding(entity_id: str, name: str, *, quantity: int) -> None:
+    graph = state.get_graph()
+    graph.add_entity(
+        Entity(
+            id=entity_id,
+            type=EntityType.ITEM,
+            canonical_name=name,
+            graph_layer=GraphLayer.PRIVATE_PLAYER_STATE,
+        )
+    )
+    graph.add_player_state(
+        PlayerState(
+            id=f"state:official-price:{entity_id.rsplit(':', 1)[-1]}",
+            account_id=graph.account_id or "mock:account:lee",
+            entity_id=entity_id,
+            graph_layer=GraphLayer.PRIVATE_PLAYER_STATE,
+            quantity=quantity,
+            location="materials",
+        )
+    )
+    state.save_graph(graph)

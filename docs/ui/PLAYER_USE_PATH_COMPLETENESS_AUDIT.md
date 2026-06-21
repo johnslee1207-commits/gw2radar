@@ -3,7 +3,7 @@
 - Schema: gw2radar.player_use_path_completeness_audit.v1
 - Maturity label: ready
 - Readiness score: 100.0
-- Passed checks: 24
+- Passed checks: 26
 - Failed checks: 0
 - Privacy boundary: raw API keys and private source payloads must not appear in this audit.
 
@@ -15,6 +15,8 @@
 | `account_first_run_summary` | PASS | mature_first_run_empty_result_guidance | missing_key with 5 state cards. | None for MVP depth. |
 | `account_sync_worker_health` | PASS | mature_account_sync_worker_health | idle with queue depth 0. | None for MVP depth. |
 | `account_sync_gateway_contract` | PASS | mature_gateway_error_contract | account_sync_not_ready | None for MVP depth. |
+| `public_refresh_worker_health` | PASS | mature_public_refresh_worker_health | idle with queue depth 0. | None for MVP depth. |
+| `market_price_refresh_diagnostics` | PASS | mature_market_price_refresh_diagnostics | idle with 0 gateway diagnostics. | None for MVP depth. |
 | `player_readiness_action` | PASS | mature_dashboard_readiness | needs_review at 80.0/100 with 5 checks. | None for MVP depth. |
 | `player_readiness_exports` | PASS | mature_readiness_exports | GET /api/v1/player/readiness supports markdown and csv formats without raw secret fields. | None for MVP depth. |
 | `player_readiness_history` | PASS | mature_readiness_history | 2 snapshots with comparison unchanged. | None for MVP depth. |
@@ -22,15 +24,15 @@
 | `account_value_history` | PASS | mature_value_history | 2 snapshots with comparison unchanged. | None for MVP depth. |
 | `player_history_correlation` | PASS | mature_history_correlation | unchanged with readiness delta 0.0 and price coverage delta 0.0. | None for MVP depth. |
 | `player_session_packet` | PASS | mature_session_packet | 5 evidence rows and 3 support prompts. | None for MVP depth. |
-| `player_session_packet_artifacts` | PASS | mature_session_packet_artifacts | 4 files with checksum 2ab96b39ae13. | None for MVP depth. |
+| `player_session_packet_artifacts` | PASS | mature_session_packet_artifacts | 4 files with checksum 9ab739573740. | None for MVP depth. |
 | `player_support_handoff` | PASS | mature_support_handoff | needs_review with 7 next actions. | None for MVP depth. |
-| `player_support_handoff_artifacts` | PASS | mature_support_handoff_artifacts | 4 files with checksum fdd10f2c944d. | None for MVP depth. |
-| `player_support_handoff_zip_verification` | PASS | mature_support_handoff_zip_verification | zip checksum 6fa0d3f2ade1 verified with 4 files. | None for MVP depth. |
+| `player_support_handoff_artifacts` | PASS | mature_support_handoff_artifacts | 4 files with checksum c000e6a7276d. | None for MVP depth. |
+| `player_support_handoff_zip_verification` | PASS | mature_support_handoff_zip_verification | zip checksum 716ed39ce0a8 verified with 4 files. | None for MVP depth. |
 | `player_support_handoff_zip_verification_audit` | PASS | mature_support_handoff_zip_audit | 1 audit records for support handoff zip verification. | None for MVP depth. |
 | `player_support_handoff_readiness` | PASS | mature_support_handoff_readiness | ready with 1 audit records. | None for MVP depth. |
 | `player_support_handoff_operator_packet` | PASS | mature_support_handoff_operator_packet | 5 runbook steps and 3 transfer files. | None for MVP depth. |
 | `player_support_handoff_dashboard` | PASS | mature_support_handoff_dashboard | 5 dashboard cards and 1 audit records. | None for MVP depth. |
-| `player_support_handoff_final_archive` | PASS | mature_support_handoff_final_archive | 6 files with zip checksum 1aab74724943. | None for MVP depth. |
+| `player_support_handoff_final_archive` | PASS | mature_support_handoff_final_archive | 6 files with zip checksum 5177783b2fe8. | None for MVP depth. |
 | `build_fit_bridge` | PASS | mature_semantic_bridge | gw2radar.account_value_evidence_bridge.v1 with 3 source summaries and 2 remediation items. | None for MVP depth. |
 | `legendary_bridge` | PASS | mature_semantic_bridge | gw2radar.account_value_evidence_bridge.v1 with 3 source summaries and 2 remediation items. | None for MVP depth. |
 | `market_bridge` | PASS | mature_semantic_bridge | gw2radar.account_value_evidence_bridge.v1 with 3 source summaries and 2 remediation items. | None for MVP depth. |
@@ -42,6 +44,8 @@
 - `AccountFirstRunSummary` explains empty account-aware result states across missing key, limited permissions, sync queue, and private-layer write gates.
 - `AccountSyncWorkerHealth` exposes bounded worker-loop health, queue depth, retry depth, failed depth, latest jobs, and safe next actions.
 - `AccountSyncGatewayContract` returns structured user-facing error envelopes for missing key, permission, rate-limit, and API client failure states.
+- `PublicRefreshWorkerHealth` exposes public static refresh queue depth, retry depth, failed depth, latest jobs, and safe next actions.
+- `MarketPriceRefreshDiagnostics` explains official commerce price refresh status, retryability, player action, and no-trading boundary.
 - `PrivatePlayerState` stores private account summaries separately from public game and KB layers.
 - `AccountValueSnapshot` normalizes holdings, price coverage, source diagnostics, and remediation actions.
 - `AccountValueHistory` stores privacy-safe value coverage snapshots and compares value/coverage/freshness deltas.
@@ -64,10 +68,10 @@
 
 ## Known Limits
 
-- Official price refresh depends on the external GW2 API gateway; this audit verifies the UI/API contract and existing dedicated refresh tests cover gateway behavior.
+- Official price refresh depends on the external GW2 API gateway; this audit verifies the UI/API contract and dedicated refresh tests cover delayed gateway behavior.
 - The audit uses demo graph and deterministic local database data; real player accounts can still encounter GW2 API rate limits or missing optional permissions.
 - UI validation here is static plus API-level; full browser visual polish should remain covered by browser screenshot checks when layout changes are substantial.
 
 ## Next Priority
 
-Extend gateway contract hardening to public official refresh and market price refresh, then surface retry/backoff diagnostics in the player dashboard.
+Add a consolidated player-facing gateway incident timeline that correlates account sync, public refresh, and market refresh retry events.
