@@ -830,6 +830,7 @@ achievement_api_access</textarea>
             <div class="button-row">
               <button data-action="refreshFreshness">Refresh freshness</button>
               <button class="secondary-action" data-action="loadPublicRefreshHealth">Public refresh health</button>
+              <button class="secondary-action" data-action="loadGatewayIncidents">Gateway timeline</button>
             </div>
           </div>
           <div class="dashboard-grid">
@@ -844,6 +845,10 @@ achievement_api_access</textarea>
             <article class="panel">
               <h3>Public Refresh Queue</h3>
               <div id="public-refresh-health" class="compact-list">Load public refresh health to inspect retry/backoff state for public facts.</div>
+            </article>
+            <article class="panel wide">
+              <h3>Gateway Incident Timeline</h3>
+              <div id="gateway-incident-timeline" class="compact-list">Load gateway timeline to correlate account sync, public refresh, and market price refresh events.</div>
             </article>
             <article class="panel">
               <h3>Build Sources</h3>

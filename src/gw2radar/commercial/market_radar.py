@@ -21,6 +21,7 @@ from gw2radar.inference.goal_gap import calculate_goal_gap
 
 
 DEFAULT_USER_ID = "local-user"
+_LAST_OFFICIAL_PRICE_REFRESH_RESULT: dict | None = None
 
 FORBIDDEN_MARKET_LANGUAGE = [
     "guaranteed profit",
@@ -152,7 +153,7 @@ def refresh_official_price_snapshots_for_account(
     item_ids = sorted({holding.item_id for holding in holding_index.holdings if holding.item_id is not None})
     warnings: list[str] = []
     if not item_ids:
-        return OfficialPriceRefreshResult(
+        result = OfficialPriceRefreshResult(
             status="idle",
             requested_item_count=0,
             refreshed_item_count=0,
@@ -160,6 +161,8 @@ def refresh_official_price_snapshots_for_account(
             chunks=0,
             warnings=["No item holdings are available for price refresh."],
         )
+        _record_last_official_price_refresh_result(result)
+        return result
     refreshed = 0
     chunks = 0
     diagnostics: list[dict] = []
@@ -201,7 +204,7 @@ def refresh_official_price_snapshots_for_account(
                 ),
             )
             refreshed += 1
-    return OfficialPriceRefreshResult(
+    result = OfficialPriceRefreshResult(
         status="succeeded" if refreshed else "refresh_pending",
         requested_item_count=len(item_ids),
         refreshed_item_count=refreshed,
@@ -212,6 +215,30 @@ def refresh_official_price_snapshots_for_account(
         retry_after_seconds=retry_after_seconds,
         player_action=_official_price_player_action(refreshed, len(item_ids), diagnostics),
     )
+    _record_last_official_price_refresh_result(result)
+    return result
+
+
+def get_last_official_price_refresh_result() -> dict | None:
+    return dict(_LAST_OFFICIAL_PRICE_REFRESH_RESULT) if _LAST_OFFICIAL_PRICE_REFRESH_RESULT else None
+
+
+def _record_last_official_price_refresh_result(result: OfficialPriceRefreshResult) -> None:
+    global _LAST_OFFICIAL_PRICE_REFRESH_RESULT
+    payload = result.model_dump(mode="json")
+    _LAST_OFFICIAL_PRICE_REFRESH_RESULT = {
+        "schema_version": payload.get("schema_version"),
+        "status": payload.get("status"),
+        "requested_item_count": payload.get("requested_item_count"),
+        "refreshed_item_count": payload.get("refreshed_item_count"),
+        "skipped_item_count": payload.get("skipped_item_count"),
+        "chunks": payload.get("chunks"),
+        "warnings": payload.get("warnings", []),
+        "gateway_diagnostics": payload.get("gateway_diagnostics", []),
+        "retry_after_seconds": payload.get("retry_after_seconds"),
+        "player_action": payload.get("player_action"),
+        "boundary": payload.get("boundary"),
+    }
 
 
 def _official_price_player_action(refreshed: int, requested: int, diagnostics: list[dict]) -> str:

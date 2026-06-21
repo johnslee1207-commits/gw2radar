@@ -97,6 +97,7 @@ def main() -> int:
                     "Check readiness",
                     "Player Readiness",
                     "Refresh official prices",
+                    "Gateway Incident Timeline",
                     "Legendary value evidence",
                     "Market value evidence",
                     "Build value evidence",
@@ -187,6 +188,21 @@ def main() -> int:
             and "secret-key" not in json.dumps(market_refresh).lower(),
             "mature_market_price_refresh_diagnostics",
             f"{market_refresh.get('status', 'missing')} with {len(market_refresh.get('gateway_diagnostics', []))} gateway diagnostics.",
+        )
+        gateway_incidents = _json(client.get("/api/v1/player/gateway-incidents?limit=20"), "load gateway incident timeline", checks)
+        timeline = _get(gateway_incidents, "data", "gateway_incident_timeline") or {}
+        _add(
+            checks,
+            "gateway_incident_timeline",
+            "Gateway incident timeline correlates account sync, public refresh, and market price refresh events into one player-facing view.",
+            timeline.get("schema_version") == "gw2radar.gateway_incident_timeline.v1"
+            and timeline.get("timeline_status") in {"clear", "active", "waiting_retry", "needs_review"}
+            and isinstance(timeline.get("events"), list)
+            and isinstance(timeline.get("next_actions"), list)
+            and "raw api keys" in timeline.get("boundary", "").lower()
+            and "secret-key" not in json.dumps(timeline).lower(),
+            "mature_gateway_incident_timeline",
+            f"{timeline.get('timeline_status', 'missing')} with {timeline.get('event_count', 0)} events.",
         )
         player_readiness = _json(client.get("/api/v1/player/readiness"), "load player readiness", checks)
         readiness = _get(player_readiness, "data", "readiness") or {}
@@ -972,6 +988,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "- `AccountSyncGatewayContract` returns structured user-facing error envelopes for missing key, permission, rate-limit, and API client failure states.",
             "- `PublicRefreshWorkerHealth` exposes public static refresh queue depth, retry depth, failed depth, latest jobs, and safe next actions.",
             "- `MarketPriceRefreshDiagnostics` explains official commerce price refresh status, retryability, player action, and no-trading boundary.",
+            "- `GatewayIncidentTimeline` correlates account sync, public refresh, and market price refresh metadata into one player-facing incident view.",
             "- `PrivatePlayerState` stores private account summaries separately from public game and KB layers.",
             "- `AccountValueSnapshot` normalizes holdings, price coverage, source diagnostics, and remediation actions.",
             "- `AccountValueHistory` stores privacy-safe value coverage snapshots and compares value/coverage/freshness deltas.",
@@ -1000,7 +1017,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Next Priority",
             "",
-            "Add a consolidated player-facing gateway incident timeline that correlates account sync, public refresh, and market refresh retry events.",
+            "Add persisted metadata audit records for gateway incident timeline snapshots so support handoff can compare incidents across sessions.",
             "",
         ]
     )

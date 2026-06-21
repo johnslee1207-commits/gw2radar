@@ -61,6 +61,7 @@ from gw2radar.commercial.player_intelligence import (
     verify_player_support_handoff_final_archive_zip_bundle,
     verify_player_support_handoff_zip_bundle,
 )
+from gw2radar.commercial.gateway_incidents import build_gateway_incident_timeline
 from gw2radar.db import session as db_session
 from gw2radar.db.init_db import init_db
 
@@ -137,6 +138,14 @@ def get_player_freshness_annotations() -> ApiDataEnvelope:
     return ApiDataEnvelope(
         data={"annotations": [item.model_dump(mode="json") for item in build_data_freshness_annotations(graph)]}
     )
+
+
+@router.get("/gateway-incidents", response_model=ApiDataEnvelope)
+def get_player_gateway_incidents(limit: int = 20) -> ApiDataEnvelope:
+    init_db()
+    with db_session.SessionLocal() as session:
+        timeline = build_gateway_incident_timeline(session, limit=limit)
+    return ApiDataEnvelope(data={"gateway_incident_timeline": timeline.model_dump(mode="json")})
 
 
 @router.get("/account-holdings", response_model=ApiDataEnvelope)

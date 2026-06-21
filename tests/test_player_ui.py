@@ -119,6 +119,9 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert "Refresh freshness to load recommendation-level source confidence." in response.text
     assert "Public refresh health" in response.text
     assert "Load public refresh health to inspect retry/backoff state for public facts." in response.text
+    assert "Gateway timeline" in response.text
+    assert "Gateway Incident Timeline" in response.text
+    assert "Load gateway timeline to correlate account sync, public refresh, and market price refresh events." in response.text
     assert "Operator review gate" in response.text
     assert "Official achievement ids" in response.text
     assert "Fetch preview" in response.text
@@ -360,6 +363,10 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "renderPublicRefreshHealth" in js.text
     assert "gw2radar.public_refresh_worker_health.v1" in js.text
     assert "player_action" in js.text
+    assert "/api/v1/player/gateway-incidents?limit=20" in js.text
+    assert "loadGatewayIncidents" in js.text
+    assert "renderGatewayIncidentTimeline" in js.text
+    assert "gw2radar.gateway_incident_timeline.v1" in js.text
     assert "/api/v1/legendary/goals/catalog" in js.text
     assert "/api/v1/legendary/actions" in js.text
     assert "/api/v1/returner/report" in js.text

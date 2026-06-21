@@ -395,6 +395,9 @@ function summarizeResult(target, payload) {
     return "Report center updated. Products and pricing come from backend configuration.";
   }
   if (target === "freshness") {
+    if (data?.gateway_incident_timeline?.schema_version === "gw2radar.gateway_incident_timeline.v1") {
+      return `Gateway timeline ${data.gateway_incident_timeline.timeline_status}: ${data.gateway_incident_timeline.event_count || 0} events, ${data.gateway_incident_timeline.retry_event_count || 0} retry events.`;
+    }
     if (data?.public_refresh_health?.schema_version === "gw2radar.public_refresh_worker_health.v1") {
       return `Public refresh health ${data.public_refresh_health.health_status}: queue ${data.public_refresh_health.queue_depth || 0}, retry ${data.public_refresh_health.retry_depth || 0}, failed ${data.public_refresh_health.failed_depth || 0}.`;
     }
@@ -1423,6 +1426,37 @@ function renderPublicRefreshHealth(health) {
   if (marketCard) {
     marketCard.textContent = `Public refresh worker ${health.health_status || "unknown"}; price refresh still requires official market refresh.`;
   }
+}
+
+function renderGatewayIncidentTimeline(timeline) {
+  const list = document.querySelector("#gateway-incident-timeline");
+  if (!list) {
+    return;
+  }
+  list.innerHTML = "";
+  if (!timeline) {
+    list.textContent = "No gateway incident timeline is available yet.";
+    return;
+  }
+  appendCompactBridgeRow(
+    list,
+    timeline.timeline_status || "unknown",
+    `${timeline.event_count ?? 0} events · retry ${timeline.retry_event_count ?? 0} · failed ${timeline.failed_event_count ?? 0}`,
+    timeline.timeline_status === "clear" ? "info" : "warn"
+  );
+  (timeline.events || []).slice(0, 5).forEach((event) => {
+    const retryAt = event.next_attempt_at ? ` · next ${new Date(event.next_attempt_at).toLocaleTimeString()}` : "";
+    const retry = event.retry_after_seconds ? ` · retry ${event.retry_after_seconds}s` : "";
+    appendCompactBridgeRow(
+      list,
+      `${event.source || "gateway"} · ${event.status || "unknown"}`,
+      `${event.endpoint || event.event_type || "event"} · attempts ${event.attempt_count ?? 0} · ${event.last_error_code || "no error"}${retry}${retryAt}`,
+      event.severity === "blocked" || event.retryable ? "warn" : "info"
+    );
+  });
+  (timeline.next_actions || []).slice(0, 3).forEach((action) => {
+    appendCompactBridgeRow(list, "Next", action, timeline.timeline_status === "clear" ? "info" : "warn");
+  });
 }
 
 function renderFirstRunSummary(summary) {
@@ -3453,14 +3487,17 @@ const actions = {
       const sync = await fetchJson("/api/v1/account/sync/status");
       const market = await fetchJson("/api/v1/market/patch-freshness");
       const publicRefreshHealth = await fetchJson("/api/v1/public/refresh/health");
+      const gatewayIncidents = await fetchJson("/api/v1/player/gateway-incidents?limit=20");
       const annotations = await fetchJson("/api/v1/player/freshness-annotations");
       updateStatusFromSync(sync);
       renderPublicRefreshHealth(publicRefreshHealth);
+      renderGatewayIncidentTimeline(gatewayIncidents?.data?.gateway_incident_timeline || {});
       renderFreshnessAnnotations(annotations?.data?.annotations || []);
       return {
         account_snapshot: sync,
         market_patch_freshness: market,
         public_refresh_health: publicRefreshHealth,
+        gateway_incident_timeline: gatewayIncidents?.data?.gateway_incident_timeline,
         freshness_annotations: annotations,
         build_sources: "Check per imported build.",
         knowledge_rules: "Reviewed enabled rules only.",
@@ -3472,6 +3509,12 @@ const actions = {
       const publicRefreshHealth = await fetchJson("/api/v1/public/refresh/health");
       renderPublicRefreshHealth(publicRefreshHealth);
       return { public_refresh_health: publicRefreshHealth };
+    }),
+  loadGatewayIncidents: () =>
+    run("freshness", async () => {
+      const gatewayIncidents = await fetchJson("/api/v1/player/gateway-incidents?limit=20");
+      renderGatewayIncidentTimeline(gatewayIncidents?.data?.gateway_incident_timeline || {});
+      return { gateway_incident_timeline: gatewayIncidents?.data?.gateway_incident_timeline };
     }),
   openArtifact: () => {
     const artifactId = document.querySelector("#artifact-id").value;
