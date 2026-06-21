@@ -553,6 +553,45 @@ def main() -> int:
             "mature_support_handoff_operator_packet",
             f"{len(operator_packet.get('runbook_steps', []))} runbook steps and {len(operator_packet.get('transfer_files', []))} transfer files.",
         )
+        support_handoff_dashboard_response = _json(
+            client.get("/api/v1/player/support-handoff/dashboard"),
+            "load player support handoff dashboard",
+            checks,
+        )
+        support_handoff_dashboard = _get(support_handoff_dashboard_response, "data", "support_handoff_dashboard") or {}
+        support_handoff_dashboard_md = client.get("/api/v1/player/support-handoff/dashboard?format=markdown")
+        support_handoff_dashboard_csv = client.get("/api/v1/player/support-handoff/dashboard?format=csv")
+        dashboard_card_ids = {
+            str(card.get("card_id"))
+            for card in support_handoff_dashboard.get("status_cards", [])
+            if isinstance(card, dict)
+        }
+        _add(
+            checks,
+            "player_support_handoff_dashboard",
+            "Support handoff dashboard aggregates artifacts, zip verification, audit, readiness, and operator packet state.",
+            support_handoff_dashboard.get("schema_version") == "gw2radar.player_support_handoff_dashboard.v1"
+            and support_handoff_dashboard.get("ready") is True
+            and support_handoff_dashboard.get("maturity_label") == "ready"
+            and {
+                "handoff_artifacts",
+                "zip_bundle",
+                "zip_verification",
+                "verification_audit",
+                "operator_packet",
+            }.issubset(dashboard_card_ids)
+            and int(support_handoff_dashboard.get("audit_record_count") or 0) >= 1
+            and bool(support_handoff_dashboard.get("latest_operator_packet_id"))
+            and len(str(support_handoff_dashboard.get("zip_checksum_sha256") or "")) == 64
+            and support_handoff_dashboard_md.status_code == 200
+            and "# Player Support Handoff Dashboard" in support_handoff_dashboard_md.text
+            and support_handoff_dashboard_csv.status_code == 200
+            and "ready,maturity_label,latest_artifact_id" in support_handoff_dashboard_csv.text
+            and "secret-key" not in json.dumps(support_handoff_dashboard).lower()
+            and "secret-key" not in (support_handoff_dashboard_md.text + support_handoff_dashboard_csv.text).lower(),
+            "mature_support_handoff_dashboard",
+            f"{len(dashboard_card_ids)} dashboard cards and {support_handoff_dashboard.get('audit_record_count', 0)} audit records.",
+        )
 
         imported = _json(client.post("/api/v1/builds/import", json=_sample_build_import()), "import build", checks)
         build_id = _get(imported, "data", "build", "build_id") or "missing-build-id"
@@ -774,6 +813,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "- `PlayerSupportHandoffZipVerificationAudit` records verification outcomes as metadata-only support evidence without storing zip bytes.",
             "- `PlayerSupportHandoffReadinessChecklist` summarizes artifact, zip, verification, and audit gates for support operators.",
             "- `PlayerSupportHandoffOperatorPacket` packages the readiness checklist, audit summary, zip manifest, runbook, and transfer files for support workflows.",
+            "- `PlayerSupportHandoffDashboard` aggregates artifacts, zip verification, audit, readiness, and operator packet state into one support case view.",
             "- `ReportArtifactManifest` records bridge metadata without storing raw API keys or unredacted private payloads.",
             "",
             "## Known Limits",
@@ -784,7 +824,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Next Priority",
             "",
-            "Add a read-only support handoff dashboard that aggregates packet, artifacts, zip verification, audit, readiness, and operator packet state.",
+            "Add a support handoff final export archive that packages dashboard, operator packet, readiness checklist, and audit exports into deterministic local files.",
             "",
         ]
     )

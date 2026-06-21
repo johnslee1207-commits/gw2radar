@@ -300,6 +300,26 @@ class PlayerSupportHandoffOperatorPacket(BaseModel):
     )
 
 
+class PlayerSupportHandoffDashboard(BaseModel):
+    schema_version: str = "gw2radar.player_support_handoff_dashboard.v1"
+    generated_at: datetime
+    ready: bool
+    maturity_label: str
+    status_cards: list[dict] = Field(default_factory=list)
+    latest_artifact_id: str | None = None
+    latest_operator_packet_id: str | None = None
+    zip_checksum_sha256: str | None = None
+    audit_record_count: int = 0
+    blockers: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    next_actions: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    boundary: str = (
+        "Support handoff dashboard is read-only metadata; it does not include raw zip bytes, raw API keys, "
+        "raw debug bundles, or private account payloads."
+    )
+
+
 def build_data_freshness_annotations(graph: GraphData) -> list[FreshnessAnnotation]:
     has_evidence = bool(graph.evidence)
     has_private_state = bool(graph.player_state)
@@ -1657,6 +1677,127 @@ def render_player_support_handoff_operator_packet_csv(packet: PlayerSupportHando
     rows.extend(f"transfer_file,{_csv(item)}" for item in packet.transfer_files)
     rows.extend(f"next_action,{_csv(item)}" for item in packet.support_next_actions)
     rows.extend(f"safety_boundary,{_csv(item)}" for item in packet.safety_boundaries)
+    return "\n".join(rows) + "\n"
+
+
+def build_player_support_handoff_dashboard(
+    *,
+    artifact_root: Path | None = None,
+    audit_root: Path | None = None,
+) -> PlayerSupportHandoffDashboard:
+    artifacts = list_player_support_handoff_artifacts(artifact_root=artifact_root, limit=1)
+    latest_artifact = artifacts[0] if artifacts else None
+    operator_packet = build_player_support_handoff_operator_packet(
+        artifact_root=artifact_root,
+        audit_root=audit_root,
+    )
+    checklist = operator_packet.checklist
+    audit_count = int(operator_packet.audit_summary.get("record_count") or 0)
+    status_cards = [
+        {
+            "card_id": "handoff_artifacts",
+            "label": "Handoff artifacts",
+            "status": "ready" if latest_artifact and latest_artifact.file_count >= 4 else "missing",
+            "summary": f"{latest_artifact.file_count if latest_artifact else 0} artifact files available.",
+        },
+        {
+            "card_id": "zip_bundle",
+            "label": "Zip bundle",
+            "status": "ready" if checklist.zip_file_count >= 4 and checklist.zip_checksum_sha256 else "missing",
+            "summary": f"{checklist.zip_file_count} zip files; checksum {checklist.zip_checksum_sha256 or 'none'}.",
+        },
+        {
+            "card_id": "zip_verification",
+            "label": "Zip verification",
+            "status": "ready" if checklist.zip_verification_ready else "blocked",
+            "summary": "Latest zip verification is ready." if checklist.zip_verification_ready else "Zip verification needs review.",
+        },
+        {
+            "card_id": "verification_audit",
+            "label": "Verification audit",
+            "status": "ready" if audit_count >= 1 else "missing",
+            "summary": f"{audit_count} metadata-only audit records.",
+        },
+        {
+            "card_id": "operator_packet",
+            "label": "Operator packet",
+            "status": "ready" if operator_packet.ready else "review_needed",
+            "summary": f"{len(operator_packet.runbook_steps)} runbook steps and {len(operator_packet.transfer_files)} transfer files.",
+        },
+    ]
+    return PlayerSupportHandoffDashboard(
+        generated_at=datetime.now(timezone.utc),
+        ready=operator_packet.ready,
+        maturity_label=operator_packet.maturity_label,
+        status_cards=status_cards,
+        latest_artifact_id=latest_artifact.artifact_id if latest_artifact else None,
+        latest_operator_packet_id=operator_packet.packet_id,
+        zip_checksum_sha256=checklist.zip_checksum_sha256,
+        audit_record_count=audit_count,
+        blockers=checklist.blockers,
+        warnings=checklist.warnings,
+        next_actions=operator_packet.support_next_actions,
+        evidence_refs=_unique_text(
+            operator_packet.evidence_refs
+            + [
+                "/api/v1/player/support-handoff/dashboard",
+                "/api/v1/player/support-handoff/operator-packet",
+            ]
+        ),
+    )
+
+
+def render_player_support_handoff_dashboard_markdown(dashboard: PlayerSupportHandoffDashboard) -> str:
+    lines = [
+        "# Player Support Handoff Dashboard",
+        "",
+        f"- Ready: {dashboard.ready}",
+        f"- Maturity: {dashboard.maturity_label}",
+        f"- Latest artifact: {dashboard.latest_artifact_id or 'None'}",
+        f"- Latest operator packet: {dashboard.latest_operator_packet_id or 'None'}",
+        f"- Zip checksum: {dashboard.zip_checksum_sha256 or 'None'}",
+        f"- Audit records: {dashboard.audit_record_count}",
+        f"- Boundary: {dashboard.boundary}",
+        "",
+        "## Status Cards",
+    ]
+    for card in dashboard.status_cards:
+        lines.append(f"- {card.get('label')}: {card.get('status')} - {card.get('summary')}")
+    lines.extend(["", "## Blockers"])
+    lines.extend(f"- {item}" for item in dashboard.blockers) if dashboard.blockers else lines.append("- None")
+    lines.extend(["", "## Next Actions"])
+    lines.extend(f"- {item}" for item in dashboard.next_actions)
+    return "\n".join(lines) + "\n"
+
+
+def render_player_support_handoff_dashboard_csv(dashboard: PlayerSupportHandoffDashboard) -> str:
+    rows = [
+        "ready,maturity_label,latest_artifact_id,zip_checksum_sha256,audit_record_count,status_card_count,blocker_count,warning_count",
+        ",".join(
+            [
+                _csv(str(dashboard.ready)),
+                _csv(dashboard.maturity_label),
+                _csv(dashboard.latest_artifact_id or ""),
+                _csv(dashboard.zip_checksum_sha256 or ""),
+                _csv(str(dashboard.audit_record_count)),
+                _csv(str(len(dashboard.status_cards))),
+                _csv(str(len(dashboard.blockers))),
+                _csv(str(len(dashboard.warnings))),
+            ]
+        ),
+        "card_id,label,status,summary",
+    ]
+    for card in dashboard.status_cards:
+        rows.append(
+            ",".join(
+                [
+                    _csv(str(card.get("card_id") or "")),
+                    _csv(str(card.get("label") or "")),
+                    _csv(str(card.get("status") or "")),
+                    _csv(str(card.get("summary") or "")),
+                ]
+            )
+        )
     return "\n".join(rows) + "\n"
 
 

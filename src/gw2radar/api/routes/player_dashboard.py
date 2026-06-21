@@ -20,6 +20,7 @@ from gw2radar.commercial.player_intelligence import (
     build_player_dashboard_plan,
     build_player_session_packet,
     build_player_support_handoff_bundle,
+    build_player_support_handoff_dashboard,
     build_player_support_handoff_operator_packet,
     build_player_support_handoff_readiness_checklist,
     build_player_support_handoff_zip_bundle,
@@ -37,6 +38,8 @@ from gw2radar.commercial.player_intelligence import (
     render_player_history_correlation_markdown,
     render_player_session_packet_csv,
     render_player_session_packet_markdown,
+    render_player_support_handoff_dashboard_csv,
+    render_player_support_handoff_dashboard_markdown,
     render_player_support_handoff_csv,
     render_player_support_handoff_markdown,
     render_player_support_handoff_operator_packet_csv,
@@ -459,6 +462,32 @@ def get_player_support_handoff_operator_packet(format: str = "json") -> ApiDataE
             headers={"Content-Disposition": 'attachment; filename="player_support_handoff_operator_packet.csv"'},
         )
     return ApiDataEnvelope(data={"support_handoff_operator_packet": packet.model_dump(mode="json")})
+
+
+@router.get("/support-handoff/dashboard", response_model=None)
+def get_player_support_handoff_dashboard(format: str = "json") -> ApiDataEnvelope | Response:
+    _ensure_player_support_handoff_artifact()
+    if not list_player_support_handoff_zip_verification_audits(limit=1).records:
+        record_player_support_handoff_zip_verification_audit(
+            PlayerSupportHandoffZipVerificationAuditRequest(
+                reviewer="system",
+                notes=["System recorded support handoff dashboard verification audit."],
+            )
+        )
+    dashboard = build_player_support_handoff_dashboard()
+    if format == "markdown":
+        return Response(
+            content=render_player_support_handoff_dashboard_markdown(dashboard),
+            media_type="text/markdown; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="player_support_handoff_dashboard.md"'},
+        )
+    if format == "csv":
+        return Response(
+            content=render_player_support_handoff_dashboard_csv(dashboard),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="player_support_handoff_dashboard.csv"'},
+        )
+    return ApiDataEnvelope(data={"support_handoff_dashboard": dashboard.model_dump(mode="json")})
 
 
 @router.get("/support-handoff/artifacts/{artifact_id}/{file_name}", response_model=None)

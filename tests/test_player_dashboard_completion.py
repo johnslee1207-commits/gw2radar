@@ -766,6 +766,64 @@ def test_player_support_handoff_operator_packet_exports_runbook_metadata() -> No
         shutil.rmtree(handoff_artifact_root, ignore_errors=True)
 
 
+def test_player_support_handoff_dashboard_aggregates_support_case_state() -> None:
+    temp_dir = Path(".test_tmp") / f"player-support-handoff-dashboard-{uuid4().hex}"
+    packet_artifact_root = Path("src/gw2radar/reports/artifacts/player_session_packets")
+    handoff_artifact_root = Path("src/gw2radar/reports/artifacts/player_support_handoffs")
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        shutil.rmtree(packet_artifact_root, ignore_errors=True)
+        shutil.rmtree(handoff_artifact_root, ignore_errors=True)
+        configure_database(f"sqlite:///{temp_dir / 'support-handoff-dashboard.db'}")
+        init_db()
+        state.reset_cached_graph()
+        client = TestClient(app)
+        assert client.post("/mock/load").status_code == 200
+
+        debug_bundle = client.post(
+            "/account/debug-bundle",
+            json={"active_view": "build", "active_build_id": "sample-build", "player_intent": "support_dashboard"},
+        ).json()
+        assert client.post("/api/v1/player/support-handoff/artifacts?limit=10", json={"debug_bundle": debug_bundle}).status_code == 200
+        assert client.post(
+            "/api/v1/player/support-handoff/artifacts/bundle/verification-audit",
+            json={"reviewer": "dashboard", "notes": ["Dashboard test recorded verification."]},
+        ).status_code == 200
+
+        response = client.get("/api/v1/player/support-handoff/dashboard")
+        markdown = client.get("/api/v1/player/support-handoff/dashboard?format=markdown")
+        csv = client.get("/api/v1/player/support-handoff/dashboard?format=csv")
+        dashboard = response.json()["data"]["support_handoff_dashboard"]
+        card_ids = {card["card_id"] for card in dashboard["status_cards"]}
+
+        assert response.status_code == 200
+        assert dashboard["schema_version"] == "gw2radar.player_support_handoff_dashboard.v1"
+        assert dashboard["ready"] is True
+        assert dashboard["maturity_label"] == "ready"
+        assert {
+            "handoff_artifacts",
+            "zip_bundle",
+            "zip_verification",
+            "verification_audit",
+            "operator_packet",
+        }.issubset(card_ids)
+        assert dashboard["latest_operator_packet_id"].startswith("player-support-handoff-operator-packet-")
+        assert len(dashboard["zip_checksum_sha256"]) == 64
+        assert dashboard["audit_record_count"] >= 1
+        assert dashboard["next_actions"]
+        assert markdown.status_code == 200
+        assert "# Player Support Handoff Dashboard" in markdown.text
+        assert csv.status_code == 200
+        assert "ready,maturity_label,latest_artifact_id" in csv.text
+        assert "secret-key" not in (str(dashboard) + markdown.text + csv.text).lower()
+    finally:
+        close_database()
+        state.reset_cached_graph()
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        shutil.rmtree(packet_artifact_root, ignore_errors=True)
+        shutil.rmtree(handoff_artifact_root, ignore_errors=True)
+
+
 def test_legendary_catalog_and_actions_cover_player_guide_goal_choices() -> None:
     temp_dir = Path(".test_tmp") / f"legendary-catalog-{uuid4().hex}"
     temp_dir.mkdir(parents=True, exist_ok=True)

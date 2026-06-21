@@ -1139,6 +1139,30 @@ function renderPlayerSupportHandoffOperatorPacket(packet) {
   });
 }
 
+function renderPlayerSupportHandoffDashboard(dashboard) {
+  const list = document.querySelector("#support-handoff-dashboard");
+  if (!list) {
+    return;
+  }
+  list.innerHTML = "";
+  if (!dashboard) {
+    list.textContent = "No support handoff dashboard is available yet.";
+    return;
+  }
+  appendCompactBridgeRow(
+    list,
+    dashboard.ready ? "ready" : "review",
+    `${dashboard.maturity_label || "unknown"} · ${dashboard.audit_record_count || 0} audits · ${dashboard.status_cards?.length || 0} cards`,
+    dashboard.ready ? "info" : "warn"
+  );
+  (dashboard.status_cards || []).slice(0, 6).forEach((card) => {
+    appendCompactBridgeRow(list, card.label || "Gate", `${card.status || "unknown"} · ${card.summary || ""}`, card.status === "ready" ? "info" : "warn");
+  });
+  (dashboard.next_actions || []).slice(0, 3).forEach((action) => {
+    appendCompactBridgeRow(list, "Next", action, dashboard.ready ? "info" : "warn");
+  });
+}
+
 function valueReadinessClass(label) {
   if (label === "ready") {
     return "info";
@@ -1966,6 +1990,12 @@ const actions = {
       const packet = await fetchJson("/api/v1/player/support-handoff/operator-packet");
       renderPlayerSupportHandoffOperatorPacket(packet?.data?.support_handoff_operator_packet || {});
       return packet;
+    }),
+  loadPlayerSupportHandoffDashboard: () =>
+    run("dashboard", async () => {
+      const dashboard = await fetchJson("/api/v1/player/support-handoff/dashboard");
+      renderPlayerSupportHandoffDashboard(dashboard?.data?.support_handoff_dashboard || {});
+      return dashboard;
     }),
   exportAccountValueMarkdown: () =>
     run("dashboard", async () => {
