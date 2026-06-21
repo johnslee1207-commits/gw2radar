@@ -824,6 +824,98 @@ def test_player_support_handoff_dashboard_aggregates_support_case_state() -> Non
         shutil.rmtree(handoff_artifact_root, ignore_errors=True)
 
 
+def test_player_support_handoff_final_archive_packages_verified_support_exports() -> None:
+    temp_dir = Path(".test_tmp") / f"player-support-handoff-final-archive-{uuid4().hex}"
+    packet_artifact_root = Path("src/gw2radar/reports/artifacts/player_session_packets")
+    handoff_artifact_root = Path("src/gw2radar/reports/artifacts/player_support_handoffs")
+    final_archive_root = Path("src/gw2radar/reports/artifacts/player_support_handoff_final_archives")
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        shutil.rmtree(packet_artifact_root, ignore_errors=True)
+        shutil.rmtree(handoff_artifact_root, ignore_errors=True)
+        shutil.rmtree(final_archive_root, ignore_errors=True)
+        configure_database(f"sqlite:///{temp_dir / 'support-handoff-final-archive.db'}")
+        init_db()
+        state.reset_cached_graph()
+        client = TestClient(app)
+        assert client.post("/mock/load").status_code == 200
+
+        debug_bundle = client.post(
+            "/account/debug-bundle",
+            json={"active_view": "build", "active_build_id": "sample-build", "player_intent": "support_final_archive"},
+        ).json()
+        assert client.post("/api/v1/player/support-handoff/artifacts?limit=10", json={"debug_bundle": debug_bundle}).status_code == 200
+        assert client.post(
+            "/api/v1/player/support-handoff/artifacts/bundle/verification-audit",
+            json={"reviewer": "archive", "notes": ["Final archive test recorded verification."]},
+        ).status_code == 200
+
+        created = client.post("/api/v1/player/support-handoff/final-archive")
+        listed = client.get("/api/v1/player/support-handoff/final-archive?limit=10")
+        manifest_response = client.get("/api/v1/player/support-handoff/final-archive/bundle?format=manifest")
+        bundle_zip = client.get("/api/v1/player/support-handoff/final-archive/bundle")
+        verification = client.post(
+            "/api/v1/player/support-handoff/final-archive/bundle/verify",
+            content=bundle_zip.content,
+            headers={"content-type": "application/zip"},
+        )
+        latest_verify = client.post("/api/v1/player/support-handoff/final-archive/bundle/verify")
+        archive = created.json()["data"]["support_handoff_final_archive"]
+        archive_id = archive["archive_id"]
+        manifest_file = client.get(f"/api/v1/player/support-handoff/final-archive/{archive_id}/manifest.json")
+        dashboard_md = client.get(f"/api/v1/player/support-handoff/final-archive/{archive_id}/dashboard.md")
+        blocked = client.get(f"/api/v1/player/support-handoff/final-archive/{archive_id}/../manifest.json")
+        missing = client.get(f"/api/v1/player/support-handoff/final-archive/{archive_id}/secret.txt")
+        zip_manifest = manifest_response.json()["data"]["support_handoff_final_archive_zip_bundle"]
+        verified = verification.json()["data"]["support_handoff_final_archive_zip_verification"]
+
+        assert created.status_code == 200
+        assert archive["schema_version"] == "gw2radar.player_support_handoff_final_archive_manifest.v1"
+        assert archive["ready"] is True
+        assert archive["maturity_label"] == "ready"
+        assert archive["file_count"] == 6
+        assert {file["file_name"] for file in archive["files"]} == {
+            "dashboard.json",
+            "dashboard.md",
+            "operator_packet.md",
+            "readiness_checklist.md",
+            "verification_audit.csv",
+            "manifest.json",
+        }
+        assert listed.json()["data"]["support_handoff_final_archives"][0]["archive_id"] == archive_id
+        assert manifest_file.status_code == 200
+        assert '"contains_raw_key": false' in manifest_file.text
+        assert dashboard_md.status_code == 200
+        assert "# Player Support Handoff Dashboard" in dashboard_md.text
+        assert blocked.status_code == 404
+        assert missing.status_code == 404
+        assert zip_manifest["schema_version"] == "gw2radar.player_support_handoff_final_archive_zip_manifest.v1"
+        assert zip_manifest["file_count"] == 6
+        assert bundle_zip.status_code == 200
+        assert bundle_zip.headers["content-type"] == "application/zip"
+        assert bundle_zip.headers["x-checksum-sha256"] == zip_manifest["checksum_sha256"]
+        assert set(ZipFile(BytesIO(bundle_zip.content)).namelist()) == {
+            "player_support_handoff_final_archive/dashboard.json",
+            "player_support_handoff_final_archive/dashboard.md",
+            "player_support_handoff_final_archive/operator_packet.md",
+            "player_support_handoff_final_archive/readiness_checklist.md",
+            "player_support_handoff_final_archive/verification_audit.csv",
+            "player_support_handoff_final_archive/manifest.json",
+        }
+        assert verified["schema_version"] == "gw2radar.player_support_handoff_final_archive_zip_verification.v1"
+        assert verified["ready"] is True
+        assert verified["file_count"] == 6
+        assert latest_verify.json()["data"]["support_handoff_final_archive_zip_verification"]["ready"] is True
+        assert "secret-key" not in (str(archive) + manifest_file.text + dashboard_md.text + bundle_zip.content.decode("latin1")).lower()
+    finally:
+        close_database()
+        state.reset_cached_graph()
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        shutil.rmtree(packet_artifact_root, ignore_errors=True)
+        shutil.rmtree(handoff_artifact_root, ignore_errors=True)
+        shutil.rmtree(final_archive_root, ignore_errors=True)
+
+
 def test_legendary_catalog_and_actions_cover_player_guide_goal_choices() -> None:
     temp_dir = Path(".test_tmp") / f"legendary-catalog-{uuid4().hex}"
     temp_dir.mkdir(parents=True, exist_ok=True)

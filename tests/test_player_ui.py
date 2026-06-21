@@ -57,6 +57,9 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert "Load handoff readiness" in response.text
     assert "Load operator packet" in response.text
     assert "Load support dashboard" in response.text
+    assert "Write final archive" in response.text
+    assert "Download final archive" in response.text
+    assert "Verify final archive" in response.text
     assert "Session Packet" in response.text
     assert "Load session packet to prepare a debug-safe support summary." in response.text
     assert "Write packet files to create a checksum manifest for support handoff." in response.text
@@ -67,6 +70,7 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert "Load handoff readiness to confirm support transfer gates." in response.text
     assert "Load operator packet to review the support runbook and transfer files." in response.text
     assert "Load support dashboard to inspect all handoff gates in one view." in response.text
+    assert "Write final archive to package support dashboard, operator packet, readiness checklist, and audit exports." in response.text
     assert "History Correlation" in response.text
     assert "Load history correlation after saving readiness and value snapshots." in response.text
     assert "Readiness history" in response.text
@@ -291,6 +295,12 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "loadPlayerSupportHandoffDashboard" in js.text
     assert "/api/v1/player/support-handoff/dashboard" in js.text
     assert "renderPlayerSupportHandoffDashboard" in js.text
+    assert "writePlayerSupportHandoffFinalArchive" in js.text
+    assert "downloadPlayerSupportHandoffFinalArchiveZip" in js.text
+    assert "verifyPlayerSupportHandoffFinalArchiveZip" in js.text
+    assert "/api/v1/player/support-handoff/final-archive" in js.text
+    assert "/api/v1/player/support-handoff/final-archive/bundle" in js.text
+    assert "renderPlayerSupportHandoffFinalArchive" in js.text
     assert "renderPlayerReadiness" in js.text
     assert "readinessCheckClass" in js.text
     assert "gw2radar.player_readiness_summary.v1" in js.text or "readiness_score" in js.text

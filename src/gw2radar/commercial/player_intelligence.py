@@ -29,6 +29,15 @@ PLAYER_SESSION_PACKET_ARTIFACT_FILES = {"packet.json", "packet.md", "packet.csv"
 PLAYER_SUPPORT_HANDOFF_ARTIFACT_ROOT = Path("src/gw2radar/reports/artifacts/player_support_handoffs")
 PLAYER_SUPPORT_HANDOFF_ARTIFACT_FILES = {"handoff.json", "handoff.md", "handoff.csv", "manifest.json"}
 PLAYER_SUPPORT_HANDOFF_AUDIT_ROOT = PLAYER_SUPPORT_HANDOFF_ARTIFACT_ROOT / "audit"
+PLAYER_SUPPORT_HANDOFF_FINAL_ARCHIVE_ROOT = Path("src/gw2radar/reports/artifacts/player_support_handoff_final_archives")
+PLAYER_SUPPORT_HANDOFF_FINAL_ARCHIVE_FILES = {
+    "dashboard.json",
+    "dashboard.md",
+    "operator_packet.md",
+    "readiness_checklist.md",
+    "verification_audit.csv",
+    "manifest.json",
+}
 
 
 class FreshnessAnnotation(BaseModel):
@@ -317,6 +326,62 @@ class PlayerSupportHandoffDashboard(BaseModel):
     boundary: str = (
         "Support handoff dashboard is read-only metadata; it does not include raw zip bytes, raw API keys, "
         "raw debug bundles, or private account payloads."
+    )
+
+
+class PlayerSupportHandoffFinalArchiveManifest(BaseModel):
+    schema_version: str = "gw2radar.player_support_handoff_final_archive_manifest.v1"
+    archive_id: str
+    archive_root: str
+    generated_at: datetime
+    ready: bool
+    maturity_label: str
+    latest_artifact_id: str | None = None
+    latest_operator_packet_id: str | None = None
+    zip_checksum_sha256: str | None = None
+    audit_record_count: int = 0
+    file_count: int
+    files: list[PlayerSessionPacketArtifactFile]
+    checksum_sha256: str
+    blockers: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    next_actions: list[str] = Field(default_factory=list)
+    boundary: str = (
+        "Support handoff final archives package deterministic metadata exports only; they exclude raw zip bytes, "
+        "raw API keys, raw debug bundles, private source payloads, and executable content."
+    )
+
+
+class PlayerSupportHandoffFinalArchiveZipManifest(BaseModel):
+    schema_version: str = "gw2radar.player_support_handoff_final_archive_zip_manifest.v1"
+    bundle_id: str
+    source_archive_id: str
+    generated_at: datetime
+    filename: str
+    media_type: str = "application/zip"
+    file_count: int
+    included_files: list[PlayerSessionPacketArtifactFile]
+    checksum_sha256: str
+    size_bytes: int
+    boundary: str = (
+        "Support handoff final archive zip bundles are read-only metadata transfer packages; they do not execute files, "
+        "publish content, store raw keys, or include raw private payloads."
+    )
+
+
+class PlayerSupportHandoffFinalArchiveZipVerification(BaseModel):
+    schema_version: str = "gw2radar.player_support_handoff_final_archive_zip_verification.v1"
+    ready: bool
+    verified_at: datetime
+    checksum_sha256: str
+    size_bytes: int
+    file_count: int
+    verified_files: list[str]
+    blockers: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    boundary: str = (
+        "Support handoff final archive verification reads zip bytes only; it does not execute files, write uploaded "
+        "content to disk, publish content, or store secrets."
     )
 
 
@@ -1799,6 +1864,261 @@ def render_player_support_handoff_dashboard_csv(dashboard: PlayerSupportHandoffD
             )
         )
     return "\n".join(rows) + "\n"
+
+
+def write_player_support_handoff_final_archive(
+    *,
+    archive_root: Path | None = None,
+    artifact_root: Path | None = None,
+    audit_root: Path | None = None,
+) -> PlayerSupportHandoffFinalArchiveManifest:
+    root = archive_root or PLAYER_SUPPORT_HANDOFF_FINAL_ARCHIVE_ROOT
+    generated_at = datetime.now(timezone.utc)
+    archive_id = f"player-support-handoff-final-archive-{generated_at.strftime('%Y%m%dT%H%M%S%fZ')}-{uuid4().hex[:8]}"
+    archive_dir = root / archive_id
+    archive_dir.mkdir(parents=True, exist_ok=False)
+
+    dashboard = build_player_support_handoff_dashboard(artifact_root=artifact_root, audit_root=audit_root)
+    operator_packet = build_player_support_handoff_operator_packet(artifact_root=artifact_root, audit_root=audit_root)
+    readiness = build_player_support_handoff_readiness_checklist(artifact_root=artifact_root, audit_root=audit_root)
+    audit = list_player_support_handoff_zip_verification_audits(audit_root=audit_root, limit=20)
+    contents = {
+        "dashboard.json": dashboard.model_dump_json(indent=2),
+        "dashboard.md": render_player_support_handoff_dashboard_markdown(dashboard),
+        "operator_packet.md": render_player_support_handoff_operator_packet_markdown(operator_packet),
+        "readiness_checklist.md": render_player_support_handoff_readiness_checklist_markdown(readiness),
+        "verification_audit.csv": render_player_support_handoff_zip_verification_audit_csv(audit),
+    }
+    files: list[PlayerSessionPacketArtifactFile] = []
+    for file_name, text in contents.items():
+        file_path = archive_dir / file_name
+        file_path.write_text(text, encoding="utf-8")
+        files.append(_artifact_file_entry(root, file_path, file_name, _packet_media_type(file_name), text))
+    manifest_payload = {
+        "schema_version": "gw2radar.player_support_handoff_final_archive_manifest.v1",
+        "archive_id": archive_id,
+        "generated_at": generated_at.isoformat(),
+        "ready": dashboard.ready,
+        "maturity_label": dashboard.maturity_label,
+        "latest_artifact_id": dashboard.latest_artifact_id,
+        "latest_operator_packet_id": dashboard.latest_operator_packet_id,
+        "zip_checksum_sha256": dashboard.zip_checksum_sha256,
+        "audit_record_count": dashboard.audit_record_count,
+        "files": [file.model_dump(mode="json") for file in files],
+        "contains_raw_key": False,
+        "contains_raw_debug_bundle": False,
+        "contains_private_source_payload": False,
+        "contains_executable_content": False,
+        "blockers": dashboard.blockers,
+        "warnings": dashboard.warnings,
+        "next_actions": dashboard.next_actions,
+        "boundary": (
+            "Support handoff final archives package deterministic metadata exports only; they exclude raw zip bytes, "
+            "raw API keys, raw debug bundles, private source payloads, and executable content."
+        ),
+    }
+    manifest_text = json.dumps(manifest_payload, indent=2, sort_keys=True)
+    manifest_path = archive_dir / "manifest.json"
+    manifest_path.write_text(manifest_text, encoding="utf-8")
+    manifest_file = _artifact_file_entry(root, manifest_path, "manifest.json", "application/json", manifest_text)
+    files.append(manifest_file)
+    return PlayerSupportHandoffFinalArchiveManifest(
+        archive_id=archive_id,
+        archive_root=root.as_posix(),
+        generated_at=generated_at,
+        ready=dashboard.ready,
+        maturity_label=dashboard.maturity_label,
+        latest_artifact_id=dashboard.latest_artifact_id,
+        latest_operator_packet_id=dashboard.latest_operator_packet_id,
+        zip_checksum_sha256=dashboard.zip_checksum_sha256,
+        audit_record_count=dashboard.audit_record_count,
+        file_count=len(files),
+        files=files,
+        checksum_sha256=_artifact_bundle_checksum(files),
+        blockers=dashboard.blockers,
+        warnings=dashboard.warnings,
+        next_actions=dashboard.next_actions,
+    )
+
+
+def list_player_support_handoff_final_archives(
+    *,
+    archive_root: Path | None = None,
+    limit: int = 20,
+) -> list[PlayerSupportHandoffFinalArchiveManifest]:
+    root = archive_root or PLAYER_SUPPORT_HANDOFF_FINAL_ARCHIVE_ROOT
+    if not root.exists():
+        return []
+    archives: list[PlayerSupportHandoffFinalArchiveManifest] = []
+    for archive_dir in sorted([path for path in root.iterdir() if path.is_dir()], key=lambda item: item.name, reverse=True)[: max(1, min(limit, 100))]:
+        manifest_path = archive_dir / "manifest.json"
+        if not manifest_path.exists():
+            continue
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        files = [
+            PlayerSessionPacketArtifactFile(**file)
+            for file in manifest.get("files", [])
+            if file.get("file_name") in PLAYER_SUPPORT_HANDOFF_FINAL_ARCHIVE_FILES
+        ]
+        manifest_text = manifest_path.read_text(encoding="utf-8")
+        manifest_file = _artifact_file_entry(root, manifest_path, "manifest.json", "application/json", manifest_text)
+        if not any(file.file_name == "manifest.json" for file in files):
+            files.append(manifest_file)
+        archives.append(
+            PlayerSupportHandoffFinalArchiveManifest(
+                archive_id=archive_dir.name,
+                archive_root=root.as_posix(),
+                generated_at=datetime.fromisoformat(manifest["generated_at"]),
+                ready=bool(manifest.get("ready")),
+                maturity_label=str(manifest.get("maturity_label") or "unknown"),
+                latest_artifact_id=manifest.get("latest_artifact_id"),
+                latest_operator_packet_id=manifest.get("latest_operator_packet_id"),
+                zip_checksum_sha256=manifest.get("zip_checksum_sha256"),
+                audit_record_count=int(manifest.get("audit_record_count") or 0),
+                file_count=len(files),
+                files=files,
+                checksum_sha256=_artifact_bundle_checksum(files),
+                blockers=[str(item) for item in manifest.get("blockers", [])],
+                warnings=[str(item) for item in manifest.get("warnings", [])],
+                next_actions=[str(item) for item in manifest.get("next_actions", [])],
+            )
+        )
+    return archives
+
+
+def resolve_player_support_handoff_final_archive_path(
+    archive_id: str,
+    file_name: str,
+    *,
+    archive_root: Path | None = None,
+) -> Path | None:
+    if "/" in archive_id or "\\" in archive_id or ".." in archive_id:
+        return None
+    if file_name not in PLAYER_SUPPORT_HANDOFF_FINAL_ARCHIVE_FILES:
+        return None
+    root = (archive_root or PLAYER_SUPPORT_HANDOFF_FINAL_ARCHIVE_ROOT).resolve()
+    candidate = (root / archive_id / file_name).resolve()
+    try:
+        candidate.relative_to(root)
+    except ValueError:
+        return None
+    if not candidate.exists() or not candidate.is_file():
+        return None
+    return candidate
+
+
+def build_player_support_handoff_final_archive_zip_bundle(
+    *,
+    archive_root: Path | None = None,
+) -> tuple[PlayerSupportHandoffFinalArchiveZipManifest, bytes]:
+    archives = list_player_support_handoff_final_archives(archive_root=archive_root, limit=1)
+    if not archives:
+        raise ValueError("No player support handoff final archive is available to bundle.")
+    archive_manifest = archives[0]
+    source_files: list[tuple[str, Path, str]] = []
+    for file in archive_manifest.files:
+        path = resolve_player_support_handoff_final_archive_path(
+            archive_manifest.archive_id,
+            file.file_name,
+            archive_root=archive_root,
+        )
+        if path is not None:
+            source_files.append((file.file_name, path, file.media_type))
+    included_files: list[PlayerSessionPacketArtifactFile] = []
+    buffer = BytesIO()
+    with ZipFile(buffer, mode="w", compression=ZIP_DEFLATED) as archive:
+        for file_name, path, media_type in sorted(source_files, key=lambda item: item[0]):
+            if file_name not in PLAYER_SUPPORT_HANDOFF_FINAL_ARCHIVE_FILES:
+                continue
+            content = path.read_bytes()
+            archive_path = f"player_support_handoff_final_archive/{file_name}"
+            info = ZipInfo(archive_path, date_time=(1980, 1, 1, 0, 0, 0))
+            info.compress_type = ZIP_DEFLATED
+            info.external_attr = 0o644 << 16
+            archive.writestr(info, content)
+            included_files.append(
+                PlayerSessionPacketArtifactFile(
+                    file_name=file_name,
+                    relative_path=archive_path,
+                    media_type=media_type,
+                    size_bytes=len(content),
+                    checksum_sha256=hashlib.sha256(content).hexdigest(),
+                )
+            )
+    bundle_bytes = buffer.getvalue()
+    checksum = hashlib.sha256(bundle_bytes).hexdigest()
+    return (
+        PlayerSupportHandoffFinalArchiveZipManifest(
+            bundle_id=f"player-support-handoff-final-archive-zip:{checksum[:16]}",
+            source_archive_id=archive_manifest.archive_id,
+            generated_at=datetime.now(timezone.utc),
+            filename=f"{archive_manifest.archive_id}_final_archive.zip",
+            file_count=len(included_files),
+            included_files=included_files,
+            checksum_sha256=checksum,
+            size_bytes=len(bundle_bytes),
+        ),
+        bundle_bytes,
+    )
+
+
+def verify_player_support_handoff_final_archive_zip_bundle(
+    bundle_bytes: bytes,
+    *,
+    expected_checksum_sha256: str | None = None,
+) -> PlayerSupportHandoffFinalArchiveZipVerification:
+    checksum = hashlib.sha256(bundle_bytes).hexdigest()
+    blockers: list[str] = []
+    warnings: list[str] = []
+    allowed_names = {f"player_support_handoff_final_archive/{file_name}" for file_name in PLAYER_SUPPORT_HANDOFF_FINAL_ARCHIVE_FILES}
+    verified_files: list[str] = []
+    if expected_checksum_sha256 and expected_checksum_sha256 != checksum:
+        blockers.append("final archive checksum does not match the expected SHA-256 value")
+    try:
+        with ZipFile(BytesIO(bundle_bytes), mode="r") as archive:
+            names = sorted(archive.namelist())
+            verified_files = names
+            for name in names:
+                path = Path(name)
+                if path.is_absolute() or ".." in path.parts:
+                    blockers.append(f"final archive contains unsafe path: {name}")
+            extra_names = sorted(set(names) - allowed_names)
+            missing_names = sorted(allowed_names - set(names))
+            if extra_names:
+                blockers.append("final archive contains non-whitelisted files: " + ", ".join(extra_names))
+            if missing_names:
+                blockers.append("final archive is missing required files: " + ", ".join(missing_names))
+            for name in names:
+                lowered = archive.read(name).lower()
+                if b"secret-key" in lowered:
+                    blockers.append(f"final archive file contains prohibited secret marker: {name}")
+            manifest_name = "player_support_handoff_final_archive/manifest.json"
+            if manifest_name in names:
+                manifest = json.loads(archive.read(manifest_name).decode("utf-8"))
+                if manifest.get("schema_version") != "gw2radar.player_support_handoff_final_archive_manifest.v1":
+                    blockers.append("final archive manifest schema is invalid")
+                for flag in ["contains_raw_key", "contains_raw_debug_bundle", "contains_private_source_payload", "contains_executable_content"]:
+                    if manifest.get(flag) is not False:
+                        blockers.append(f"final archive manifest boundary flag is not false: {flag}")
+            else:
+                blockers.append("final archive manifest.json is missing")
+    except Exception as exc:
+        blockers.append(f"final archive zip could not be read: {exc}")
+    if len(bundle_bytes) > 5_000_000:
+        warnings.append("final archive is larger than the MVP verification target of 5 MB")
+    return PlayerSupportHandoffFinalArchiveZipVerification(
+        ready=not blockers,
+        verified_at=datetime.now(timezone.utc),
+        checksum_sha256=checksum,
+        size_bytes=len(bundle_bytes),
+        file_count=len(verified_files),
+        verified_files=verified_files,
+        blockers=blockers,
+        warnings=warnings,
+    )
 
 
 def _missing_debug_bundle_review() -> SupportReviewReport:

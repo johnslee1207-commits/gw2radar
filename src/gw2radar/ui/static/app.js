@@ -1163,6 +1163,55 @@ function renderPlayerSupportHandoffDashboard(dashboard) {
   });
 }
 
+function renderPlayerSupportHandoffFinalArchive(payload) {
+  const list = document.querySelector("#support-handoff-final-archive");
+  if (!list) {
+    return;
+  }
+  list.innerHTML = "";
+  const archive = payload?.support_handoff_final_archive || payload?.archive || payload;
+  const verification = payload?.support_handoff_final_archive_zip_verification || payload?.verification;
+  const zipManifest = payload?.support_handoff_final_archive_zip_bundle || payload?.zip_manifest;
+  if (verification) {
+    appendCompactBridgeRow(
+      list,
+      verification.ready ? "verified" : "blocked",
+      `${verification.file_count || 0} files · checksum ${String(verification.checksum_sha256 || "").slice(0, 12)}`,
+      verification.ready ? "info" : "warn"
+    );
+    (verification.blockers || []).slice(0, 4).forEach((blocker) => {
+      appendCompactBridgeRow(list, "Blocker", blocker, "warn");
+    });
+    return;
+  }
+  if (zipManifest) {
+    appendCompactBridgeRow(
+      list,
+      "zip",
+      `${zipManifest.file_count || 0} files · checksum ${String(zipManifest.checksum_sha256 || "").slice(0, 12)}`,
+      "info"
+    );
+    appendCompactBridgeRow(list, "Source", zipManifest.source_archive_id || "latest archive", "info");
+    return;
+  }
+  if (!archive) {
+    list.textContent = "No support handoff final archive is available yet.";
+    return;
+  }
+  appendCompactBridgeRow(
+    list,
+    archive.ready ? "ready" : "review",
+    `${archive.archive_id || "final-archive"} · ${archive.file_count || 0} files · checksum ${String(archive.checksum_sha256 || "").slice(0, 12)}`,
+    archive.ready ? "info" : "warn"
+  );
+  (archive.files || []).slice(0, 6).forEach((file) => {
+    appendCompactBridgeRow(list, "File", `${file.file_name || "file"} · ${String(file.checksum_sha256 || "").slice(0, 12)}`, "info");
+  });
+  (archive.next_actions || []).slice(0, 3).forEach((action) => {
+    appendCompactBridgeRow(list, "Next", action, archive.ready ? "info" : "warn");
+  });
+}
+
 function valueReadinessClass(label) {
   if (label === "ready") {
     return "info";
@@ -1996,6 +2045,39 @@ const actions = {
       const dashboard = await fetchJson("/api/v1/player/support-handoff/dashboard");
       renderPlayerSupportHandoffDashboard(dashboard?.data?.support_handoff_dashboard || {});
       return dashboard;
+    }),
+  writePlayerSupportHandoffFinalArchive: () =>
+    run("dashboard", async () => {
+      const payload = await fetchJson("/api/v1/player/support-handoff/final-archive", { method: "POST" });
+      renderPlayerSupportHandoffFinalArchive(payload?.data?.support_handoff_final_archive || {});
+      return payload;
+    }),
+  downloadPlayerSupportHandoffFinalArchiveZip: () =>
+    run("dashboard", async () => {
+      const response = await fetch("/api/v1/player/support-handoff/final-archive/bundle");
+      const blob = await response.blob();
+      const disposition = response.headers.get("content-disposition") || "";
+      const filename = disposition.match(/filename="([^"]+)"/)?.[1] || "gw2radar-player-support-handoff-final-archive.zip";
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(url);
+      const manifest = await fetchJson("/api/v1/player/support-handoff/final-archive/bundle?format=manifest");
+      renderPlayerSupportHandoffFinalArchive(manifest?.data || {});
+      return {
+        filename,
+        checksum_sha256: response.headers.get("x-checksum-sha256"),
+        size_bytes: blob.size,
+        manifest,
+      };
+    }),
+  verifyPlayerSupportHandoffFinalArchiveZip: () =>
+    run("dashboard", async () => {
+      const payload = await fetchJson("/api/v1/player/support-handoff/final-archive/bundle/verify", { method: "POST" });
+      renderPlayerSupportHandoffFinalArchive(payload?.data || {});
+      return payload;
     }),
   exportAccountValueMarkdown: () =>
     run("dashboard", async () => {

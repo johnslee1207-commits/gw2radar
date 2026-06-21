@@ -21,6 +21,7 @@ from gw2radar.commercial.player_intelligence import (
     build_player_session_packet,
     build_player_support_handoff_bundle,
     build_player_support_handoff_dashboard,
+    build_player_support_handoff_final_archive_zip_bundle,
     build_player_support_handoff_operator_packet,
     build_player_support_handoff_readiness_checklist,
     build_player_support_handoff_zip_bundle,
@@ -28,12 +29,14 @@ from gw2radar.commercial.player_intelligence import (
     list_player_readiness_history,
     list_player_session_packet_artifacts,
     list_player_support_handoff_artifacts,
+    list_player_support_handoff_final_archives,
     list_player_support_handoff_zip_verification_audits,
     PlayerSupportHandoffZipVerificationAuditRequest,
     record_player_readiness_snapshot,
     record_player_support_handoff_zip_verification_audit,
     resolve_player_session_packet_artifact_path,
     resolve_player_support_handoff_artifact_path,
+    resolve_player_support_handoff_final_archive_path,
     render_player_history_correlation_csv,
     render_player_history_correlation_markdown,
     render_player_session_packet_csv,
@@ -54,6 +57,8 @@ from gw2radar.commercial.player_intelligence import (
     render_player_readiness_markdown,
     write_player_session_packet_artifacts,
     write_player_support_handoff_artifacts,
+    write_player_support_handoff_final_archive,
+    verify_player_support_handoff_final_archive_zip_bundle,
     verify_player_support_handoff_zip_bundle,
 )
 from gw2radar.db import session as db_session
@@ -488,6 +493,87 @@ def get_player_support_handoff_dashboard(format: str = "json") -> ApiDataEnvelop
             headers={"Content-Disposition": 'attachment; filename="player_support_handoff_dashboard.csv"'},
         )
     return ApiDataEnvelope(data={"support_handoff_dashboard": dashboard.model_dump(mode="json")})
+
+
+@router.post("/support-handoff/final-archive", response_model=ApiDataEnvelope)
+def post_player_support_handoff_final_archive() -> ApiDataEnvelope:
+    _ensure_player_support_handoff_artifact()
+    if not list_player_support_handoff_zip_verification_audits(limit=1).records:
+        record_player_support_handoff_zip_verification_audit(
+            PlayerSupportHandoffZipVerificationAuditRequest(
+                reviewer="system",
+                notes=["System recorded support handoff final archive verification audit."],
+            )
+        )
+    archive = write_player_support_handoff_final_archive()
+    return ApiDataEnvelope(data={"support_handoff_final_archive": archive.model_dump(mode="json")})
+
+
+@router.get("/support-handoff/final-archive", response_model=ApiDataEnvelope)
+def get_player_support_handoff_final_archives(limit: int = 20) -> ApiDataEnvelope:
+    archives = list_player_support_handoff_final_archives(limit=limit)
+    return ApiDataEnvelope(data={"support_handoff_final_archives": [archive.model_dump(mode="json") for archive in archives]})
+
+
+@router.get("/support-handoff/final-archive/bundle", response_model=None)
+def get_player_support_handoff_final_archive_bundle(
+    format: str = Query(default="zip", pattern="^(zip|manifest)$"),
+) -> ApiDataEnvelope | Response:
+    if not list_player_support_handoff_final_archives(limit=1):
+        _ensure_player_support_handoff_artifact()
+        if not list_player_support_handoff_zip_verification_audits(limit=1).records:
+            record_player_support_handoff_zip_verification_audit(
+                PlayerSupportHandoffZipVerificationAuditRequest(
+                    reviewer="system",
+                    notes=["System recorded support handoff final archive bundle verification audit."],
+                )
+            )
+        write_player_support_handoff_final_archive()
+    try:
+        manifest, bundle_bytes = build_player_support_handoff_final_archive_zip_bundle()
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    if format == "manifest":
+        return ApiDataEnvelope(data={"support_handoff_final_archive_zip_bundle": manifest.model_dump(mode="json")})
+    return Response(
+        content=bundle_bytes,
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f'attachment; filename="{manifest.filename}"',
+            "X-Checksum-SHA256": manifest.checksum_sha256,
+        },
+    )
+
+
+@router.post("/support-handoff/final-archive/bundle/verify", response_model=ApiDataEnvelope)
+def post_player_support_handoff_final_archive_bundle_verify(
+    bundle: bytes | None = Body(default=None, media_type="application/zip"),
+    expected_checksum_sha256: str | None = Query(default=None),
+) -> ApiDataEnvelope:
+    if bundle is None or len(bundle) == 0:
+        if not list_player_support_handoff_final_archives(limit=1):
+            _ensure_player_support_handoff_artifact()
+            write_player_support_handoff_final_archive()
+        manifest, bundle = build_player_support_handoff_final_archive_zip_bundle()
+        expected_checksum_sha256 = expected_checksum_sha256 or manifest.checksum_sha256
+    verification = verify_player_support_handoff_final_archive_zip_bundle(
+        bundle,
+        expected_checksum_sha256=expected_checksum_sha256,
+    )
+    return ApiDataEnvelope(data={"support_handoff_final_archive_zip_verification": verification.model_dump(mode="json")})
+
+
+@router.get("/support-handoff/final-archive/{archive_id}/{file_name}", response_model=None)
+def get_player_support_handoff_final_archive_file(archive_id: str, file_name: str) -> Response:
+    path = resolve_player_support_handoff_final_archive_path(archive_id, file_name)
+    if path is None:
+        raise HTTPException(status_code=404, detail="Player support handoff final archive file not found")
+    media_type = "application/json"
+    if file_name.endswith(".md"):
+        media_type = "text/markdown; charset=utf-8"
+    elif file_name.endswith(".csv"):
+        media_type = "text/csv; charset=utf-8"
+    return Response(content=path.read_text(encoding="utf-8"), media_type=media_type)
 
 
 @router.get("/support-handoff/artifacts/{artifact_id}/{file_name}", response_model=None)

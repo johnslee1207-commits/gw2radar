@@ -34,6 +34,7 @@ from gw2radar.db.session import close_database, configure_database  # noqa: E402
 AUDIT_PATH = ROOT / "docs" / "ui" / "PLAYER_USE_PATH_COMPLETENESS_AUDIT.md"
 SESSION_PACKET_ARTIFACT_ROOT = ROOT / "src" / "gw2radar" / "reports" / "artifacts" / "player_session_packets"
 SUPPORT_HANDOFF_ARTIFACT_ROOT = ROOT / "src" / "gw2radar" / "reports" / "artifacts" / "player_support_handoffs"
+SUPPORT_HANDOFF_FINAL_ARCHIVE_ROOT = ROOT / "src" / "gw2radar" / "reports" / "artifacts" / "player_support_handoff_final_archives"
 
 
 @dataclass
@@ -592,6 +593,72 @@ def main() -> int:
             "mature_support_handoff_dashboard",
             f"{len(dashboard_card_ids)} dashboard cards and {support_handoff_dashboard.get('audit_record_count', 0)} audit records.",
         )
+        final_archive_response = _json(
+            client.post("/api/v1/player/support-handoff/final-archive"),
+            "write player support handoff final archive",
+            checks,
+        )
+        final_archive = _get(final_archive_response, "data", "support_handoff_final_archive") or {}
+        final_archive_list = _json(
+            client.get("/api/v1/player/support-handoff/final-archive?limit=10"),
+            "list player support handoff final archives",
+            checks,
+        )
+        final_archive_zip_manifest = _json(
+            client.get("/api/v1/player/support-handoff/final-archive/bundle?format=manifest"),
+            "load player support handoff final archive zip manifest",
+            checks,
+        )
+        final_archive_zip = client.get("/api/v1/player/support-handoff/final-archive/bundle")
+        final_archive_zip_verify = _json(
+            client.post(
+                "/api/v1/player/support-handoff/final-archive/bundle/verify",
+                content=final_archive_zip.content,
+                headers={"content-type": "application/zip"},
+            ),
+            "verify player support handoff final archive zip",
+            checks,
+        )
+        final_archive_file_names = {
+            str(file.get("file_name"))
+            for file in final_archive.get("files", [])
+            if isinstance(file, dict)
+        }
+        final_archive_zip_bundle = _get(final_archive_zip_manifest, "data", "support_handoff_final_archive_zip_bundle") or {}
+        final_archive_verification = _get(final_archive_zip_verify, "data", "support_handoff_final_archive_zip_verification") or {}
+        _add(
+            checks,
+            "player_support_handoff_final_archive",
+            "Support handoff final archive packages dashboard, operator packet, readiness checklist, and audit exports into deterministic files and a verified zip.",
+            final_archive.get("schema_version") == "gw2radar.player_support_handoff_final_archive_manifest.v1"
+            and final_archive.get("ready") is True
+            and final_archive.get("maturity_label") == "ready"
+            and {
+                "dashboard.json",
+                "dashboard.md",
+                "operator_packet.md",
+                "readiness_checklist.md",
+                "verification_audit.csv",
+                "manifest.json",
+            }.issubset(final_archive_file_names)
+            and len(final_archive.get("checksum_sha256") or "") == 64
+            and _get(final_archive_list, "data", "support_handoff_final_archives", 0, "archive_id")
+            == final_archive.get("archive_id")
+            and final_archive_zip.status_code == 200
+            and final_archive_zip.headers.get("content-type") == "application/zip"
+            and final_archive_zip.headers.get("x-checksum-sha256") == final_archive_zip_bundle.get("checksum_sha256")
+            and final_archive_zip_bundle.get("schema_version")
+            == "gw2radar.player_support_handoff_final_archive_zip_manifest.v1"
+            and final_archive_zip_bundle.get("file_count") == 6
+            and final_archive_verification.get("schema_version")
+            == "gw2radar.player_support_handoff_final_archive_zip_verification.v1"
+            and final_archive_verification.get("ready") is True
+            and final_archive_verification.get("file_count") == 6
+            and "secret-key" not in json.dumps(final_archive).lower()
+            and "secret-key" not in final_archive_zip.content.decode("latin1").lower(),
+            "mature_support_handoff_final_archive",
+            f"{len(final_archive_file_names)} files with zip checksum {str(final_archive_zip_bundle.get('checksum_sha256') or '')[:12]}.",
+        )
 
         imported = _json(client.post("/api/v1/builds/import", json=_sample_build_import()), "import build", checks)
         build_id = _get(imported, "data", "build", "build_id") or "missing-build-id"
@@ -677,6 +744,7 @@ def main() -> int:
         shutil.rmtree(ROOT / "outputs", ignore_errors=True)
         shutil.rmtree(SESSION_PACKET_ARTIFACT_ROOT, ignore_errors=True)
         shutil.rmtree(SUPPORT_HANDOFF_ARTIFACT_ROOT, ignore_errors=True)
+        shutil.rmtree(SUPPORT_HANDOFF_FINAL_ARCHIVE_ROOT, ignore_errors=True)
 
     failed = [check for check in checks if not check.passed]
     if failed:
@@ -814,6 +882,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "- `PlayerSupportHandoffReadinessChecklist` summarizes artifact, zip, verification, and audit gates for support operators.",
             "- `PlayerSupportHandoffOperatorPacket` packages the readiness checklist, audit summary, zip manifest, runbook, and transfer files for support workflows.",
             "- `PlayerSupportHandoffDashboard` aggregates artifacts, zip verification, audit, readiness, and operator packet state into one support case view.",
+            "- `PlayerSupportHandoffFinalArchiveManifest` packages dashboard, operator packet, readiness checklist, and audit exports into deterministic local files and a verified zip.",
             "- `ReportArtifactManifest` records bridge metadata without storing raw API keys or unredacted private payloads.",
             "",
             "## Known Limits",
@@ -824,7 +893,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Next Priority",
             "",
-            "Add a support handoff final export archive that packages dashboard, operator packet, readiness checklist, and audit exports into deterministic local files.",
+            "Harden real-account first-run UX by surfacing pending, empty, limited-permission, queue, and private-layer write states directly in the player dashboard.",
             "",
         ]
     )
