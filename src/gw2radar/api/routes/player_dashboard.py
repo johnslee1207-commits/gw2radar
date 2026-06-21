@@ -13,6 +13,8 @@ from gw2radar.commercial.player_intelligence import (
     build_data_freshness_annotations,
     build_player_dashboard_plan,
     build_player_readiness_summary,
+    render_player_readiness_csv,
+    render_player_readiness_markdown,
 )
 from gw2radar.db import session as db_session
 from gw2radar.db.init_db import init_db
@@ -27,13 +29,25 @@ def get_player_dashboard() -> ApiDataEnvelope:
     return ApiDataEnvelope(data={"dashboard": plan.model_dump(mode="json")})
 
 
-@router.get("/readiness", response_model=ApiDataEnvelope)
-def get_player_readiness() -> ApiDataEnvelope:
+@router.get("/readiness", response_model=None)
+def get_player_readiness(format: str = "json") -> ApiDataEnvelope | Response:
     graph = get_graph()
     init_db()
     with db_session.SessionLocal() as session:
         snapshot = build_account_value_snapshot(graph, session)
         readiness = build_player_readiness_summary(graph, session, snapshot)
+    if format == "markdown":
+        return Response(
+            content=render_player_readiness_markdown(readiness),
+            media_type="text/markdown; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="player_readiness_summary.md"'},
+        )
+    if format == "csv":
+        return Response(
+            content=render_player_readiness_csv(readiness),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="player_readiness_summary.csv"'},
+        )
     return ApiDataEnvelope(data={"readiness": readiness.model_dump(mode="json")})
 
 

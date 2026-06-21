@@ -221,6 +221,65 @@ def render_freshness_markdown(graph: GraphData) -> str:
     return "\n".join(lines) + "\n"
 
 
+def render_player_readiness_markdown(readiness: PlayerReadinessSummary) -> str:
+    lines = [
+        "# Player Readiness Summary",
+        "",
+        f"- Schema: {readiness.schema_version}",
+        f"- Readiness label: {readiness.readiness_label}",
+        f"- Readiness score: {readiness.readiness_score}/100",
+        f"- Checks: {len(readiness.checks)}",
+        "",
+        "## Checks",
+        "",
+    ]
+    for check in readiness.checks:
+        lines.extend(
+            [
+                f"### {check.label}",
+                "",
+                f"- Check id: `{check.check_id}`",
+                f"- Status: {check.status}",
+                f"- Evidence: {check.evidence}",
+                f"- Next action: {check.next_action}",
+                "",
+            ]
+        )
+    lines.extend(["## Next Actions", ""])
+    lines.extend(f"- {action}" for action in readiness.next_actions)
+    lines.extend(["", "## Safety Boundaries", ""])
+    lines.extend(f"- {boundary}" for boundary in readiness.safety_boundaries)
+    return "\n".join(lines) + "\n"
+
+
+def render_player_readiness_csv(readiness: PlayerReadinessSummary) -> str:
+    rows = ["check_id,label,status,evidence,next_action"]
+    for check in readiness.checks:
+        rows.append(
+            ",".join(
+                [
+                    _csv(check.check_id),
+                    _csv(check.label),
+                    _csv(check.status),
+                    _csv(check.evidence),
+                    _csv(check.next_action),
+                ]
+            )
+        )
+    rows.extend(
+        [
+            "",
+            "summary_key,summary_value",
+            f"schema_version,{_csv(readiness.schema_version)}",
+            f"readiness_label,{_csv(readiness.readiness_label)}",
+            f"readiness_score,{_csv(str(readiness.readiness_score))}",
+            f"next_actions,{_csv('; '.join(readiness.next_actions))}",
+            f"safety_boundaries,{_csv('; '.join(readiness.safety_boundaries))}",
+        ]
+    )
+    return "\n".join(rows) + "\n"
+
+
 def _do_not_sell_alerts(graph: GraphData, goal_id: str) -> list[str]:
     if goal_id not in graph.entities:
         return ["Load an active goal before generating do-not-sell alerts."]
@@ -270,3 +329,10 @@ def _market_readiness_check(graph: GraphData, session: Session, goal_id: str) ->
         evidence=f"{len(report.signals)} market signals and {len(report.trends)} watched price trends available.",
         next_action="Record or refresh price snapshots, then run Market signals.",
     )
+
+
+def _csv(value: str) -> str:
+    text = str(value)
+    if any(char in text for char in [",", '"', "\n"]):
+        return f'"{text.replace(chr(34), chr(34) + chr(34))}"'
+    return text

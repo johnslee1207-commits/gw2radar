@@ -95,6 +95,22 @@ def main() -> int:
             "mature_dashboard_readiness",
             f"{readiness.get('readiness_label', 'missing')} at {readiness.get('readiness_score', 0)}/100 with {len(readiness.get('checks', []))} checks.",
         )
+        readiness_md = client.get("/api/v1/player/readiness?format=markdown")
+        readiness_csv = client.get("/api/v1/player/readiness?format=csv")
+        _add(
+            checks,
+            "player_readiness_exports",
+            "Player readiness can be exported as Markdown and CSV for support review and session comparison.",
+            readiness_md.status_code == 200
+            and "# Player Readiness Summary" in readiness_md.text
+            and "## Checks" in readiness_md.text
+            and readiness_csv.status_code == 200
+            and "check_id,label,status,evidence,next_action" in readiness_csv.text
+            and "summary_key,summary_value" in readiness_csv.text
+            and "api_key" not in (readiness_md.text + readiness_csv.text).lower(),
+            "mature_readiness_exports",
+            "GET /api/v1/player/readiness supports markdown and csv formats without raw secret fields.",
+        )
         account_value = _json(client.get("/api/v1/player/account-value"), "load account value snapshot", checks)
         value_snapshot = _get(account_value, "data", "account_value_snapshot") or {}
         bridge = _get(value_snapshot, "diagnostics") or {}
@@ -312,6 +328,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "- `AccountValueSnapshot` normalizes holdings, price coverage, source diagnostics, and remediation actions.",
             "- `AccountValueEvidenceBridge` carries the same summary-only evidence into Build Fit, Legendary Planner, Market Radar, and report artifacts.",
             "- `PlayerReadinessSummary` aggregates sync, account value, Legendary, Market, and Build Fit bridge checks into one dashboard action.",
+            "- `PlayerReadinessExport` renders the readiness summary as Markdown and CSV for player/support comparison across sessions.",
             "- `ReportArtifactManifest` records bridge metadata without storing raw API keys or unredacted private payloads.",
             "",
             "## Known Limits",
@@ -322,7 +339,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Next Priority",
             "",
-            "Add optional CSV/Markdown export for player readiness so support and senior players can compare readiness changes across sessions.",
+            "Add optional readiness history snapshots so senior players can compare sync and price-refresh changes over time.",
             "",
         ]
     )

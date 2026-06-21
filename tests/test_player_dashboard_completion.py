@@ -61,6 +61,8 @@ def test_player_readiness_endpoint_aggregates_commercial_path_checks() -> None:
 
         response = client.get("/api/v1/player/readiness")
         readiness = response.json()["data"]["readiness"]
+        markdown = client.get("/api/v1/player/readiness?format=markdown")
+        csv = client.get("/api/v1/player/readiness?format=csv")
         check_ids = {check["check_id"] for check in readiness["checks"]}
 
         assert response.status_code == 200
@@ -70,6 +72,14 @@ def test_player_readiness_endpoint_aggregates_commercial_path_checks() -> None:
         assert {"account_sync", "account_value", "legendary_planner", "market_radar", "build_fit_bridge"} <= check_ids
         assert "api_key" not in str(readiness).lower()
         assert "never places trades" in " ".join(readiness["safety_boundaries"])
+        assert markdown.status_code == 200
+        assert "# Player Readiness Summary" in markdown.text
+        assert "## Checks" in markdown.text
+        assert "api_key" not in markdown.text.lower()
+        assert csv.status_code == 200
+        assert "check_id,label,status,evidence,next_action" in csv.text
+        assert "summary_key,summary_value" in csv.text
+        assert "api_key" not in csv.text.lower()
     finally:
         close_database()
         state.reset_cached_graph()

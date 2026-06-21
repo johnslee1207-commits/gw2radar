@@ -33,6 +33,8 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert "Check readiness" in response.text
     assert "Player Readiness" in response.text
     assert "Run Check readiness to inspect the full player path." in response.text
+    assert "Export readiness MD" in response.text
+    assert "Export readiness CSV" in response.text
     assert "Account Value Coverage" in response.text
     assert "Location breakdown" in response.text
     assert "Status breakdown" in response.text
@@ -182,6 +184,12 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "/api/v1/player/dashboard" in js.text
     assert "/api/v1/player/readiness" in js.text
     assert "playerReadiness" in js.text
+    assert "exportPlayerReadinessMarkdown" in js.text
+    assert "exportPlayerReadinessCsv" in js.text
+    assert "/api/v1/player/readiness?format=markdown" in js.text
+    assert "/api/v1/player/readiness?format=csv" in js.text
+    assert "gw2radar-player-readiness.md" in js.text
+    assert "gw2radar-player-readiness.csv" in js.text
     assert "renderPlayerReadiness" in js.text
     assert "readinessCheckClass" in js.text
     assert "gw2radar.player_readiness_summary.v1" in js.text or "readiness_score" in js.text

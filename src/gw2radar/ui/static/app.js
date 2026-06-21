@@ -1474,6 +1474,18 @@ const actions = {
       renderPlayerReadiness(readiness?.data?.readiness || {});
       return { sync, value, readiness };
     }),
+  exportPlayerReadinessMarkdown: () =>
+    run("dashboard", async () => {
+      const text = await fetch("/api/v1/player/readiness?format=markdown").then((response) => response.text());
+      downloadText("gw2radar-player-readiness.md", text, "text/markdown");
+      return text;
+    }),
+  exportPlayerReadinessCsv: () =>
+    run("dashboard", async () => {
+      const text = await fetch("/api/v1/player/readiness?format=csv").then((response) => response.text());
+      downloadText("gw2radar-player-readiness.csv", text, "text/csv");
+      return text;
+    }),
   exportAccountValueMarkdown: () =>
     run("dashboard", async () => {
       const text = await fetch("/api/v1/player/account-value?format=markdown").then((response) => response.text());
