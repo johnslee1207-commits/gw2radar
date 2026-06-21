@@ -1,10 +1,11 @@
 from datetime import datetime, timezone
 from typing import Literal
+from uuid import uuid4
 
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from gw2radar.db.models import MarketSnapshotModel, RefreshQueueModel
+from gw2radar.db.models import MarketSnapshotModel, PlayerGatewayIncidentSnapshotModel, RefreshQueueModel
 from gw2radar.commercial.market_radar import get_last_official_price_refresh_result
 
 
@@ -41,6 +42,38 @@ class GatewayIncidentTimeline(BaseModel):
     )
 
 
+class GatewayIncidentSnapshot(BaseModel):
+    schema_version: str = "gw2radar.gateway_incident_snapshot.v1"
+    snapshot_id: str
+    user_id: str
+    source: str
+    created_at: datetime
+    timeline_status: str
+    event_count: int
+    retry_event_count: int
+    failed_event_count: int
+    latest_market_snapshot_at: datetime | None = None
+    events: list[dict] = Field(default_factory=list)
+    next_actions: list[str] = Field(default_factory=list)
+    boundary: str
+
+
+class GatewayIncidentHistoryComparison(BaseModel):
+    schema_version: str = "gw2radar.gateway_incident_history_comparison.v1"
+    status: Literal["insufficient_history", "unchanged", "improved", "regressed"]
+    retry_event_delta: int = 0
+    failed_event_delta: int = 0
+    event_count_delta: int = 0
+    notes: list[str] = Field(default_factory=list)
+
+
+class GatewayIncidentHistory(BaseModel):
+    schema_version: str = "gw2radar.gateway_incident_history.v1"
+    snapshots: list[GatewayIncidentSnapshot]
+    comparison: GatewayIncidentHistoryComparison
+    boundary: str = "Gateway incident history stores metadata-only snapshots and excludes raw API keys and private account payloads."
+
+
 def build_gateway_incident_timeline(session: Session, *, limit: int = 20) -> GatewayIncidentTimeline:
     events = _refresh_queue_events(session)
     events.extend(_market_price_events(session))
@@ -65,6 +98,105 @@ def build_gateway_incident_timeline(session: Session, *, limit: int = 20) -> Gat
         events=events,
         next_actions=_next_actions(status, events),
     )
+
+
+def record_gateway_incident_snapshot(
+    session: Session,
+    timeline: GatewayIncidentTimeline,
+    *,
+    source: str = "player_dashboard",
+    user_id: str = "local-user",
+) -> GatewayIncidentSnapshot:
+    created_at = datetime.now(timezone.utc)
+    row = PlayerGatewayIncidentSnapshotModel(
+        snapshot_id=f"gateway-incident-snapshot-{created_at.strftime('%Y%m%dT%H%M%S%fZ')}-{uuid4().hex[:8]}",
+        user_id=user_id,
+        source=source,
+        timeline_status=timeline.timeline_status,
+        event_count=timeline.event_count,
+        retry_event_count=timeline.retry_event_count,
+        failed_event_count=timeline.failed_event_count,
+        latest_market_snapshot_at=timeline.latest_market_snapshot_at,
+        events_json=[event.model_dump(mode="json") for event in timeline.events],
+        next_actions_json=list(timeline.next_actions),
+        boundary=timeline.boundary,
+        created_at=created_at,
+    )
+    session.add(row)
+    session.commit()
+    return _snapshot_from_model(row)
+
+
+def list_gateway_incident_history(session: Session, *, limit: int = 10) -> GatewayIncidentHistory:
+    rows = (
+        session.query(PlayerGatewayIncidentSnapshotModel)
+        .order_by(PlayerGatewayIncidentSnapshotModel.created_at.desc())
+        .limit(max(1, limit))
+        .all()
+    )
+    snapshots = [_snapshot_from_model(row) for row in rows]
+    return GatewayIncidentHistory(snapshots=snapshots, comparison=_compare_snapshots(snapshots))
+
+
+def render_gateway_incident_history_markdown(history: GatewayIncidentHistory) -> str:
+    lines = [
+        "# Gateway Incident History",
+        "",
+        f"- Schema: {history.schema_version}",
+        f"- Snapshot count: {len(history.snapshots)}",
+        f"- Comparison: {history.comparison.status}",
+        f"- Retry delta: {history.comparison.retry_event_delta}",
+        f"- Failed delta: {history.comparison.failed_event_delta}",
+        "",
+        "## Snapshots",
+        "",
+    ]
+    for snapshot in history.snapshots:
+        lines.append(
+            f"- `{snapshot.snapshot_id}` {snapshot.timeline_status}: "
+            f"{snapshot.event_count} events, {snapshot.retry_event_count} retry, "
+            f"{snapshot.failed_event_count} failed at {snapshot.created_at.isoformat()}"
+        )
+    lines.extend(["", "## Latest Events", ""])
+    for event in (history.snapshots[0].events if history.snapshots else [])[:10]:
+        lines.append(
+            f"- {event.get('source')} / {event.get('status')}: "
+            f"{event.get('endpoint') or event.get('event_type')} -> {event.get('player_action')}"
+        )
+    lines.extend(["", "## Boundary", "", f"- {history.boundary}"])
+    return "\n".join(lines) + "\n"
+
+
+def render_gateway_incident_history_csv(history: GatewayIncidentHistory) -> str:
+    rows = [
+        "snapshot_id,created_at,source,timeline_status,event_count,retry_event_count,failed_event_count,next_actions",
+    ]
+    for snapshot in history.snapshots:
+        rows.append(
+            ",".join(
+                [
+                    _csv(snapshot.snapshot_id),
+                    _csv(snapshot.created_at.isoformat()),
+                    _csv(snapshot.source),
+                    _csv(snapshot.timeline_status),
+                    str(snapshot.event_count),
+                    str(snapshot.retry_event_count),
+                    str(snapshot.failed_event_count),
+                    _csv("; ".join(snapshot.next_actions)),
+                ]
+            )
+        )
+    rows.extend(
+        [
+            "",
+            "comparison_key,comparison_value",
+            f"status,{_csv(history.comparison.status)}",
+            f"retry_event_delta,{history.comparison.retry_event_delta}",
+            f"failed_event_delta,{history.comparison.failed_event_delta}",
+            f"event_count_delta,{history.comparison.event_count_delta}",
+        ]
+    )
+    return "\n".join(rows) + "\n"
 
 
 def _refresh_queue_events(session: Session) -> list[GatewayIncidentEvent]:
@@ -219,3 +351,57 @@ def _aware(value: datetime | None) -> datetime | None:
     if value.tzinfo is None:
         return value.replace(tzinfo=timezone.utc)
     return value
+
+
+def _snapshot_from_model(row: PlayerGatewayIncidentSnapshotModel) -> GatewayIncidentSnapshot:
+    return GatewayIncidentSnapshot(
+        snapshot_id=row.snapshot_id,
+        user_id=row.user_id,
+        source=row.source,
+        created_at=_aware(row.created_at) or datetime.now(timezone.utc),
+        timeline_status=row.timeline_status,
+        event_count=row.event_count,
+        retry_event_count=row.retry_event_count,
+        failed_event_count=row.failed_event_count,
+        latest_market_snapshot_at=_aware(row.latest_market_snapshot_at),
+        events=list(row.events_json or []),
+        next_actions=list(row.next_actions_json or []),
+        boundary=row.boundary,
+    )
+
+
+def _compare_snapshots(snapshots: list[GatewayIncidentSnapshot]) -> GatewayIncidentHistoryComparison:
+    if len(snapshots) < 2:
+        return GatewayIncidentHistoryComparison(
+            status="insufficient_history",
+            notes=["Save at least two gateway incident snapshots to compare retry and failure changes."],
+        )
+    latest, previous = snapshots[0], snapshots[1]
+    retry_delta = latest.retry_event_count - previous.retry_event_count
+    failed_delta = latest.failed_event_count - previous.failed_event_count
+    event_delta = latest.event_count - previous.event_count
+    if retry_delta == 0 and failed_delta == 0 and event_delta == 0:
+        status = "unchanged"
+    elif retry_delta <= 0 and failed_delta <= 0:
+        status = "improved"
+    else:
+        status = "regressed"
+    notes = [
+        f"Retry events changed by {retry_delta}.",
+        f"Failed events changed by {failed_delta}.",
+        f"Total gateway events changed by {event_delta}.",
+    ]
+    return GatewayIncidentHistoryComparison(
+        status=status,
+        retry_event_delta=retry_delta,
+        failed_event_delta=failed_delta,
+        event_count_delta=event_delta,
+        notes=notes,
+    )
+
+
+def _csv(value: str) -> str:
+    text = str(value).replace('"', '""')
+    if any(character in text for character in [",", "\n", '"']):
+        return f'"{text}"'
+    return text

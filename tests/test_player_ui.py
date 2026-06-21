@@ -122,6 +122,11 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert "Gateway timeline" in response.text
     assert "Gateway Incident Timeline" in response.text
     assert "Load gateway timeline to correlate account sync, public refresh, and market price refresh events." in response.text
+    assert "Save gateway snapshot" in response.text
+    assert "Gateway history" in response.text
+    assert "Export gateway MD" in response.text
+    assert "Export gateway CSV" in response.text
+    assert "Save two gateway snapshots to compare retry and failure changes across sessions." in response.text
     assert "Operator review gate" in response.text
     assert "Official achievement ids" in response.text
     assert "Fetch preview" in response.text
@@ -367,6 +372,15 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "loadGatewayIncidents" in js.text
     assert "renderGatewayIncidentTimeline" in js.text
     assert "gw2radar.gateway_incident_timeline.v1" in js.text
+    assert "/api/v1/player/gateway-incidents/snapshots?source=player_dashboard" in js.text
+    assert "/api/v1/player/gateway-incidents/history?limit=10" in js.text
+    assert "/api/v1/player/gateway-incidents/history?format=markdown&limit=10" in js.text
+    assert "/api/v1/player/gateway-incidents/history?format=csv&limit=10" in js.text
+    assert "saveGatewayIncidentSnapshot" in js.text
+    assert "renderGatewayIncidentHistory" in js.text
+    assert "gw2radar.gateway_incident_history.v1" in js.text
+    assert "gw2radar-gateway-incident-history.md" in js.text
+    assert "gw2radar-gateway-incident-history.csv" in js.text
     assert "/api/v1/legendary/goals/catalog" in js.text
     assert "/api/v1/legendary/actions" in js.text
     assert "/api/v1/returner/report" in js.text

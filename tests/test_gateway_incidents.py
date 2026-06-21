@@ -96,6 +96,33 @@ def test_player_gateway_incident_timeline_correlates_refresh_events_without_secr
         assert "raw api keys" in timeline["boundary"].lower()
         assert raw_key not in str(timeline)
         assert "secret-key" not in str(timeline).lower()
+
+        first_snapshot = client.post("/api/v1/player/gateway-incidents/snapshots?source=test_gateway_incidents")
+        second_snapshot = client.post("/api/v1/player/gateway-incidents/snapshots?source=test_gateway_incidents")
+        history = client.get("/api/v1/player/gateway-incidents/history?limit=10")
+        history_md = client.get("/api/v1/player/gateway-incidents/history?format=markdown&limit=10")
+        history_csv = client.get("/api/v1/player/gateway-incidents/history?format=csv&limit=10")
+        session_packet = client.get("/api/v1/player/session-packet?limit=10")
+
+        assert first_snapshot.status_code == 200
+        assert second_snapshot.status_code == 200
+        assert first_snapshot.json()["data"]["snapshot"]["schema_version"] == "gw2radar.gateway_incident_snapshot.v1"
+        assert history.status_code == 200
+        history_payload = history.json()["data"]["history"]
+        assert history_payload["schema_version"] == "gw2radar.gateway_incident_history.v1"
+        assert len(history_payload["snapshots"]) >= 2
+        assert history_payload["comparison"]["schema_version"] == "gw2radar.gateway_incident_history_comparison.v1"
+        assert history_payload["comparison"]["status"] in {"unchanged", "improved", "regressed"}
+        assert "secret-key" not in str(history_payload).lower()
+        assert history_md.status_code == 200
+        assert "# Gateway Incident History" in history_md.text
+        assert history_csv.status_code == 200
+        assert "snapshot_id,created_at,source,timeline_status" in history_csv.text
+        assert session_packet.status_code == 200
+        packet = session_packet.json()["data"]["session_packet"]
+        assert packet["gateway_incident_history"]["schema_version"] == "gw2radar.gateway_incident_history.v1"
+        assert "gateway_incident_snapshots=" in "; ".join(packet["debug_safe_evidence"])
+        assert packet["export_manifest"]["gateway_incident_snapshot_count"] >= 2
     finally:
         account_sync_route.gateway_factory = original_account_factory
         public_refresh_route.gateway_factory = original_public_factory

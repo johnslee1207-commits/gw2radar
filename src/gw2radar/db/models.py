@@ -334,6 +334,23 @@ class AccountValueSnapshotModel(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 
+class PlayerGatewayIncidentSnapshotModel(Base):
+    __tablename__ = "player_gateway_incident_snapshots"
+
+    snapshot_id: Mapped[str] = mapped_column(String, primary_key=True)
+    user_id: Mapped[str] = mapped_column(String, default="local-user")
+    source: Mapped[str] = mapped_column(String, default="player_dashboard")
+    timeline_status: Mapped[str] = mapped_column(String, nullable=False)
+    event_count: Mapped[int] = mapped_column(Integer, default=0)
+    retry_event_count: Mapped[int] = mapped_column(Integer, default=0)
+    failed_event_count: Mapped[int] = mapped_column(Integer, default=0)
+    latest_market_snapshot_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    events_json: Mapped[list] = mapped_column(JSON, default=list)
+    next_actions_json: Mapped[list] = mapped_column(JSON, default=list)
+    boundary: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
 class CmsPageModel(Base):
     __tablename__ = "cms_pages"
 

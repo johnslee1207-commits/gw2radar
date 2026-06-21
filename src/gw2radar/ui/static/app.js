@@ -395,6 +395,13 @@ function summarizeResult(target, payload) {
     return "Report center updated. Products and pricing come from backend configuration.";
   }
   if (target === "freshness") {
+    if (data?.history?.schema_version === "gw2radar.gateway_incident_history.v1") {
+      return `Gateway history ${data.history.comparison?.status || "loaded"}: ${data.history.snapshots?.length || 0} snapshots.`;
+    }
+    if (data?.saved?.data?.snapshot) {
+      const snapshot = data.saved.data.snapshot;
+      return `Gateway snapshot saved: ${snapshot.timeline_status}, ${snapshot.event_count || 0} events.`;
+    }
     if (data?.gateway_incident_timeline?.schema_version === "gw2radar.gateway_incident_timeline.v1") {
       return `Gateway timeline ${data.gateway_incident_timeline.timeline_status}: ${data.gateway_incident_timeline.event_count || 0} events, ${data.gateway_incident_timeline.retry_event_count || 0} retry events.`;
     }
@@ -1457,6 +1464,34 @@ function renderGatewayIncidentTimeline(timeline) {
   (timeline.next_actions || []).slice(0, 3).forEach((action) => {
     appendCompactBridgeRow(list, "Next", action, timeline.timeline_status === "clear" ? "info" : "warn");
   });
+}
+
+function renderGatewayIncidentHistory(history) {
+  const list = document.querySelector("#gateway-incident-history");
+  if (!list) {
+    return;
+  }
+  list.innerHTML = "";
+  if (!history) {
+    list.textContent = "No gateway incident history is available yet.";
+    return;
+  }
+  const comparison = history.comparison || {};
+  appendCompactBridgeRow(
+    list,
+    comparison.status || "insufficient_history",
+    `${history.snapshots?.length || 0} snapshots · retry delta ${comparison.retry_event_delta ?? 0} · failed delta ${comparison.failed_event_delta ?? 0}`,
+    comparison.status === "regressed" ? "warn" : "info"
+  );
+  (history.snapshots || []).slice(0, 4).forEach((snapshot) => {
+    appendCompactBridgeRow(
+      list,
+      snapshot.timeline_status || "snapshot",
+      `${snapshot.event_count || 0} events · retry ${snapshot.retry_event_count || 0} · failed ${snapshot.failed_event_count || 0}`,
+      snapshot.failed_event_count || snapshot.retry_event_count ? "warn" : "info"
+    );
+  });
+  (comparison.notes || []).slice(0, 3).forEach((note) => appendCompactBridgeRow(list, "Delta", note, "info"));
 }
 
 function renderFirstRunSummary(summary) {
@@ -3515,6 +3550,31 @@ const actions = {
       const gatewayIncidents = await fetchJson("/api/v1/player/gateway-incidents?limit=20");
       renderGatewayIncidentTimeline(gatewayIncidents?.data?.gateway_incident_timeline || {});
       return { gateway_incident_timeline: gatewayIncidents?.data?.gateway_incident_timeline };
+    }),
+  saveGatewayIncidentSnapshot: () =>
+    run("freshness", async () => {
+      const saved = await fetchJson("/api/v1/player/gateway-incidents/snapshots?source=player_dashboard", { method: "POST" });
+      const history = await fetchJson("/api/v1/player/gateway-incidents/history?limit=10");
+      renderGatewayIncidentHistory(history?.data?.history || {});
+      return { saved, history: history?.data?.history };
+    }),
+  loadGatewayIncidentHistory: () =>
+    run("freshness", async () => {
+      const history = await fetchJson("/api/v1/player/gateway-incidents/history?limit=10");
+      renderGatewayIncidentHistory(history?.data?.history || {});
+      return { history: history?.data?.history };
+    }),
+  exportGatewayIncidentHistoryMarkdown: () =>
+    run("freshness", async () => {
+      const text = await fetch("/api/v1/player/gateway-incidents/history?format=markdown&limit=10").then((response) => response.text());
+      downloadText("gw2radar-gateway-incident-history.md", text, "text/markdown");
+      return text;
+    }),
+  exportGatewayIncidentHistoryCsv: () =>
+    run("freshness", async () => {
+      const text = await fetch("/api/v1/player/gateway-incidents/history?format=csv&limit=10").then((response) => response.text());
+      downloadText("gw2radar-gateway-incident-history.csv", text, "text/csv");
+      return text;
     }),
   openArtifact: () => {
     const artifactId = document.querySelector("#artifact-id").value;

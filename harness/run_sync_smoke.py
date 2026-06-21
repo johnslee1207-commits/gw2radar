@@ -27,7 +27,10 @@ class SmokeAccountGateway:
         "/v2/account/wallet": [{"id": 1, "value": 42}],
         "/v2/account/materials": [{"id": 19721, "count": 7}],
         "/v2/account/bank": [{"id": 19722, "count": 2}],
+        "/v2/account/inventory": [],
         "/v2/account/achievements": [{"id": 999, "current": 1, "max": 1}],
+        "/v2/commerce/transactions/current/buys": [],
+        "/v2/commerce/transactions/current/sells": [],
     }
 
     def _fetch_tokeninfo(self, api_key, *, request_id):

@@ -61,7 +61,13 @@ from gw2radar.commercial.player_intelligence import (
     verify_player_support_handoff_final_archive_zip_bundle,
     verify_player_support_handoff_zip_bundle,
 )
-from gw2radar.commercial.gateway_incidents import build_gateway_incident_timeline
+from gw2radar.commercial.gateway_incidents import (
+    build_gateway_incident_timeline,
+    list_gateway_incident_history,
+    record_gateway_incident_snapshot,
+    render_gateway_incident_history_csv,
+    render_gateway_incident_history_markdown,
+)
 from gw2radar.db import session as db_session
 from gw2radar.db.init_db import init_db
 
@@ -146,6 +152,35 @@ def get_player_gateway_incidents(limit: int = 20) -> ApiDataEnvelope:
     with db_session.SessionLocal() as session:
         timeline = build_gateway_incident_timeline(session, limit=limit)
     return ApiDataEnvelope(data={"gateway_incident_timeline": timeline.model_dump(mode="json")})
+
+
+@router.post("/gateway-incidents/snapshots", response_model=ApiDataEnvelope)
+def post_player_gateway_incident_snapshot(source: str = "player_dashboard") -> ApiDataEnvelope:
+    init_db()
+    with db_session.SessionLocal() as session:
+        timeline = build_gateway_incident_timeline(session, limit=20)
+        snapshot = record_gateway_incident_snapshot(session, timeline, source=source)
+    return ApiDataEnvelope(data={"snapshot": snapshot.model_dump(mode="json")})
+
+
+@router.get("/gateway-incidents/history", response_model=None)
+def get_player_gateway_incident_history(format: str = "json", limit: int = 10) -> ApiDataEnvelope | Response:
+    init_db()
+    with db_session.SessionLocal() as session:
+        history = list_gateway_incident_history(session, limit=limit)
+    if format == "markdown":
+        return Response(
+            content=render_gateway_incident_history_markdown(history),
+            media_type="text/markdown; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="gateway_incident_history.md"'},
+        )
+    if format == "csv":
+        return Response(
+            content=render_gateway_incident_history_csv(history),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="gateway_incident_history.csv"'},
+        )
+    return ApiDataEnvelope(data={"history": history.model_dump(mode="json")})
 
 
 @router.get("/account-holdings", response_model=ApiDataEnvelope)
@@ -241,6 +276,7 @@ def get_player_session_packet(format: str = "json", limit: int = 10) -> ApiDataE
         readiness_history = list_player_readiness_history(session, limit=limit)
         account_value_history = list_account_value_history(session, limit=limit)
         correlation = build_player_history_correlation(readiness_history, account_value_history)
+        gateway_history = list_gateway_incident_history(session, limit=limit)
         packet = build_player_session_packet(
             graph,
             readiness,
@@ -248,6 +284,7 @@ def get_player_session_packet(format: str = "json", limit: int = 10) -> ApiDataE
             readiness_history,
             account_value_history,
             correlation,
+            gateway_history.model_dump(mode="json"),
         )
     if format == "markdown":
         return Response(
@@ -274,6 +311,7 @@ def post_player_session_packet_artifacts(limit: int = 10) -> ApiDataEnvelope:
         readiness_history = list_player_readiness_history(session, limit=limit)
         account_value_history = list_account_value_history(session, limit=limit)
         correlation = build_player_history_correlation(readiness_history, account_value_history)
+        gateway_history = list_gateway_incident_history(session, limit=limit)
         packet = build_player_session_packet(
             graph,
             readiness,
@@ -281,6 +319,7 @@ def post_player_session_packet_artifacts(limit: int = 10) -> ApiDataEnvelope:
             readiness_history,
             account_value_history,
             correlation,
+            gateway_history.model_dump(mode="json"),
         )
     bundle = write_player_session_packet_artifacts(packet)
     return ApiDataEnvelope(data={"artifact_bundle": bundle.model_dump(mode="json")})
@@ -611,6 +650,7 @@ def _build_player_support_handoff(
         readiness_history = list_player_readiness_history(session, limit=limit)
         account_value_history = list_account_value_history(session, limit=limit)
         correlation = build_player_history_correlation(readiness_history, account_value_history)
+        gateway_history = list_gateway_incident_history(session, limit=limit)
         packet = build_player_session_packet(
             graph,
             readiness,
@@ -618,6 +658,7 @@ def _build_player_support_handoff(
             readiness_history,
             account_value_history,
             correlation,
+            gateway_history.model_dump(mode="json"),
         )
     artifact_bundle = write_player_session_packet_artifacts(packet)
     handoff = build_player_support_handoff_bundle(

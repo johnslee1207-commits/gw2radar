@@ -204,6 +204,47 @@ def main() -> int:
             "mature_gateway_incident_timeline",
             f"{timeline.get('timeline_status', 'missing')} with {timeline.get('event_count', 0)} events.",
         )
+        first_gateway_snapshot = _json(
+            client.post("/api/v1/player/gateway-incidents/snapshots?source=player_use_path_audit"),
+            "save first gateway incident snapshot",
+            checks,
+        )
+        second_gateway_snapshot = _json(
+            client.post("/api/v1/player/gateway-incidents/snapshots?source=player_use_path_audit"),
+            "save second gateway incident snapshot",
+            checks,
+        )
+        gateway_history_response = _json(
+            client.get("/api/v1/player/gateway-incidents/history?limit=10"),
+            "load gateway incident history",
+            checks,
+        )
+        gateway_history_md = client.get("/api/v1/player/gateway-incidents/history?format=markdown&limit=10")
+        gateway_history_csv = client.get("/api/v1/player/gateway-incidents/history?format=csv&limit=10")
+        gateway_history = _get(gateway_history_response, "data", "history") or {}
+        _add(
+            checks,
+            "gateway_incident_history",
+            "Gateway incident history persists metadata-only timeline snapshots and compares retry/failure changes across sessions.",
+            _get(first_gateway_snapshot, "data", "snapshot", "schema_version")
+            == "gw2radar.gateway_incident_snapshot.v1"
+            and _get(second_gateway_snapshot, "data", "snapshot", "schema_version")
+            == "gw2radar.gateway_incident_snapshot.v1"
+            and gateway_history.get("schema_version") == "gw2radar.gateway_incident_history.v1"
+            and len(gateway_history.get("snapshots", [])) >= 2
+            and _get(gateway_history, "comparison", "schema_version")
+            == "gw2radar.gateway_incident_history_comparison.v1"
+            and _get(gateway_history, "comparison", "status") in {"unchanged", "improved", "regressed"}
+            and gateway_history_md.status_code == 200
+            and "# Gateway Incident History" in gateway_history_md.text
+            and gateway_history_csv.status_code == 200
+            and "snapshot_id,created_at,source,timeline_status" in gateway_history_csv.text
+            and "raw api keys" in gateway_history.get("boundary", "").lower()
+            and "secret-key" not in json.dumps(gateway_history).lower()
+            and "api_key" not in (gateway_history_md.text + gateway_history_csv.text).lower(),
+            "mature_gateway_incident_history",
+            f"{len(gateway_history.get('snapshots', []))} snapshots with comparison {(_get(gateway_history, 'comparison', 'status') or 'missing')}.",
+        )
         player_readiness = _json(client.get("/api/v1/player/readiness"), "load player readiness", checks)
         readiness = _get(player_readiness, "data", "readiness") or {}
         _add(
@@ -362,14 +403,19 @@ def main() -> int:
             "Player session packet bundles readiness, value, correlation, and debug-safe support prompts.",
             session_packet.get("schema_version") == "gw2radar.player_session_packet.v1"
             and _get(session_packet, "history_correlation", "schema_version") == "gw2radar.player_history_correlation.v1"
+            and _get(session_packet, "gateway_incident_history", "schema_version")
+            == "gw2radar.gateway_incident_history.v1"
+            and _get(session_packet, "export_manifest", "gateway_incident_snapshot_count",) >= 2
             and _get(session_packet, "export_manifest", "contains_raw_key") is False
             and _get(session_packet, "export_manifest", "contains_private_source_payload") is False
             and isinstance(session_packet.get("debug_safe_evidence"), list)
             and isinstance(session_packet.get("support_review_prompts"), list)
             and session_packet_md.status_code == 200
             and "# Player Session Packet" in session_packet_md.text
+            and "Gateway incident comparison" in session_packet_md.text
             and session_packet_csv.status_code == 200
             and "contains_raw_key" in session_packet_csv.text
+            and "gateway_incident_snapshot_count" in session_packet_csv.text
             and "api_key" not in json.dumps(session_packet).lower()
             and "api_key" not in (session_packet_md.text + session_packet_csv.text).lower(),
             "mature_session_packet",
@@ -989,6 +1035,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "- `PublicRefreshWorkerHealth` exposes public static refresh queue depth, retry depth, failed depth, latest jobs, and safe next actions.",
             "- `MarketPriceRefreshDiagnostics` explains official commerce price refresh status, retryability, player action, and no-trading boundary.",
             "- `GatewayIncidentTimeline` correlates account sync, public refresh, and market price refresh metadata into one player-facing incident view.",
+            "- `GatewayIncidentHistory` persists metadata-only incident snapshots, compares retry/failure deltas, and exports Markdown/CSV support evidence.",
             "- `PrivatePlayerState` stores private account summaries separately from public game and KB layers.",
             "- `AccountValueSnapshot` normalizes holdings, price coverage, source diagnostics, and remediation actions.",
             "- `AccountValueHistory` stores privacy-safe value coverage snapshots and compares value/coverage/freshness deltas.",
@@ -997,7 +1044,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "- `PlayerReadinessExport` renders the readiness summary as Markdown and CSV for player/support comparison across sessions.",
             "- `PlayerReadinessHistory` stores privacy-safe readiness snapshots and compares the latest two score/check states.",
             "- `PlayerHistoryCorrelation` explains readiness deltas alongside account value, price coverage, and warning deltas.",
-            "- `PlayerSessionPacket` packages readiness, value, correlation, and debug-safe support prompts without raw private payloads.",
+            "- `PlayerSessionPacket` packages readiness, value, correlation, gateway incident history, and debug-safe support prompts without raw private payloads.",
             "- `PlayerSessionPacketArtifacts` writes local JSON/Markdown/CSV/manifest files with checksums and path-safe retrieval.",
             "- `PlayerSupportHandoffBundle` combines packet artifact metadata with account debug review status for privacy-safe support triage.",
             "- `PlayerSupportHandoffArtifacts` archives handoff JSON/Markdown/CSV/manifest files with checksums and path-safe retrieval.",
@@ -1017,7 +1064,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Next Priority",
             "",
-            "Add persisted metadata audit records for gateway incident timeline snapshots so support handoff can compare incidents across sessions.",
+            "Add operator-facing support case incident review notes so gateway history comparisons can be annotated, assigned, and closed without exposing raw keys.",
             "",
         ]
     )

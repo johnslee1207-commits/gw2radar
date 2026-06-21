@@ -138,6 +138,7 @@ class PlayerSessionPacket(BaseModel):
     readiness_summary: dict
     account_value_summary: dict
     history_correlation: PlayerHistoryCorrelation
+    gateway_incident_history: dict = Field(default_factory=dict)
     debug_safe_evidence: list[str] = Field(default_factory=list)
     support_review_prompts: list[str] = Field(default_factory=list)
     export_manifest: dict = Field(default_factory=dict)
@@ -840,11 +841,18 @@ def build_player_session_packet(
     readiness_history: PlayerReadinessHistory,
     account_value_history: AccountValueHistory,
     history_correlation: PlayerHistoryCorrelation,
+    gateway_incident_history: dict | None = None,
 ) -> PlayerSessionPacket:
     warning_codes = sorted({warning.warning_code for warning in account_value.warnings})
     readiness_checks = {check.check_id: check.status for check in readiness.checks}
     value_summary = account_value.summary.model_dump(mode="json")
     diagnostics = account_value.diagnostics
+    gateway_history = gateway_incident_history or {
+        "schema_version": "gw2radar.gateway_incident_history.v1",
+        "snapshots": [],
+        "comparison": {"status": "insufficient_history"},
+    }
+    gateway_comparison = gateway_history.get("comparison") if isinstance(gateway_history.get("comparison"), dict) else {}
     return PlayerSessionPacket(
         generated_at=datetime.now(timezone.utc),
         readiness_summary={
@@ -867,12 +875,15 @@ def build_player_session_packet(
             "warning_codes": warning_codes,
         },
         history_correlation=history_correlation,
+        gateway_incident_history=gateway_history,
         debug_safe_evidence=[
             f"private_player_state_count={len(graph.player_state)}",
             f"readiness_history_snapshots={len(readiness_history.snapshots)}",
             f"account_value_history_snapshots={len(account_value_history.snapshots)}",
             f"value_warning_codes={','.join(warning_codes) if warning_codes else 'none'}",
             f"correlation_status={history_correlation.status}",
+            f"gateway_incident_snapshots={len(gateway_history.get('snapshots', []))}",
+            f"gateway_incident_comparison={gateway_comparison.get('status', 'insufficient_history')}",
         ],
         support_review_prompts=_session_packet_support_prompts(readiness, account_value, history_correlation),
         export_manifest={
@@ -884,7 +895,10 @@ def build_player_session_packet(
                 "/api/v1/player/readiness",
                 "/api/v1/player/account-value",
                 "/api/v1/player/history/correlation",
+                "/api/v1/player/gateway-incidents/history",
             ],
+            "gateway_incident_snapshot_count": len(gateway_history.get("snapshots", [])),
+            "gateway_incident_comparison_status": gateway_comparison.get("status", "insufficient_history"),
         },
         safety_boundaries=[
             "Session packet is support-review metadata only.",
@@ -904,6 +918,7 @@ def render_player_session_packet_markdown(packet: PlayerSessionPacket) -> str:
         f"- Account value freshness: {packet.account_value_summary.get('freshness_label')}",
         f"- Price coverage: {packet.account_value_summary.get('price_coverage_percent')}%",
         f"- Correlation status: {packet.history_correlation.status}",
+        f"- Gateway incident comparison: {packet.gateway_incident_history.get('comparison', {}).get('status', 'insufficient_history')}",
         "",
         "## Debug-Safe Evidence",
         "",
@@ -937,6 +952,8 @@ def render_player_session_packet_csv(packet: PlayerSessionPacket) -> str:
         f"value_coverage_percent,{_csv(str(packet.account_value_summary.get('value_coverage_percent', '')))}",
         f"price_coverage_percent,{_csv(str(packet.account_value_summary.get('price_coverage_percent', '')))}",
         f"history_correlation_status,{_csv(packet.history_correlation.status)}",
+        f"gateway_incident_snapshot_count,{_csv(str(packet.export_manifest.get('gateway_incident_snapshot_count', 0)))}",
+        f"gateway_incident_comparison_status,{_csv(str(packet.export_manifest.get('gateway_incident_comparison_status', 'insufficient_history')))}",
         f"debug_safe_evidence,{_csv('; '.join(packet.debug_safe_evidence))}",
         f"support_review_prompts,{_csv('; '.join(packet.support_review_prompts))}",
         f"contains_raw_key,{_csv(str(packet.export_manifest.get('contains_raw_key')))}",

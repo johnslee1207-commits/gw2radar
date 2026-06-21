@@ -831,6 +831,10 @@ achievement_api_access</textarea>
               <button data-action="refreshFreshness">Refresh freshness</button>
               <button class="secondary-action" data-action="loadPublicRefreshHealth">Public refresh health</button>
               <button class="secondary-action" data-action="loadGatewayIncidents">Gateway timeline</button>
+              <button class="secondary-action" data-action="saveGatewayIncidentSnapshot">Save gateway snapshot</button>
+              <button class="secondary-action" data-action="loadGatewayIncidentHistory">Gateway history</button>
+              <button class="secondary-action" data-action="exportGatewayIncidentHistoryMarkdown">Export gateway MD</button>
+              <button class="secondary-action" data-action="exportGatewayIncidentHistoryCsv">Export gateway CSV</button>
             </div>
           </div>
           <div class="dashboard-grid">
@@ -849,6 +853,8 @@ achievement_api_access</textarea>
             <article class="panel wide">
               <h3>Gateway Incident Timeline</h3>
               <div id="gateway-incident-timeline" class="compact-list">Load gateway timeline to correlate account sync, public refresh, and market price refresh events.</div>
+              <h3>Gateway Incident History</h3>
+              <div id="gateway-incident-history" class="compact-list">Save two gateway snapshots to compare retry and failure changes across sessions.</div>
             </article>
             <article class="panel">
               <h3>Build Sources</h3>
