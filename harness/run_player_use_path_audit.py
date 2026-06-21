@@ -31,6 +31,7 @@ from gw2radar.db.session import close_database, configure_database  # noqa: E402
 
 AUDIT_PATH = ROOT / "docs" / "ui" / "PLAYER_USE_PATH_COMPLETENESS_AUDIT.md"
 SESSION_PACKET_ARTIFACT_ROOT = ROOT / "src" / "gw2radar" / "reports" / "artifacts" / "player_session_packets"
+SUPPORT_HANDOFF_ARTIFACT_ROOT = ROOT / "src" / "gw2radar" / "reports" / "artifacts" / "player_support_handoffs"
 
 
 @dataclass
@@ -334,6 +335,50 @@ def main() -> int:
             "mature_support_handoff",
             f"{support_handoff.get('support_status', 'unknown')} with {len(support_handoff.get('recommended_next_actions', []))} next actions.",
         )
+        shutil.rmtree(SUPPORT_HANDOFF_ARTIFACT_ROOT, ignore_errors=True)
+        support_handoff_artifact_response = _json(
+            client.post("/api/v1/player/support-handoff/artifacts?limit=10", json={"debug_bundle": debug_bundle}),
+            "write player support handoff artifacts",
+            checks,
+        )
+        support_handoff_artifact = _get(support_handoff_artifact_response, "data", "artifact_bundle") or {}
+        support_handoff_artifact_id = support_handoff_artifact.get("artifact_id", "missing-handoff-artifact")
+        support_handoff_artifact_index = _json(
+            client.get("/api/v1/player/support-handoff/artifacts?limit=10"),
+            "load player support handoff artifact index",
+            checks,
+        )
+        support_handoff_artifact_manifest = client.get(
+            f"/api/v1/player/support-handoff/artifacts/{support_handoff_artifact_id}/manifest.json"
+        )
+        support_handoff_artifact_markdown = client.get(
+            f"/api/v1/player/support-handoff/artifacts/{support_handoff_artifact_id}/handoff.md"
+        )
+        support_handoff_artifact_blocked = client.get(
+            f"/api/v1/player/support-handoff/artifacts/{support_handoff_artifact_id}/secret.txt"
+        )
+        _add(
+            checks,
+            "player_support_handoff_artifacts",
+            "Support handoff can be archived as local files with manifest, checksums, and path-safe retrieval.",
+            support_handoff_artifact.get("schema_version") == "gw2radar.player_support_handoff_artifact_bundle.v1"
+            and support_handoff_artifact.get("file_count") == 4
+            and len(str(support_handoff_artifact.get("checksum_sha256", ""))) == 64
+            and {"handoff.json", "handoff.md", "handoff.csv", "manifest.json"}
+            == {file.get("file_name") for file in support_handoff_artifact.get("files", [])}
+            and _get(support_handoff_artifact_index, "data", "artifact_bundles", 0, "artifact_id")
+            == support_handoff_artifact_id
+            and support_handoff_artifact_manifest.status_code == 200
+            and "gw2radar.player_support_handoff_artifact_manifest.v1" in support_handoff_artifact_manifest.text
+            and support_handoff_artifact_markdown.status_code == 200
+            and "# Player Support Handoff Bundle" in support_handoff_artifact_markdown.text
+            and support_handoff_artifact_blocked.status_code == 404
+            and "private_payload" not in json.dumps(support_handoff_artifact).lower()
+            and "private_payload"
+            not in (support_handoff_artifact_manifest.text + support_handoff_artifact_markdown.text).lower(),
+            "mature_support_handoff_artifacts",
+            f"{support_handoff_artifact.get('file_count', 0)} files with checksum {str(support_handoff_artifact.get('checksum_sha256', ''))[:12]}.",
+        )
 
         imported = _json(client.post("/api/v1/builds/import", json=_sample_build_import()), "import build", checks)
         build_id = _get(imported, "data", "build", "build_id") or "missing-build-id"
@@ -418,6 +463,7 @@ def main() -> int:
         shutil.rmtree(temp_dir, ignore_errors=True)
         shutil.rmtree(ROOT / "outputs", ignore_errors=True)
         shutil.rmtree(SESSION_PACKET_ARTIFACT_ROOT, ignore_errors=True)
+        shutil.rmtree(SUPPORT_HANDOFF_ARTIFACT_ROOT, ignore_errors=True)
 
     failed = [check for check in checks if not check.passed]
     if failed:
@@ -549,6 +595,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "- `PlayerSessionPacket` packages readiness, value, correlation, and debug-safe support prompts without raw private payloads.",
             "- `PlayerSessionPacketArtifacts` writes local JSON/Markdown/CSV/manifest files with checksums and path-safe retrieval.",
             "- `PlayerSupportHandoffBundle` combines packet artifact metadata with account debug review status for privacy-safe support triage.",
+            "- `PlayerSupportHandoffArtifacts` archives handoff JSON/Markdown/CSV/manifest files with checksums and path-safe retrieval.",
             "- `ReportArtifactManifest` records bridge metadata without storing raw API keys or unredacted private payloads.",
             "",
             "## Known Limits",
@@ -559,7 +606,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Next Priority",
             "",
-            "Add local support handoff artifact files and path-safe retrieval so handoff bundles can be archived with checksums.",
+            "Add a read-only support handoff zip bundle and verification import for safe transfer between player and support workflows.",
             "",
         ]
     )

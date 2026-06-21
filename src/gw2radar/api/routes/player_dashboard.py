@@ -23,8 +23,10 @@ from gw2radar.commercial.player_intelligence import (
     build_player_readiness_summary,
     list_player_readiness_history,
     list_player_session_packet_artifacts,
+    list_player_support_handoff_artifacts,
     record_player_readiness_snapshot,
     resolve_player_session_packet_artifact_path,
+    resolve_player_support_handoff_artifact_path,
     render_player_history_correlation_csv,
     render_player_history_correlation_markdown,
     render_player_session_packet_csv,
@@ -36,6 +38,7 @@ from gw2radar.commercial.player_intelligence import (
     render_player_readiness_csv,
     render_player_readiness_markdown,
     write_player_session_packet_artifacts,
+    write_player_support_handoff_artifacts,
 )
 from gw2radar.db import session as db_session
 from gw2radar.db.init_db import init_db
@@ -278,6 +281,56 @@ def post_player_support_handoff(
     format: str = "json",
     limit: int = 10,
 ) -> ApiDataEnvelope | Response:
+    handoff = _build_player_support_handoff(request=request, limit=limit)
+    if format == "markdown":
+        return Response(
+            content=render_player_support_handoff_markdown(handoff),
+            media_type="text/markdown; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="player_support_handoff.md"'},
+        )
+    if format == "csv":
+        return Response(
+            content=render_player_support_handoff_csv(handoff),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="player_support_handoff.csv"'},
+        )
+    return ApiDataEnvelope(data={"support_handoff": handoff.model_dump(mode="json")})
+
+
+@router.post("/support-handoff/artifacts", response_model=ApiDataEnvelope)
+def post_player_support_handoff_artifacts(
+    request: PlayerSupportHandoffRequest | None = None,
+    limit: int = 10,
+) -> ApiDataEnvelope:
+    handoff = _build_player_support_handoff(request=request, limit=limit)
+    artifact_bundle = write_player_support_handoff_artifacts(handoff)
+    return ApiDataEnvelope(data={"artifact_bundle": artifact_bundle.model_dump(mode="json")})
+
+
+@router.get("/support-handoff/artifacts", response_model=ApiDataEnvelope)
+def get_player_support_handoff_artifacts(limit: int = 20) -> ApiDataEnvelope:
+    bundles = list_player_support_handoff_artifacts(limit=limit)
+    return ApiDataEnvelope(data={"artifact_bundles": [bundle.model_dump(mode="json") for bundle in bundles]})
+
+
+@router.get("/support-handoff/artifacts/{artifact_id}/{file_name}", response_model=None)
+def get_player_support_handoff_artifact_file(artifact_id: str, file_name: str) -> Response:
+    path = resolve_player_support_handoff_artifact_path(artifact_id, file_name)
+    if path is None:
+        raise HTTPException(status_code=404, detail="Player support handoff artifact not found")
+    media_type = "application/json"
+    if file_name.endswith(".md"):
+        media_type = "text/markdown; charset=utf-8"
+    elif file_name.endswith(".csv"):
+        media_type = "text/csv; charset=utf-8"
+    return Response(content=path.read_text(encoding="utf-8"), media_type=media_type)
+
+
+def _build_player_support_handoff(
+    *,
+    request: PlayerSupportHandoffRequest | None = None,
+    limit: int = 10,
+):
     graph = get_graph()
     init_db()
     with db_session.SessionLocal() as session:
@@ -299,16 +352,4 @@ def post_player_support_handoff(
         session_artifact_bundle=artifact_bundle,
         debug_bundle=request.debug_bundle if request else None,
     )
-    if format == "markdown":
-        return Response(
-            content=render_player_support_handoff_markdown(handoff),
-            media_type="text/markdown; charset=utf-8",
-            headers={"Content-Disposition": 'attachment; filename="player_support_handoff.md"'},
-        )
-    if format == "csv":
-        return Response(
-            content=render_player_support_handoff_csv(handoff),
-            media_type="text/csv; charset=utf-8",
-            headers={"Content-Disposition": 'attachment; filename="player_support_handoff.csv"'},
-        )
-    return ApiDataEnvelope(data={"support_handoff": handoff.model_dump(mode="json")})
+    return handoff

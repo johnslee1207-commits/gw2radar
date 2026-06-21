@@ -456,6 +456,70 @@ def test_player_support_handoff_combines_packet_artifact_and_debug_review() -> N
         shutil.rmtree(artifact_root, ignore_errors=True)
 
 
+def test_player_support_handoff_artifact_files_manifest_and_safe_retrieval() -> None:
+    temp_dir = Path(".test_tmp") / f"player-support-handoff-artifact-{uuid4().hex}"
+    packet_artifact_root = Path("src/gw2radar/reports/artifacts/player_session_packets")
+    handoff_artifact_root = Path("src/gw2radar/reports/artifacts/player_support_handoffs")
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        shutil.rmtree(packet_artifact_root, ignore_errors=True)
+        shutil.rmtree(handoff_artifact_root, ignore_errors=True)
+        configure_database(f"sqlite:///{temp_dir / 'support-handoff-artifact.db'}")
+        init_db()
+        state.reset_cached_graph()
+        client = TestClient(app)
+        assert client.post("/mock/load").status_code == 200
+        with db_session.SessionLocal() as session:
+            record_price_snapshot(
+                session,
+                PriceSnapshotInput(
+                    item_id="gw2:item:mystic_coin",
+                    item_name="Mystic Coin",
+                    buy_price_copper=12000,
+                    sell_price_copper=12500,
+                    volume=10000,
+                ),
+            )
+
+        debug_bundle = client.post(
+            "/account/debug-bundle",
+            json={"active_view": "build", "active_build_id": "sample-build", "player_intent": "support_archive"},
+        ).json()
+        created = client.post("/api/v1/player/support-handoff/artifacts?limit=10", json={"debug_bundle": debug_bundle})
+        bundle = created.json()["data"]["artifact_bundle"]
+        listed = client.get("/api/v1/player/support-handoff/artifacts?limit=10")
+        artifact_id = bundle["artifact_id"]
+        manifest = client.get(f"/api/v1/player/support-handoff/artifacts/{artifact_id}/manifest.json")
+        handoff_md = client.get(f"/api/v1/player/support-handoff/artifacts/{artifact_id}/handoff.md")
+        blocked = client.get(f"/api/v1/player/support-handoff/artifacts/{artifact_id}/../manifest.json")
+        missing = client.get(f"/api/v1/player/support-handoff/artifacts/{artifact_id}/secret.txt")
+
+        assert created.status_code == 200
+        assert bundle["schema_version"] == "gw2radar.player_support_handoff_artifact_bundle.v1"
+        assert bundle["file_count"] == 4
+        assert bundle["source_handoff_id"].startswith("player-support-handoff-")
+        assert bundle["source_session_artifact_id"].startswith("player-session-packet-")
+        assert len(bundle["checksum_sha256"]) == 64
+        assert {file["file_name"] for file in bundle["files"]} == {"handoff.json", "handoff.md", "handoff.csv", "manifest.json"}
+        assert all(len(file["checksum_sha256"]) == 64 for file in bundle["files"])
+        assert listed.status_code == 200
+        assert listed.json()["data"]["artifact_bundles"][0]["artifact_id"] == artifact_id
+        assert manifest.status_code == 200
+        assert "gw2radar.player_support_handoff_artifact_manifest.v1" in manifest.text
+        assert '"contains_raw_debug_bundle": false' in manifest.text
+        assert handoff_md.status_code == 200
+        assert "# Player Support Handoff Bundle" in handoff_md.text
+        assert "private_payload" not in manifest.text.lower() + handoff_md.text.lower()
+        assert blocked.status_code == 404
+        assert missing.status_code == 404
+    finally:
+        close_database()
+        state.reset_cached_graph()
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        shutil.rmtree(packet_artifact_root, ignore_errors=True)
+        shutil.rmtree(handoff_artifact_root, ignore_errors=True)
+
+
 def test_legendary_catalog_and_actions_cover_player_guide_goal_choices() -> None:
     temp_dir = Path(".test_tmp") / f"legendary-catalog-{uuid4().hex}"
     temp_dir.mkdir(parents=True, exist_ok=True)

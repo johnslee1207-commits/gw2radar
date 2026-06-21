@@ -1023,6 +1023,29 @@ function renderPlayerSupportHandoff(handoff) {
   });
 }
 
+function renderPlayerSupportHandoffArtifacts(bundles) {
+  const list = document.querySelector("#support-handoff-artifacts");
+  if (!list) {
+    return;
+  }
+  list.innerHTML = "";
+  const items = Array.isArray(bundles) ? bundles : [];
+  if (!items.length) {
+    list.textContent = "No support handoff files have been written yet.";
+    return;
+  }
+  items.slice(0, 5).forEach((bundle) => {
+    const item = document.createElement("div");
+    const title = document.createElement("strong");
+    const body = document.createElement("span");
+    item.className = `compact-list-row ${bundle.support_status === "ready" ? "info" : "warn"}`;
+    title.textContent = `${bundle.artifact_id || "handoff"} · ${bundle.file_count || 0} files`;
+    body.textContent = `status ${bundle.support_status || "unknown"} · checksum ${String(bundle.checksum_sha256 || "").slice(0, 12)}`;
+    item.append(title, body);
+    list.appendChild(item);
+  });
+}
+
 function valueReadinessClass(label) {
   if (label === "ready") {
     return "info";
@@ -1775,6 +1798,26 @@ const actions = {
       const bundles = await fetchJson("/api/v1/player/session-packet/artifacts?limit=10");
       renderPlayerSessionPacketArtifacts(bundles?.data?.artifact_bundles || []);
       return { handoff, bundles };
+    }),
+  writePlayerSupportHandoffArtifacts: () =>
+    run("dashboard", async () => {
+      const debugBundle = await fetchJson("/account/debug-bundle", {
+        method: "POST",
+        body: JSON.stringify(debugBundleClientState()),
+      });
+      const payload = await fetchJson("/api/v1/player/support-handoff/artifacts?limit=10", {
+        method: "POST",
+        body: JSON.stringify({ debug_bundle: debugBundle }),
+      });
+      const bundles = await fetchJson("/api/v1/player/support-handoff/artifacts?limit=10");
+      renderPlayerSupportHandoffArtifacts(bundles?.data?.artifact_bundles || []);
+      return { payload, bundles };
+    }),
+  loadPlayerSupportHandoffArtifacts: () =>
+    run("dashboard", async () => {
+      const bundles = await fetchJson("/api/v1/player/support-handoff/artifacts?limit=10");
+      renderPlayerSupportHandoffArtifacts(bundles?.data?.artifact_bundles || []);
+      return bundles;
     }),
   exportAccountValueMarkdown: () =>
     run("dashboard", async () => {
