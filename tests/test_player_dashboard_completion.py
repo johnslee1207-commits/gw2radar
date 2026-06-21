@@ -1,6 +1,8 @@
 import shutil
+from io import BytesIO
 from pathlib import Path
 from uuid import uuid4
+from zipfile import ZipFile
 
 from fastapi.testclient import TestClient
 
@@ -512,6 +514,78 @@ def test_player_support_handoff_artifact_files_manifest_and_safe_retrieval() -> 
         assert "private_payload" not in manifest.text.lower() + handoff_md.text.lower()
         assert blocked.status_code == 404
         assert missing.status_code == 404
+    finally:
+        close_database()
+        state.reset_cached_graph()
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        shutil.rmtree(packet_artifact_root, ignore_errors=True)
+        shutil.rmtree(handoff_artifact_root, ignore_errors=True)
+
+
+def test_player_support_handoff_zip_bundle_download_and_verification_import() -> None:
+    temp_dir = Path(".test_tmp") / f"player-support-handoff-zip-{uuid4().hex}"
+    packet_artifact_root = Path("src/gw2radar/reports/artifacts/player_session_packets")
+    handoff_artifact_root = Path("src/gw2radar/reports/artifacts/player_support_handoffs")
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        shutil.rmtree(packet_artifact_root, ignore_errors=True)
+        shutil.rmtree(handoff_artifact_root, ignore_errors=True)
+        configure_database(f"sqlite:///{temp_dir / 'support-handoff-zip.db'}")
+        init_db()
+        state.reset_cached_graph()
+        client = TestClient(app)
+        assert client.post("/mock/load").status_code == 200
+
+        debug_bundle = client.post(
+            "/account/debug-bundle",
+            json={"active_view": "build", "active_build_id": "sample-build", "player_intent": "support_zip"},
+        ).json()
+        assert client.post("/api/v1/player/support-handoff/artifacts?limit=10", json={"debug_bundle": debug_bundle}).status_code == 200
+
+        manifest = client.get("/api/v1/player/support-handoff/artifacts/bundle?format=manifest")
+        bundle_zip = client.get("/api/v1/player/support-handoff/artifacts/bundle")
+        uploaded_verify = client.post(
+            "/api/v1/player/support-handoff/artifacts/bundle/verify",
+            content=bundle_zip.content,
+            headers={"content-type": "application/zip"},
+        )
+        latest_verify = client.post("/api/v1/player/support-handoff/artifacts/bundle/verify")
+
+        assert manifest.status_code == 200
+        bundle_manifest = manifest.json()["data"]["support_handoff_zip_bundle"]
+        assert bundle_manifest["schema_version"] == "gw2radar.player_support_handoff_zip_manifest.v1"
+        assert bundle_manifest["file_count"] == 4
+        assert bundle_manifest["checksum_sha256"] == bundle_zip.headers["x-checksum-sha256"]
+        assert bundle_zip.status_code == 200
+        assert bundle_zip.headers["content-type"] == "application/zip"
+        assert set(ZipFile(BytesIO(bundle_zip.content)).namelist()) == {
+            "player_support_handoff/handoff.json",
+            "player_support_handoff/handoff.md",
+            "player_support_handoff/handoff.csv",
+            "player_support_handoff/manifest.json",
+        }
+        assert "secret-key" not in bundle_zip.content.decode("latin1").lower()
+        assert uploaded_verify.status_code == 200
+        assert uploaded_verify.json()["data"]["support_handoff_zip_verification"]["ready"] is True
+        assert latest_verify.status_code == 200
+        assert latest_verify.json()["data"]["support_handoff_zip_verification"]["ready"] is True
+
+        tampered_buffer = BytesIO()
+        with ZipFile(BytesIO(bundle_zip.content), mode="r") as source_archive:
+            with ZipFile(tampered_buffer, mode="w") as tampered_archive:
+                for name in source_archive.namelist():
+                    tampered_archive.writestr(name, source_archive.read(name))
+                tampered_archive.writestr("player_support_handoff/secret.txt", "secret-key")
+        tampered_verify = client.post(
+            "/api/v1/player/support-handoff/artifacts/bundle/verify",
+            content=tampered_buffer.getvalue(),
+            headers={"content-type": "application/zip"},
+        )
+        tampered = tampered_verify.json()["data"]["support_handoff_zip_verification"]
+        assert tampered_verify.status_code == 200
+        assert tampered["ready"] is False
+        assert any("non-whitelisted" in blocker for blocker in tampered["blockers"])
+        assert any("secret marker" in blocker for blocker in tampered["blockers"])
     finally:
         close_database()
         state.reset_cached_graph()

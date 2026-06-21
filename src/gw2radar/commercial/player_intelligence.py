@@ -1,8 +1,10 @@
 import hashlib
 import json
+from io import BytesIO
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
+from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -183,6 +185,39 @@ class PlayerSupportHandoffArtifactBundle(BaseModel):
     boundary: str = (
         "Support handoff artifact files are local support archives; they exclude raw keys, raw debug bundles, "
         "private account payloads, and executable content."
+    )
+
+
+class PlayerSupportHandoffZipManifest(BaseModel):
+    schema_version: str = "gw2radar.player_support_handoff_zip_manifest.v1"
+    bundle_id: str
+    source_artifact_id: str
+    generated_at: datetime
+    filename: str
+    media_type: str = "application/zip"
+    file_count: int
+    included_files: list[PlayerSessionPacketArtifactFile]
+    checksum_sha256: str
+    size_bytes: int
+    boundary: str = (
+        "Support handoff zip bundles are read-only local transfer packages; they do not execute files, "
+        "publish content, store raw keys, or include raw private payloads."
+    )
+
+
+class PlayerSupportHandoffZipVerification(BaseModel):
+    schema_version: str = "gw2radar.player_support_handoff_zip_verification.v1"
+    ready: bool
+    verified_at: datetime
+    checksum_sha256: str
+    size_bytes: int
+    file_count: int
+    verified_files: list[str]
+    blockers: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    boundary: str = (
+        "Support handoff zip verification reads zip bytes only; it does not execute files, write uploaded "
+        "content to disk, publish content, or store secrets."
     )
 
 
@@ -1066,6 +1101,108 @@ def resolve_player_support_handoff_artifact_path(
     return candidate
 
 
+def build_player_support_handoff_zip_bundle(
+    *,
+    artifact_root: Path | None = None,
+) -> tuple[PlayerSupportHandoffZipManifest, bytes]:
+    bundles = list_player_support_handoff_artifacts(artifact_root=artifact_root, limit=1)
+    if not bundles:
+        raise ValueError("No player support handoff artifacts are available to bundle.")
+    artifact_bundle = bundles[0]
+    source_files: list[tuple[str, Path, str]] = []
+    for file in artifact_bundle.files:
+        path = resolve_player_support_handoff_artifact_path(
+            artifact_bundle.artifact_id,
+            file.file_name,
+            artifact_root=artifact_root,
+        )
+        if path is not None:
+            source_files.append((file.file_name, path, file.media_type))
+    included_files: list[PlayerSessionPacketArtifactFile] = []
+    buffer = BytesIO()
+    with ZipFile(buffer, mode="w", compression=ZIP_DEFLATED) as archive:
+        for file_name, path, media_type in sorted(source_files, key=lambda item: item[0]):
+            if file_name not in PLAYER_SUPPORT_HANDOFF_ARTIFACT_FILES:
+                continue
+            content = path.read_bytes()
+            archive_path = f"player_support_handoff/{file_name}"
+            info = ZipInfo(archive_path, date_time=(1980, 1, 1, 0, 0, 0))
+            info.compress_type = ZIP_DEFLATED
+            info.external_attr = 0o644 << 16
+            archive.writestr(info, content)
+            included_files.append(
+                PlayerSessionPacketArtifactFile(
+                    file_name=file_name,
+                    relative_path=archive_path,
+                    media_type=media_type,
+                    size_bytes=len(content),
+                    checksum_sha256=hashlib.sha256(content).hexdigest(),
+                )
+            )
+    bundle_bytes = buffer.getvalue()
+    checksum = hashlib.sha256(bundle_bytes).hexdigest()
+    return (
+        PlayerSupportHandoffZipManifest(
+            bundle_id=f"player-support-handoff-zip:{checksum[:16]}",
+            source_artifact_id=artifact_bundle.artifact_id,
+            generated_at=datetime.now(timezone.utc),
+            filename=f"{artifact_bundle.artifact_id}_support_handoff.zip",
+            file_count=len(included_files),
+            included_files=included_files,
+            checksum_sha256=checksum,
+            size_bytes=len(bundle_bytes),
+        ),
+        bundle_bytes,
+    )
+
+
+def verify_player_support_handoff_zip_bundle(
+    bundle_bytes: bytes,
+    *,
+    expected_checksum_sha256: str | None = None,
+) -> PlayerSupportHandoffZipVerification:
+    checksum = hashlib.sha256(bundle_bytes).hexdigest()
+    blockers: list[str] = []
+    warnings: list[str] = []
+    allowed_names = {f"player_support_handoff/{file_name}" for file_name in PLAYER_SUPPORT_HANDOFF_ARTIFACT_FILES}
+    verified_files: list[str] = []
+    if expected_checksum_sha256 and expected_checksum_sha256 != checksum:
+        blockers.append("bundle checksum does not match the expected SHA-256 value")
+    try:
+        with ZipFile(BytesIO(bundle_bytes), mode="r") as archive:
+            names = sorted(archive.namelist())
+            verified_files = names
+            for name in names:
+                path = Path(name)
+                if path.is_absolute() or ".." in path.parts:
+                    blockers.append(f"bundle contains unsafe path: {name}")
+            extra_names = sorted(set(names) - allowed_names)
+            missing_names = sorted(allowed_names - set(names))
+            if extra_names:
+                blockers.append("bundle contains non-whitelisted files: " + ", ".join(extra_names))
+            if missing_names:
+                blockers.append("bundle is missing required files: " + ", ".join(missing_names))
+            for name in names:
+                lowered = archive.read(name).lower()
+                if b"secret-key" in lowered:
+                    blockers.append(f"bundle file contains prohibited secret marker: {name}")
+            _verify_support_handoff_zip_payloads(archive, names, blockers)
+    except Exception as exc:
+        blockers.append(f"bundle zip could not be read: {exc}")
+    if len(bundle_bytes) > 5_000_000:
+        warnings.append("bundle is larger than the MVP verification target of 5 MB")
+    return PlayerSupportHandoffZipVerification(
+        ready=not blockers,
+        verified_at=datetime.now(timezone.utc),
+        checksum_sha256=checksum,
+        size_bytes=len(bundle_bytes),
+        file_count=len(verified_files),
+        verified_files=verified_files,
+        blockers=blockers,
+        warnings=warnings,
+    )
+
+
 def _missing_debug_bundle_review() -> SupportReviewReport:
     report = review_account_debug_bundle({})
     report.overall_status = "debug_bundle_not_provided"
@@ -1089,6 +1226,42 @@ def _support_handoff_next_actions(
         actions.append("No account connection blocker is visible; continue normal Build Fit and value-analysis verification.")
     actions.append("Do not request raw keys or private account payloads during support follow-up.")
     return actions
+
+
+def _verify_support_handoff_zip_payloads(archive: ZipFile, names: list[str], blockers: list[str]) -> None:
+    manifest_name = "player_support_handoff/manifest.json"
+    handoff_json_name = "player_support_handoff/handoff.json"
+    handoff_md_name = "player_support_handoff/handoff.md"
+    handoff_csv_name = "player_support_handoff/handoff.csv"
+    if manifest_name in names:
+        try:
+            manifest = json.loads(archive.read(manifest_name).decode("utf-8"))
+            if manifest.get("schema_version") != "gw2radar.player_support_handoff_artifact_manifest.v1":
+                blockers.append("support handoff artifact manifest schema mismatch")
+            for flag in ["contains_raw_key", "contains_raw_debug_bundle", "contains_private_source_payload"]:
+                if manifest.get(flag) is not False:
+                    blockers.append(f"support handoff artifact manifest has unsafe flag: {flag}")
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            blockers.append(f"support handoff artifact manifest validation failed: {exc}")
+    if handoff_json_name in names:
+        try:
+            PlayerSupportHandoffBundle.model_validate_json(archive.read(handoff_json_name).decode("utf-8"))
+        except (UnicodeDecodeError, ValueError) as exc:
+            blockers.append(f"support handoff JSON validation failed: {exc}")
+    if handoff_md_name in names:
+        try:
+            markdown = archive.read(handoff_md_name).decode("utf-8")
+            if "Player Support Handoff Bundle" not in markdown:
+                blockers.append("support handoff Markdown title is missing")
+        except UnicodeDecodeError as exc:
+            blockers.append(f"support handoff Markdown is not UTF-8: {exc}")
+    if handoff_csv_name in names:
+        try:
+            csv_text = archive.read(handoff_csv_name).decode("utf-8")
+            if "metric,value" not in csv_text or "support_status" not in csv_text:
+                blockers.append("support handoff CSV header mismatch")
+        except UnicodeDecodeError as exc:
+            blockers.append(f"support handoff CSV is not UTF-8: {exc}")
 
 
 def _do_not_sell_alerts(graph: GraphData, goal_id: str) -> list[str]:

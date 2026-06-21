@@ -50,11 +50,14 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert "Create support handoff" in response.text
     assert "Write handoff files" in response.text
     assert "Load handoff files" in response.text
+    assert "Download handoff zip" in response.text
+    assert "Verify handoff zip" in response.text
     assert "Session Packet" in response.text
     assert "Load session packet to prepare a debug-safe support summary." in response.text
     assert "Write packet files to create a checksum manifest for support handoff." in response.text
     assert "Create support handoff after connection diagnostic and packet files are ready." in response.text
     assert "Write handoff files to archive the support bundle manifest and checksum." in response.text
+    assert "Download or verify a read-only handoff zip after handoff files are written." in response.text
     assert "History Correlation" in response.text
     assert "Load history correlation after saving readiness and value snapshots." in response.text
     assert "Readiness history" in response.text
@@ -261,6 +264,11 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "loadPlayerSupportHandoffArtifacts" in js.text
     assert "/api/v1/player/support-handoff/artifacts?limit=10" in js.text
     assert "renderPlayerSupportHandoffArtifacts" in js.text
+    assert "downloadPlayerSupportHandoffZip" in js.text
+    assert "verifyPlayerSupportHandoffZip" in js.text
+    assert "/api/v1/player/support-handoff/artifacts/bundle" in js.text
+    assert "/api/v1/player/support-handoff/artifacts/bundle/verify" in js.text
+    assert "renderPlayerSupportHandoffZipVerification" in js.text
     assert "renderPlayerReadiness" in js.text
     assert "readinessCheckClass" in js.text
     assert "gw2radar.player_readiness_summary.v1" in js.text or "readiness_score" in js.text

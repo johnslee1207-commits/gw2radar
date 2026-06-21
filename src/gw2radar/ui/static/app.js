@@ -1046,6 +1046,30 @@ function renderPlayerSupportHandoffArtifacts(bundles) {
   });
 }
 
+function renderPlayerSupportHandoffZipVerification(verification) {
+  const list = document.querySelector("#support-handoff-zip-status");
+  if (!list) {
+    return;
+  }
+  list.innerHTML = "";
+  if (!verification) {
+    list.textContent = "No support handoff zip verification has run yet.";
+    return;
+  }
+  appendCompactBridgeRow(
+    list,
+    verification.ready ? "ready" : "blocked",
+    `${verification.file_count || 0} files · checksum ${String(verification.checksum_sha256 || "").slice(0, 12)}`,
+    verification.ready ? "info" : "warn"
+  );
+  (verification.blockers || []).slice(0, 4).forEach((blocker) => {
+    appendCompactBridgeRow(list, "Blocker", blocker, "warn");
+  });
+  (verification.warnings || []).slice(0, 3).forEach((warning) => {
+    appendCompactBridgeRow(list, "Warning", warning, "warn");
+  });
+}
+
 function valueReadinessClass(label) {
   if (label === "ready") {
     return "info";
@@ -1818,6 +1842,30 @@ const actions = {
       const bundles = await fetchJson("/api/v1/player/support-handoff/artifacts?limit=10");
       renderPlayerSupportHandoffArtifacts(bundles?.data?.artifact_bundles || []);
       return bundles;
+    }),
+  downloadPlayerSupportHandoffZip: () =>
+    run("dashboard", async () => {
+      const response = await fetch("/api/v1/player/support-handoff/artifacts/bundle");
+      const blob = await response.blob();
+      const disposition = response.headers.get("content-disposition") || "";
+      const filename = disposition.match(/filename="([^"]+)"/)?.[1] || "gw2radar-player-support-handoff.zip";
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(url);
+      return {
+        filename,
+        checksum_sha256: response.headers.get("x-checksum-sha256"),
+        size_bytes: blob.size,
+      };
+    }),
+  verifyPlayerSupportHandoffZip: () =>
+    run("dashboard", async () => {
+      const payload = await fetchJson("/api/v1/player/support-handoff/artifacts/bundle/verify", { method: "POST" });
+      renderPlayerSupportHandoffZipVerification(payload?.data?.support_handoff_zip_verification || {});
+      return payload;
     }),
   exportAccountValueMarkdown: () =>
     run("dashboard", async () => {

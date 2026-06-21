@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Body, HTTPException, Query
 from fastapi.responses import Response
 from pydantic import BaseModel
 
@@ -20,6 +20,7 @@ from gw2radar.commercial.player_intelligence import (
     build_player_dashboard_plan,
     build_player_session_packet,
     build_player_support_handoff_bundle,
+    build_player_support_handoff_zip_bundle,
     build_player_readiness_summary,
     list_player_readiness_history,
     list_player_session_packet_artifacts,
@@ -39,6 +40,7 @@ from gw2radar.commercial.player_intelligence import (
     render_player_readiness_markdown,
     write_player_session_packet_artifacts,
     write_player_support_handoff_artifacts,
+    verify_player_support_handoff_zip_bundle,
 )
 from gw2radar.db import session as db_session
 from gw2radar.db.init_db import init_db
@@ -326,6 +328,43 @@ def get_player_support_handoff_artifact_file(artifact_id: str, file_name: str) -
     return Response(content=path.read_text(encoding="utf-8"), media_type=media_type)
 
 
+@router.get("/support-handoff/artifacts/bundle", response_model=None)
+def get_player_support_handoff_artifact_bundle(
+    format: str = Query(default="zip", pattern="^(zip|manifest)$"),
+) -> ApiDataEnvelope | Response:
+    _ensure_player_support_handoff_artifact()
+    try:
+        manifest, bundle_bytes = build_player_support_handoff_zip_bundle()
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    if format == "manifest":
+        return ApiDataEnvelope(data={"support_handoff_zip_bundle": manifest.model_dump(mode="json")})
+    return Response(
+        content=bundle_bytes,
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f'attachment; filename="{manifest.filename}"',
+            "X-Checksum-SHA256": manifest.checksum_sha256,
+        },
+    )
+
+
+@router.post("/support-handoff/artifacts/bundle/verify", response_model=ApiDataEnvelope)
+def post_player_support_handoff_artifact_bundle_verify(
+    bundle: bytes | None = Body(default=None, media_type="application/zip"),
+    expected_checksum_sha256: str | None = Query(default=None),
+) -> ApiDataEnvelope:
+    if bundle is None or len(bundle) == 0:
+        _ensure_player_support_handoff_artifact()
+        manifest, bundle = build_player_support_handoff_zip_bundle()
+        expected_checksum_sha256 = expected_checksum_sha256 or manifest.checksum_sha256
+    verification = verify_player_support_handoff_zip_bundle(
+        bundle,
+        expected_checksum_sha256=expected_checksum_sha256,
+    )
+    return ApiDataEnvelope(data={"support_handoff_zip_verification": verification.model_dump(mode="json")})
+
+
 def _build_player_support_handoff(
     *,
     request: PlayerSupportHandoffRequest | None = None,
@@ -353,3 +392,10 @@ def _build_player_support_handoff(
         debug_bundle=request.debug_bundle if request else None,
     )
     return handoff
+
+
+def _ensure_player_support_handoff_artifact() -> None:
+    if list_player_support_handoff_artifacts(limit=1):
+        return
+    handoff = _build_player_support_handoff(request=None, limit=10)
+    write_player_support_handoff_artifacts(handoff)

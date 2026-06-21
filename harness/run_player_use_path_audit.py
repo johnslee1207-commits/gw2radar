@@ -10,9 +10,11 @@ from __future__ import annotations
 import json
 import shutil
 import sys
+from io import BytesIO
 from dataclasses import dataclass
 from pathlib import Path
 from uuid import uuid4
+from zipfile import ZipFile
 
 from fastapi.testclient import TestClient
 
@@ -379,6 +381,62 @@ def main() -> int:
             "mature_support_handoff_artifacts",
             f"{support_handoff_artifact.get('file_count', 0)} files with checksum {str(support_handoff_artifact.get('checksum_sha256', ''))[:12]}.",
         )
+        support_handoff_zip_manifest_response = _json(
+            client.get("/api/v1/player/support-handoff/artifacts/bundle?format=manifest"),
+            "load player support handoff zip manifest",
+            checks,
+        )
+        support_handoff_zip_manifest = _get(support_handoff_zip_manifest_response, "data", "support_handoff_zip_bundle") or {}
+        support_handoff_zip = client.get("/api/v1/player/support-handoff/artifacts/bundle")
+        support_handoff_zip_names: set[str] = set()
+        if support_handoff_zip.status_code == 200:
+            support_handoff_zip_names = set(ZipFile(BytesIO(support_handoff_zip.content)).namelist())
+        support_handoff_zip_verify_upload = _json(
+            client.post(
+                "/api/v1/player/support-handoff/artifacts/bundle/verify",
+                content=support_handoff_zip.content if support_handoff_zip.status_code == 200 else b"",
+                headers={"content-type": "application/zip"},
+            ),
+            "verify uploaded player support handoff zip",
+            checks,
+        )
+        support_handoff_zip_verification = _get(
+            support_handoff_zip_verify_upload,
+            "data",
+            "support_handoff_zip_verification",
+        ) or {}
+        support_handoff_zip_verify_latest = _json(
+            client.post("/api/v1/player/support-handoff/artifacts/bundle/verify"),
+            "verify latest player support handoff zip",
+            checks,
+        )
+        latest_zip_verification = _get(
+            support_handoff_zip_verify_latest,
+            "data",
+            "support_handoff_zip_verification",
+        ) or {}
+        _add(
+            checks,
+            "player_support_handoff_zip_verification",
+            "Support handoff artifacts can be downloaded as a read-only zip and verified from bytes.",
+            support_handoff_zip_manifest.get("schema_version") == "gw2radar.player_support_handoff_zip_manifest.v1"
+            and support_handoff_zip_manifest.get("file_count") == 4
+            and support_handoff_zip.status_code == 200
+            and support_handoff_zip.headers.get("x-checksum-sha256") == support_handoff_zip_manifest.get("checksum_sha256")
+            and support_handoff_zip_names
+            == {
+                "player_support_handoff/handoff.json",
+                "player_support_handoff/handoff.md",
+                "player_support_handoff/handoff.csv",
+                "player_support_handoff/manifest.json",
+            }
+            and support_handoff_zip_verification.get("schema_version") == "gw2radar.player_support_handoff_zip_verification.v1"
+            and support_handoff_zip_verification.get("ready") is True
+            and latest_zip_verification.get("ready") is True
+            and "secret-key" not in support_handoff_zip.content.decode("latin1").lower(),
+            "mature_support_handoff_zip_verification",
+            f"zip checksum {str(support_handoff_zip_manifest.get('checksum_sha256', ''))[:12]} verified with {support_handoff_zip_verification.get('file_count', 0)} files.",
+        )
 
         imported = _json(client.post("/api/v1/builds/import", json=_sample_build_import()), "import build", checks)
         build_id = _get(imported, "data", "build", "build_id") or "missing-build-id"
@@ -596,6 +654,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "- `PlayerSessionPacketArtifacts` writes local JSON/Markdown/CSV/manifest files with checksums and path-safe retrieval.",
             "- `PlayerSupportHandoffBundle` combines packet artifact metadata with account debug review status for privacy-safe support triage.",
             "- `PlayerSupportHandoffArtifacts` archives handoff JSON/Markdown/CSV/manifest files with checksums and path-safe retrieval.",
+            "- `PlayerSupportHandoffZipVerification` transfers handoff artifacts as a read-only zip and verifies schema, checksum, whitelist, and no-secret boundaries from bytes.",
             "- `ReportArtifactManifest` records bridge metadata without storing raw API keys or unredacted private payloads.",
             "",
             "## Known Limits",
@@ -606,7 +665,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Next Priority",
             "",
-            "Add a read-only support handoff zip bundle and verification import for safe transfer between player and support workflows.",
+            "Add a metadata-only support handoff zip verification audit trail so successful and blocked imports can be reviewed over time.",
             "",
         ]
     )
