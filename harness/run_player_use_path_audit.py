@@ -114,6 +114,22 @@ def main() -> int:
             "mature_account_sync_worker_health",
             f"{account_sync_health.get('health_status', 'unknown')} with queue depth {account_sync_health.get('queue_depth', 0)}.",
         )
+        account_sync_contract = client.post("/api/v1/account/sync")
+        contract_payload = account_sync_contract.json()
+        _add(
+            checks,
+            "account_sync_gateway_contract",
+            "Account sync gateway contract returns structured, user-facing envelopes for not-ready and gateway failure states.",
+            account_sync_contract.status_code == 400
+            and contract_payload.get("ok") is False
+            and _get(contract_payload, "error", "code") == "account_sync_not_ready"
+            and _get(contract_payload, "error", "details", "retryable") is False
+            and _get(contract_payload, "error", "details", "player_action")
+            == "Save a GW2 API key before queueing account sync."
+            and "secret-key" not in json.dumps(contract_payload).lower(),
+            "mature_gateway_error_contract",
+            str(_get(contract_payload, "error", "code") or "missing_error_code"),
+        )
 
         _json(client.post("/mock/load"), "load demo graph", checks)
         player_readiness = _json(client.get("/api/v1/player/readiness"), "load player readiness", checks)
@@ -896,6 +912,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "- `ApiKeyConnection` gates account-aware recommendations through permission checks and sync status.",
             "- `AccountFirstRunSummary` explains empty account-aware result states across missing key, limited permissions, sync queue, and private-layer write gates.",
             "- `AccountSyncWorkerHealth` exposes bounded worker-loop health, queue depth, retry depth, failed depth, latest jobs, and safe next actions.",
+            "- `AccountSyncGatewayContract` returns structured user-facing error envelopes for missing key, permission, rate-limit, and API client failure states.",
             "- `PrivatePlayerState` stores private account summaries separately from public game and KB layers.",
             "- `AccountValueSnapshot` normalizes holdings, price coverage, source diagnostics, and remediation actions.",
             "- `AccountValueHistory` stores privacy-safe value coverage snapshots and compares value/coverage/freshness deltas.",
@@ -924,7 +941,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Next Priority",
             "",
-            "Add gateway contract hardening for user-facing rate-limit, permission, and endpoint failure envelopes across account sync and official refresh.",
+            "Extend gateway contract hardening to public official refresh and market price refresh, then surface retry/backoff diagnostics in the player dashboard.",
             "",
         ]
     )

@@ -18,6 +18,10 @@ class GraphData:
         return entity
 
     def add_relation(self, relation: Relation) -> Relation:
+        for index, existing in enumerate(self.relations):
+            if existing.id == relation.id:
+                self.relations[index] = relation
+                return relation
         self.relations.append(relation)
         return relation
 
@@ -26,6 +30,10 @@ class GraphData:
         return evidence
 
     def add_player_state(self, state: PlayerState) -> PlayerState:
+        for index, existing in enumerate(self.player_state):
+            if existing.id == state.id:
+                self.player_state[index] = state
+                return state
         self.player_state.append(state)
         return state
 

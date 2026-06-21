@@ -139,17 +139,16 @@ def _add_private_state(
         )
     )
     relation_id = f"rel:{account_id}:owns:{entity_id}"
-    if not any(relation.id == relation_id for relation in graph.relations):
-        graph.add_relation(
-            Relation(
-                id=relation_id,
-                subject_id=account_id,
-                predicate=RelationType.OWNED_BY,
-                object_id=entity_id,
-                graph_layer=GraphLayer.PRIVATE_PLAYER_STATE,
-                properties={"quantity": quantity, "location": location, **(properties or {})},
-            )
+    graph.add_relation(
+        Relation(
+            id=relation_id,
+            subject_id=account_id,
+            predicate=RelationType.OWNED_BY,
+            object_id=entity_id,
+            graph_layer=GraphLayer.PRIVATE_PLAYER_STATE,
+            properties={"quantity": quantity, "location": location, **(properties or {})},
         )
+    )
 
 
 def _fetch_character_detail(gateway: Gw2ApiGateway, character_name: str, api_key: str) -> dict | None:
@@ -302,17 +301,16 @@ def _add_character_equipment_state(
         )
         _add_private_state(graph, account_id, entity_id, 1.0, f"character_equipment:{character_id}")
         relation_id = f"rel:{character_id}:owns:{entity_id}:{equipment['slot']}"
-        if not any(relation.id == relation_id for relation in graph.relations):
-            graph.add_relation(
-                Relation(
-                    id=relation_id,
-                    subject_id=character_id,
-                    predicate=RelationType.OWNED_BY,
-                    object_id=entity_id,
-                    graph_layer=GraphLayer.PRIVATE_PLAYER_STATE,
-                    properties={"quantity": 1, "location": "character_equipment", "slot": equipment["slot"]},
-                )
+        graph.add_relation(
+            Relation(
+                id=relation_id,
+                subject_id=character_id,
+                predicate=RelationType.OWNED_BY,
+                object_id=entity_id,
+                graph_layer=GraphLayer.PRIVATE_PLAYER_STATE,
+                properties={"quantity": 1, "location": "character_equipment", "slot": equipment["slot"]},
             )
+        )
 
 
 def _empty_equipment_metadata() -> dict[str, dict[int, dict]]:

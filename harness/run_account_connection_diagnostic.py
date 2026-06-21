@@ -127,6 +127,9 @@ def main() -> int:
         )
         synced_status = client.get("/api/v1/account/sync/status")
         ready_health = client.get("/api/v1/account/sync/health")
+        worker_queued = client.post("/api/v1/account/sync")
+        worker_run = client.post("/api/v1/account/sync/worker/run?max_jobs=3&worker_id=diagnostic-worker")
+        worker_health = client.get("/api/v1/account/sync/health")
         api_diagnostic = client.get("/account/diagnostic")
         first_run_after_sync = client.get("/account/first-run-summary")
         account_holdings = client.get("/api/v1/player/account-holdings")
@@ -155,6 +158,9 @@ def main() -> int:
                 price_snapshot,
                 synced_status,
                 ready_health,
+                worker_queued,
+                worker_run,
+                worker_health,
                 api_diagnostic,
                 first_run_after_sync,
                 account_holdings,
@@ -200,6 +206,19 @@ def main() -> int:
             and ready_health.json().get("health_status") == "ready"
             and ready_health.json().get("counts", {}).get("succeeded") == 1,
             ready_health.text,
+        )
+        _add(
+            checks,
+            "repeat account sync worker run upserts private layer",
+            worker_queued.status_code == 200
+            and worker_run.status_code == 200
+            and worker_run.json().get("schema_version") == "gw2radar.account_sync_worker_run.v1"
+            and worker_run.json().get("worker_status") == "drained"
+            and worker_run.json().get("processed_count") == 1
+            and worker_run.json().get("health", {}).get("health_status") == "ready"
+            and worker_health.status_code == 200
+            and worker_health.json().get("counts", {}).get("succeeded") == 2,
+            worker_run.text,
         )
         _add(checks, "read-only API diagnostic reports ready lifecycle", api_diagnostic.status_code == 200 and api_diagnostic.json().get("summary_status") == "ready" and {check.get("status") for check in api_diagnostic.json().get("checks", [])} == {"pass"}, api_diagnostic.text)
         _add(

@@ -37,12 +37,20 @@ def error_code_for_status(status_code: int) -> str:
 
 
 async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
-    detail = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
+    details = {"path": request.url.path}
+    if isinstance(exc.detail, dict):
+        detail_payload = dict(exc.detail)
+        message = str(detail_payload.pop("message", "Request failed."))
+        code = str(detail_payload.pop("code", error_code_for_status(exc.status_code)))
+        details.update(detail_payload)
+    else:
+        message = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
+        code = error_code_for_status(exc.status_code)
     envelope = ApiErrorEnvelope(
         error=ApiError(
-            code=error_code_for_status(exc.status_code),
-            message=detail,
-            details={"path": request.url.path},
+            code=code,
+            message=message,
+            details=details,
         )
     )
     return JSONResponse(status_code=exc.status_code, content=envelope.model_dump(mode="json"))

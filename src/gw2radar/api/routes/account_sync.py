@@ -50,11 +50,47 @@ def _with_coordinator(callback):
         try:
             return callback(coordinator)
         except Gw2ApiRateLimitError as error:
-            raise HTTPException(status_code=429, detail=f"GW2 API token check is rate limited; request_id={error.request_id}") from error
+            raise HTTPException(
+                status_code=429,
+                detail={
+                    "code": "gw2_rate_limited",
+                    "message": "GW2 API is rate limited. Wait for the retry window, then run sync again.",
+                    "request_id": error.request_id,
+                    "player_action": "Wait briefly, then use Queue health or Run sync worker.",
+                    "retryable": True,
+                },
+            ) from error
         except Gw2ApiClientError as error:
             raise HTTPException(
                 status_code=400,
-                detail=f"GW2 API token check failed with status_code={error.status_code}.",
+                detail={
+                    "code": "gw2_api_request_failed",
+                    "message": f"GW2 API token check failed with status_code={error.status_code}.",
+                    "endpoint": error.endpoint,
+                    "request_id": error.request_id,
+                    "player_action": "Check the API key, wait if the GW2 API is unstable, then retry sync.",
+                    "retryable": error.status_code >= 500 or error.status_code == 429,
+                },
             ) from error
-        except (Gw2PermissionError, ValueError) as error:
-            raise HTTPException(status_code=400, detail=str(error)) from error
+        except Gw2PermissionError as error:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "code": "gw2_missing_permissions",
+                    "message": str(error),
+                    "endpoint": error.endpoint,
+                    "missing_permissions": sorted(error.missing_permissions),
+                    "player_action": "Update the GW2 API key permissions, then run sync again.",
+                    "retryable": False,
+                },
+            ) from error
+        except ValueError as error:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "code": "account_sync_not_ready",
+                    "message": str(error),
+                    "player_action": "Save a GW2 API key before queueing account sync.",
+                    "retryable": False,
+                },
+            ) from error

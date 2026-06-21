@@ -9,7 +9,7 @@ from gw2radar.api.main import app
 from gw2radar.api.routes import account_sync as account_sync_route
 from gw2radar.db.session import close_database, configure_database
 from gw2radar.ingest.gateway_status import GatewayStatus
-from gw2radar.ingest.gw2_api_client import Gw2ApiClientError
+from gw2radar.ingest.gw2_api_client import Gw2ApiClientError, Gw2ApiRateLimitError
 from gw2radar.ingest.gw2_api_gateway import GatewayResult
 from gw2radar.ontology.entity_types import EntityType
 from gw2radar.ontology.graph_layers import GraphLayer
@@ -81,14 +81,21 @@ class TokeninfoClientErrorGateway(AccountSyncGateway):
         raise Gw2ApiClientError("/v2/tokeninfo", 401, request_id)
 
 
+class TokeninfoRateLimitGateway(AccountSyncGateway):
+    def _fetch_tokeninfo(self, api_key, *, request_id):
+        raise Gw2ApiRateLimitError("/v2/tokeninfo", request_id)
+
+
 def test_account_sync_requires_configured_key() -> None:
     temp_dir, original_factory = _setup_temp_api("sync-no-key")
     try:
         response = TestClient(app).post("/api/v1/account/sync")
         assert response.status_code == 400
         assert response.json()["ok"] is False
-        assert response.json()["error"]["code"] == "bad_request"
+        assert response.json()["error"]["code"] == "account_sync_not_ready"
         assert "API key is not configured" in response.json()["error"]["message"]
+        assert response.json()["error"]["details"]["retryable"] is False
+        assert response.json()["error"]["details"]["player_action"] == "Save a GW2 API key before queueing account sync."
     finally:
         _teardown_temp_api(temp_dir, original_factory)
 
@@ -124,7 +131,10 @@ def test_account_sync_scope_validation_blocks_enqueue() -> None:
 
         assert response.status_code == 400
         assert response.json()["ok"] is False
+        assert response.json()["error"]["code"] == "gw2_missing_permissions"
         assert "wallet" in response.json()["error"]["message"]
+        assert response.json()["error"]["details"]["missing_permissions"] == ["wallet"]
+        assert response.json()["error"]["details"]["retryable"] is False
     finally:
         _teardown_temp_api(temp_dir, original_factory)
 
@@ -139,7 +149,30 @@ def test_account_sync_tokeninfo_client_error_returns_reviewable_400() -> None:
 
         assert response.status_code == 400
         assert response.json()["ok"] is False
+        assert response.json()["error"]["code"] == "gw2_api_request_failed"
         assert "status_code=401" in response.json()["error"]["message"]
+        assert response.json()["error"]["details"]["endpoint"] == "/v2/tokeninfo"
+        assert response.json()["error"]["details"]["retryable"] is False
+        assert raw_key not in str(response.json())
+    finally:
+        _teardown_temp_api(temp_dir, original_factory)
+
+
+def test_account_sync_rate_limit_returns_retryable_gateway_contract() -> None:
+    temp_dir, original_factory = _setup_temp_api("sync-rate-limit", gateway_factory=TokeninfoRateLimitGateway)
+    raw_key = "12345678-abcdef-secret-key"
+    try:
+        client = TestClient(app)
+        assert client.put("/account/api-key", json={"api_key": raw_key}).status_code == 200
+        response = client.post("/api/v1/account/sync")
+
+        assert response.status_code == 429
+        assert response.json()["ok"] is False
+        assert response.json()["error"]["code"] == "gw2_rate_limited"
+        assert "rate limited" in response.json()["error"]["message"].lower()
+        assert response.json()["error"]["details"]["request_id"] == "account-sync:tokeninfo"
+        assert response.json()["error"]["details"]["retryable"] is True
+        assert "Queue health" in response.json()["error"]["details"]["player_action"]
         assert raw_key not in str(response.json())
     finally:
         _teardown_temp_api(temp_dir, original_factory)
@@ -237,6 +270,32 @@ def test_account_sync_worker_health_and_bounded_run_drain_queue() -> None:
         assert raw_key not in str(idle_health.json())
         assert raw_key not in str(active_health.json())
         assert raw_key not in str(run.json())
+    finally:
+        _teardown_temp_api(temp_dir, original_factory)
+
+
+def test_account_sync_repeat_worker_run_upserts_private_layer_snapshot() -> None:
+    temp_dir, original_factory = _setup_temp_api("sync-repeat-worker")
+    try:
+        client = TestClient(app)
+        assert client.put("/account/api-key", json={"api_key": "12345678-abcdef-secret-key"}).status_code == 200
+
+        assert client.post("/api/v1/account/sync").status_code == 200
+        first_run = client.post("/api/v1/account/sync/worker/run?max_jobs=3&worker_id=repeat-worker")
+        assert client.post("/api/v1/account/sync").status_code == 200
+        second_run = client.post("/api/v1/account/sync/worker/run?max_jobs=3&worker_id=repeat-worker")
+        status = client.get("/api/v1/account/sync/status")
+
+        assert first_run.status_code == 200
+        assert first_run.json()["worker_status"] == "drained"
+        assert second_run.status_code == 200
+        assert second_run.json()["worker_status"] == "drained"
+        assert status.json()["counts"]["succeeded"] == 2
+        graph = state.get_graph()
+        player_state_ids = [player_state.id for player_state in graph.player_state]
+        assert len(player_state_ids) == len(set(player_state_ids))
+        assert len(player_state_ids) >= 8
+        assert graph.entities["gw2:account:Test.1234"].graph_layer == GraphLayer.PRIVATE_PLAYER_STATE
     finally:
         _teardown_temp_api(temp_dir, original_factory)
 
