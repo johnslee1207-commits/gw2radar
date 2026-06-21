@@ -83,6 +83,9 @@ def main() -> int:
         f"/api/v1/player/gateway-incidents/review-notes/{gateway_note_id}/status",
         json={"status": "closed", "reviewer": "smoke", "assignee": "ops", "note": "Closed during smoke."},
     )
+    incident_dashboard = client.get("/api/v1/player/support-case/incident-dashboard?limit=20")
+    incident_dashboard_markdown = client.get("/api/v1/player/support-case/incident-dashboard?format=markdown&limit=20")
+    incident_dashboard_csv = client.get("/api/v1/player/support-case/incident-dashboard?format=csv&limit=20")
 
     _add(checks, "support page is served", page.status_code == 200 and "Debug Bundle Support Review" in page.text, page.text)
     _add(checks, "support script is served", js.status_code == 200 and "/account/debug-bundle/review" in js.text, js.text)
@@ -114,6 +117,9 @@ def main() -> int:
     _add(checks, "gateway incident notes export markdown", gateway_notes_markdown.status_code == 200 and "# Gateway Incident Review Notes" in gateway_notes_markdown.text, gateway_notes_markdown.text)
     _add(checks, "gateway incident notes export csv", gateway_notes_csv.status_code == 200 and "note_id,snapshot_id,status,reviewer,assignee" in gateway_notes_csv.text, gateway_notes_csv.text)
     _add(checks, "gateway incident note lifecycle closes metadata", gateway_note_closed.status_code == 200 and gateway_note_closed.json().get("data", {}).get("review_note", {}).get("status") == "closed", gateway_note_closed.text)
+    _add(checks, "support case incident dashboard aggregates gates", incident_dashboard.status_code == 200 and incident_dashboard.json().get("data", {}).get("support_case_incident_dashboard", {}).get("schema_version") == "gw2radar.support_case_incident_dashboard.v1", incident_dashboard.text)
+    _add(checks, "support case incident dashboard exports markdown", incident_dashboard_markdown.status_code == 200 and "# Support Case Incident Dashboard" in incident_dashboard_markdown.text, incident_dashboard_markdown.text)
+    _add(checks, "support case incident dashboard exports csv", incident_dashboard_csv.status_code == 200 and "ready,maturity_label,support_status" in incident_dashboard_csv.text, incident_dashboard_csv.text)
     _add(checks, "no-secret boundary is visible", "Do not ask for a raw GW2 API key" in page.text and "Please do not send your raw GW2 API key" in js.text, "boundary missing")
 
     failed = [check for check in checks if not check[1]]

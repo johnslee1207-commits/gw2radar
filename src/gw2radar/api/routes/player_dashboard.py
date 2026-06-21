@@ -73,8 +73,14 @@ from gw2radar.commercial.gateway_incidents import (
     render_gateway_incident_review_notes_markdown,
     update_gateway_incident_review_note_status,
 )
+from gw2radar.commercial.support_case_incidents import (
+    build_support_case_incident_dashboard,
+    render_support_case_incident_dashboard_csv,
+    render_support_case_incident_dashboard_markdown,
+)
 from gw2radar.db import session as db_session
 from gw2radar.db.init_db import init_db
+from gw2radar.support.account_debug_bundle_audit import build_support_review_metrics, list_support_review_audits
 
 router = APIRouter(prefix="/api/v1/player", tags=["player-dashboard"])
 
@@ -632,6 +638,45 @@ def get_player_support_handoff_dashboard(format: str = "json") -> ApiDataEnvelop
             headers={"Content-Disposition": 'attachment; filename="player_support_handoff_dashboard.csv"'},
         )
     return ApiDataEnvelope(data={"support_handoff_dashboard": dashboard.model_dump(mode="json")})
+
+
+@router.get("/support-case/incident-dashboard", response_model=None)
+def get_player_support_case_incident_dashboard(format: str = "json", limit: int = 20) -> ApiDataEnvelope | Response:
+    _ensure_player_support_handoff_artifact()
+    if not list_player_support_handoff_zip_verification_audits(limit=1).records:
+        record_player_support_handoff_zip_verification_audit(
+            PlayerSupportHandoffZipVerificationAuditRequest(
+                reviewer="system",
+                notes=["System recorded support case incident dashboard verification audit."],
+            )
+        )
+    init_db()
+    with db_session.SessionLocal() as session:
+        gateway_history = list_gateway_incident_history(session, limit=limit)
+        gateway_notes = list_gateway_incident_review_notes(session, limit=limit)
+        support_audits = list_support_review_audits(session, limit=limit)
+        support_metrics = build_support_review_metrics(support_audits)
+    handoff_dashboard = build_player_support_handoff_dashboard()
+    dashboard = build_support_case_incident_dashboard(
+        gateway_history=gateway_history,
+        gateway_notes=gateway_notes,
+        support_audits=support_audits,
+        support_metrics=support_metrics,
+        handoff_dashboard=handoff_dashboard,
+    )
+    if format == "markdown":
+        return Response(
+            content=render_support_case_incident_dashboard_markdown(dashboard),
+            media_type="text/markdown; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="support_case_incident_dashboard.md"'},
+        )
+    if format == "csv":
+        return Response(
+            content=render_support_case_incident_dashboard_csv(dashboard),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="support_case_incident_dashboard.csv"'},
+        )
+    return ApiDataEnvelope(data={"support_case_incident_dashboard": dashboard.model_dump(mode="json")})
 
 
 @router.post("/support-handoff/final-archive", response_model=ApiDataEnvelope)

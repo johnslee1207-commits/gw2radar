@@ -126,6 +126,35 @@ def test_player_gateway_incident_timeline_correlates_refresh_events_without_secr
             },
         )
         closed_notes = client.get("/api/v1/player/gateway-incidents/review-notes?status=closed&reviewer=unit-support")
+        support_audit = client.post(
+            "/account/debug-bundle/review/audit",
+            json={
+                "bundle": {
+                    "schema_version": "gw2radar.account_debug_bundle.v1",
+                    "client_state": {"active_view": "connect", "active_build_id_present": False},
+                    "key_status": {"is_configured": True},
+                    "permission_summary": {"missing_required_permissions": []},
+                    "sync_summary": {"counts": {"retry_scheduled": 0}, "endpoint_progress": []},
+                    "diagnostic_summary": {
+                        "summary_status": "ready",
+                        "checks": [
+                            {"check_id": "api_key_stored", "status": "pass"},
+                            {"check_id": "permissions_ready", "status": "pass"},
+                            {"check_id": "sync_job_visible", "status": "pass"},
+                            {"check_id": "private_snapshot_written", "status": "pass"},
+                            {"check_id": "synced_character_snapshot", "status": "pass"},
+                            {"check_id": "build_fit_bridge_ready", "status": "pass"},
+                        ],
+                    },
+                    "snapshot_summary": {"synced_character_snapshot_count": 1, "synced_gear_count": 4},
+                },
+                "reviewer": "unit-support",
+                "reply_template": "Use metadata-only incident dashboard.",
+            },
+        )
+        incident_dashboard = client.get("/api/v1/player/support-case/incident-dashboard?limit=20")
+        incident_dashboard_md = client.get("/api/v1/player/support-case/incident-dashboard?format=markdown&limit=20")
+        incident_dashboard_csv = client.get("/api/v1/player/support-case/incident-dashboard?format=csv&limit=20")
         session_packet = client.get("/api/v1/player/session-packet?limit=10")
 
         assert first_snapshot.status_code == 200
@@ -161,6 +190,18 @@ def test_player_gateway_incident_timeline_correlates_refresh_events_without_secr
         assert closed_note.json()["data"]["review_note"]["status"] == "closed"
         assert closed_notes.status_code == 200
         assert closed_notes.json()["data"]["review_notes"]["closed_count"] >= 1
+        assert support_audit.status_code == 200
+        assert incident_dashboard.status_code == 200
+        incident_payload = incident_dashboard.json()["data"]["support_case_incident_dashboard"]
+        assert incident_payload["schema_version"] == "gw2radar.support_case_incident_dashboard.v1"
+        assert incident_payload["support_audit_count"] >= 1
+        assert incident_payload["gateway_closed_count"] >= 1
+        assert "gateway_notes" in {card["card_id"] for card in incident_payload["status_cards"]}
+        assert "secret-key" not in str(incident_payload).lower()
+        assert incident_dashboard_md.status_code == 200
+        assert "# Support Case Incident Dashboard" in incident_dashboard_md.text
+        assert incident_dashboard_csv.status_code == 200
+        assert "ready,maturity_label,support_status" in incident_dashboard_csv.text
         assert session_packet.status_code == 200
         packet = session_packet.json()["data"]["session_packet"]
         assert packet["gateway_incident_history"]["schema_version"] == "gw2radar.gateway_incident_history.v1"

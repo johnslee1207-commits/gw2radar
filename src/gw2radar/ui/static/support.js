@@ -25,6 +25,9 @@ const saveGatewayNoteButton = document.querySelector("#save-gateway-note-button"
 const refreshGatewayNotesButton = document.querySelector("#refresh-gateway-notes-button");
 const exportGatewayNotesMdButton = document.querySelector("#export-gateway-notes-md-button");
 const exportGatewayNotesCsvButton = document.querySelector("#export-gateway-notes-csv-button");
+const refreshIncidentDashboardButton = document.querySelector("#refresh-incident-dashboard-button");
+const exportIncidentDashboardMdButton = document.querySelector("#export-incident-dashboard-md-button");
+const exportIncidentDashboardCsvButton = document.querySelector("#export-incident-dashboard-csv-button");
 const summary = document.querySelector("#support-summary");
 const findingList = document.querySelector("#finding-list");
 const replyTemplate = document.querySelector("#reply-template");
@@ -55,6 +58,8 @@ const gatewayNoteAssignee = document.querySelector("#gateway-note-assignee");
 const gatewayNoteBody = document.querySelector("#gateway-note-body");
 const gatewayNoteSummary = document.querySelector("#gateway-note-summary");
 const gatewayNoteList = document.querySelector("#gateway-note-list");
+const incidentDashboardSummary = document.querySelector("#incident-dashboard-summary");
+const incidentDashboardCards = document.querySelector("#incident-dashboard-cards");
 const output = document.querySelector("#support-output");
 let lastBundle = null;
 let lastReview = null;
@@ -304,6 +309,38 @@ function gatewayNoteQueryString(format = "json") {
 
 function exportGatewayIncidentNotes(format) {
   window.location.href = `/api/v1/player/gateway-incidents/review-notes?${gatewayNoteQueryString(format)}`;
+}
+
+async function refreshSupportCaseIncidentDashboard() {
+  const response = await fetch("/api/v1/player/support-case/incident-dashboard?limit=20");
+  const payload = await response.json();
+  const dashboard = payload.data?.support_case_incident_dashboard || {};
+  renderSupportCaseIncidentDashboard(dashboard);
+  output.textContent = JSON.stringify(payload, null, 2);
+}
+
+function exportSupportCaseIncidentDashboard(format) {
+  window.location.href = `/api/v1/player/support-case/incident-dashboard?format=${format}&limit=20`;
+}
+
+function renderSupportCaseIncidentDashboard(dashboard) {
+  const cards = Array.isArray(dashboard.status_cards) ? dashboard.status_cards : [];
+  incidentDashboardSummary.textContent = `${dashboard.support_status || "unknown"} · ${dashboard.maturity_label || "unknown"} · gateway notes ${dashboard.gateway_note_count || 0} · support audits ${dashboard.support_audit_count || 0}.`;
+  incidentDashboardCards.innerHTML = "";
+  if (!cards.length) {
+    incidentDashboardCards.textContent = "No incident dashboard cards are available yet.";
+    return;
+  }
+  for (const card of cards) {
+    const item = document.createElement("article");
+    item.className = "support-backlog-item";
+    const title = document.createElement("strong");
+    title.textContent = `${card.label || card.card_id} · ${card.status || "unknown"}`;
+    const summaryText = document.createElement("p");
+    summaryText.textContent = card.summary || "";
+    item.append(title, summaryText);
+    incidentDashboardCards.appendChild(item);
+  }
 }
 
 function renderGatewayIncidentNotes(bundle) {
@@ -712,6 +749,12 @@ refreshGatewayNotesButton?.addEventListener("click", refreshGatewayIncidentNotes
 exportGatewayNotesMdButton?.addEventListener("click", () => exportGatewayIncidentNotes("markdown"));
 
 exportGatewayNotesCsvButton?.addEventListener("click", () => exportGatewayIncidentNotes("csv"));
+
+refreshIncidentDashboardButton?.addEventListener("click", refreshSupportCaseIncidentDashboard);
+
+exportIncidentDashboardMdButton?.addEventListener("click", () => exportSupportCaseIncidentDashboard("markdown"));
+
+exportIncidentDashboardCsvButton?.addEventListener("click", () => exportSupportCaseIncidentDashboard("csv"));
 
 copyTemplateButton?.addEventListener("click", async () => {
   if (!replyTemplate.value) {

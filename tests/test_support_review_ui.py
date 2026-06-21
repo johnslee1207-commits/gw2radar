@@ -37,6 +37,9 @@ def test_support_review_page_serves_operator_workbench() -> None:
     assert "Incident Review Notes" in response.text
     assert "gateway-note-summary" in response.text
     assert "Save note" in response.text
+    assert "Incident Dashboard" in response.text
+    assert "incident-dashboard-summary" in response.text
+    assert "Refresh dashboard" in response.text
     assert "audit-severity-filter" in response.text
     assert "Do Not Request Secrets" in response.text
     assert "Do not ask for a raw GW2 API key" in response.text
@@ -75,6 +78,9 @@ def test_support_review_static_assets_include_review_workflow() -> None:
     assert "renderGatewayIncidentNotes" in js.text
     assert "updateGatewayIncidentNoteStatus" in js.text
     assert "Defer" in js.text
+    assert "refreshSupportCaseIncidentDashboard" in js.text
+    assert "renderSupportCaseIncidentDashboard" in js.text
+    assert "/api/v1/player/support-case/incident-dashboard" in js.text
     assert "/api/v1/player/gateway-incidents/review-notes" in js.text
     assert "/account/debug-bundle/review/audit/backlog/promotions" in js.text
     assert "/account/debug-bundle/review/audit/backlog/promotions/events" in js.text

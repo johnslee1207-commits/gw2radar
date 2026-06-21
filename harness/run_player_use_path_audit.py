@@ -304,6 +304,39 @@ def main() -> int:
             "mature_gateway_incident_review_notes",
             f"{len(gateway_review_notes.get('notes', []))} notes with assigned and closed lifecycle evidence.",
         )
+        support_case_incident_dashboard_response = _json(
+            client.get("/api/v1/player/support-case/incident-dashboard?limit=20"),
+            "load support case incident dashboard",
+            checks,
+        )
+        support_case_incident_dashboard = _get(
+            support_case_incident_dashboard_response,
+            "data",
+            "support_case_incident_dashboard",
+        ) or {}
+        support_case_incident_dashboard_md = client.get(
+            "/api/v1/player/support-case/incident-dashboard?format=markdown&limit=20"
+        )
+        support_case_incident_dashboard_csv = client.get(
+            "/api/v1/player/support-case/incident-dashboard?format=csv&limit=20"
+        )
+        _add(
+            checks,
+            "support_case_incident_dashboard",
+            "Support case incident dashboard aggregates gateway incident notes, support audits, and handoff readiness into one operator view.",
+            support_case_incident_dashboard.get("schema_version") == "gw2radar.support_case_incident_dashboard.v1"
+            and support_case_incident_dashboard.get("gateway_note_count", 0) >= 1
+            and support_case_incident_dashboard.get("handoff_ready") in {True, False}
+            and {"gateway_history", "gateway_notes", "support_audits", "handoff_readiness"}
+            <= {card.get("card_id") for card in support_case_incident_dashboard.get("status_cards", [])}
+            and support_case_incident_dashboard_md.status_code == 200
+            and "# Support Case Incident Dashboard" in support_case_incident_dashboard_md.text
+            and support_case_incident_dashboard_csv.status_code == 200
+            and "ready,maturity_label,support_status" in support_case_incident_dashboard_csv.text
+            and "secret-key" not in json.dumps(support_case_incident_dashboard).lower(),
+            "mature_support_case_incident_dashboard",
+            f"{len(support_case_incident_dashboard.get('status_cards', []))} cards with status {support_case_incident_dashboard.get('support_status', 'missing')}.",
+        )
         player_readiness = _json(client.get("/api/v1/player/readiness"), "load player readiness", checks)
         readiness = _get(player_readiness, "data", "readiness") or {}
         _add(
@@ -1096,6 +1129,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "- `GatewayIncidentTimeline` correlates account sync, public refresh, and market price refresh metadata into one player-facing incident view.",
             "- `GatewayIncidentHistory` persists metadata-only incident snapshots, compares retry/failure deltas, and exports Markdown/CSV support evidence.",
             "- `GatewayIncidentReviewNote` lets support annotate, assign, close, and export metadata-only incident follow-up state.",
+            "- `SupportCaseIncidentDashboard` aggregates gateway incidents, support review audits, and handoff readiness into one operator case view.",
             "- `PrivatePlayerState` stores private account summaries separately from public game and KB layers.",
             "- `AccountValueSnapshot` normalizes holdings, price coverage, source diagnostics, and remediation actions.",
             "- `AccountValueHistory` stores privacy-safe value coverage snapshots and compares value/coverage/freshness deltas.",
@@ -1124,7 +1158,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Next Priority",
             "",
-            "Aggregate gateway incident notes, support review audits, and handoff readiness into one support case incident dashboard.",
+            "Package the support case incident dashboard into a deterministic case packet with manifest, Markdown, CSV, and checksum exports.",
             "",
         ]
     )
