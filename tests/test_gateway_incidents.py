@@ -102,6 +102,30 @@ def test_player_gateway_incident_timeline_correlates_refresh_events_without_secr
         history = client.get("/api/v1/player/gateway-incidents/history?limit=10")
         history_md = client.get("/api/v1/player/gateway-incidents/history?format=markdown&limit=10")
         history_csv = client.get("/api/v1/player/gateway-incidents/history?format=csv&limit=10")
+        note = client.post(
+            "/api/v1/player/gateway-incidents/review-notes",
+            json={
+                "snapshot_id": first_snapshot.json()["data"]["snapshot"]["snapshot_id"],
+                "status": "assigned",
+                "reviewer": "unit-support",
+                "assignee": "ops",
+                "note": "Retry window observed; assign follow-up without requesting raw API keys.",
+                "source": "test_gateway_incidents",
+            },
+        )
+        notes = client.get("/api/v1/player/gateway-incidents/review-notes?reviewer=unit-support&assignee=ops")
+        notes_md = client.get("/api/v1/player/gateway-incidents/review-notes?format=markdown&reviewer=unit-support")
+        notes_csv = client.get("/api/v1/player/gateway-incidents/review-notes?format=csv&reviewer=unit-support")
+        closed_note = client.post(
+            f"/api/v1/player/gateway-incidents/review-notes/{note.json()['data']['review_note']['note_id']}/status",
+            json={
+                "status": "closed",
+                "reviewer": "unit-support",
+                "assignee": "ops",
+                "note": "Closed after retry window cleared.",
+            },
+        )
+        closed_notes = client.get("/api/v1/player/gateway-incidents/review-notes?status=closed&reviewer=unit-support")
         session_packet = client.get("/api/v1/player/session-packet?limit=10")
 
         assert first_snapshot.status_code == 200
@@ -118,6 +142,25 @@ def test_player_gateway_incident_timeline_correlates_refresh_events_without_secr
         assert "# Gateway Incident History" in history_md.text
         assert history_csv.status_code == 200
         assert "snapshot_id,created_at,source,timeline_status" in history_csv.text
+        assert note.status_code == 200
+        note_payload = note.json()["data"]["review_note"]
+        assert note_payload["schema_version"] == "gw2radar.gateway_incident_review_note.v1"
+        assert note_payload["status"] == "assigned"
+        assert note_payload["assignee"] == "ops"
+        assert "raw API keys" in note_payload["note"]
+        assert "secret-key" not in str(note_payload).lower()
+        assert notes.status_code == 200
+        notes_payload = notes.json()["data"]["review_notes"]
+        assert notes_payload["schema_version"] == "gw2radar.gateway_incident_review_note_list.v1"
+        assert notes_payload["assigned_count"] >= 1
+        assert notes_md.status_code == 200
+        assert "# Gateway Incident Review Notes" in notes_md.text
+        assert notes_csv.status_code == 200
+        assert "note_id,snapshot_id,status,reviewer,assignee" in notes_csv.text
+        assert closed_note.status_code == 200
+        assert closed_note.json()["data"]["review_note"]["status"] == "closed"
+        assert closed_notes.status_code == 200
+        assert closed_notes.json()["data"]["review_notes"]["closed_count"] >= 1
         assert session_packet.status_code == 200
         packet = session_packet.json()["data"]["session_packet"]
         assert packet["gateway_incident_history"]["schema_version"] == "gw2radar.gateway_incident_history.v1"

@@ -21,6 +21,10 @@ const exportPromotionEventsCsvButton = document.querySelector("#export-promotion
 const refreshPromotionReadinessButton = document.querySelector("#refresh-promotion-readiness-button");
 const exportPromotionReadinessMdButton = document.querySelector("#export-promotion-readiness-md-button");
 const exportPromotionReadinessCsvButton = document.querySelector("#export-promotion-readiness-csv-button");
+const saveGatewayNoteButton = document.querySelector("#save-gateway-note-button");
+const refreshGatewayNotesButton = document.querySelector("#refresh-gateway-notes-button");
+const exportGatewayNotesMdButton = document.querySelector("#export-gateway-notes-md-button");
+const exportGatewayNotesCsvButton = document.querySelector("#export-gateway-notes-csv-button");
 const summary = document.querySelector("#support-summary");
 const findingList = document.querySelector("#finding-list");
 const replyTemplate = document.querySelector("#reply-template");
@@ -45,6 +49,12 @@ const promotionReadinessSummary = document.querySelector("#promotion-readiness-s
 const promotionReadinessStatusList = document.querySelector("#promotion-readiness-status-list");
 const promotionReadinessBlockerList = document.querySelector("#promotion-readiness-blocker-list");
 const promotionReadinessNextStepList = document.querySelector("#promotion-readiness-next-step-list");
+const gatewayNoteSnapshotId = document.querySelector("#gateway-note-snapshot-id");
+const gatewayNoteStatus = document.querySelector("#gateway-note-status");
+const gatewayNoteAssignee = document.querySelector("#gateway-note-assignee");
+const gatewayNoteBody = document.querySelector("#gateway-note-body");
+const gatewayNoteSummary = document.querySelector("#gateway-note-summary");
+const gatewayNoteList = document.querySelector("#gateway-note-list");
 const output = document.querySelector("#support-output");
 let lastBundle = null;
 let lastReview = null;
@@ -245,6 +255,106 @@ async function refreshPromotionReadiness() {
   const response = await fetch(`/account/debug-bundle/review/audit/backlog/promotions/readiness?${promotionReadinessQueryString()}`);
   const rollup = await response.json();
   renderPromotionReadiness(rollup);
+}
+
+async function saveGatewayIncidentNote() {
+  const response = await fetch("/api/v1/player/gateway-incidents/review-notes", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      snapshot_id: gatewayNoteSnapshotId?.value?.trim() || null,
+      status: gatewayNoteStatus?.value || "open",
+      reviewer: reviewerName?.value || "support",
+      assignee: gatewayNoteAssignee?.value || "unassigned",
+      note: gatewayNoteBody?.value || "",
+      source: "support_workbench",
+    }),
+  });
+  const payload = await response.json();
+  output.textContent = JSON.stringify(payload, null, 2);
+  gatewayNoteSummary.textContent = `Gateway note saved: ${payload.data?.review_note?.note_id || "unknown"}.`;
+  await refreshGatewayIncidentNotes();
+}
+
+async function refreshGatewayIncidentNotes() {
+  const response = await fetch(`/api/v1/player/gateway-incidents/review-notes?${gatewayNoteQueryString()}`);
+  const payload = await response.json();
+  const bundle = payload.data?.review_notes || payload.review_notes || {};
+  renderGatewayIncidentNotes(bundle);
+}
+
+function gatewayNoteQueryString(format = "json") {
+  const params = new URLSearchParams();
+  params.set("limit", "20");
+  params.set("format", format);
+  if (gatewayNoteStatus?.value) {
+    params.set("status", gatewayNoteStatus.value);
+  }
+  if (reviewerName?.value) {
+    params.set("reviewer", reviewerName.value.trim());
+  }
+  if (gatewayNoteAssignee?.value) {
+    params.set("assignee", gatewayNoteAssignee.value.trim());
+  }
+  if (gatewayNoteSnapshotId?.value) {
+    params.set("snapshot_id", gatewayNoteSnapshotId.value.trim());
+  }
+  return params.toString();
+}
+
+function exportGatewayIncidentNotes(format) {
+  window.location.href = `/api/v1/player/gateway-incidents/review-notes?${gatewayNoteQueryString(format)}`;
+}
+
+function renderGatewayIncidentNotes(bundle) {
+  const notes = Array.isArray(bundle.notes) ? bundle.notes : [];
+  gatewayNoteSummary.textContent = `${notes.length} notes · open ${bundle.open_count || 0} · assigned ${bundle.assigned_count || 0} · closed ${bundle.closed_count || 0}.`;
+  gatewayNoteList.innerHTML = "";
+  if (!notes.length) {
+    gatewayNoteList.textContent = "No gateway incident notes match the current filters.";
+    return;
+  }
+  for (const note of notes) {
+    const item = document.createElement("article");
+    item.className = `support-audit-record ${note.status || "open"}`;
+    const title = document.createElement("strong");
+    title.textContent = `${note.status} · ${note.note_id}`;
+    const meta = document.createElement("span");
+    meta.textContent = `${note.snapshot_id || "no snapshot"} · reviewer: ${note.reviewer || "support"} · assignee: ${note.assignee || "unassigned"}`;
+    const body = document.createElement("p");
+    body.textContent = note.note || "No note provided.";
+    const actions = document.createElement("div");
+    actions.className = "button-row";
+    for (const [status, label] of [
+      ["closed", "Close"],
+      ["deferred", "Defer"],
+    ]) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = label;
+      button.addEventListener("click", () => updateGatewayIncidentNoteStatus(note.note_id, status));
+      actions.appendChild(button);
+    }
+    item.append(title, meta, actions, body);
+    gatewayNoteList.appendChild(item);
+  }
+}
+
+async function updateGatewayIncidentNoteStatus(noteId, status) {
+  const response = await fetch(`/api/v1/player/gateway-incidents/review-notes/${noteId}/status`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      status,
+      reviewer: reviewerName?.value || "support",
+      assignee: gatewayNoteAssignee?.value || "support",
+      note: `Support marked gateway incident note ${status}.`,
+    }),
+  });
+  const payload = await response.json();
+  output.textContent = JSON.stringify(payload, null, 2);
+  gatewayNoteSummary.textContent = `Gateway note ${noteId} marked ${status}.`;
+  await refreshGatewayIncidentNotes();
 }
 
 function renderAuditMetrics(metrics) {
@@ -594,6 +704,14 @@ refreshPromotionReadinessButton?.addEventListener("click", refreshPromotionReadi
 exportPromotionReadinessMdButton?.addEventListener("click", () => exportPromotionReadiness("markdown"));
 
 exportPromotionReadinessCsvButton?.addEventListener("click", () => exportPromotionReadiness("csv"));
+
+saveGatewayNoteButton?.addEventListener("click", saveGatewayIncidentNote);
+
+refreshGatewayNotesButton?.addEventListener("click", refreshGatewayIncidentNotes);
+
+exportGatewayNotesMdButton?.addEventListener("click", () => exportGatewayIncidentNotes("markdown"));
+
+exportGatewayNotesCsvButton?.addEventListener("click", () => exportGatewayIncidentNotes("csv"));
 
 copyTemplateButton?.addEventListener("click", async () => {
   if (!replyTemplate.value) {

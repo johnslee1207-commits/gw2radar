@@ -63,10 +63,15 @@ from gw2radar.commercial.player_intelligence import (
 )
 from gw2radar.commercial.gateway_incidents import (
     build_gateway_incident_timeline,
+    create_gateway_incident_review_note,
     list_gateway_incident_history,
+    list_gateway_incident_review_notes,
     record_gateway_incident_snapshot,
     render_gateway_incident_history_csv,
     render_gateway_incident_history_markdown,
+    render_gateway_incident_review_notes_csv,
+    render_gateway_incident_review_notes_markdown,
+    update_gateway_incident_review_note_status,
 )
 from gw2radar.db import session as db_session
 from gw2radar.db.init_db import init_db
@@ -76,6 +81,22 @@ router = APIRouter(prefix="/api/v1/player", tags=["player-dashboard"])
 
 class PlayerSupportHandoffRequest(BaseModel):
     debug_bundle: dict | None = None
+
+
+class GatewayIncidentReviewNoteRequest(BaseModel):
+    snapshot_id: str | None = None
+    status: str = "open"
+    reviewer: str = "support"
+    assignee: str = "unassigned"
+    note: str = ""
+    source: str = "support_workbench"
+
+
+class GatewayIncidentReviewNoteStatusRequest(BaseModel):
+    status: str
+    reviewer: str = "support"
+    assignee: str | None = None
+    note: str | None = None
 
 
 @router.get("/dashboard", response_model=ApiDataEnvelope)
@@ -181,6 +202,76 @@ def get_player_gateway_incident_history(format: str = "json", limit: int = 10) -
             headers={"Content-Disposition": 'attachment; filename="gateway_incident_history.csv"'},
         )
     return ApiDataEnvelope(data={"history": history.model_dump(mode="json")})
+
+
+@router.post("/gateway-incidents/review-notes", response_model=ApiDataEnvelope)
+def post_player_gateway_incident_review_note(request: GatewayIncidentReviewNoteRequest) -> ApiDataEnvelope:
+    init_db()
+    with db_session.SessionLocal() as session:
+        note = create_gateway_incident_review_note(
+            session,
+            snapshot_id=request.snapshot_id,
+            status=request.status,
+            reviewer=request.reviewer,
+            assignee=request.assignee,
+            note=request.note,
+            source=request.source,
+        )
+    return ApiDataEnvelope(data={"review_note": note.model_dump(mode="json")})
+
+
+@router.post("/gateway-incidents/review-notes/{note_id}/status", response_model=ApiDataEnvelope)
+def post_player_gateway_incident_review_note_status(
+    note_id: str,
+    request: GatewayIncidentReviewNoteStatusRequest,
+) -> ApiDataEnvelope:
+    init_db()
+    with db_session.SessionLocal() as session:
+        note = update_gateway_incident_review_note_status(
+            session,
+            note_id=note_id,
+            status=request.status,
+            reviewer=request.reviewer,
+            assignee=request.assignee,
+            note=request.note,
+        )
+    if note is None:
+        raise HTTPException(status_code=404, detail="Gateway incident review note not found")
+    return ApiDataEnvelope(data={"review_note": note.model_dump(mode="json")})
+
+
+@router.get("/gateway-incidents/review-notes", response_model=None)
+def get_player_gateway_incident_review_notes(
+    format: str = "json",
+    limit: int = 20,
+    status: str | None = None,
+    reviewer: str | None = None,
+    assignee: str | None = None,
+    snapshot_id: str | None = None,
+) -> ApiDataEnvelope | Response:
+    init_db()
+    with db_session.SessionLocal() as session:
+        notes = list_gateway_incident_review_notes(
+            session,
+            limit=limit,
+            status=status,
+            reviewer=reviewer,
+            assignee=assignee,
+            snapshot_id=snapshot_id,
+        )
+    if format == "markdown":
+        return Response(
+            content=render_gateway_incident_review_notes_markdown(notes),
+            media_type="text/markdown; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="gateway_incident_review_notes.md"'},
+        )
+    if format == "csv":
+        return Response(
+            content=render_gateway_incident_review_notes_csv(notes),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="gateway_incident_review_notes.csv"'},
+        )
+    return ApiDataEnvelope(data={"review_notes": notes.model_dump(mode="json")})
 
 
 @router.get("/account-holdings", response_model=ApiDataEnvelope)

@@ -110,6 +110,46 @@
           <div id="audit-list" class="support-audit-list">No audit records loaded.</div>
         </section>
 
+        <section class="panel" aria-label="Gateway incident review notes">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Gateway</p>
+              <h2>Incident Review Notes</h2>
+            </div>
+            <div class="button-row">
+              <button id="save-gateway-note-button" type="button">Save note</button>
+              <button id="refresh-gateway-notes-button" type="button">Refresh notes</button>
+              <button id="export-gateway-notes-md-button" type="button">Export MD</button>
+              <button id="export-gateway-notes-csv-button" type="button">Export CSV</button>
+            </div>
+          </div>
+          <div class="three-column compact-fields support-filter-grid">
+            <label>
+              Snapshot id
+              <input id="gateway-note-snapshot-id" type="text" placeholder="latest if empty" />
+            </label>
+            <label>
+              Status
+              <select id="gateway-note-status">
+                <option value="open">Open</option>
+                <option value="assigned">Assigned</option>
+                <option value="closed">Closed</option>
+                <option value="deferred">Deferred</option>
+              </select>
+            </label>
+            <label>
+              Assignee
+              <input id="gateway-note-assignee" type="text" value="support" maxlength="80" />
+            </label>
+          </div>
+          <label>
+            Review note
+            <textarea id="gateway-note-body" rows="5" placeholder="Summarize retry/failure evidence and next support action. Do not paste raw API keys."></textarea>
+          </label>
+          <div id="gateway-note-summary" class="result-summary">No gateway incident notes loaded yet.</div>
+          <div id="gateway-note-list" class="support-audit-list">No gateway incident notes saved yet.</div>
+        </section>
+
         <section class="panel" aria-label="Support review metrics summary">
           <div class="section-head">
             <div>

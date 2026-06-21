@@ -5,8 +5,15 @@ from uuid import uuid4
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from gw2radar.db.models import MarketSnapshotModel, PlayerGatewayIncidentSnapshotModel, RefreshQueueModel
+from gw2radar.db.models import (
+    GatewayIncidentReviewNoteModel,
+    MarketSnapshotModel,
+    PlayerGatewayIncidentSnapshotModel,
+    RefreshQueueModel,
+)
 from gw2radar.commercial.market_radar import get_last_official_price_refresh_result
+
+REVIEW_NOTE_STATUSES = {"open", "assigned", "closed", "deferred"}
 
 
 class GatewayIncidentEvent(BaseModel):
@@ -72,6 +79,32 @@ class GatewayIncidentHistory(BaseModel):
     snapshots: list[GatewayIncidentSnapshot]
     comparison: GatewayIncidentHistoryComparison
     boundary: str = "Gateway incident history stores metadata-only snapshots and excludes raw API keys and private account payloads."
+
+
+class GatewayIncidentReviewNote(BaseModel):
+    schema_version: str = "gw2radar.gateway_incident_review_note.v1"
+    note_id: str
+    snapshot_id: str | None = None
+    status: Literal["open", "assigned", "closed", "deferred"]
+    reviewer: str
+    assignee: str
+    note: str
+    source: str
+    evidence_refs: list[str] = Field(default_factory=list)
+    properties: dict = Field(default_factory=dict)
+    created_at: datetime
+    updated_at: datetime
+    boundary: str = "Review notes store support workflow metadata only and exclude raw API keys and private account payloads."
+
+
+class GatewayIncidentReviewNoteList(BaseModel):
+    schema_version: str = "gw2radar.gateway_incident_review_note_list.v1"
+    notes: list[GatewayIncidentReviewNote] = Field(default_factory=list)
+    open_count: int = 0
+    assigned_count: int = 0
+    closed_count: int = 0
+    deferred_count: int = 0
+    boundary: str = "Gateway incident review note lists are metadata-only support workflow views."
 
 
 def build_gateway_incident_timeline(session: Session, *, limit: int = 20) -> GatewayIncidentTimeline:
@@ -196,6 +229,160 @@ def render_gateway_incident_history_csv(history: GatewayIncidentHistory) -> str:
             f"event_count_delta,{history.comparison.event_count_delta}",
         ]
     )
+    return "\n".join(rows) + "\n"
+
+
+def create_gateway_incident_review_note(
+    session: Session,
+    *,
+    snapshot_id: str | None = None,
+    status: str = "open",
+    reviewer: str = "support",
+    assignee: str = "unassigned",
+    note: str = "",
+    source: str = "support_workbench",
+) -> GatewayIncidentReviewNote:
+    safe_status = _safe_status(status)
+    created_at = datetime.now(timezone.utc)
+    resolved_snapshot_id = _resolve_snapshot_id(session, snapshot_id)
+    evidence_refs = [f"gateway_incident_snapshot:{resolved_snapshot_id}"] if resolved_snapshot_id else []
+    row = GatewayIncidentReviewNoteModel(
+        note_id=f"gateway-incident-note-{created_at.strftime('%Y%m%dT%H%M%S%fZ')}-{uuid4().hex[:8]}",
+        snapshot_id=resolved_snapshot_id,
+        status=safe_status,
+        reviewer=_safe_text(reviewer, max_length=80) or "support",
+        assignee=_safe_text(assignee, max_length=80) or "unassigned",
+        note=_safe_text(note, max_length=720),
+        source=_safe_text(source, max_length=80) or "support_workbench",
+        evidence_refs_json=evidence_refs,
+        properties_json={
+            "stores_raw_api_key": False,
+            "stores_private_account_payload": False,
+            "workflow_boundary": "metadata_only_gateway_incident_review",
+        },
+        created_at=created_at,
+        updated_at=created_at,
+    )
+    session.add(row)
+    session.commit()
+    session.refresh(row)
+    return _review_note_from_model(row)
+
+
+def list_gateway_incident_review_notes(
+    session: Session,
+    *,
+    limit: int = 20,
+    status: str | None = None,
+    reviewer: str | None = None,
+    assignee: str | None = None,
+    snapshot_id: str | None = None,
+) -> GatewayIncidentReviewNoteList:
+    query = session.query(GatewayIncidentReviewNoteModel)
+    if status:
+        query = query.filter(GatewayIncidentReviewNoteModel.status == _safe_status(status))
+    if reviewer:
+        query = query.filter(GatewayIncidentReviewNoteModel.reviewer == _safe_text(reviewer, max_length=80))
+    if assignee:
+        query = query.filter(GatewayIncidentReviewNoteModel.assignee == _safe_text(assignee, max_length=80))
+    if snapshot_id:
+        query = query.filter(GatewayIncidentReviewNoteModel.snapshot_id == _safe_text(snapshot_id, max_length=160))
+    rows = query.order_by(GatewayIncidentReviewNoteModel.updated_at.desc()).limit(min(max(limit, 1), 100)).all()
+    notes = [_review_note_from_model(row) for row in rows]
+    return GatewayIncidentReviewNoteList(
+        notes=notes,
+        open_count=sum(1 for note in notes if note.status == "open"),
+        assigned_count=sum(1 for note in notes if note.status == "assigned"),
+        closed_count=sum(1 for note in notes if note.status == "closed"),
+        deferred_count=sum(1 for note in notes if note.status == "deferred"),
+    )
+
+
+def update_gateway_incident_review_note_status(
+    session: Session,
+    *,
+    note_id: str,
+    status: str,
+    reviewer: str = "support",
+    assignee: str | None = None,
+    note: str | None = None,
+) -> GatewayIncidentReviewNote | None:
+    row = session.get(GatewayIncidentReviewNoteModel, _safe_text(note_id, max_length=180))
+    if row is None:
+        return None
+    row.status = _safe_status(status)
+    row.reviewer = _safe_text(reviewer, max_length=80) or row.reviewer
+    if assignee is not None:
+        row.assignee = _safe_text(assignee, max_length=80) or row.assignee
+    if note is not None:
+        status_note = _safe_text(note, max_length=720)
+        row.note = f"{row.note}\n{status_note}".strip() if row.note and status_note else status_note or row.note
+    row.updated_at = datetime.now(timezone.utc)
+    row.properties_json = {
+        **dict(row.properties_json or {}),
+        "last_status_reviewer": row.reviewer,
+        "stores_raw_api_key": False,
+        "stores_private_account_payload": False,
+    }
+    session.add(row)
+    session.commit()
+    session.refresh(row)
+    return _review_note_from_model(row)
+
+
+def render_gateway_incident_review_notes_markdown(bundle: GatewayIncidentReviewNoteList) -> str:
+    lines = [
+        "# Gateway Incident Review Notes",
+        "",
+        f"- Schema: {bundle.schema_version}",
+        f"- Notes: {len(bundle.notes)}",
+        f"- Open: {bundle.open_count}",
+        f"- Assigned: {bundle.assigned_count}",
+        f"- Closed: {bundle.closed_count}",
+        f"- Deferred: {bundle.deferred_count}",
+        "",
+        "## Notes",
+        "",
+    ]
+    for note in bundle.notes:
+        lines.extend(
+            [
+                f"### {note.note_id}",
+                f"- Status: {note.status}",
+                f"- Snapshot: {note.snapshot_id or 'latest unavailable'}",
+                f"- Reviewer: {note.reviewer}",
+                f"- Assignee: {note.assignee}",
+                f"- Source: {note.source}",
+                f"- Updated: {note.updated_at.isoformat()}",
+                f"- Note: {note.note or 'No note provided.'}",
+                "",
+            ]
+        )
+    lines.extend(["## Boundary", "", f"- {bundle.boundary}"])
+    return "\n".join(lines) + "\n"
+
+
+def render_gateway_incident_review_notes_csv(bundle: GatewayIncidentReviewNoteList) -> str:
+    rows = [
+        "note_id,snapshot_id,status,reviewer,assignee,source,created_at,updated_at,note,evidence_refs",
+    ]
+    for note in bundle.notes:
+        rows.append(
+            ",".join(
+                [
+                    _csv(note.note_id),
+                    _csv(note.snapshot_id or ""),
+                    _csv(note.status),
+                    _csv(note.reviewer),
+                    _csv(note.assignee),
+                    _csv(note.source),
+                    _csv(note.created_at.isoformat()),
+                    _csv(note.updated_at.isoformat()),
+                    _csv(note.note),
+                    _csv(";".join(note.evidence_refs)),
+                ]
+            )
+        )
     return "\n".join(rows) + "\n"
 
 
@@ -370,6 +557,33 @@ def _snapshot_from_model(row: PlayerGatewayIncidentSnapshotModel) -> GatewayInci
     )
 
 
+def _review_note_from_model(row: GatewayIncidentReviewNoteModel) -> GatewayIncidentReviewNote:
+    return GatewayIncidentReviewNote(
+        note_id=row.note_id,
+        snapshot_id=row.snapshot_id,
+        status=_safe_status(row.status),
+        reviewer=row.reviewer,
+        assignee=row.assignee,
+        note=row.note,
+        source=row.source,
+        evidence_refs=list(row.evidence_refs_json or []),
+        properties=dict(row.properties_json or {}),
+        created_at=_aware(row.created_at) or datetime.now(timezone.utc),
+        updated_at=_aware(row.updated_at) or datetime.now(timezone.utc),
+    )
+
+
+def _resolve_snapshot_id(session: Session, snapshot_id: str | None) -> str | None:
+    if snapshot_id:
+        return _safe_text(snapshot_id, max_length=160)
+    row = (
+        session.query(PlayerGatewayIncidentSnapshotModel)
+        .order_by(PlayerGatewayIncidentSnapshotModel.created_at.desc())
+        .first()
+    )
+    return row.snapshot_id if row else None
+
+
 def _compare_snapshots(snapshots: list[GatewayIncidentSnapshot]) -> GatewayIncidentHistoryComparison:
     if len(snapshots) < 2:
         return GatewayIncidentHistoryComparison(
@@ -405,3 +619,15 @@ def _csv(value: str) -> str:
     if any(character in text for character in [",", "\n", '"']):
         return f'"{text}"'
     return text
+
+
+def _safe_status(status: str | None) -> Literal["open", "assigned", "closed", "deferred"]:
+    safe = _safe_text(status or "open", max_length=32).lower()
+    if safe not in REVIEW_NOTE_STATUSES:
+        return "open"
+    return safe  # type: ignore[return-value]
+
+
+def _safe_text(value: str | None, *, max_length: int) -> str:
+    text = str(value or "").replace("\x00", "").strip()
+    return text[:max_length]

@@ -351,6 +351,22 @@ class PlayerGatewayIncidentSnapshotModel(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 
+class GatewayIncidentReviewNoteModel(Base):
+    __tablename__ = "gateway_incident_review_notes"
+
+    note_id: Mapped[str] = mapped_column(String, primary_key=True)
+    snapshot_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    status: Mapped[str] = mapped_column(String, default="open")
+    reviewer: Mapped[str] = mapped_column(String, default="support")
+    assignee: Mapped[str] = mapped_column(String, default="unassigned")
+    note: Mapped[str] = mapped_column(Text, default="")
+    source: Mapped[str] = mapped_column(String, default="support_workbench")
+    evidence_refs_json: Mapped[list] = mapped_column(JSON, default=list)
+    properties_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
 class CmsPageModel(Base):
     __tablename__ = "cms_pages"
 

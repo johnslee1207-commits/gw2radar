@@ -65,6 +65,24 @@ def main() -> int:
     promotion_readiness_csv = client.get(
         "/account/debug-bundle/review/audit/backlog/promotions/readiness?audit_reviewer=smoke&promotion_reviewer=smoke&format=csv"
     )
+    gateway_note = client.post(
+        "/api/v1/player/gateway-incidents/review-notes",
+        json={
+            "status": "assigned",
+            "reviewer": "smoke",
+            "assignee": "ops",
+            "note": "Support marked gateway incident for follow-up without requesting raw API keys.",
+            "source": "support_smoke",
+        },
+    )
+    gateway_notes = client.get("/api/v1/player/gateway-incidents/review-notes?reviewer=smoke&assignee=ops")
+    gateway_notes_markdown = client.get("/api/v1/player/gateway-incidents/review-notes?reviewer=smoke&format=markdown")
+    gateway_notes_csv = client.get("/api/v1/player/gateway-incidents/review-notes?reviewer=smoke&format=csv")
+    gateway_note_id = gateway_note.json().get("data", {}).get("review_note", {}).get("note_id", "")
+    gateway_note_closed = client.post(
+        f"/api/v1/player/gateway-incidents/review-notes/{gateway_note_id}/status",
+        json={"status": "closed", "reviewer": "smoke", "assignee": "ops", "note": "Closed during smoke."},
+    )
 
     _add(checks, "support page is served", page.status_code == 200 and "Debug Bundle Support Review" in page.text, page.text)
     _add(checks, "support script is served", js.status_code == 200 and "/account/debug-bundle/review" in js.text, js.text)
@@ -90,6 +108,12 @@ def main() -> int:
     _add(checks, "support promotion readiness rollup is visible", promotion_readiness.status_code == 200 and promotion_readiness.json().get("schema_version") == "gw2radar.support_promotion_readiness_rollup.v1", promotion_readiness.text)
     _add(checks, "support promotion readiness exports markdown", promotion_readiness_markdown.status_code == 200 and "# Support Promotion Readiness Rollup" in promotion_readiness_markdown.text, promotion_readiness_markdown.text)
     _add(checks, "support promotion readiness exports csv", promotion_readiness_csv.status_code == 200 and "ready,maturity_label,readiness_score" in promotion_readiness_csv.text, promotion_readiness_csv.text)
+    _add(checks, "gateway incident notes UI controls are visible", "Incident Review Notes" in page.text and "saveGatewayIncidentNote" in js.text and "/api/v1/player/gateway-incidents/review-notes" in js.text, page.text + js.text)
+    _add(checks, "gateway incident note stores workflow metadata", gateway_note.status_code == 200 and gateway_note.json().get("data", {}).get("review_note", {}).get("status") == "assigned", gateway_note.text)
+    _add(checks, "gateway incident notes list filters metadata", gateway_notes.status_code == 200 and gateway_notes.json().get("data", {}).get("review_notes", {}).get("assigned_count", 0) >= 1, gateway_notes.text)
+    _add(checks, "gateway incident notes export markdown", gateway_notes_markdown.status_code == 200 and "# Gateway Incident Review Notes" in gateway_notes_markdown.text, gateway_notes_markdown.text)
+    _add(checks, "gateway incident notes export csv", gateway_notes_csv.status_code == 200 and "note_id,snapshot_id,status,reviewer,assignee" in gateway_notes_csv.text, gateway_notes_csv.text)
+    _add(checks, "gateway incident note lifecycle closes metadata", gateway_note_closed.status_code == 200 and gateway_note_closed.json().get("data", {}).get("review_note", {}).get("status") == "closed", gateway_note_closed.text)
     _add(checks, "no-secret boundary is visible", "Do not ask for a raw GW2 API key" in page.text and "Please do not send your raw GW2 API key" in js.text, "boundary missing")
 
     failed = [check for check in checks if not check[1]]

@@ -34,6 +34,9 @@ def test_support_review_page_serves_operator_workbench() -> None:
     assert "Promotion Readiness" in response.text
     assert "Refresh readiness" in response.text
     assert "promotion-readiness-summary" in response.text
+    assert "Incident Review Notes" in response.text
+    assert "gateway-note-summary" in response.text
+    assert "Save note" in response.text
     assert "audit-severity-filter" in response.text
     assert "Do Not Request Secrets" in response.text
     assert "Do not ask for a raw GW2 API key" in response.text
@@ -67,6 +70,12 @@ def test_support_review_static_assets_include_review_workflow() -> None:
     assert "promotionEventQueryString" in js.text
     assert "renderPromotionReadiness" in js.text
     assert "promotionReadinessQueryString" in js.text
+    assert "saveGatewayIncidentNote" in js.text
+    assert "refreshGatewayIncidentNotes" in js.text
+    assert "renderGatewayIncidentNotes" in js.text
+    assert "updateGatewayIncidentNoteStatus" in js.text
+    assert "Defer" in js.text
+    assert "/api/v1/player/gateway-incidents/review-notes" in js.text
     assert "/account/debug-bundle/review/audit/backlog/promotions" in js.text
     assert "/account/debug-bundle/review/audit/backlog/promotions/events" in js.text
     assert "/account/debug-bundle/review/audit/backlog/promotions/readiness" in js.text

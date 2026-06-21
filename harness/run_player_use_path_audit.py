@@ -222,6 +222,7 @@ def main() -> int:
         gateway_history_md = client.get("/api/v1/player/gateway-incidents/history?format=markdown&limit=10")
         gateway_history_csv = client.get("/api/v1/player/gateway-incidents/history?format=csv&limit=10")
         gateway_history = _get(gateway_history_response, "data", "history") or {}
+        latest_gateway_snapshot_id = _get(gateway_history, "snapshots", 0, "snapshot_id")
         _add(
             checks,
             "gateway_incident_history",
@@ -244,6 +245,64 @@ def main() -> int:
             and "api_key" not in (gateway_history_md.text + gateway_history_csv.text).lower(),
             "mature_gateway_incident_history",
             f"{len(gateway_history.get('snapshots', []))} snapshots with comparison {(_get(gateway_history, 'comparison', 'status') or 'missing')}.",
+        )
+        gateway_review_note = _json(
+            client.post(
+                "/api/v1/player/gateway-incidents/review-notes",
+                json={
+                    "snapshot_id": latest_gateway_snapshot_id,
+                    "status": "assigned",
+                    "reviewer": "player_use_path_audit",
+                    "assignee": "support",
+                    "note": "Audit assigned gateway incident follow-up using metadata-only evidence.",
+                    "source": "player_use_path_audit",
+                },
+            ),
+            "save gateway incident review note",
+            checks,
+        )
+        gateway_review_notes_response = _json(
+            client.get("/api/v1/player/gateway-incidents/review-notes?reviewer=player_use_path_audit&assignee=support"),
+            "load gateway incident review notes",
+            checks,
+        )
+        gateway_review_notes = _get(gateway_review_notes_response, "data", "review_notes") or {}
+        gateway_review_notes_md = client.get(
+            "/api/v1/player/gateway-incidents/review-notes?reviewer=player_use_path_audit&format=markdown"
+        )
+        gateway_review_notes_csv = client.get(
+            "/api/v1/player/gateway-incidents/review-notes?reviewer=player_use_path_audit&format=csv"
+        )
+        gateway_review_note_closed = _json(
+            client.post(
+                f"/api/v1/player/gateway-incidents/review-notes/{_get(gateway_review_note, 'data', 'review_note', 'note_id')}/status",
+                json={
+                    "status": "closed",
+                    "reviewer": "player_use_path_audit",
+                    "assignee": "support",
+                    "note": "Audit closed gateway incident follow-up after metadata review.",
+                },
+            ),
+            "close gateway incident review note",
+            checks,
+        )
+        _add(
+            checks,
+            "gateway_incident_review_notes",
+            "Gateway incident review notes let support annotate, assign, close, and export metadata-only follow-up state.",
+            _get(gateway_review_note, "data", "review_note", "schema_version")
+            == "gw2radar.gateway_incident_review_note.v1"
+            and _get(gateway_review_note, "data", "review_note", "status") == "assigned"
+            and gateway_review_notes.get("schema_version") == "gw2radar.gateway_incident_review_note_list.v1"
+            and gateway_review_notes.get("assigned_count", 0) >= 1
+            and _get(gateway_review_note_closed, "data", "review_note", "status") == "closed"
+            and gateway_review_notes_md.status_code == 200
+            and "# Gateway Incident Review Notes" in gateway_review_notes_md.text
+            and gateway_review_notes_csv.status_code == 200
+            and "note_id,snapshot_id,status,reviewer,assignee" in gateway_review_notes_csv.text
+            and "secret-key" not in json.dumps(gateway_review_notes).lower(),
+            "mature_gateway_incident_review_notes",
+            f"{len(gateway_review_notes.get('notes', []))} notes with assigned and closed lifecycle evidence.",
         )
         player_readiness = _json(client.get("/api/v1/player/readiness"), "load player readiness", checks)
         readiness = _get(player_readiness, "data", "readiness") or {}
@@ -1036,6 +1095,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "- `MarketPriceRefreshDiagnostics` explains official commerce price refresh status, retryability, player action, and no-trading boundary.",
             "- `GatewayIncidentTimeline` correlates account sync, public refresh, and market price refresh metadata into one player-facing incident view.",
             "- `GatewayIncidentHistory` persists metadata-only incident snapshots, compares retry/failure deltas, and exports Markdown/CSV support evidence.",
+            "- `GatewayIncidentReviewNote` lets support annotate, assign, close, and export metadata-only incident follow-up state.",
             "- `PrivatePlayerState` stores private account summaries separately from public game and KB layers.",
             "- `AccountValueSnapshot` normalizes holdings, price coverage, source diagnostics, and remediation actions.",
             "- `AccountValueHistory` stores privacy-safe value coverage snapshots and compares value/coverage/freshness deltas.",
@@ -1064,7 +1124,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Next Priority",
             "",
-            "Add operator-facing support case incident review notes so gateway history comparisons can be annotated, assigned, and closed without exposing raw keys.",
+            "Aggregate gateway incident notes, support review audits, and handoff readiness into one support case incident dashboard.",
             "",
         ]
     )
