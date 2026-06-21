@@ -521,6 +521,38 @@ def main() -> int:
             "mature_support_handoff_readiness",
             f"{support_handoff_readiness.get('maturity_label', 'unknown')} with {support_handoff_readiness.get('verification_audit_count', 0)} audit records.",
         )
+        operator_packet_response = _json(
+            client.get("/api/v1/player/support-handoff/operator-packet"),
+            "load player support handoff operator packet",
+            checks,
+        )
+        operator_packet = _get(operator_packet_response, "data", "support_handoff_operator_packet") or {}
+        operator_packet_md = client.get("/api/v1/player/support-handoff/operator-packet?format=markdown")
+        operator_packet_csv = client.get("/api/v1/player/support-handoff/operator-packet?format=csv")
+        _add(
+            checks,
+            "player_support_handoff_operator_packet",
+            "Support handoff operator packet packages readiness, audit summary, zip manifest, runbook, and safe next actions.",
+            operator_packet.get("schema_version") == "gw2radar.player_support_handoff_operator_packet.v1"
+            and operator_packet.get("ready") is True
+            and operator_packet.get("maturity_label") == "ready"
+            and _get(operator_packet, "checklist", "schema_version")
+            == "gw2radar.player_support_handoff_readiness_checklist.v1"
+            and _get(operator_packet, "zip_manifest", "schema_version")
+            == "gw2radar.player_support_handoff_zip_manifest.v1"
+            and int(_get(operator_packet, "audit_summary", "record_count") or 0) >= 1
+            and "player_support_handoff.zip" in (operator_packet.get("transfer_files") or [])
+            and bool(operator_packet.get("runbook_steps"))
+            and bool(operator_packet.get("support_next_actions"))
+            and operator_packet_md.status_code == 200
+            and "# Player Support Handoff Operator Packet" in operator_packet_md.text
+            and operator_packet_csv.status_code == 200
+            and "packet_id,ready,maturity_label,zip_checksum_sha256" in operator_packet_csv.text
+            and "secret-key" not in json.dumps(operator_packet).lower()
+            and "secret-key" not in (operator_packet_md.text + operator_packet_csv.text).lower(),
+            "mature_support_handoff_operator_packet",
+            f"{len(operator_packet.get('runbook_steps', []))} runbook steps and {len(operator_packet.get('transfer_files', []))} transfer files.",
+        )
 
         imported = _json(client.post("/api/v1/builds/import", json=_sample_build_import()), "import build", checks)
         build_id = _get(imported, "data", "build", "build_id") or "missing-build-id"
@@ -741,6 +773,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "- `PlayerSupportHandoffZipVerification` transfers handoff artifacts as a read-only zip and verifies schema, checksum, whitelist, and no-secret boundaries from bytes.",
             "- `PlayerSupportHandoffZipVerificationAudit` records verification outcomes as metadata-only support evidence without storing zip bytes.",
             "- `PlayerSupportHandoffReadinessChecklist` summarizes artifact, zip, verification, and audit gates for support operators.",
+            "- `PlayerSupportHandoffOperatorPacket` packages the readiness checklist, audit summary, zip manifest, runbook, and transfer files for support workflows.",
             "- `ReportArtifactManifest` records bridge metadata without storing raw API keys or unredacted private payloads.",
             "",
             "## Known Limits",
@@ -751,7 +784,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Next Priority",
             "",
-            "Add a support handoff operator runbook/export packet that packages the checklist, audit summary, and safe next steps for support workflows.",
+            "Add a read-only support handoff dashboard that aggregates packet, artifacts, zip verification, audit, readiness, and operator packet state.",
             "",
         ]
     )

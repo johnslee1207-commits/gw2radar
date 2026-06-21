@@ -1115,6 +1115,30 @@ function renderPlayerSupportHandoffReadiness(checklist) {
   });
 }
 
+function renderPlayerSupportHandoffOperatorPacket(packet) {
+  const list = document.querySelector("#support-handoff-operator-packet");
+  if (!list) {
+    return;
+  }
+  list.innerHTML = "";
+  if (!packet) {
+    list.textContent = "No support handoff operator packet is available yet.";
+    return;
+  }
+  appendCompactBridgeRow(
+    list,
+    packet.ready ? "ready" : "review",
+    `${packet.packet_id || "operator-packet"} · ${packet.runbook_steps?.length || 0} runbook steps`,
+    packet.ready ? "info" : "warn"
+  );
+  (packet.transfer_files || []).slice(0, 3).forEach((file) => {
+    appendCompactBridgeRow(list, "File", file, "info");
+  });
+  (packet.support_next_actions || []).slice(0, 3).forEach((action) => {
+    appendCompactBridgeRow(list, "Next", action, packet.ready ? "info" : "warn");
+  });
+}
+
 function valueReadinessClass(label) {
   if (label === "ready") {
     return "info";
@@ -1936,6 +1960,12 @@ const actions = {
       const checklist = await fetchJson("/api/v1/player/support-handoff/readiness-checklist");
       renderPlayerSupportHandoffReadiness(checklist?.data?.support_handoff_readiness_checklist || {});
       return checklist;
+    }),
+  loadPlayerSupportHandoffOperatorPacket: () =>
+    run("dashboard", async () => {
+      const packet = await fetchJson("/api/v1/player/support-handoff/operator-packet");
+      renderPlayerSupportHandoffOperatorPacket(packet?.data?.support_handoff_operator_packet || {});
+      return packet;
     }),
   exportAccountValueMarkdown: () =>
     run("dashboard", async () => {

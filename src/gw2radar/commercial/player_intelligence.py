@@ -280,6 +280,26 @@ class PlayerSupportHandoffReadinessChecklist(BaseModel):
     )
 
 
+class PlayerSupportHandoffOperatorPacket(BaseModel):
+    schema_version: str = "gw2radar.player_support_handoff_operator_packet.v1"
+    packet_id: str
+    generated_at: datetime
+    ready: bool
+    maturity_label: str
+    checklist: PlayerSupportHandoffReadinessChecklist
+    zip_manifest: dict = Field(default_factory=dict)
+    audit_summary: dict = Field(default_factory=dict)
+    runbook_steps: list[str] = Field(default_factory=list)
+    transfer_files: list[str] = Field(default_factory=list)
+    support_next_actions: list[str] = Field(default_factory=list)
+    safety_boundaries: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    boundary: str = (
+        "Support handoff operator packets are metadata-only runbooks; they do not include raw zip bytes, "
+        "raw API keys, raw debug bundles, or private account payloads."
+    )
+
+
 def build_data_freshness_annotations(graph: GraphData) -> list[FreshnessAnnotation]:
     has_evidence = bool(graph.evidence)
     has_private_state = bool(graph.player_state)
@@ -1525,6 +1545,118 @@ def render_player_support_handoff_readiness_checklist_csv(
     rows.extend(f"blocker,{_csv(item)}" for item in checklist.blockers)
     rows.extend(f"warning,{_csv(item)}" for item in checklist.warnings)
     rows.extend(f"next_action,{_csv(item)}" for item in checklist.next_actions)
+    return "\n".join(rows) + "\n"
+
+
+def build_player_support_handoff_operator_packet(
+    *,
+    artifact_root: Path | None = None,
+    audit_root: Path | None = None,
+) -> PlayerSupportHandoffOperatorPacket:
+    checklist = build_player_support_handoff_readiness_checklist(artifact_root=artifact_root, audit_root=audit_root)
+    zip_manifest_payload: dict = {}
+    try:
+        zip_manifest, _bundle_bytes = build_player_support_handoff_zip_bundle(artifact_root=artifact_root)
+        zip_manifest_payload = zip_manifest.model_dump(mode="json")
+    except ValueError:
+        zip_manifest_payload = {}
+    audit = list_player_support_handoff_zip_verification_audits(audit_root=audit_root, limit=5)
+    latest_audit = audit.records[0] if audit.records else None
+    audit_summary = {
+        "schema_version": audit.schema_version,
+        "record_count": len(audit.records),
+        "latest_audit_id": latest_audit.audit_id if latest_audit else None,
+        "latest_reviewer": latest_audit.reviewer if latest_audit else None,
+        "latest_ready": latest_audit.ready if latest_audit else None,
+        "latest_checksum_sha256": latest_audit.checksum_sha256 if latest_audit else None,
+    }
+    transfer_files = [
+        "player_support_handoff.zip",
+        "player_support_handoff_readiness_checklist.md",
+        "player_support_handoff_zip_verification_audit.csv",
+    ]
+    support_next_actions = checklist.next_actions + [
+        "Use the audit checksum to confirm the zip the player sent matches the verified handoff bundle.",
+        "Keep support replies limited to the player-facing recommended actions and never request raw keys.",
+    ]
+    return PlayerSupportHandoffOperatorPacket(
+        packet_id=f"player-support-handoff-operator-packet-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')}-{uuid4().hex[:8]}",
+        generated_at=datetime.now(timezone.utc),
+        ready=checklist.ready,
+        maturity_label=checklist.maturity_label,
+        checklist=checklist,
+        zip_manifest=zip_manifest_payload,
+        audit_summary=audit_summary,
+        runbook_steps=[
+            "Confirm the readiness checklist is ready before requesting or reviewing a player transfer package.",
+            "Download or receive the support handoff zip and compare the SHA-256 checksum with the verification audit.",
+            "Open the Markdown handoff file first for player-facing context; use CSV only for triage.",
+            "Record a new verification audit if the player sends a different zip.",
+            "Escalate product issues through the support backlog without attaching raw debug bundles.",
+        ],
+        transfer_files=transfer_files,
+        support_next_actions=_unique_text(support_next_actions),
+        safety_boundaries=[
+            "Do not request raw GW2 API keys.",
+            "Do not request raw inventory, wallet, bank, material, achievement, or equipment payloads.",
+            "Do not execute files from support handoff archives.",
+            "Do not treat readiness as a live game-state certificate.",
+        ],
+        evidence_refs=_unique_text(
+            checklist.evidence_refs
+            + [
+                "/api/v1/player/support-handoff/readiness-checklist",
+                "/api/v1/player/support-handoff/operator-packet",
+            ]
+        ),
+    )
+
+
+def render_player_support_handoff_operator_packet_markdown(packet: PlayerSupportHandoffOperatorPacket) -> str:
+    lines = [
+        "# Player Support Handoff Operator Packet",
+        "",
+        f"- Packet id: {packet.packet_id}",
+        f"- Ready: {packet.ready}",
+        f"- Maturity: {packet.maturity_label}",
+        f"- Generated: {packet.generated_at.isoformat()}",
+        f"- Zip checksum: {packet.zip_manifest.get('checksum_sha256') or 'None'}",
+        f"- Latest audit: {packet.audit_summary.get('latest_audit_id') or 'None'}",
+        f"- Boundary: {packet.boundary}",
+        "",
+        "## Runbook Steps",
+    ]
+    lines.extend(f"- {step}" for step in packet.runbook_steps)
+    lines.extend(["", "## Transfer Files"])
+    lines.extend(f"- {item}" for item in packet.transfer_files)
+    lines.extend(["", "## Support Next Actions"])
+    lines.extend(f"- {item}" for item in packet.support_next_actions)
+    lines.extend(["", "## Safety Boundaries"])
+    lines.extend(f"- {item}" for item in packet.safety_boundaries)
+    lines.extend(["", "## Evidence Refs"])
+    lines.extend(f"- {item}" for item in packet.evidence_refs)
+    return "\n".join(lines) + "\n"
+
+
+def render_player_support_handoff_operator_packet_csv(packet: PlayerSupportHandoffOperatorPacket) -> str:
+    rows = [
+        "packet_id,ready,maturity_label,zip_checksum_sha256,audit_record_count,latest_audit_id",
+        ",".join(
+            [
+                _csv(packet.packet_id),
+                _csv(str(packet.ready)),
+                _csv(packet.maturity_label),
+                _csv(str(packet.zip_manifest.get("checksum_sha256") or "")),
+                _csv(str(packet.audit_summary.get("record_count") or 0)),
+                _csv(str(packet.audit_summary.get("latest_audit_id") or "")),
+            ]
+        ),
+        "section,value",
+    ]
+    rows.extend(f"runbook_step,{_csv(item)}" for item in packet.runbook_steps)
+    rows.extend(f"transfer_file,{_csv(item)}" for item in packet.transfer_files)
+    rows.extend(f"next_action,{_csv(item)}" for item in packet.support_next_actions)
+    rows.extend(f"safety_boundary,{_csv(item)}" for item in packet.safety_boundaries)
     return "\n".join(rows) + "\n"
 
 

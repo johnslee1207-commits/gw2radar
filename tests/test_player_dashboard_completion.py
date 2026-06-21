@@ -712,6 +712,60 @@ def test_player_support_handoff_readiness_checklist_summarizes_transfer_gates() 
         shutil.rmtree(handoff_artifact_root, ignore_errors=True)
 
 
+def test_player_support_handoff_operator_packet_exports_runbook_metadata() -> None:
+    temp_dir = Path(".test_tmp") / f"player-support-handoff-operator-{uuid4().hex}"
+    packet_artifact_root = Path("src/gw2radar/reports/artifacts/player_session_packets")
+    handoff_artifact_root = Path("src/gw2radar/reports/artifacts/player_support_handoffs")
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        shutil.rmtree(packet_artifact_root, ignore_errors=True)
+        shutil.rmtree(handoff_artifact_root, ignore_errors=True)
+        configure_database(f"sqlite:///{temp_dir / 'support-handoff-operator.db'}")
+        init_db()
+        state.reset_cached_graph()
+        client = TestClient(app)
+        assert client.post("/mock/load").status_code == 200
+
+        debug_bundle = client.post(
+            "/account/debug-bundle",
+            json={"active_view": "build", "active_build_id": "sample-build", "player_intent": "support_operator"},
+        ).json()
+        assert client.post("/api/v1/player/support-handoff/artifacts?limit=10", json={"debug_bundle": debug_bundle}).status_code == 200
+        assert client.post(
+            "/api/v1/player/support-handoff/artifacts/bundle/verification-audit",
+            json={"reviewer": "operator", "notes": ["Operator packet test recorded verification."]},
+        ).status_code == 200
+
+        response = client.get("/api/v1/player/support-handoff/operator-packet")
+        markdown = client.get("/api/v1/player/support-handoff/operator-packet?format=markdown")
+        csv = client.get("/api/v1/player/support-handoff/operator-packet?format=csv")
+        packet = response.json()["data"]["support_handoff_operator_packet"]
+
+        assert response.status_code == 200
+        assert packet["schema_version"] == "gw2radar.player_support_handoff_operator_packet.v1"
+        assert packet["ready"] is True
+        assert packet["maturity_label"] == "ready"
+        assert packet["checklist"]["schema_version"] == "gw2radar.player_support_handoff_readiness_checklist.v1"
+        assert packet["audit_summary"]["record_count"] >= 1
+        assert packet["zip_manifest"]["schema_version"] == "gw2radar.player_support_handoff_zip_manifest.v1"
+        assert "player_support_handoff.zip" in packet["transfer_files"]
+        assert packet["runbook_steps"]
+        assert packet["support_next_actions"]
+        assert packet["safety_boundaries"]
+        assert markdown.status_code == 200
+        assert "# Player Support Handoff Operator Packet" in markdown.text
+        assert "## Runbook Steps" in markdown.text
+        assert csv.status_code == 200
+        assert "packet_id,ready,maturity_label,zip_checksum_sha256" in csv.text
+        assert "secret-key" not in (str(packet) + markdown.text + csv.text).lower()
+    finally:
+        close_database()
+        state.reset_cached_graph()
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        shutil.rmtree(packet_artifact_root, ignore_errors=True)
+        shutil.rmtree(handoff_artifact_root, ignore_errors=True)
+
+
 def test_legendary_catalog_and_actions_cover_player_guide_goal_choices() -> None:
     temp_dir = Path(".test_tmp") / f"legendary-catalog-{uuid4().hex}"
     temp_dir.mkdir(parents=True, exist_ok=True)
