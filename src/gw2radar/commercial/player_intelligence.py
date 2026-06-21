@@ -28,6 +28,7 @@ PLAYER_SESSION_PACKET_ARTIFACT_ROOT = Path("src/gw2radar/reports/artifacts/playe
 PLAYER_SESSION_PACKET_ARTIFACT_FILES = {"packet.json", "packet.md", "packet.csv", "manifest.json"}
 PLAYER_SUPPORT_HANDOFF_ARTIFACT_ROOT = Path("src/gw2radar/reports/artifacts/player_support_handoffs")
 PLAYER_SUPPORT_HANDOFF_ARTIFACT_FILES = {"handoff.json", "handoff.md", "handoff.csv", "manifest.json"}
+PLAYER_SUPPORT_HANDOFF_AUDIT_ROOT = PLAYER_SUPPORT_HANDOFF_ARTIFACT_ROOT / "audit"
 
 
 class FreshnessAnnotation(BaseModel):
@@ -219,6 +220,40 @@ class PlayerSupportHandoffZipVerification(BaseModel):
         "Support handoff zip verification reads zip bytes only; it does not execute files, write uploaded "
         "content to disk, publish content, or store secrets."
     )
+
+
+class PlayerSupportHandoffZipVerificationAuditRequest(BaseModel):
+    reviewer: str = "support"
+    notes: list[str] = Field(default_factory=list)
+    expected_checksum_sha256: str | None = None
+
+
+class PlayerSupportHandoffZipVerificationAuditRecord(BaseModel):
+    schema_version: str = "gw2radar.player_support_handoff_zip_verification_audit.v1"
+    audit_id: str
+    recorded_at: datetime
+    reviewer: str
+    ready: bool
+    checksum_sha256: str
+    size_bytes: int
+    file_count: int
+    blocker_count: int
+    warning_count: int
+    verified_files: list[str] = Field(default_factory=list)
+    blockers: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+    source: str = "player_support_handoff_zip_verification"
+    boundary: str = (
+        "Support handoff verification audit is metadata-only; it records validation results and does not "
+        "store zip bytes, raw API keys, raw debug bundles, or private account payloads."
+    )
+
+
+class PlayerSupportHandoffZipVerificationAuditList(BaseModel):
+    schema_version: str = "gw2radar.player_support_handoff_zip_verification_audit_list.v1"
+    records: list[PlayerSupportHandoffZipVerificationAuditRecord]
+    boundary: str = "Support handoff verification audit exports are metadata-only and exclude zip content and secrets."
 
 
 def build_data_freshness_annotations(graph: GraphData) -> list[FreshnessAnnotation]:
@@ -1203,6 +1238,125 @@ def verify_player_support_handoff_zip_bundle(
     )
 
 
+def record_player_support_handoff_zip_verification_audit(
+    request: PlayerSupportHandoffZipVerificationAuditRequest,
+    *,
+    bundle_bytes: bytes | None = None,
+    audit_root: Path | None = None,
+) -> PlayerSupportHandoffZipVerificationAuditRecord:
+    expected_checksum = request.expected_checksum_sha256
+    if bundle_bytes is None or len(bundle_bytes) == 0:
+        manifest, bundle_bytes = build_player_support_handoff_zip_bundle()
+        expected_checksum = expected_checksum or manifest.checksum_sha256
+    verification = verify_player_support_handoff_zip_bundle(
+        bundle_bytes,
+        expected_checksum_sha256=expected_checksum,
+    )
+    recorded_at = datetime.now(timezone.utc)
+    reviewer = _safe_support_text(request.reviewer or "support", max_length=80)
+    record = PlayerSupportHandoffZipVerificationAuditRecord(
+        audit_id=f"player-support-handoff-zip-audit-{recorded_at.strftime('%Y%m%dT%H%M%S%fZ')}-{uuid4().hex[:8]}",
+        recorded_at=recorded_at,
+        reviewer=reviewer,
+        ready=verification.ready,
+        checksum_sha256=verification.checksum_sha256,
+        size_bytes=verification.size_bytes,
+        file_count=verification.file_count,
+        blocker_count=len(verification.blockers),
+        warning_count=len(verification.warnings),
+        verified_files=verification.verified_files,
+        blockers=verification.blockers,
+        warnings=verification.warnings,
+        notes=[_safe_support_text(note, max_length=240) for note in (request.notes or [])]
+        or ["Support handoff zip verification audit recorded."],
+    )
+    root = audit_root or PLAYER_SUPPORT_HANDOFF_AUDIT_ROOT
+    root.mkdir(parents=True, exist_ok=True)
+    path = root / "verification_audit.jsonl"
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(record.model_dump_json() + "\n")
+    return record
+
+
+def list_player_support_handoff_zip_verification_audits(
+    *,
+    audit_root: Path | None = None,
+    reviewer: str | None = None,
+    limit: int = 20,
+) -> PlayerSupportHandoffZipVerificationAuditList:
+    root = audit_root or PLAYER_SUPPORT_HANDOFF_AUDIT_ROOT
+    path = root / "verification_audit.jsonl"
+    if not path.exists():
+        return PlayerSupportHandoffZipVerificationAuditList(records=[])
+    safe_reviewer = _safe_support_text(reviewer, max_length=80) if reviewer else None
+    records: list[PlayerSupportHandoffZipVerificationAuditRecord] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        try:
+            record = PlayerSupportHandoffZipVerificationAuditRecord.model_validate_json(line)
+        except ValueError:
+            continue
+        if safe_reviewer and record.reviewer != safe_reviewer:
+            continue
+        records.append(record)
+    records.sort(key=lambda item: item.recorded_at, reverse=True)
+    return PlayerSupportHandoffZipVerificationAuditList(records=records[: max(1, min(limit, 100))])
+
+
+def render_player_support_handoff_zip_verification_audit_markdown(
+    audit: PlayerSupportHandoffZipVerificationAuditList,
+) -> str:
+    lines = [
+        "# Player Support Handoff Zip Verification Audit",
+        "",
+        f"- Records: {len(audit.records)}",
+        "",
+        "## Records",
+    ]
+    if not audit.records:
+        lines.append("- No verification audit records are available.")
+    for record in audit.records:
+        lines.extend(
+            [
+                f"- {record.audit_id}",
+                f"  - Reviewer: {record.reviewer}",
+                f"  - Ready: {record.ready}",
+                f"  - Checksum: {record.checksum_sha256}",
+                f"  - Files: {record.file_count}",
+                f"  - Blockers: {record.blocker_count}",
+                f"  - Warnings: {record.warning_count}",
+            ]
+        )
+    lines.extend(["", "## Boundary", "", f"- {audit.boundary}"])
+    return "\n".join(lines) + "\n"
+
+
+def render_player_support_handoff_zip_verification_audit_csv(
+    audit: PlayerSupportHandoffZipVerificationAuditList,
+) -> str:
+    rows = [
+        "audit_id,recorded_at,reviewer,ready,checksum_sha256,size_bytes,file_count,blocker_count,warning_count"
+    ]
+    for record in audit.records:
+        rows.append(
+            ",".join(
+                [
+                    _csv(record.audit_id),
+                    _csv(record.recorded_at.isoformat()),
+                    _csv(record.reviewer),
+                    _csv(str(record.ready)),
+                    _csv(record.checksum_sha256),
+                    _csv(str(record.size_bytes)),
+                    _csv(str(record.file_count)),
+                    _csv(str(record.blocker_count)),
+                    _csv(str(record.warning_count)),
+                ]
+            )
+        )
+    return "\n".join(rows) + "\n"
+
+
 def _missing_debug_bundle_review() -> SupportReviewReport:
     report = review_account_debug_bundle({})
     report.overall_status = "debug_bundle_not_provided"
@@ -1262,6 +1416,12 @@ def _verify_support_handoff_zip_payloads(archive: ZipFile, names: list[str], blo
                 blockers.append("support handoff CSV header mismatch")
         except UnicodeDecodeError as exc:
             blockers.append(f"support handoff CSV is not UTF-8: {exc}")
+
+
+def _safe_support_text(value: str | None, *, max_length: int) -> str:
+    text = " ".join(str(value or "").split())
+    cleaned = "".join(character for character in text if character.isprintable())
+    return (cleaned or "support")[:max_length]
 
 
 def _do_not_sell_alerts(graph: GraphData, goal_id: str) -> list[str]:

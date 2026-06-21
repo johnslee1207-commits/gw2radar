@@ -437,6 +437,55 @@ def main() -> int:
             "mature_support_handoff_zip_verification",
             f"zip checksum {str(support_handoff_zip_manifest.get('checksum_sha256', ''))[:12]} verified with {support_handoff_zip_verification.get('file_count', 0)} files.",
         )
+        support_handoff_zip_audit_record = _json(
+            client.post(
+                "/api/v1/player/support-handoff/artifacts/bundle/verification-audit",
+                json={"reviewer": "player-audit", "notes": ["Use-path audit recorded support handoff zip verification."]},
+            ),
+            "record player support handoff zip verification audit",
+            checks,
+        )
+        support_handoff_zip_audit = _json(
+            client.get("/api/v1/player/support-handoff/artifacts/bundle/verification-audit?reviewer=player-audit&limit=10"),
+            "load player support handoff zip verification audit",
+            checks,
+        )
+        support_handoff_zip_audit_md = client.get(
+            "/api/v1/player/support-handoff/artifacts/bundle/verification-audit?format=markdown"
+        )
+        support_handoff_zip_audit_csv = client.get(
+            "/api/v1/player/support-handoff/artifacts/bundle/verification-audit?format=csv"
+        )
+        audit_record = _get(
+            support_handoff_zip_audit_record,
+            "data",
+            "support_handoff_zip_verification_audit_record",
+        ) or {}
+        audit_list = _get(
+            support_handoff_zip_audit,
+            "data",
+            "support_handoff_zip_verification_audit",
+        ) or {}
+        _add(
+            checks,
+            "player_support_handoff_zip_verification_audit",
+            "Support handoff zip verification results are recorded as metadata-only audit records.",
+            audit_record.get("schema_version") == "gw2radar.player_support_handoff_zip_verification_audit.v1"
+            and audit_record.get("ready") is True
+            and audit_record.get("reviewer") == "player-audit"
+            and audit_record.get("file_count") == 4
+            and audit_record.get("checksum_sha256") == support_handoff_zip_manifest.get("checksum_sha256")
+            and _get(audit_list, "schema_version") == "gw2radar.player_support_handoff_zip_verification_audit_list.v1"
+            and bool(audit_list.get("records"))
+            and support_handoff_zip_audit_md.status_code == 200
+            and "# Player Support Handoff Zip Verification Audit" in support_handoff_zip_audit_md.text
+            and support_handoff_zip_audit_csv.status_code == 200
+            and "audit_id,recorded_at,reviewer,ready,checksum_sha256" in support_handoff_zip_audit_csv.text
+            and "secret-key" not in json.dumps(audit_list).lower()
+            and "secret-key" not in (support_handoff_zip_audit_md.text + support_handoff_zip_audit_csv.text).lower(),
+            "mature_support_handoff_zip_audit",
+            f"{len(audit_list.get('records', []))} audit records for support handoff zip verification.",
+        )
 
         imported = _json(client.post("/api/v1/builds/import", json=_sample_build_import()), "import build", checks)
         build_id = _get(imported, "data", "build", "build_id") or "missing-build-id"
@@ -655,6 +704,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "- `PlayerSupportHandoffBundle` combines packet artifact metadata with account debug review status for privacy-safe support triage.",
             "- `PlayerSupportHandoffArtifacts` archives handoff JSON/Markdown/CSV/manifest files with checksums and path-safe retrieval.",
             "- `PlayerSupportHandoffZipVerification` transfers handoff artifacts as a read-only zip and verifies schema, checksum, whitelist, and no-secret boundaries from bytes.",
+            "- `PlayerSupportHandoffZipVerificationAudit` records verification outcomes as metadata-only support evidence without storing zip bytes.",
             "- `ReportArtifactManifest` records bridge metadata without storing raw API keys or unredacted private payloads.",
             "",
             "## Known Limits",
@@ -665,7 +715,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Next Priority",
             "",
-            "Add a metadata-only support handoff zip verification audit trail so successful and blocked imports can be reviewed over time.",
+            "Add a support handoff readiness checklist that summarizes artifact, zip verification, and audit gates for support operators.",
             "",
         ]
     )

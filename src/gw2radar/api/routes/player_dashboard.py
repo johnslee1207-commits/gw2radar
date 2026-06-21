@@ -25,7 +25,10 @@ from gw2radar.commercial.player_intelligence import (
     list_player_readiness_history,
     list_player_session_packet_artifacts,
     list_player_support_handoff_artifacts,
+    list_player_support_handoff_zip_verification_audits,
+    PlayerSupportHandoffZipVerificationAuditRequest,
     record_player_readiness_snapshot,
+    record_player_support_handoff_zip_verification_audit,
     resolve_player_session_packet_artifact_path,
     resolve_player_support_handoff_artifact_path,
     render_player_history_correlation_csv,
@@ -34,6 +37,8 @@ from gw2radar.commercial.player_intelligence import (
     render_player_session_packet_markdown,
     render_player_support_handoff_csv,
     render_player_support_handoff_markdown,
+    render_player_support_handoff_zip_verification_audit_csv,
+    render_player_support_handoff_zip_verification_audit_markdown,
     render_player_readiness_history_csv,
     render_player_readiness_history_markdown,
     render_player_readiness_csv,
@@ -315,19 +320,6 @@ def get_player_support_handoff_artifacts(limit: int = 20) -> ApiDataEnvelope:
     return ApiDataEnvelope(data={"artifact_bundles": [bundle.model_dump(mode="json") for bundle in bundles]})
 
 
-@router.get("/support-handoff/artifacts/{artifact_id}/{file_name}", response_model=None)
-def get_player_support_handoff_artifact_file(artifact_id: str, file_name: str) -> Response:
-    path = resolve_player_support_handoff_artifact_path(artifact_id, file_name)
-    if path is None:
-        raise HTTPException(status_code=404, detail="Player support handoff artifact not found")
-    media_type = "application/json"
-    if file_name.endswith(".md"):
-        media_type = "text/markdown; charset=utf-8"
-    elif file_name.endswith(".csv"):
-        media_type = "text/csv; charset=utf-8"
-    return Response(content=path.read_text(encoding="utf-8"), media_type=media_type)
-
-
 @router.get("/support-handoff/artifacts/bundle", response_model=None)
 def get_player_support_handoff_artifact_bundle(
     format: str = Query(default="zip", pattern="^(zip|manifest)$"),
@@ -363,6 +355,65 @@ def post_player_support_handoff_artifact_bundle_verify(
         expected_checksum_sha256=expected_checksum_sha256,
     )
     return ApiDataEnvelope(data={"support_handoff_zip_verification": verification.model_dump(mode="json")})
+
+
+@router.post("/support-handoff/artifacts/bundle/verification-audit", response_model=ApiDataEnvelope)
+def post_player_support_handoff_artifact_bundle_verification_audit(
+    request: PlayerSupportHandoffZipVerificationAuditRequest,
+) -> ApiDataEnvelope:
+    _ensure_player_support_handoff_artifact()
+    record = record_player_support_handoff_zip_verification_audit(request)
+    return ApiDataEnvelope(data={"support_handoff_zip_verification_audit_record": record.model_dump(mode="json")})
+
+
+@router.post("/support-handoff/artifacts/bundle/verification-audit/upload", response_model=ApiDataEnvelope)
+def post_player_support_handoff_artifact_bundle_verification_audit_upload(
+    bundle: bytes = Body(media_type="application/zip"),
+    reviewer: str = Query(default="support"),
+    expected_checksum_sha256: str | None = Query(default=None),
+) -> ApiDataEnvelope:
+    request = PlayerSupportHandoffZipVerificationAuditRequest(
+        reviewer=reviewer,
+        expected_checksum_sha256=expected_checksum_sha256,
+        notes=["Support handoff zip verification audit recorded from uploaded zip bytes."],
+    )
+    record = record_player_support_handoff_zip_verification_audit(request, bundle_bytes=bundle)
+    return ApiDataEnvelope(data={"support_handoff_zip_verification_audit_record": record.model_dump(mode="json")})
+
+
+@router.get("/support-handoff/artifacts/bundle/verification-audit", response_model=None)
+def get_player_support_handoff_artifact_bundle_verification_audit(
+    reviewer: str | None = None,
+    limit: int = 20,
+    format: str = "json",
+) -> ApiDataEnvelope | Response:
+    audit = list_player_support_handoff_zip_verification_audits(reviewer=reviewer, limit=limit)
+    if format == "markdown":
+        return Response(
+            content=render_player_support_handoff_zip_verification_audit_markdown(audit),
+            media_type="text/markdown; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="player_support_handoff_zip_verification_audit.md"'},
+        )
+    if format == "csv":
+        return Response(
+            content=render_player_support_handoff_zip_verification_audit_csv(audit),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="player_support_handoff_zip_verification_audit.csv"'},
+        )
+    return ApiDataEnvelope(data={"support_handoff_zip_verification_audit": audit.model_dump(mode="json")})
+
+
+@router.get("/support-handoff/artifacts/{artifact_id}/{file_name}", response_model=None)
+def get_player_support_handoff_artifact_file(artifact_id: str, file_name: str) -> Response:
+    path = resolve_player_support_handoff_artifact_path(artifact_id, file_name)
+    if path is None:
+        raise HTTPException(status_code=404, detail="Player support handoff artifact not found")
+    media_type = "application/json"
+    if file_name.endswith(".md"):
+        media_type = "text/markdown; charset=utf-8"
+    elif file_name.endswith(".csv"):
+        media_type = "text/csv; charset=utf-8"
+    return Response(content=path.read_text(encoding="utf-8"), media_type=media_type)
 
 
 def _build_player_support_handoff(

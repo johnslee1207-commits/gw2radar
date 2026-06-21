@@ -1070,6 +1070,27 @@ function renderPlayerSupportHandoffZipVerification(verification) {
   });
 }
 
+function renderPlayerSupportHandoffZipAudit(audit) {
+  const list = document.querySelector("#support-handoff-zip-audit");
+  if (!list) {
+    return;
+  }
+  list.innerHTML = "";
+  const records = Array.isArray(audit?.records) ? audit.records : [];
+  if (!records.length) {
+    list.textContent = "No support handoff zip audit records are available yet.";
+    return;
+  }
+  records.slice(0, 5).forEach((record) => {
+    appendCompactBridgeRow(
+      list,
+      record.ready ? "ready" : "blocked",
+      `${record.audit_id || "audit"} · reviewer ${record.reviewer || "support"} · ${record.blocker_count || 0} blockers`,
+      record.ready ? "info" : "warn"
+    );
+  });
+}
+
 function valueReadinessClass(label) {
   if (label === "ready") {
     return "info";
@@ -1866,6 +1887,25 @@ const actions = {
       const payload = await fetchJson("/api/v1/player/support-handoff/artifacts/bundle/verify", { method: "POST" });
       renderPlayerSupportHandoffZipVerification(payload?.data?.support_handoff_zip_verification || {});
       return payload;
+    }),
+  recordPlayerSupportHandoffZipAudit: () =>
+    run("dashboard", async () => {
+      const payload = await fetchJson("/api/v1/player/support-handoff/artifacts/bundle/verification-audit", {
+        method: "POST",
+        body: JSON.stringify({
+          reviewer: "player-ui",
+          notes: ["Player UI recorded support handoff zip verification audit."],
+        }),
+      });
+      const audit = await fetchJson("/api/v1/player/support-handoff/artifacts/bundle/verification-audit?reviewer=player-ui&limit=10");
+      renderPlayerSupportHandoffZipAudit(audit?.data?.support_handoff_zip_verification_audit || {});
+      return { payload, audit };
+    }),
+  loadPlayerSupportHandoffZipAudit: () =>
+    run("dashboard", async () => {
+      const audit = await fetchJson("/api/v1/player/support-handoff/artifacts/bundle/verification-audit?limit=10");
+      renderPlayerSupportHandoffZipAudit(audit?.data?.support_handoff_zip_verification_audit || {});
+      return audit;
     }),
   exportAccountValueMarkdown: () =>
     run("dashboard", async () => {

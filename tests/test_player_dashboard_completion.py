@@ -594,6 +594,71 @@ def test_player_support_handoff_zip_bundle_download_and_verification_import() ->
         shutil.rmtree(handoff_artifact_root, ignore_errors=True)
 
 
+def test_player_support_handoff_zip_verification_audit_trail_exports_metadata_only() -> None:
+    temp_dir = Path(".test_tmp") / f"player-support-handoff-zip-audit-{uuid4().hex}"
+    packet_artifact_root = Path("src/gw2radar/reports/artifacts/player_session_packets")
+    handoff_artifact_root = Path("src/gw2radar/reports/artifacts/player_support_handoffs")
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        shutil.rmtree(packet_artifact_root, ignore_errors=True)
+        shutil.rmtree(handoff_artifact_root, ignore_errors=True)
+        configure_database(f"sqlite:///{temp_dir / 'support-handoff-zip-audit.db'}")
+        init_db()
+        state.reset_cached_graph()
+        client = TestClient(app)
+        assert client.post("/mock/load").status_code == 200
+
+        debug_bundle = client.post(
+            "/account/debug-bundle",
+            json={"active_view": "build", "active_build_id": "sample-build", "player_intent": "support_audit"},
+        ).json()
+        assert client.post("/api/v1/player/support-handoff/artifacts?limit=10", json={"debug_bundle": debug_bundle}).status_code == 200
+        bundle_zip = client.get("/api/v1/player/support-handoff/artifacts/bundle")
+
+        record = client.post(
+            "/api/v1/player/support-handoff/artifacts/bundle/verification-audit",
+            json={"reviewer": "support lead", "notes": ["Unit test recorded support handoff verification."]},
+        )
+        upload_record = client.post(
+            "/api/v1/player/support-handoff/artifacts/bundle/verification-audit/upload?reviewer=upload%20lead",
+            content=bundle_zip.content,
+            headers={"content-type": "application/zip"},
+        )
+        listed = client.get("/api/v1/player/support-handoff/artifacts/bundle/verification-audit?limit=10")
+        filtered = client.get("/api/v1/player/support-handoff/artifacts/bundle/verification-audit?reviewer=upload%20lead&limit=10")
+        markdown = client.get("/api/v1/player/support-handoff/artifacts/bundle/verification-audit?format=markdown")
+        csv = client.get("/api/v1/player/support-handoff/artifacts/bundle/verification-audit?format=csv")
+
+        assert record.status_code == 200
+        record_payload = record.json()["data"]["support_handoff_zip_verification_audit_record"]
+        assert record_payload["schema_version"] == "gw2radar.player_support_handoff_zip_verification_audit.v1"
+        assert record_payload["ready"] is True
+        assert record_payload["reviewer"] == "support lead"
+        assert record_payload["file_count"] == 4
+        assert record_payload["checksum_sha256"] == bundle_zip.headers["x-checksum-sha256"]
+        assert upload_record.status_code == 200
+        assert upload_record.json()["data"]["support_handoff_zip_verification_audit_record"]["reviewer"] == "upload lead"
+        assert listed.status_code == 200
+        audit = listed.json()["data"]["support_handoff_zip_verification_audit"]
+        assert audit["schema_version"] == "gw2radar.player_support_handoff_zip_verification_audit_list.v1"
+        assert len(audit["records"]) >= 2
+        assert filtered.status_code == 200
+        assert filtered.json()["data"]["support_handoff_zip_verification_audit"]["records"][0]["reviewer"] == "upload lead"
+        assert markdown.status_code == 200
+        assert "# Player Support Handoff Zip Verification Audit" in markdown.text
+        assert csv.status_code == 200
+        assert "audit_id,recorded_at,reviewer,ready,checksum_sha256" in csv.text
+        combined = str(audit) + markdown.text + csv.text
+        assert "secret-key" not in combined.lower()
+        assert "PK" not in csv.text
+    finally:
+        close_database()
+        state.reset_cached_graph()
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        shutil.rmtree(packet_artifact_root, ignore_errors=True)
+        shutil.rmtree(handoff_artifact_root, ignore_errors=True)
+
+
 def test_legendary_catalog_and_actions_cover_player_guide_goal_choices() -> None:
     temp_dir = Path(".test_tmp") / f"legendary-catalog-{uuid4().hex}"
     temp_dir.mkdir(parents=True, exist_ok=True)
