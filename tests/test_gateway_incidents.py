@@ -266,6 +266,12 @@ def test_player_gateway_incident_timeline_correlates_refresh_events_without_secr
         final_handoff_checklist_csv = client.get(
             "/api/v1/player/support-case/incident-final-handoff-checklist?format=csv&limit=20"
         )
+        final_handoff_packet = client.post(
+            "/api/v1/player/support-case/incident-final-handoff-packet/artifacts?limit=20"
+        )
+        final_handoff_packets = client.get(
+            "/api/v1/player/support-case/incident-final-handoff-packet/artifacts?limit=10"
+        )
         assert manifest.status_code == 200
         assert "gw2radar.support_case_incident_packet_manifest.v1" in manifest.text
         assert packet_md.status_code == 200
@@ -459,6 +465,40 @@ def test_player_gateway_incident_timeline_correlates_refresh_events_without_secr
         assert "# Support Case Incident Final Handoff Checklist" in final_handoff_checklist_markdown.text
         assert final_handoff_checklist_csv.status_code == 200
         assert "ready,maturity_label,latest_operator_artifact_id" in final_handoff_checklist_csv.text
+        assert final_handoff_packet.status_code == 200
+        final_packet_payload = final_handoff_packet.json()["data"]["support_case_incident_final_handoff_packet"]
+        assert final_packet_payload["schema_version"] == "gw2radar.support_case_incident_final_handoff_packet_manifest.v1"
+        assert final_packet_payload["ready"] is True
+        assert final_packet_payload["file_count"] == 6
+        assert len(final_packet_payload["checksum_sha256"]) == 64
+        assert {file["file_name"] for file in final_packet_payload["files"]} == {
+            "checklist.json",
+            "checklist.md",
+            "checklist.csv",
+            "operator_artifact_manifest.json",
+            "operator_zip_verification_audit.csv",
+            "manifest.json",
+        }
+        assert final_handoff_packets.status_code == 200
+        assert final_handoff_packets.json()["data"]["support_case_incident_final_handoff_packets"][0]["packet_id"] == final_packet_payload["packet_id"]
+        final_packet_manifest = client.get(
+            f"/api/v1/player/support-case/incident-final-handoff-packet/artifacts/{final_packet_payload['packet_id']}/manifest.json"
+        )
+        final_packet_checklist_md = client.get(
+            f"/api/v1/player/support-case/incident-final-handoff-packet/artifacts/{final_packet_payload['packet_id']}/checklist.md"
+        )
+        final_packet_blocked = client.get(
+            f"/api/v1/player/support-case/incident-final-handoff-packet/artifacts/{final_packet_payload['packet_id']}/../manifest.json"
+        )
+        final_packet_secret = client.get(
+            f"/api/v1/player/support-case/incident-final-handoff-packet/artifacts/{final_packet_payload['packet_id']}/secret.txt"
+        )
+        assert final_packet_manifest.status_code == 200
+        assert "gw2radar.support_case_incident_final_handoff_packet_manifest.v1" in final_packet_manifest.text
+        assert final_packet_checklist_md.status_code == 200
+        assert "# Support Case Incident Final Handoff Checklist" in final_packet_checklist_md.text
+        assert final_packet_blocked.status_code == 404
+        assert final_packet_secret.status_code == 404
         assert tampered_operator_audit.status_code == 200
         tampered_operator_record = tampered_operator_audit.json()["data"]["support_case_incident_operator_packet_zip_verification_audit_record"]
         assert tampered_operator_record["ready"] is False
@@ -470,6 +510,9 @@ def test_player_gateway_incident_timeline_correlates_refresh_events_without_secr
             + str(final_checklist)
             + final_handoff_checklist_markdown.text
             + final_handoff_checklist_csv.text
+            + str(final_packet_payload)
+            + final_packet_manifest.text
+            + final_packet_checklist_md.text
             + str(tampered_operator_record)
         ).lower()
         assert session_packet.status_code == 200

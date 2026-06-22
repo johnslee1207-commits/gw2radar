@@ -698,6 +698,53 @@ def main() -> int:
             "mature_support_case_incident_final_handoff_checklist",
             f"{support_case_incident_final_checklist.get('operator_artifact_file_count', 0)} operator files and {support_case_incident_final_checklist.get('operator_zip_audit_count', 0)} audit records gated.",
         )
+        support_case_incident_final_packet_response = _json(
+            client.post("/api/v1/player/support-case/incident-final-handoff-packet/artifacts?limit=20"),
+            "write support case incident final handoff packet artifacts",
+            checks,
+        )
+        support_case_incident_final_packet = _get(
+            support_case_incident_final_packet_response,
+            "data",
+            "support_case_incident_final_handoff_packet",
+        ) or {}
+        support_case_incident_final_packets_response = _json(
+            client.get("/api/v1/player/support-case/incident-final-handoff-packet/artifacts?limit=10"),
+            "list support case incident final handoff packet artifacts",
+            checks,
+        )
+        support_case_incident_final_packets = _get(
+            support_case_incident_final_packets_response,
+            "data",
+            "support_case_incident_final_handoff_packets",
+        ) or []
+        final_packet_id = support_case_incident_final_packet.get("packet_id", "")
+        support_case_incident_final_packet_manifest = client.get(
+            f"/api/v1/player/support-case/incident-final-handoff-packet/artifacts/{final_packet_id}/manifest.json"
+        )
+        support_case_incident_final_packet_checklist = client.get(
+            f"/api/v1/player/support-case/incident-final-handoff-packet/artifacts/{final_packet_id}/checklist.md"
+        )
+        _add(
+            checks,
+            "support_case_incident_final_handoff_packet_artifacts",
+            "Support case incident final handoff packet writes deterministic metadata files, manifest, checksum, and path-safe retrieval.",
+            support_case_incident_final_packet.get("schema_version")
+            == "gw2radar.support_case_incident_final_handoff_packet_manifest.v1"
+            and support_case_incident_final_packet.get("ready") is True
+            and support_case_incident_final_packet.get("file_count") == 6
+            and len(support_case_incident_final_packet.get("checksum_sha256", "")) == 64
+            and len(support_case_incident_final_packets) >= 1
+            and support_case_incident_final_packet_manifest.status_code == 200
+            and "gw2radar.support_case_incident_final_handoff_packet_manifest.v1"
+            in support_case_incident_final_packet_manifest.text
+            and support_case_incident_final_packet_checklist.status_code == 200
+            and "# Support Case Incident Final Handoff Checklist"
+            in support_case_incident_final_packet_checklist.text
+            and "secret-key" not in json.dumps(support_case_incident_final_packet).lower(),
+            "mature_support_case_incident_final_handoff_packet_artifacts",
+            f"{support_case_incident_final_packet.get('file_count', 0)} final handoff files with checksum {support_case_incident_final_packet.get('checksum_sha256', '')[:12]}.",
+        )
         player_readiness = _json(client.get("/api/v1/player/readiness"), "load player readiness", checks)
         readiness = _get(player_readiness, "data", "readiness") or {}
         _add(
@@ -1517,6 +1564,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "- `SupportCaseIncidentOperatorPacketZipVerification` packages operator packet artifacts as a read-only zip and verifies checksum, schema, whitelist, and no-secret boundaries.",
             "- `SupportCaseIncidentOperatorPacketZipVerificationAudit` records operator packet zip verification outcomes as metadata-only support evidence.",
             "- `SupportCaseIncidentFinalHandoffChecklist` combines operator artifact, zip, verification, and audit gates into a support closure view.",
+            "- `SupportCaseIncidentFinalHandoffPacketArtifacts` write final closure checklist, manifest, operator artifact manifest, and audit export files with checksums.",
             "- `ReportArtifactManifest` records bridge metadata without storing raw API keys or unredacted private payloads.",
             "",
             "## Known Limits",
@@ -1527,7 +1575,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Next Priority",
             "",
-            "Build Support Case Incident Final Handoff Packet artifacts with deterministic metadata files, manifest, and path-safe retrieval.",
+            "Build Support Case Incident Final Handoff Packet zip archive with whitelist verification and checksum audit.",
             "",
         ]
     )

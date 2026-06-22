@@ -47,6 +47,8 @@ const exportIncidentOperatorPacketZipAuditCsvButton = document.querySelector("#e
 const loadIncidentFinalHandoffChecklistButton = document.querySelector("#load-incident-final-handoff-checklist-button");
 const exportIncidentFinalHandoffChecklistMdButton = document.querySelector("#export-incident-final-handoff-checklist-md-button");
 const exportIncidentFinalHandoffChecklistCsvButton = document.querySelector("#export-incident-final-handoff-checklist-csv-button");
+const writeIncidentFinalHandoffPacketButton = document.querySelector("#write-incident-final-handoff-packet-button");
+const loadIncidentFinalHandoffPacketsButton = document.querySelector("#load-incident-final-handoff-packets-button");
 const exportIncidentDashboardMdButton = document.querySelector("#export-incident-dashboard-md-button");
 const exportIncidentDashboardCsvButton = document.querySelector("#export-incident-dashboard-csv-button");
 const summary = document.querySelector("#support-summary");
@@ -88,8 +90,10 @@ const incidentOperatorPacketSummary = document.querySelector("#incident-operator
 const incidentOperatorPacketZipSummary = document.querySelector("#incident-operator-packet-zip-summary");
 const incidentOperatorPacketZipAuditSummary = document.querySelector("#incident-operator-packet-zip-audit-summary");
 const incidentFinalHandoffChecklistSummary = document.querySelector("#incident-final-handoff-checklist-summary");
+const incidentFinalHandoffPacketSummary = document.querySelector("#incident-final-handoff-packet-summary");
 const incidentPacketList = document.querySelector("#incident-packet-list");
 const incidentOperatorPacketList = document.querySelector("#incident-operator-packet-list");
+const incidentFinalHandoffPacketList = document.querySelector("#incident-final-handoff-packet-list");
 const output = document.querySelector("#support-output");
 let lastBundle = null;
 let lastReview = null;
@@ -504,6 +508,21 @@ function exportSupportCaseIncidentFinalHandoffChecklist(format) {
   window.location.href = `/api/v1/player/support-case/incident-final-handoff-checklist?format=${format}&limit=20`;
 }
 
+async function writeSupportCaseIncidentFinalHandoffPacket() {
+  const response = await fetch("/api/v1/player/support-case/incident-final-handoff-packet/artifacts?limit=20", { method: "POST" });
+  const payload = await response.json();
+  const packet = payload.data?.support_case_incident_final_handoff_packet || {};
+  incidentFinalHandoffPacketSummary.textContent = `Final packet written: ${packet.packet_id || "unknown"} · ${packet.file_count || 0} files · checksum ${packet.checksum_sha256 || "none"}.`;
+  output.textContent = JSON.stringify(payload, null, 2);
+  await loadSupportCaseIncidentFinalHandoffPackets();
+}
+
+async function loadSupportCaseIncidentFinalHandoffPackets() {
+  const response = await fetch("/api/v1/player/support-case/incident-final-handoff-packet/artifacts?limit=10");
+  const payload = await response.json();
+  renderSupportCaseIncidentFinalHandoffPackets(payload.data?.support_case_incident_final_handoff_packets || []);
+}
+
 function renderSupportCaseIncidentDashboard(dashboard) {
   const cards = Array.isArray(dashboard.status_cards) ? dashboard.status_cards : [];
   incidentDashboardSummary.textContent = `${dashboard.support_status || "unknown"} · ${dashboard.maturity_label || "unknown"} · gateway notes ${dashboard.gateway_note_count || 0} · support audits ${dashboard.support_audit_count || 0}.`;
@@ -521,6 +540,27 @@ function renderSupportCaseIncidentDashboard(dashboard) {
     summaryText.textContent = card.summary || "";
     item.append(title, summaryText);
     incidentDashboardCards.appendChild(item);
+  }
+}
+
+function renderSupportCaseIncidentFinalHandoffPackets(packets) {
+  incidentFinalHandoffPacketList.innerHTML = "";
+  if (!packets.length) {
+    incidentFinalHandoffPacketList.textContent = "No support case incident final handoff packets are available yet.";
+    return;
+  }
+  incidentFinalHandoffPacketSummary.textContent = `${packets.length} final handoff packets loaded.`;
+  for (const packet of packets) {
+    const item = document.createElement("article");
+    item.className = "support-audit-record info";
+    const title = document.createElement("strong");
+    title.textContent = `${packet.packet_id || "unknown"} · ${packet.file_count || 0} files`;
+    const meta = document.createElement("p");
+    meta.textContent = `Ready ${packet.ready ? "yes" : "no"} · ${packet.maturity_label || "unknown"} · checksum ${packet.checksum_sha256 || "none"}.`;
+    const files = document.createElement("p");
+    files.textContent = `Files: ${(packet.files || []).map((file) => file.file_name).join(", ")}`;
+    item.append(title, meta, files);
+    incidentFinalHandoffPacketList.appendChild(item);
   }
 }
 
@@ -1014,6 +1054,10 @@ loadIncidentFinalHandoffChecklistButton?.addEventListener("click", loadSupportCa
 exportIncidentFinalHandoffChecklistMdButton?.addEventListener("click", () => exportSupportCaseIncidentFinalHandoffChecklist("markdown"));
 
 exportIncidentFinalHandoffChecklistCsvButton?.addEventListener("click", () => exportSupportCaseIncidentFinalHandoffChecklist("csv"));
+
+writeIncidentFinalHandoffPacketButton?.addEventListener("click", writeSupportCaseIncidentFinalHandoffPacket);
+
+loadIncidentFinalHandoffPacketsButton?.addEventListener("click", loadSupportCaseIncidentFinalHandoffPackets);
 
 exportIncidentDashboardMdButton?.addEventListener("click", () => exportSupportCaseIncidentDashboard("markdown"));
 

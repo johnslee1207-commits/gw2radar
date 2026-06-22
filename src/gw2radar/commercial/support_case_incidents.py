@@ -27,6 +27,17 @@ SUPPORT_CASE_INCIDENT_OPERATOR_PACKET_FILES = {
     "verification_audit.csv",
     "manifest.json",
 }
+SUPPORT_CASE_INCIDENT_FINAL_HANDOFF_PACKET_ROOT = Path(
+    "src/gw2radar/reports/artifacts/support_case_incident_final_handoff_packets"
+)
+SUPPORT_CASE_INCIDENT_FINAL_HANDOFF_PACKET_FILES = {
+    "checklist.json",
+    "checklist.md",
+    "checklist.csv",
+    "operator_artifact_manifest.json",
+    "operator_zip_verification_audit.csv",
+    "manifest.json",
+}
 
 
 class SupportCaseIncidentDashboard(BaseModel):
@@ -322,6 +333,30 @@ class SupportCaseIncidentFinalHandoffChecklist(BaseModel):
         "Support case incident final handoff checklist is metadata-only; it summarizes operator "
         "artifact, zip, verification, and audit gates without storing zip bytes, raw API keys, "
         "raw debug bundles, or private account payloads."
+    )
+
+
+class SupportCaseIncidentFinalHandoffPacketManifest(BaseModel):
+    schema_version: str = "gw2radar.support_case_incident_final_handoff_packet_manifest.v1"
+    packet_id: str
+    artifact_root: str
+    generated_at: datetime
+    source_checklist_schema_version: str
+    ready: bool
+    maturity_label: str
+    file_count: int
+    files: list[SupportCaseIncidentPacketFile]
+    manifest_path: str
+    checksum_sha256: str
+    contains_raw_key: bool = False
+    contains_raw_debug_bundle: bool = False
+    contains_private_source_payload: bool = False
+    contains_zip_bytes: bool = False
+    contains_executable_content: bool = False
+    allowed_files: list[str] = Field(default_factory=lambda: sorted(SUPPORT_CASE_INCIDENT_FINAL_HANDOFF_PACKET_FILES))
+    boundary: str = (
+        "Support case incident final handoff packet files are deterministic metadata exports and "
+        "exclude zip bytes, raw API keys, raw debug bundles, private account payloads, and executable content."
     )
 
 
@@ -1629,6 +1664,136 @@ def render_support_case_incident_final_handoff_checklist_csv(
     rows.extend(f"warning,{_csv(item)}" for item in checklist.warnings)
     rows.extend(f"next_action,{_csv(item)}" for item in checklist.next_actions)
     return "\n".join(rows) + "\n"
+
+
+def write_support_case_incident_final_handoff_packet_artifacts(
+    checklist: SupportCaseIncidentFinalHandoffChecklist,
+    *,
+    artifact_root: Path | None = None,
+) -> SupportCaseIncidentFinalHandoffPacketManifest:
+    root = artifact_root or SUPPORT_CASE_INCIDENT_FINAL_HANDOFF_PACKET_ROOT
+    generated_at = datetime.now(timezone.utc)
+    packet_id = f"support-case-incident-final-handoff-{generated_at.strftime('%Y%m%dT%H%M%S%fZ')}-{uuid4().hex[:8]}"
+    packet_dir = root / packet_id
+    packet_dir.mkdir(parents=True, exist_ok=False)
+    operator_artifacts = list_support_case_incident_operator_packet_artifacts(limit=1)
+    operator_artifact = operator_artifacts[0] if operator_artifacts else None
+    operator_audit = list_support_case_incident_operator_packet_zip_verification_audits(limit=20)
+    contents = {
+        "checklist.json": checklist.model_dump_json(indent=2),
+        "checklist.md": render_support_case_incident_final_handoff_checklist_markdown(checklist),
+        "checklist.csv": render_support_case_incident_final_handoff_checklist_csv(checklist),
+        "operator_artifact_manifest.json": (
+            operator_artifact.model_dump_json(indent=2) if operator_artifact else json.dumps({}, indent=2)
+        ),
+        "operator_zip_verification_audit.csv": render_support_case_incident_operator_packet_zip_verification_audit_csv(
+            operator_audit
+        ),
+    }
+    files: list[SupportCaseIncidentPacketFile] = []
+    for file_name, text in contents.items():
+        file_path = packet_dir / file_name
+        file_path.write_text(text, encoding="utf-8")
+        files.append(_packet_file_entry(root, file_path, file_name, _media_type(file_name), text))
+    manifest_payload = {
+        "schema_version": "gw2radar.support_case_incident_final_handoff_packet_manifest.v1",
+        "packet_id": packet_id,
+        "generated_at": generated_at.isoformat(),
+        "source_checklist_schema_version": checklist.schema_version,
+        "ready": checklist.ready,
+        "maturity_label": checklist.maturity_label,
+        "files": [file.model_dump(mode="json") for file in files],
+        "contains_raw_key": False,
+        "contains_raw_debug_bundle": False,
+        "contains_private_source_payload": False,
+        "contains_zip_bytes": False,
+        "contains_executable_content": False,
+        "allowed_files": sorted(SUPPORT_CASE_INCIDENT_FINAL_HANDOFF_PACKET_FILES),
+        "boundary": "Support case incident final handoff packet artifacts store metadata only.",
+    }
+    manifest_text = json.dumps(manifest_payload, indent=2, sort_keys=True)
+    manifest_path = packet_dir / "manifest.json"
+    manifest_path.write_text(manifest_text, encoding="utf-8")
+    manifest_file = _packet_file_entry(root, manifest_path, "manifest.json", "application/json", manifest_text)
+    files.append(manifest_file)
+    return SupportCaseIncidentFinalHandoffPacketManifest(
+        packet_id=packet_id,
+        artifact_root=root.as_posix(),
+        generated_at=generated_at,
+        source_checklist_schema_version=checklist.schema_version,
+        ready=checklist.ready,
+        maturity_label=checklist.maturity_label,
+        file_count=len(files),
+        files=files,
+        manifest_path=manifest_file.relative_path,
+        checksum_sha256=_packet_checksum(files),
+    )
+
+
+def list_support_case_incident_final_handoff_packets(
+    *,
+    artifact_root: Path | None = None,
+    limit: int = 20,
+) -> list[SupportCaseIncidentFinalHandoffPacketManifest]:
+    root = artifact_root or SUPPORT_CASE_INCIDENT_FINAL_HANDOFF_PACKET_ROOT
+    if not root.exists():
+        return []
+    packets: list[SupportCaseIncidentFinalHandoffPacketManifest] = []
+    for packet_dir in sorted([path for path in root.iterdir() if path.is_dir()], key=lambda item: item.name, reverse=True)[: max(1, min(limit, 100))]:
+        manifest_path = packet_dir / "manifest.json"
+        if not manifest_path.exists():
+            continue
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        files = [
+            SupportCaseIncidentPacketFile(**file)
+            for file in manifest.get("files", [])
+            if file.get("file_name") in SUPPORT_CASE_INCIDENT_FINAL_HANDOFF_PACKET_FILES
+        ]
+        manifest_text = manifest_path.read_text(encoding="utf-8")
+        manifest_file = _packet_file_entry(root, manifest_path, "manifest.json", "application/json", manifest_text)
+        if not any(file.file_name == "manifest.json" for file in files):
+            files.append(manifest_file)
+        packets.append(
+            SupportCaseIncidentFinalHandoffPacketManifest(
+                packet_id=packet_dir.name,
+                artifact_root=root.as_posix(),
+                generated_at=datetime.fromisoformat(manifest["generated_at"]),
+                source_checklist_schema_version=str(
+                    manifest.get("source_checklist_schema_version") or "unknown"
+                ),
+                ready=bool(manifest.get("ready")),
+                maturity_label=str(manifest.get("maturity_label") or "unknown"),
+                file_count=len(files),
+                files=files,
+                manifest_path=manifest_file.relative_path,
+                checksum_sha256=_packet_checksum(files),
+            )
+        )
+    return packets
+
+
+def resolve_support_case_incident_final_handoff_packet_path(
+    packet_id: str,
+    file_name: str,
+    *,
+    artifact_root: Path | None = None,
+) -> Path | None:
+    if "/" in packet_id or "\\" in packet_id or ".." in packet_id:
+        return None
+    if file_name not in SUPPORT_CASE_INCIDENT_FINAL_HANDOFF_PACKET_FILES:
+        return None
+    root = artifact_root or SUPPORT_CASE_INCIDENT_FINAL_HANDOFF_PACKET_ROOT
+    candidate = root / packet_id / file_name
+    try:
+        candidate.resolve().relative_to(root.resolve())
+    except ValueError:
+        return None
+    if not candidate.exists() or not candidate.is_file():
+        return None
+    return candidate
 
 
 def _render_operator_dashboard_summary_markdown(packet: SupportCaseIncidentOperatorPacket) -> str:

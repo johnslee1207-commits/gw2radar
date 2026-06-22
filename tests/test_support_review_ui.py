@@ -61,6 +61,8 @@ def test_support_review_page_serves_operator_workbench() -> None:
     assert "Load final handoff checklist" in response.text
     assert "Export final checklist MD" in response.text
     assert "Export final checklist CSV" in response.text
+    assert "Write final packet" in response.text
+    assert "Load final packets" in response.text
     assert "incident-packet-zip-summary" in response.text
     assert "incident-packet-zip-audit-summary" in response.text
     assert "incident-handoff-checklist-summary" in response.text
@@ -68,6 +70,8 @@ def test_support_review_page_serves_operator_workbench() -> None:
     assert "incident-operator-packet-zip-summary" in response.text
     assert "incident-operator-packet-zip-audit-summary" in response.text
     assert "incident-final-handoff-checklist-summary" in response.text
+    assert "incident-final-handoff-packet-summary" in response.text
+    assert "incident-final-handoff-packet-list" in response.text
     assert "incident-operator-packet-list" in response.text
     assert "audit-severity-filter" in response.text
     assert "Do Not Request Secrets" in response.text
@@ -130,7 +134,11 @@ def test_support_review_static_assets_include_review_workflow() -> None:
     assert "exportSupportCaseIncidentOperatorPacketZipAuditCsv" in js.text
     assert "loadSupportCaseIncidentFinalHandoffChecklist" in js.text
     assert "exportSupportCaseIncidentFinalHandoffChecklist" in js.text
+    assert "writeSupportCaseIncidentFinalHandoffPacket" in js.text
+    assert "loadSupportCaseIncidentFinalHandoffPackets" in js.text
+    assert "renderSupportCaseIncidentFinalHandoffPackets" in js.text
     assert "/api/v1/player/support-case/incident-final-handoff-checklist" in js.text
+    assert "/api/v1/player/support-case/incident-final-handoff-packet/artifacts" in js.text
     assert "/api/v1/player/support-case/incident-operator-packet" in js.text
     assert "/api/v1/player/support-case/incident-packet/bundle/verification-audit" in js.text
     assert "/api/v1/player/support-case/incident-packet/bundle" in js.text
