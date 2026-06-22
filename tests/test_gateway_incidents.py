@@ -246,6 +246,19 @@ def test_player_gateway_incident_timeline_correlates_refresh_events_without_secr
         operator_zip_manifest = client.get("/api/v1/player/support-case/incident-operator-packet/artifacts/bundle?format=manifest")
         operator_zip_bundle = client.get("/api/v1/player/support-case/incident-operator-packet/artifacts/bundle")
         operator_zip_verify = client.post("/api/v1/player/support-case/incident-operator-packet/artifacts/bundle/verify")
+        operator_zip_audit_record = client.post(
+            "/api/v1/player/support-case/incident-operator-packet/artifacts/bundle/verification-audit",
+            json={"reviewer": "operator lead", "notes": ["Verified operator packet zip before handoff."]},
+        )
+        operator_zip_audit_list = client.get(
+            "/api/v1/player/support-case/incident-operator-packet/artifacts/bundle/verification-audit?reviewer=operator%20lead&limit=10"
+        )
+        operator_zip_audit_markdown = client.get(
+            "/api/v1/player/support-case/incident-operator-packet/artifacts/bundle/verification-audit?format=markdown"
+        )
+        operator_zip_audit_csv = client.get(
+            "/api/v1/player/support-case/incident-operator-packet/artifacts/bundle/verification-audit?format=csv"
+        )
         assert manifest.status_code == 200
         assert "gw2radar.support_case_incident_packet_manifest.v1" in manifest.text
         assert packet_md.status_code == 200
@@ -403,10 +416,34 @@ def test_player_gateway_incident_timeline_correlates_refresh_events_without_secr
             content=tampered_operator_buffer.getvalue(),
             headers={"Content-Type": "application/zip"},
         )
+        tampered_operator_audit = client.post(
+            "/api/v1/player/support-case/incident-operator-packet/artifacts/bundle/verification-audit/upload?reviewer=tamper%20operator",
+            content=tampered_operator_buffer.getvalue(),
+            headers={"Content-Type": "application/zip"},
+        )
         assert tampered_operator_verify.status_code == 200
         tampered_operator = tampered_operator_verify.json()["data"]["support_case_incident_operator_packet_zip_verification"]
         assert tampered_operator["ready"] is False
         assert "secret-key" not in str(tampered_operator).lower()
+        assert operator_zip_audit_record.status_code == 200
+        operator_audit_record = operator_zip_audit_record.json()["data"]["support_case_incident_operator_packet_zip_verification_audit_record"]
+        assert operator_audit_record["schema_version"] == "gw2radar.support_case_incident_operator_packet_zip_verification_audit.v1"
+        assert operator_audit_record["reviewer"] == "operator lead"
+        assert operator_audit_record["ready"] is True
+        assert operator_audit_record["checksum_sha256"] == operator_zip_manifest_payload["checksum_sha256"]
+        assert operator_zip_audit_list.status_code == 200
+        operator_audit_list = operator_zip_audit_list.json()["data"]["support_case_incident_operator_packet_zip_verification_audit"]
+        assert operator_audit_list["schema_version"] == "gw2radar.support_case_incident_operator_packet_zip_verification_audit_list.v1"
+        assert operator_audit_list["records"][0]["reviewer"] == "operator lead"
+        assert operator_zip_audit_markdown.status_code == 200
+        assert "# Support Case Incident Operator Packet Zip Verification Audit" in operator_zip_audit_markdown.text
+        assert operator_zip_audit_csv.status_code == 200
+        assert "audit_id,recorded_at,reviewer,ready,checksum_sha256" in operator_zip_audit_csv.text
+        assert tampered_operator_audit.status_code == 200
+        tampered_operator_record = tampered_operator_audit.json()["data"]["support_case_incident_operator_packet_zip_verification_audit_record"]
+        assert tampered_operator_record["ready"] is False
+        assert tampered_operator_record["blocker_count"] >= 1
+        assert "secret-key" not in (str(operator_audit_list) + operator_zip_audit_markdown.text + operator_zip_audit_csv.text + str(tampered_operator_record)).lower()
         assert session_packet.status_code == 200
         packet = session_packet.json()["data"]["session_packet"]
         assert packet["gateway_incident_history"]["schema_version"] == "gw2radar.gateway_incident_history.v1"

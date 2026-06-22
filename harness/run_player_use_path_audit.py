@@ -608,6 +608,61 @@ def main() -> int:
             "mature_support_case_incident_operator_packet_zip_verification",
             f"operator zip checksum {str(support_case_incident_operator_zip_manifest.get('checksum_sha256', ''))[:12]} verified with {support_case_incident_operator_zip_verification.get('file_count', 0)} files.",
         )
+        support_case_incident_operator_zip_audit_response = _json(
+            client.post(
+                "/api/v1/player/support-case/incident-operator-packet/artifacts/bundle/verification-audit",
+                json={
+                    "reviewer": "player_use_path_audit",
+                    "notes": ["Player use path audit recorded support case incident operator packet zip verification."],
+                },
+            ),
+            "record support case incident operator packet zip verification audit",
+            checks,
+        )
+        support_case_incident_operator_zip_audit_record = _get(
+            support_case_incident_operator_zip_audit_response,
+            "data",
+            "support_case_incident_operator_packet_zip_verification_audit_record",
+        ) or {}
+        support_case_incident_operator_zip_audit_list_response = _json(
+            client.get(
+                "/api/v1/player/support-case/incident-operator-packet/artifacts/bundle/verification-audit?reviewer=player_use_path_audit&limit=10"
+            ),
+            "list support case incident operator packet zip verification audit",
+            checks,
+        )
+        support_case_incident_operator_zip_audit = _get(
+            support_case_incident_operator_zip_audit_list_response,
+            "data",
+            "support_case_incident_operator_packet_zip_verification_audit",
+        ) or {}
+        support_case_incident_operator_zip_audit_markdown = client.get(
+            "/api/v1/player/support-case/incident-operator-packet/artifacts/bundle/verification-audit?format=markdown"
+        )
+        support_case_incident_operator_zip_audit_csv = client.get(
+            "/api/v1/player/support-case/incident-operator-packet/artifacts/bundle/verification-audit?format=csv"
+        )
+        _add(
+            checks,
+            "support_case_incident_operator_packet_zip_verification_audit",
+            "Support case incident operator packet zip verification outcomes can be recorded and exported as metadata-only audit evidence.",
+            support_case_incident_operator_zip_audit_record.get("schema_version")
+            == "gw2radar.support_case_incident_operator_packet_zip_verification_audit.v1"
+            and support_case_incident_operator_zip_audit_record.get("ready") is True
+            and support_case_incident_operator_zip_audit_record.get("reviewer") == "player_use_path_audit"
+            and support_case_incident_operator_zip_audit.get("schema_version")
+            == "gw2radar.support_case_incident_operator_packet_zip_verification_audit_list.v1"
+            and len(support_case_incident_operator_zip_audit.get("records", [])) >= 1
+            and support_case_incident_operator_zip_audit_markdown.status_code == 200
+            and "# Support Case Incident Operator Packet Zip Verification Audit"
+            in support_case_incident_operator_zip_audit_markdown.text
+            and support_case_incident_operator_zip_audit_csv.status_code == 200
+            and "audit_id,recorded_at,reviewer,ready,checksum_sha256"
+            in support_case_incident_operator_zip_audit_csv.text
+            and "secret-key" not in json.dumps(support_case_incident_operator_zip_audit).lower(),
+            "mature_support_case_incident_operator_packet_zip_verification_audit",
+            f"{len(support_case_incident_operator_zip_audit.get('records', []))} metadata-only operator zip audit records available.",
+        )
         player_readiness = _json(client.get("/api/v1/player/readiness"), "load player readiness", checks)
         readiness = _get(player_readiness, "data", "readiness") or {}
         _add(
@@ -1425,6 +1480,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "- `SupportCaseIncidentHandoffChecklist` summarizes dashboard, packet, zip, verification, and audit gates into one operator-ready handoff view.",
             "- `SupportCaseIncidentOperatorPacketArtifacts` write deterministic metadata files for incident support handoff.",
             "- `SupportCaseIncidentOperatorPacketZipVerification` packages operator packet artifacts as a read-only zip and verifies checksum, schema, whitelist, and no-secret boundaries.",
+            "- `SupportCaseIncidentOperatorPacketZipVerificationAudit` records operator packet zip verification outcomes as metadata-only support evidence.",
             "- `ReportArtifactManifest` records bridge metadata without storing raw API keys or unredacted private payloads.",
             "",
             "## Known Limits",
@@ -1435,7 +1491,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Next Priority",
             "",
-            "Build Support Case Incident Operator Packet Zip Verification Audit Trail with metadata-only records and Markdown/CSV export.",
+            "Build Support Case Incident Final Handoff Checklist that combines operator packet artifacts, zip verification, and audit evidence into one closure gate.",
             "",
         ]
     )

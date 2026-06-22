@@ -41,6 +41,9 @@ const writeIncidentOperatorPacketButton = document.querySelector("#write-inciden
 const loadIncidentOperatorPacketsButton = document.querySelector("#load-incident-operator-packets-button");
 const loadIncidentOperatorPacketZipButton = document.querySelector("#load-incident-operator-packet-zip-button");
 const verifyIncidentOperatorPacketZipButton = document.querySelector("#verify-incident-operator-packet-zip-button");
+const recordIncidentOperatorPacketZipAuditButton = document.querySelector("#record-incident-operator-packet-zip-audit-button");
+const loadIncidentOperatorPacketZipAuditButton = document.querySelector("#load-incident-operator-packet-zip-audit-button");
+const exportIncidentOperatorPacketZipAuditCsvButton = document.querySelector("#export-incident-operator-packet-zip-audit-csv-button");
 const exportIncidentDashboardMdButton = document.querySelector("#export-incident-dashboard-md-button");
 const exportIncidentDashboardCsvButton = document.querySelector("#export-incident-dashboard-csv-button");
 const summary = document.querySelector("#support-summary");
@@ -80,6 +83,7 @@ const incidentPacketZipAuditSummary = document.querySelector("#incident-packet-z
 const incidentHandoffChecklistSummary = document.querySelector("#incident-handoff-checklist-summary");
 const incidentOperatorPacketSummary = document.querySelector("#incident-operator-packet-summary");
 const incidentOperatorPacketZipSummary = document.querySelector("#incident-operator-packet-zip-summary");
+const incidentOperatorPacketZipAuditSummary = document.querySelector("#incident-operator-packet-zip-audit-summary");
 const incidentPacketList = document.querySelector("#incident-packet-list");
 const incidentOperatorPacketList = document.querySelector("#incident-operator-packet-list");
 const output = document.querySelector("#support-output");
@@ -453,6 +457,35 @@ async function verifySupportCaseIncidentOperatorPacketZip() {
   const verification = payload.data?.support_case_incident_operator_packet_zip_verification || {};
   incidentOperatorPacketZipSummary.textContent = `Operator zip verification ${verification.ready ? "ready" : "blocked"} · ${verification.file_count || 0} files · checksum ${verification.checksum_sha256 || "none"}.`;
   output.textContent = JSON.stringify(payload, null, 2);
+}
+
+async function recordSupportCaseIncidentOperatorPacketZipAudit() {
+  const response = await fetch("/api/v1/player/support-case/incident-operator-packet/artifacts/bundle/verification-audit", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      reviewer: reviewerName?.value || "support",
+      notes: ["Operator recorded support case incident operator packet zip verification."],
+    }),
+  });
+  const payload = await response.json();
+  const record = payload.data?.support_case_incident_operator_packet_zip_verification_audit_record || {};
+  incidentOperatorPacketZipAuditSummary.textContent = `Operator zip audit ${record.ready ? "ready" : "blocked"} · reviewer ${record.reviewer || "support"} · blockers ${record.blocker_count || 0}.`;
+  output.textContent = JSON.stringify(payload, null, 2);
+}
+
+async function loadSupportCaseIncidentOperatorPacketZipAudit() {
+  const reviewer = reviewerName?.value ? `&reviewer=${encodeURIComponent(reviewerName.value)}` : "";
+  const response = await fetch(`/api/v1/player/support-case/incident-operator-packet/artifacts/bundle/verification-audit?limit=10${reviewer}`);
+  const payload = await response.json();
+  const records = payload.data?.support_case_incident_operator_packet_zip_verification_audit?.records || [];
+  incidentOperatorPacketZipAuditSummary.textContent = `${records.length} operator zip verification audit records loaded.`;
+  output.textContent = JSON.stringify(payload, null, 2);
+}
+
+function exportSupportCaseIncidentOperatorPacketZipAuditCsv() {
+  const reviewer = reviewerName?.value ? `&reviewer=${encodeURIComponent(reviewerName.value)}` : "";
+  window.location.href = `/api/v1/player/support-case/incident-operator-packet/artifacts/bundle/verification-audit?format=csv${reviewer}`;
 }
 
 function renderSupportCaseIncidentDashboard(dashboard) {
@@ -953,6 +986,12 @@ loadIncidentOperatorPacketsButton?.addEventListener("click", loadSupportCaseInci
 loadIncidentOperatorPacketZipButton?.addEventListener("click", loadSupportCaseIncidentOperatorPacketZipManifest);
 
 verifyIncidentOperatorPacketZipButton?.addEventListener("click", verifySupportCaseIncidentOperatorPacketZip);
+
+recordIncidentOperatorPacketZipAuditButton?.addEventListener("click", recordSupportCaseIncidentOperatorPacketZipAudit);
+
+loadIncidentOperatorPacketZipAuditButton?.addEventListener("click", loadSupportCaseIncidentOperatorPacketZipAudit);
+
+exportIncidentOperatorPacketZipAuditCsvButton?.addEventListener("click", exportSupportCaseIncidentOperatorPacketZipAuditCsv);
 
 exportIncidentDashboardMdButton?.addEventListener("click", () => exportSupportCaseIncidentDashboard("markdown"));
 

@@ -74,6 +74,7 @@ from gw2radar.commercial.gateway_incidents import (
     update_gateway_incident_review_note_status,
 )
 from gw2radar.commercial.support_case_incidents import (
+    SupportCaseIncidentOperatorPacketZipVerificationAuditRequest,
     SupportCaseIncidentPacketZipVerificationAuditRequest,
     build_support_case_incident_dashboard,
     build_support_case_incident_handoff_checklist,
@@ -81,8 +82,10 @@ from gw2radar.commercial.support_case_incidents import (
     build_support_case_incident_operator_packet_zip_bundle,
     build_support_case_incident_packet_zip_bundle,
     list_support_case_incident_operator_packet_artifacts,
+    list_support_case_incident_operator_packet_zip_verification_audits,
     list_support_case_incident_packet_zip_verification_audits,
     list_support_case_incident_packets,
+    record_support_case_incident_operator_packet_zip_verification_audit,
     record_support_case_incident_packet_zip_verification_audit,
     resolve_support_case_incident_operator_packet_artifact_path,
     resolve_support_case_incident_packet_path,
@@ -92,6 +95,8 @@ from gw2radar.commercial.support_case_incidents import (
     render_support_case_incident_handoff_checklist_markdown,
     render_support_case_incident_operator_packet_csv,
     render_support_case_incident_operator_packet_markdown,
+    render_support_case_incident_operator_packet_zip_verification_audit_csv,
+    render_support_case_incident_operator_packet_zip_verification_audit_markdown,
     render_support_case_incident_packet_zip_verification_audit_csv,
     render_support_case_incident_packet_zip_verification_audit_markdown,
     verify_support_case_incident_operator_packet_zip_bundle,
@@ -900,6 +905,63 @@ def post_player_support_case_incident_operator_packet_artifact_bundle_verify(
     )
     return ApiDataEnvelope(
         data={"support_case_incident_operator_packet_zip_verification": verification.model_dump(mode="json")}
+    )
+
+
+@router.post("/support-case/incident-operator-packet/artifacts/bundle/verification-audit", response_model=ApiDataEnvelope)
+def post_player_support_case_incident_operator_packet_artifact_bundle_verification_audit(
+    request: SupportCaseIncidentOperatorPacketZipVerificationAuditRequest,
+    limit: int = 20,
+) -> ApiDataEnvelope:
+    if not list_support_case_incident_operator_packet_artifacts(limit=1):
+        dashboard = _build_support_case_incident_dashboard(limit=limit)
+        _ensure_support_case_incident_packet_and_audit(dashboard)
+        packet = build_support_case_incident_operator_packet(dashboard=dashboard)
+        write_support_case_incident_operator_packet_artifacts(packet)
+    record = record_support_case_incident_operator_packet_zip_verification_audit(request)
+    return ApiDataEnvelope(
+        data={"support_case_incident_operator_packet_zip_verification_audit_record": record.model_dump(mode="json")}
+    )
+
+
+@router.post("/support-case/incident-operator-packet/artifacts/bundle/verification-audit/upload", response_model=ApiDataEnvelope)
+def post_player_support_case_incident_operator_packet_artifact_bundle_verification_audit_upload(
+    bundle: bytes = Body(media_type="application/zip"),
+    reviewer: str = Query(default="support"),
+    expected_checksum_sha256: str | None = Query(default=None),
+) -> ApiDataEnvelope:
+    request = SupportCaseIncidentOperatorPacketZipVerificationAuditRequest(
+        reviewer=reviewer,
+        expected_checksum_sha256=expected_checksum_sha256,
+        notes=["Support case incident operator packet zip verification audit recorded from uploaded zip bytes."],
+    )
+    record = record_support_case_incident_operator_packet_zip_verification_audit(request, bundle_bytes=bundle)
+    return ApiDataEnvelope(
+        data={"support_case_incident_operator_packet_zip_verification_audit_record": record.model_dump(mode="json")}
+    )
+
+
+@router.get("/support-case/incident-operator-packet/artifacts/bundle/verification-audit", response_model=None)
+def get_player_support_case_incident_operator_packet_artifact_bundle_verification_audit(
+    reviewer: str | None = None,
+    limit: int = 20,
+    format: str = "json",
+) -> ApiDataEnvelope | Response:
+    audit = list_support_case_incident_operator_packet_zip_verification_audits(reviewer=reviewer, limit=limit)
+    if format == "markdown":
+        return Response(
+            content=render_support_case_incident_operator_packet_zip_verification_audit_markdown(audit),
+            media_type="text/markdown; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="support_case_incident_operator_packet_zip_verification_audit.md"'},
+        )
+    if format == "csv":
+        return Response(
+            content=render_support_case_incident_operator_packet_zip_verification_audit_csv(audit),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="support_case_incident_operator_packet_zip_verification_audit.csv"'},
+        )
+    return ApiDataEnvelope(
+        data={"support_case_incident_operator_packet_zip_verification_audit": audit.model_dump(mode="json")}
     )
 
 
