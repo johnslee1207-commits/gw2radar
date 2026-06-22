@@ -238,6 +238,11 @@ def test_player_gateway_incident_timeline_correlates_refresh_events_without_secr
         handoff_checklist = client.get("/api/v1/player/support-case/incident-handoff-checklist?limit=20")
         handoff_checklist_markdown = client.get("/api/v1/player/support-case/incident-handoff-checklist?format=markdown&limit=20")
         handoff_checklist_csv = client.get("/api/v1/player/support-case/incident-handoff-checklist?format=csv&limit=20")
+        operator_packet = client.get("/api/v1/player/support-case/incident-operator-packet?limit=20")
+        operator_packet_markdown = client.get("/api/v1/player/support-case/incident-operator-packet?format=markdown&limit=20")
+        operator_packet_csv = client.get("/api/v1/player/support-case/incident-operator-packet?format=csv&limit=20")
+        operator_artifact = client.post("/api/v1/player/support-case/incident-operator-packet/artifacts?limit=20")
+        operator_artifacts = client.get("/api/v1/player/support-case/incident-operator-packet/artifacts?limit=10")
         assert manifest.status_code == 200
         assert "gw2radar.support_case_incident_packet_manifest.v1" in manifest.text
         assert packet_md.status_code == 200
@@ -317,6 +322,50 @@ def test_player_gateway_incident_timeline_correlates_refresh_events_without_secr
         assert handoff_checklist_csv.status_code == 200
         assert "ready,maturity_label,dashboard_ready,latest_packet_id" in handoff_checklist_csv.text
         assert "secret-key" not in (str(checklist) + handoff_checklist_markdown.text + handoff_checklist_csv.text).lower()
+        assert operator_packet.status_code == 200
+        operator_payload = operator_packet.json()["data"]["support_case_incident_operator_packet"]
+        assert operator_payload["schema_version"] == "gw2radar.support_case_incident_operator_packet.v1"
+        assert operator_payload["ready"] is True
+        assert operator_payload["checklist"]["schema_version"] == "gw2radar.support_case_incident_handoff_checklist.v1"
+        assert operator_payload["audit_summary"]["record_count"] >= 1
+        assert operator_packet_markdown.status_code == 200
+        assert "# Support Case Incident Operator Packet" in operator_packet_markdown.text
+        assert operator_packet_csv.status_code == 200
+        assert "packet_id,ready,maturity_label,zip_checksum_sha256" in operator_packet_csv.text
+        assert operator_artifact.status_code == 200
+        artifact_payload = operator_artifact.json()["data"]["support_case_incident_operator_packet_artifact"]
+        assert artifact_payload["schema_version"] == "gw2radar.support_case_incident_operator_packet_manifest.v1"
+        assert artifact_payload["file_count"] == 9
+        assert {file["file_name"] for file in artifact_payload["files"]} == {
+            "operator_packet.json",
+            "operator_packet.md",
+            "operator_packet.csv",
+            "checklist.md",
+            "dashboard.md",
+            "packet_manifest.json",
+            "zip_manifest.json",
+            "verification_audit.csv",
+            "manifest.json",
+        }
+        assert operator_artifacts.status_code == 200
+        assert operator_artifacts.json()["data"]["support_case_incident_operator_packet_artifacts"][0]["artifact_id"] == artifact_payload["artifact_id"]
+        operator_manifest = client.get(
+            f"/api/v1/player/support-case/incident-operator-packet/artifacts/{artifact_payload['artifact_id']}/manifest.json"
+        )
+        operator_md = client.get(
+            f"/api/v1/player/support-case/incident-operator-packet/artifacts/{artifact_payload['artifact_id']}/operator_packet.md"
+        )
+        operator_blocked = client.get(
+            f"/api/v1/player/support-case/incident-operator-packet/artifacts/{artifact_payload['artifact_id']}/../manifest.json"
+        )
+        assert operator_manifest.status_code == 200
+        assert "gw2radar.support_case_incident_operator_packet_manifest.v1" in operator_manifest.text
+        assert operator_md.status_code == 200
+        assert "# Support Case Incident Operator Packet" in operator_md.text
+        assert operator_blocked.status_code == 404
+        combined_operator_text = str(operator_payload) + str(artifact_payload) + operator_manifest.text + operator_md.text
+        assert "secret-key" not in combined_operator_text.lower()
+        assert "raw API key" in operator_payload["boundary"]
         assert session_packet.status_code == 200
         packet = session_packet.json()["data"]["session_packet"]
         assert packet["gateway_incident_history"]["schema_version"] == "gw2radar.gateway_incident_history.v1"

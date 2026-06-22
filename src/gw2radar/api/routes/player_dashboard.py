@@ -77,18 +77,24 @@ from gw2radar.commercial.support_case_incidents import (
     SupportCaseIncidentPacketZipVerificationAuditRequest,
     build_support_case_incident_dashboard,
     build_support_case_incident_handoff_checklist,
+    build_support_case_incident_operator_packet,
     build_support_case_incident_packet_zip_bundle,
+    list_support_case_incident_operator_packet_artifacts,
     list_support_case_incident_packet_zip_verification_audits,
     list_support_case_incident_packets,
     record_support_case_incident_packet_zip_verification_audit,
+    resolve_support_case_incident_operator_packet_artifact_path,
     resolve_support_case_incident_packet_path,
     render_support_case_incident_dashboard_csv,
     render_support_case_incident_dashboard_markdown,
     render_support_case_incident_handoff_checklist_csv,
     render_support_case_incident_handoff_checklist_markdown,
+    render_support_case_incident_operator_packet_csv,
+    render_support_case_incident_operator_packet_markdown,
     render_support_case_incident_packet_zip_verification_audit_csv,
     render_support_case_incident_packet_zip_verification_audit_markdown,
     verify_support_case_incident_packet_zip_bundle,
+    write_support_case_incident_operator_packet_artifacts,
     write_support_case_incident_packet,
 )
 from gw2radar.db import session as db_session
@@ -804,6 +810,55 @@ def get_player_support_case_incident_handoff_checklist(
     return ApiDataEnvelope(data={"support_case_incident_handoff_checklist": checklist.model_dump(mode="json")})
 
 
+@router.get("/support-case/incident-operator-packet", response_model=None)
+def get_player_support_case_incident_operator_packet(
+    format: str = "json",
+    limit: int = 20,
+) -> ApiDataEnvelope | Response:
+    dashboard = _build_support_case_incident_dashboard(limit=limit)
+    _ensure_support_case_incident_packet_and_audit(dashboard)
+    packet = build_support_case_incident_operator_packet(dashboard=dashboard)
+    if format == "markdown":
+        return Response(
+            content=render_support_case_incident_operator_packet_markdown(packet),
+            media_type="text/markdown; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="support_case_incident_operator_packet.md"'},
+        )
+    if format == "csv":
+        return Response(
+            content=render_support_case_incident_operator_packet_csv(packet),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="support_case_incident_operator_packet.csv"'},
+        )
+    return ApiDataEnvelope(data={"support_case_incident_operator_packet": packet.model_dump(mode="json")})
+
+
+@router.post("/support-case/incident-operator-packet/artifacts", response_model=ApiDataEnvelope)
+def post_player_support_case_incident_operator_packet_artifacts(limit: int = 20) -> ApiDataEnvelope:
+    dashboard = _build_support_case_incident_dashboard(limit=limit)
+    _ensure_support_case_incident_packet_and_audit(dashboard)
+    packet = build_support_case_incident_operator_packet(dashboard=dashboard)
+    artifact = write_support_case_incident_operator_packet_artifacts(packet)
+    return ApiDataEnvelope(data={"support_case_incident_operator_packet_artifact": artifact.model_dump(mode="json")})
+
+
+@router.get("/support-case/incident-operator-packet/artifacts", response_model=ApiDataEnvelope)
+def get_player_support_case_incident_operator_packet_artifacts(limit: int = 20) -> ApiDataEnvelope:
+    artifacts = list_support_case_incident_operator_packet_artifacts(limit=limit)
+    return ApiDataEnvelope(
+        data={"support_case_incident_operator_packet_artifacts": [artifact.model_dump(mode="json") for artifact in artifacts]}
+    )
+
+
+@router.get("/support-case/incident-operator-packet/artifacts/{artifact_id}/{file_name}", response_model=None)
+def get_player_support_case_incident_operator_packet_artifact_file(artifact_id: str, file_name: str) -> Response:
+    path = resolve_support_case_incident_operator_packet_artifact_path(artifact_id, file_name)
+    if path is None:
+        raise HTTPException(status_code=404, detail="Support case incident operator packet artifact file not found")
+    media_type = "application/json" if file_name.endswith(".json") else "text/markdown" if file_name.endswith(".md") else "text/csv" if file_name.endswith(".csv") else "text/plain"
+    return Response(content=path.read_text(encoding="utf-8"), media_type=f"{media_type}; charset=utf-8")
+
+
 @router.get("/support-case/incident-packet/{packet_id}/{file_name}", response_model=None)
 def get_player_support_case_incident_packet_file(packet_id: str, file_name: str) -> Response:
     path = resolve_support_case_incident_packet_path(packet_id, file_name)
@@ -811,6 +866,18 @@ def get_player_support_case_incident_packet_file(packet_id: str, file_name: str)
         raise HTTPException(status_code=404, detail="Support case incident packet file not found")
     media_type = "application/json" if file_name.endswith(".json") else "text/markdown" if file_name.endswith(".md") else "text/csv" if file_name.endswith(".csv") else "text/plain"
     return Response(content=path.read_text(encoding="utf-8"), media_type=f"{media_type}; charset=utf-8")
+
+
+def _ensure_support_case_incident_packet_and_audit(dashboard) -> None:
+    if not list_support_case_incident_packets(limit=1):
+        write_support_case_incident_packet(dashboard)
+    if not list_support_case_incident_packet_zip_verification_audits(limit=1).records:
+        record_support_case_incident_packet_zip_verification_audit(
+            SupportCaseIncidentPacketZipVerificationAuditRequest(
+                reviewer="system",
+                notes=["System recorded support case incident operator packet verification audit."],
+            )
+        )
 
 
 def _build_support_case_incident_dashboard(limit: int = 20):

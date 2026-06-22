@@ -15,6 +15,18 @@ from gw2radar.support.account_debug_bundle_audit import SupportReviewAuditRecord
 SUPPORT_CASE_INCIDENT_PACKET_ROOT = Path("src/gw2radar/reports/artifacts/support_case_incident_packets")
 SUPPORT_CASE_INCIDENT_PACKET_FILES = {"dashboard.json", "dashboard.md", "dashboard.csv", "manifest.json"}
 SUPPORT_CASE_INCIDENT_PACKET_AUDIT_ROOT = Path("src/gw2radar/reports/artifacts/support_case_incident_packet_audits")
+SUPPORT_CASE_INCIDENT_OPERATOR_PACKET_ROOT = Path("src/gw2radar/reports/artifacts/support_case_incident_operator_packets")
+SUPPORT_CASE_INCIDENT_OPERATOR_PACKET_FILES = {
+    "operator_packet.json",
+    "operator_packet.md",
+    "operator_packet.csv",
+    "checklist.md",
+    "dashboard.md",
+    "packet_manifest.json",
+    "zip_manifest.json",
+    "verification_audit.csv",
+    "manifest.json",
+}
 
 
 class SupportCaseIncidentDashboard(BaseModel):
@@ -166,6 +178,53 @@ class SupportCaseIncidentHandoffChecklist(BaseModel):
         "Support case incident handoff checklist is metadata-only; it summarizes dashboard, packet, "
         "zip, verification, and audit gates without storing zip bytes, raw API keys, raw debug bundles, "
         "or private account payloads."
+    )
+
+
+class SupportCaseIncidentOperatorPacket(BaseModel):
+    schema_version: str = "gw2radar.support_case_incident_operator_packet.v1"
+    packet_id: str
+    generated_at: datetime
+    ready: bool
+    maturity_label: str
+    checklist: SupportCaseIncidentHandoffChecklist
+    dashboard_summary: dict = Field(default_factory=dict)
+    packet_manifest: dict = Field(default_factory=dict)
+    zip_manifest: dict = Field(default_factory=dict)
+    audit_summary: dict = Field(default_factory=dict)
+    runbook_steps: list[str] = Field(default_factory=list)
+    transfer_files: list[str] = Field(default_factory=list)
+    support_next_actions: list[str] = Field(default_factory=list)
+    safety_boundaries: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    boundary: str = (
+        "Support case incident operator packet is metadata-only; it packages checklist, dashboard, "
+        "manifest, zip manifest, and audit export references without storing zip bytes, raw API keys, "
+        "raw debug bundles, or private account payloads."
+    )
+
+
+class SupportCaseIncidentOperatorPacketManifest(BaseModel):
+    schema_version: str = "gw2radar.support_case_incident_operator_packet_manifest.v1"
+    artifact_id: str
+    artifact_root: str
+    generated_at: datetime
+    source_operator_packet_id: str
+    ready: bool
+    maturity_label: str
+    file_count: int
+    files: list[SupportCaseIncidentPacketFile]
+    manifest_path: str
+    checksum_sha256: str
+    contains_raw_key: bool = False
+    contains_raw_debug_bundle: bool = False
+    contains_private_source_payload: bool = False
+    contains_zip_bytes: bool = False
+    contains_executable_content: bool = False
+    allowed_files: list[str] = Field(default_factory=lambda: sorted(SUPPORT_CASE_INCIDENT_OPERATOR_PACKET_FILES))
+    boundary: str = (
+        "Support case incident operator packet files are deterministic metadata exports and exclude "
+        "zip bytes, raw API keys, raw debug bundles, private account payloads, and executable content."
     )
 
 
@@ -822,6 +881,302 @@ def render_support_case_incident_handoff_checklist_csv(
     rows.extend(f"blocker,{_csv(item)}" for item in checklist.blockers)
     rows.extend(f"warning,{_csv(item)}" for item in checklist.warnings)
     rows.extend(f"next_action,{_csv(item)}" for item in checklist.next_actions)
+    return "\n".join(rows) + "\n"
+
+
+def build_support_case_incident_operator_packet(
+    *,
+    dashboard: SupportCaseIncidentDashboard | None = None,
+    packet_root: Path | None = None,
+    audit_root: Path | None = None,
+) -> SupportCaseIncidentOperatorPacket:
+    checklist = build_support_case_incident_handoff_checklist(
+        dashboard=dashboard,
+        packet_root=packet_root,
+        audit_root=audit_root,
+    )
+    packets = list_support_case_incident_packets(packet_root=packet_root, limit=1)
+    latest_packet = packets[0] if packets else None
+    packet_manifest = latest_packet.model_dump(mode="json") if latest_packet else {}
+    zip_manifest_payload: dict = {}
+    try:
+        zip_manifest, _bundle_bytes = build_support_case_incident_packet_zip_bundle(packet_root=packet_root)
+        zip_manifest_payload = zip_manifest.model_dump(mode="json")
+    except ValueError:
+        zip_manifest_payload = {}
+    audit = list_support_case_incident_packet_zip_verification_audits(audit_root=audit_root, limit=5)
+    latest_audit = audit.records[0] if audit.records else None
+    audit_summary = {
+        "schema_version": audit.schema_version,
+        "record_count": len(audit.records),
+        "latest_audit_id": latest_audit.audit_id if latest_audit else None,
+        "latest_reviewer": latest_audit.reviewer if latest_audit else None,
+        "latest_ready": latest_audit.ready if latest_audit else None,
+        "latest_checksum_sha256": latest_audit.checksum_sha256 if latest_audit else None,
+    }
+    dashboard_summary = (
+        {
+            "schema_version": dashboard.schema_version,
+            "ready": dashboard.ready,
+            "maturity_label": dashboard.maturity_label,
+            "support_status": dashboard.support_status,
+            "gateway_note_count": dashboard.gateway_note_count,
+            "support_audit_count": dashboard.support_audit_count,
+            "handoff_ready": dashboard.handoff_ready,
+        }
+        if dashboard
+        else {}
+    )
+    support_next_actions = checklist.next_actions + [
+        "Attach the operator packet artifact manifest with the incident support case.",
+        "Use manifest checksums to verify every metadata file before closing the incident.",
+    ]
+    return SupportCaseIncidentOperatorPacket(
+        packet_id=f"support-case-incident-operator-packet-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')}-{uuid4().hex[:8]}",
+        generated_at=datetime.now(timezone.utc),
+        ready=checklist.ready,
+        maturity_label=checklist.maturity_label,
+        checklist=checklist,
+        dashboard_summary=dashboard_summary,
+        packet_manifest=packet_manifest,
+        zip_manifest=zip_manifest_payload,
+        audit_summary=audit_summary,
+        runbook_steps=[
+            "Confirm the handoff checklist is ready before attaching incident packet files.",
+            "Attach metadata files and the verified incident packet zip; never attach raw API keys or raw debug bundles.",
+            "Compare zip checksum with the latest verification audit before sending or closing the case.",
+            "Use dashboard Markdown for human triage and CSV exports for queue/reporting views.",
+            "Record a fresh verification audit if the packet zip changes.",
+        ],
+        transfer_files=[
+            "support_case_incident_packet.zip",
+            "support_case_incident_handoff_checklist.md",
+            "support_case_incident_packet_zip_verification_audit.csv",
+            "support_case_incident_operator_packet_manifest.json",
+        ],
+        support_next_actions=_unique(support_next_actions),
+        safety_boundaries=[
+            "Do not request or store raw GW2 API keys.",
+            "Do not request raw debug bundles after metadata evidence is available.",
+            "Do not execute files from incident packet archives.",
+            "Do not treat readiness as a live game-state or support-resolution guarantee.",
+        ],
+        evidence_refs=_unique(
+            checklist.evidence_refs
+            + [
+                "/api/v1/player/support-case/incident-handoff-checklist",
+                "/api/v1/player/support-case/incident-operator-packet",
+            ]
+        ),
+    )
+
+
+def render_support_case_incident_operator_packet_markdown(packet: SupportCaseIncidentOperatorPacket) -> str:
+    lines = [
+        "# Support Case Incident Operator Packet",
+        "",
+        f"- Packet id: {packet.packet_id}",
+        f"- Ready: {packet.ready}",
+        f"- Maturity: {packet.maturity_label}",
+        f"- Generated: {packet.generated_at.isoformat()}",
+        f"- Zip checksum: {packet.zip_manifest.get('checksum_sha256') or 'None'}",
+        f"- Latest audit: {packet.audit_summary.get('latest_audit_id') or 'None'}",
+        f"- Boundary: {packet.boundary}",
+        "",
+        "## Runbook Steps",
+    ]
+    lines.extend(f"- {item}" for item in packet.runbook_steps)
+    lines.extend(["", "## Transfer Files"])
+    lines.extend(f"- {item}" for item in packet.transfer_files)
+    lines.extend(["", "## Support Next Actions"])
+    lines.extend(f"- {item}" for item in packet.support_next_actions)
+    lines.extend(["", "## Safety Boundaries"])
+    lines.extend(f"- {item}" for item in packet.safety_boundaries)
+    lines.extend(["", "## Evidence Refs"])
+    lines.extend(f"- {item}" for item in packet.evidence_refs)
+    return "\n".join(lines) + "\n"
+
+
+def render_support_case_incident_operator_packet_csv(packet: SupportCaseIncidentOperatorPacket) -> str:
+    rows = [
+        "packet_id,ready,maturity_label,zip_checksum_sha256,audit_record_count,latest_audit_id",
+        ",".join(
+            [
+                _csv(packet.packet_id),
+                _csv(str(packet.ready)),
+                _csv(packet.maturity_label),
+                _csv(str(packet.zip_manifest.get("checksum_sha256") or "")),
+                _csv(str(packet.audit_summary.get("record_count") or 0)),
+                _csv(str(packet.audit_summary.get("latest_audit_id") or "")),
+            ]
+        ),
+        "section,value",
+    ]
+    rows.extend(f"runbook_step,{_csv(item)}" for item in packet.runbook_steps)
+    rows.extend(f"transfer_file,{_csv(item)}" for item in packet.transfer_files)
+    rows.extend(f"next_action,{_csv(item)}" for item in packet.support_next_actions)
+    rows.extend(f"safety_boundary,{_csv(item)}" for item in packet.safety_boundaries)
+    return "\n".join(rows) + "\n"
+
+
+def write_support_case_incident_operator_packet_artifacts(
+    packet: SupportCaseIncidentOperatorPacket,
+    *,
+    artifact_root: Path | None = None,
+) -> SupportCaseIncidentOperatorPacketManifest:
+    root = artifact_root or SUPPORT_CASE_INCIDENT_OPERATOR_PACKET_ROOT
+    generated_at = datetime.now(timezone.utc)
+    artifact_id = f"support-case-incident-operator-packet-{generated_at.strftime('%Y%m%dT%H%M%S%fZ')}-{uuid4().hex[:8]}"
+    artifact_dir = root / artifact_id
+    artifact_dir.mkdir(parents=True, exist_ok=False)
+    contents = {
+        "operator_packet.json": packet.model_dump_json(indent=2),
+        "operator_packet.md": render_support_case_incident_operator_packet_markdown(packet),
+        "operator_packet.csv": render_support_case_incident_operator_packet_csv(packet),
+        "checklist.md": render_support_case_incident_handoff_checklist_markdown(packet.checklist),
+        "dashboard.md": _render_operator_dashboard_summary_markdown(packet),
+        "packet_manifest.json": json.dumps(packet.packet_manifest, indent=2, sort_keys=True),
+        "zip_manifest.json": json.dumps(packet.zip_manifest, indent=2, sort_keys=True),
+        "verification_audit.csv": _render_operator_audit_summary_csv(packet),
+    }
+    files: list[SupportCaseIncidentPacketFile] = []
+    for file_name, text in contents.items():
+        file_path = artifact_dir / file_name
+        file_path.write_text(text, encoding="utf-8")
+        files.append(_packet_file_entry(root, file_path, file_name, _media_type(file_name), text))
+    manifest_payload = {
+        "schema_version": "gw2radar.support_case_incident_operator_packet_manifest.v1",
+        "artifact_id": artifact_id,
+        "generated_at": generated_at.isoformat(),
+        "source_operator_packet_id": packet.packet_id,
+        "ready": packet.ready,
+        "maturity_label": packet.maturity_label,
+        "files": [file.model_dump(mode="json") for file in files],
+        "contains_raw_key": False,
+        "contains_raw_debug_bundle": False,
+        "contains_private_source_payload": False,
+        "contains_zip_bytes": False,
+        "contains_executable_content": False,
+        "allowed_files": sorted(SUPPORT_CASE_INCIDENT_OPERATOR_PACKET_FILES),
+        "boundary": "Support case incident operator packet artifacts store metadata only.",
+    }
+    manifest_text = json.dumps(manifest_payload, indent=2, sort_keys=True)
+    manifest_path = artifact_dir / "manifest.json"
+    manifest_path.write_text(manifest_text, encoding="utf-8")
+    manifest_file = _packet_file_entry(root, manifest_path, "manifest.json", "application/json", manifest_text)
+    files.append(manifest_file)
+    return SupportCaseIncidentOperatorPacketManifest(
+        artifact_id=artifact_id,
+        artifact_root=root.as_posix(),
+        generated_at=generated_at,
+        source_operator_packet_id=packet.packet_id,
+        ready=packet.ready,
+        maturity_label=packet.maturity_label,
+        file_count=len(files),
+        files=files,
+        manifest_path=manifest_file.relative_path,
+        checksum_sha256=_packet_checksum(files),
+    )
+
+
+def list_support_case_incident_operator_packet_artifacts(
+    *,
+    artifact_root: Path | None = None,
+    limit: int = 20,
+) -> list[SupportCaseIncidentOperatorPacketManifest]:
+    root = artifact_root or SUPPORT_CASE_INCIDENT_OPERATOR_PACKET_ROOT
+    if not root.exists():
+        return []
+    artifacts: list[SupportCaseIncidentOperatorPacketManifest] = []
+    for artifact_dir in sorted([path for path in root.iterdir() if path.is_dir()], key=lambda item: item.name, reverse=True)[: max(1, min(limit, 100))]:
+        manifest_path = artifact_dir / "manifest.json"
+        if not manifest_path.exists():
+            continue
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        files = [
+            SupportCaseIncidentPacketFile(**file)
+            for file in manifest.get("files", [])
+            if file.get("file_name") in SUPPORT_CASE_INCIDENT_OPERATOR_PACKET_FILES
+        ]
+        manifest_text = manifest_path.read_text(encoding="utf-8")
+        manifest_file = _packet_file_entry(root, manifest_path, "manifest.json", "application/json", manifest_text)
+        if not any(file.file_name == "manifest.json" for file in files):
+            files.append(manifest_file)
+        artifacts.append(
+            SupportCaseIncidentOperatorPacketManifest(
+                artifact_id=artifact_dir.name,
+                artifact_root=root.as_posix(),
+                generated_at=datetime.fromisoformat(manifest["generated_at"]),
+                source_operator_packet_id=str(manifest.get("source_operator_packet_id") or "unknown"),
+                ready=bool(manifest.get("ready")),
+                maturity_label=str(manifest.get("maturity_label") or "unknown"),
+                file_count=len(files),
+                files=files,
+                manifest_path=manifest_file.relative_path,
+                checksum_sha256=_packet_checksum(files),
+            )
+        )
+    return artifacts
+
+
+def resolve_support_case_incident_operator_packet_artifact_path(
+    artifact_id: str,
+    file_name: str,
+    *,
+    artifact_root: Path | None = None,
+) -> Path | None:
+    if "/" in artifact_id or "\\" in artifact_id or ".." in artifact_id:
+        return None
+    if file_name not in SUPPORT_CASE_INCIDENT_OPERATOR_PACKET_FILES:
+        return None
+    root = (artifact_root or SUPPORT_CASE_INCIDENT_OPERATOR_PACKET_ROOT).resolve()
+    candidate = (root / artifact_id / file_name).resolve()
+    try:
+        candidate.relative_to(root)
+    except ValueError:
+        return None
+    if not candidate.exists() or not candidate.is_file():
+        return None
+    return candidate
+
+
+def _render_operator_dashboard_summary_markdown(packet: SupportCaseIncidentOperatorPacket) -> str:
+    dashboard = packet.dashboard_summary
+    lines = [
+        "# Support Case Incident Dashboard Summary",
+        "",
+        f"- Schema: {dashboard.get('schema_version') or 'unknown'}",
+        f"- Ready: {dashboard.get('ready')}",
+        f"- Maturity: {dashboard.get('maturity_label') or 'unknown'}",
+        f"- Support status: {dashboard.get('support_status') or 'unknown'}",
+        f"- Gateway notes: {dashboard.get('gateway_note_count') or 0}",
+        f"- Support audits: {dashboard.get('support_audit_count') or 0}",
+        f"- Handoff ready: {dashboard.get('handoff_ready')}",
+        "",
+        "## Boundary",
+        "",
+        "- Dashboard summary is metadata-only and excludes raw API keys, raw debug bundles, and private payloads.",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def _render_operator_audit_summary_csv(packet: SupportCaseIncidentOperatorPacket) -> str:
+    audit = packet.audit_summary
+    rows = [
+        "record_count,latest_audit_id,latest_reviewer,latest_ready,latest_checksum_sha256",
+        ",".join(
+            [
+                _csv(str(audit.get("record_count") or 0)),
+                _csv(str(audit.get("latest_audit_id") or "")),
+                _csv(str(audit.get("latest_reviewer") or "")),
+                _csv(str(audit.get("latest_ready") or "")),
+                _csv(str(audit.get("latest_checksum_sha256") or "")),
+            ]
+        ),
+    ]
     return "\n".join(rows) + "\n"
 
 

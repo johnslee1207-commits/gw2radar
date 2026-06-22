@@ -36,6 +36,9 @@ const exportIncidentPacketZipAuditCsvButton = document.querySelector("#export-in
 const loadIncidentHandoffChecklistButton = document.querySelector("#load-incident-handoff-checklist-button");
 const exportIncidentHandoffChecklistMdButton = document.querySelector("#export-incident-handoff-checklist-md-button");
 const exportIncidentHandoffChecklistCsvButton = document.querySelector("#export-incident-handoff-checklist-csv-button");
+const loadIncidentOperatorPacketButton = document.querySelector("#load-incident-operator-packet-button");
+const writeIncidentOperatorPacketButton = document.querySelector("#write-incident-operator-packet-button");
+const loadIncidentOperatorPacketsButton = document.querySelector("#load-incident-operator-packets-button");
 const exportIncidentDashboardMdButton = document.querySelector("#export-incident-dashboard-md-button");
 const exportIncidentDashboardCsvButton = document.querySelector("#export-incident-dashboard-csv-button");
 const summary = document.querySelector("#support-summary");
@@ -73,7 +76,9 @@ const incidentDashboardCards = document.querySelector("#incident-dashboard-cards
 const incidentPacketZipSummary = document.querySelector("#incident-packet-zip-summary");
 const incidentPacketZipAuditSummary = document.querySelector("#incident-packet-zip-audit-summary");
 const incidentHandoffChecklistSummary = document.querySelector("#incident-handoff-checklist-summary");
+const incidentOperatorPacketSummary = document.querySelector("#incident-operator-packet-summary");
 const incidentPacketList = document.querySelector("#incident-packet-list");
+const incidentOperatorPacketList = document.querySelector("#incident-operator-packet-list");
 const output = document.querySelector("#support-output");
 let lastBundle = null;
 let lastReview = null;
@@ -408,6 +413,29 @@ function exportSupportCaseIncidentHandoffChecklist(format) {
   window.location.href = `/api/v1/player/support-case/incident-handoff-checklist?format=${format}&limit=20`;
 }
 
+async function loadSupportCaseIncidentOperatorPacket() {
+  const response = await fetch("/api/v1/player/support-case/incident-operator-packet?limit=20");
+  const payload = await response.json();
+  const packet = payload.data?.support_case_incident_operator_packet || {};
+  incidentOperatorPacketSummary.textContent = `Operator packet ${packet.ready ? "ready" : "blocked"} · ${packet.maturity_label || "unknown"} · audit records ${packet.audit_summary?.record_count || 0}.`;
+  output.textContent = JSON.stringify(payload, null, 2);
+}
+
+async function writeSupportCaseIncidentOperatorPacketArtifacts() {
+  const response = await fetch("/api/v1/player/support-case/incident-operator-packet/artifacts?limit=20", { method: "POST" });
+  const payload = await response.json();
+  const artifact = payload.data?.support_case_incident_operator_packet_artifact || {};
+  incidentOperatorPacketSummary.textContent = `Operator packet artifact written: ${artifact.artifact_id || "unknown"} · ${artifact.file_count || 0} files.`;
+  output.textContent = JSON.stringify(payload, null, 2);
+  await loadSupportCaseIncidentOperatorPacketArtifacts();
+}
+
+async function loadSupportCaseIncidentOperatorPacketArtifacts() {
+  const response = await fetch("/api/v1/player/support-case/incident-operator-packet/artifacts?limit=10");
+  const payload = await response.json();
+  renderSupportCaseIncidentOperatorPacketArtifacts(payload.data?.support_case_incident_operator_packet_artifacts || []);
+}
+
 function renderSupportCaseIncidentDashboard(dashboard) {
   const cards = Array.isArray(dashboard.status_cards) ? dashboard.status_cards : [];
   incidentDashboardSummary.textContent = `${dashboard.support_status || "unknown"} · ${dashboard.maturity_label || "unknown"} · gateway notes ${dashboard.gateway_note_count || 0} · support audits ${dashboard.support_audit_count || 0}.`;
@@ -445,6 +473,26 @@ function renderSupportCaseIncidentPackets(packets) {
     links.textContent = `Manifest: /api/v1/player/support-case/incident-packet/${packet.packet_id}/manifest.json`;
     item.append(title, meta, links);
     incidentPacketList.appendChild(item);
+  }
+}
+
+function renderSupportCaseIncidentOperatorPacketArtifacts(artifacts) {
+  incidentOperatorPacketList.innerHTML = "";
+  if (!artifacts.length) {
+    incidentOperatorPacketList.textContent = "No support case incident operator packet artifacts are available yet.";
+    return;
+  }
+  for (const artifact of artifacts) {
+    const item = document.createElement("article");
+    item.className = "support-audit-record info";
+    const title = document.createElement("strong");
+    title.textContent = `${artifact.maturity_label || "unknown"} · ${artifact.artifact_id}`;
+    const meta = document.createElement("span");
+    meta.textContent = `${artifact.file_count || 0} files · checksum ${artifact.checksum_sha256 || "none"}`;
+    const links = document.createElement("p");
+    links.textContent = `Manifest: /api/v1/player/support-case/incident-operator-packet/artifacts/${artifact.artifact_id}/manifest.json`;
+    item.append(title, meta, links);
+    incidentOperatorPacketList.appendChild(item);
   }
 }
 
@@ -876,6 +924,12 @@ loadIncidentHandoffChecklistButton?.addEventListener("click", loadSupportCaseInc
 exportIncidentHandoffChecklistMdButton?.addEventListener("click", () => exportSupportCaseIncidentHandoffChecklist("markdown"));
 
 exportIncidentHandoffChecklistCsvButton?.addEventListener("click", () => exportSupportCaseIncidentHandoffChecklist("csv"));
+
+loadIncidentOperatorPacketButton?.addEventListener("click", loadSupportCaseIncidentOperatorPacket);
+
+writeIncidentOperatorPacketButton?.addEventListener("click", writeSupportCaseIncidentOperatorPacketArtifacts);
+
+loadIncidentOperatorPacketsButton?.addEventListener("click", loadSupportCaseIncidentOperatorPacketArtifacts);
 
 exportIncidentDashboardMdButton?.addEventListener("click", () => exportSupportCaseIncidentDashboard("markdown"));
 

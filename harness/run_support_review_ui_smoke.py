@@ -105,6 +105,15 @@ def main() -> int:
     incident_handoff_checklist = client.get("/api/v1/player/support-case/incident-handoff-checklist?limit=20")
     incident_handoff_checklist_markdown = client.get("/api/v1/player/support-case/incident-handoff-checklist?format=markdown&limit=20")
     incident_handoff_checklist_csv = client.get("/api/v1/player/support-case/incident-handoff-checklist?format=csv&limit=20")
+    incident_operator_packet = client.get("/api/v1/player/support-case/incident-operator-packet?limit=20")
+    incident_operator_packet_markdown = client.get("/api/v1/player/support-case/incident-operator-packet?format=markdown&limit=20")
+    incident_operator_packet_csv = client.get("/api/v1/player/support-case/incident-operator-packet?format=csv&limit=20")
+    incident_operator_artifact = client.post("/api/v1/player/support-case/incident-operator-packet/artifacts?limit=20")
+    incident_operator_artifacts = client.get("/api/v1/player/support-case/incident-operator-packet/artifacts?limit=10")
+    incident_operator_artifact_id = incident_operator_artifact.json().get("data", {}).get("support_case_incident_operator_packet_artifact", {}).get("artifact_id", "")
+    incident_operator_artifact_manifest = client.get(
+        f"/api/v1/player/support-case/incident-operator-packet/artifacts/{incident_operator_artifact_id}/manifest.json"
+    )
 
     _add(checks, "support page is served", page.status_code == 200 and "Debug Bundle Support Review" in page.text, page.text)
     _add(checks, "support script is served", js.status_code == 200 and "/account/debug-bundle/review" in js.text, js.text)
@@ -154,6 +163,12 @@ def main() -> int:
     _add(checks, "support case incident handoff checklist summarizes gates", incident_handoff_checklist.status_code == 200 and incident_handoff_checklist.json().get("data", {}).get("support_case_incident_handoff_checklist", {}).get("schema_version") == "gw2radar.support_case_incident_handoff_checklist.v1", incident_handoff_checklist.text)
     _add(checks, "support case incident handoff checklist exports markdown", incident_handoff_checklist_markdown.status_code == 200 and "# Support Case Incident Handoff Checklist" in incident_handoff_checklist_markdown.text, incident_handoff_checklist_markdown.text)
     _add(checks, "support case incident handoff checklist exports csv", incident_handoff_checklist_csv.status_code == 200 and "ready,maturity_label,dashboard_ready" in incident_handoff_checklist_csv.text, incident_handoff_checklist_csv.text)
+    _add(checks, "support case incident operator packet summarizes handoff", incident_operator_packet.status_code == 200 and incident_operator_packet.json().get("data", {}).get("support_case_incident_operator_packet", {}).get("schema_version") == "gw2radar.support_case_incident_operator_packet.v1", incident_operator_packet.text)
+    _add(checks, "support case incident operator packet exports markdown", incident_operator_packet_markdown.status_code == 200 and "# Support Case Incident Operator Packet" in incident_operator_packet_markdown.text, incident_operator_packet_markdown.text)
+    _add(checks, "support case incident operator packet exports csv", incident_operator_packet_csv.status_code == 200 and "packet_id,ready,maturity_label" in incident_operator_packet_csv.text, incident_operator_packet_csv.text)
+    _add(checks, "support case incident operator packet writes artifacts", incident_operator_artifact.status_code == 200 and incident_operator_artifact.json().get("data", {}).get("support_case_incident_operator_packet_artifact", {}).get("schema_version") == "gw2radar.support_case_incident_operator_packet_manifest.v1", incident_operator_artifact.text)
+    _add(checks, "support case incident operator packet lists artifacts", incident_operator_artifacts.status_code == 200 and incident_operator_artifacts.json().get("data", {}).get("support_case_incident_operator_packet_artifacts"), incident_operator_artifacts.text)
+    _add(checks, "support case incident operator packet retrieves manifest", incident_operator_artifact_manifest.status_code == 200 and "gw2radar.support_case_incident_operator_packet_manifest.v1" in incident_operator_artifact_manifest.text, incident_operator_artifact_manifest.text)
     _add(checks, "no-secret boundary is visible", "Do not ask for a raw GW2 API key" in page.text and "Please do not send your raw GW2 API key" in js.text, "boundary missing")
 
     failed = [check for check in checks if not check[1]]

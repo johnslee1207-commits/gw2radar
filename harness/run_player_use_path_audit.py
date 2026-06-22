@@ -515,6 +515,57 @@ def main() -> int:
             "mature_support_case_incident_handoff_checklist",
             f"{len(support_case_incident_handoff_checklist.get('checklist_items', []))} gates summarized with {len(support_case_incident_handoff_checklist.get('missing_gates', []))} missing gates.",
         )
+        support_case_incident_operator_packet_response = _json(
+            client.get("/api/v1/player/support-case/incident-operator-packet?limit=20"),
+            "load support case incident operator packet",
+            checks,
+        )
+        support_case_incident_operator_packet = _get(
+            support_case_incident_operator_packet_response,
+            "data",
+            "support_case_incident_operator_packet",
+        ) or {}
+        support_case_incident_operator_artifact_response = _json(
+            client.post("/api/v1/player/support-case/incident-operator-packet/artifacts?limit=20"),
+            "write support case incident operator packet artifact",
+            checks,
+        )
+        support_case_incident_operator_artifact = _get(
+            support_case_incident_operator_artifact_response,
+            "data",
+            "support_case_incident_operator_packet_artifact",
+        ) or {}
+        support_case_incident_operator_artifacts_response = _json(
+            client.get("/api/v1/player/support-case/incident-operator-packet/artifacts?limit=10"),
+            "list support case incident operator packet artifacts",
+            checks,
+        )
+        support_case_incident_operator_artifacts = _get(
+            support_case_incident_operator_artifacts_response,
+            "data",
+            "support_case_incident_operator_packet_artifacts",
+        ) or []
+        support_case_incident_operator_artifact_manifest = client.get(
+            f"/api/v1/player/support-case/incident-operator-packet/artifacts/{support_case_incident_operator_artifact.get('artifact_id', '')}/manifest.json"
+        )
+        _add(
+            checks,
+            "support_case_incident_operator_packet_artifacts",
+            "Support case incident operator packet artifacts package checklist, dashboard, manifests, and audit export metadata into deterministic files.",
+            support_case_incident_operator_packet.get("schema_version")
+            == "gw2radar.support_case_incident_operator_packet.v1"
+            and support_case_incident_operator_packet.get("ready") is True
+            and support_case_incident_operator_artifact.get("schema_version")
+            == "gw2radar.support_case_incident_operator_packet_manifest.v1"
+            and support_case_incident_operator_artifact.get("file_count") == 9
+            and len(support_case_incident_operator_artifacts) >= 1
+            and support_case_incident_operator_artifact_manifest.status_code == 200
+            and "gw2radar.support_case_incident_operator_packet_manifest.v1"
+            in support_case_incident_operator_artifact_manifest.text
+            and "secret-key" not in json.dumps(support_case_incident_operator_artifact).lower(),
+            "mature_support_case_incident_operator_packet_artifacts",
+            f"{support_case_incident_operator_artifact.get('file_count', 0)} metadata files written for operator handoff.",
+        )
         player_readiness = _json(client.get("/api/v1/player/readiness"), "load player readiness", checks)
         readiness = _get(player_readiness, "data", "readiness") or {}
         _add(
@@ -1330,6 +1381,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "- `PlayerSupportHandoffFinalArchiveManifest` packages dashboard, operator packet, readiness checklist, and audit exports into deterministic local files and a verified zip.",
             "- `SupportCaseIncidentPacketZipVerificationAudit` records incident packet zip verification outcomes as metadata-only support evidence.",
             "- `SupportCaseIncidentHandoffChecklist` summarizes dashboard, packet, zip, verification, and audit gates into one operator-ready handoff view.",
+            "- `SupportCaseIncidentOperatorPacketArtifacts` write deterministic metadata files for incident support handoff.",
             "- `ReportArtifactManifest` records bridge metadata without storing raw API keys or unredacted private payloads.",
             "",
             "## Known Limits",
@@ -1340,7 +1392,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Next Priority",
             "",
-            "Build Support Case Incident Operator Packet artifacts that package the handoff checklist, dashboard, packet manifest, zip manifest, and audit export as deterministic metadata files.",
+            "Build Support Case Incident Operator Packet Zip Bundle with checksum header, whitelist validation, and import-side verifier.",
             "",
         ]
     )
