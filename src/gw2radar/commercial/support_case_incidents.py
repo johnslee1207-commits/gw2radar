@@ -300,6 +300,31 @@ class SupportCaseIncidentOperatorPacketZipVerificationAuditList(BaseModel):
     )
 
 
+class SupportCaseIncidentFinalHandoffChecklist(BaseModel):
+    schema_version: str = "gw2radar.support_case_incident_final_handoff_checklist.v1"
+    generated_at: datetime
+    ready: bool
+    maturity_label: str
+    latest_operator_artifact_id: str | None = None
+    operator_artifact_file_count: int = 0
+    operator_zip_checksum_sha256: str | None = None
+    operator_zip_file_count: int = 0
+    operator_zip_verification_ready: bool = False
+    operator_zip_audit_count: int = 0
+    latest_operator_zip_audit_id: str | None = None
+    checklist_items: list[str] = Field(default_factory=list)
+    missing_gates: list[str] = Field(default_factory=list)
+    blockers: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    next_actions: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    boundary: str = (
+        "Support case incident final handoff checklist is metadata-only; it summarizes operator "
+        "artifact, zip, verification, and audit gates without storing zip bytes, raw API keys, "
+        "raw debug bundles, or private account payloads."
+    )
+
+
 def build_support_case_incident_dashboard(
     *,
     gateway_history: GatewayIncidentHistory,
@@ -1441,6 +1466,168 @@ def render_support_case_incident_operator_packet_zip_verification_audit_csv(
                 ]
             )
         )
+    return "\n".join(rows) + "\n"
+
+
+def build_support_case_incident_final_handoff_checklist(
+    *,
+    artifact_root: Path | None = None,
+    audit_root: Path | None = None,
+) -> SupportCaseIncidentFinalHandoffChecklist:
+    artifacts = list_support_case_incident_operator_packet_artifacts(artifact_root=artifact_root, limit=1)
+    latest_artifact = artifacts[0] if artifacts else None
+    missing_gates: list[str] = []
+    blockers: list[str] = []
+    warnings: list[str] = []
+    zip_manifest: SupportCaseIncidentOperatorPacketZipManifest | None = None
+    zip_verification: SupportCaseIncidentOperatorPacketZipVerification | None = None
+
+    if latest_artifact is None:
+        missing_gates.append("support case incident operator packet artifact")
+    else:
+        if latest_artifact.file_count < len(SUPPORT_CASE_INCIDENT_OPERATOR_PACKET_FILES):
+            missing_gates.append("support case incident operator packet required files")
+        if not latest_artifact.ready:
+            missing_gates.append("support case incident operator packet artifact ready state")
+
+    if latest_artifact is not None:
+        try:
+            zip_manifest, zip_bytes = build_support_case_incident_operator_packet_zip_bundle(
+                artifact_root=artifact_root,
+            )
+            zip_verification = verify_support_case_incident_operator_packet_zip_bundle(
+                zip_bytes,
+                expected_checksum_sha256=zip_manifest.checksum_sha256,
+            )
+        except ValueError as exc:
+            blockers.append(str(exc))
+
+    if zip_manifest is None or zip_manifest.file_count < len(SUPPORT_CASE_INCIDENT_OPERATOR_PACKET_FILES):
+        missing_gates.append("support case incident operator packet zip bundle")
+    if zip_verification is None or not zip_verification.ready:
+        missing_gates.append("support case incident operator packet zip verification")
+
+    audit = list_support_case_incident_operator_packet_zip_verification_audits(
+        audit_root=audit_root,
+        limit=1,
+    )
+    latest_audit = audit.records[0] if audit.records else None
+    if latest_audit is None:
+        missing_gates.append("support case incident operator packet zip verification audit")
+    elif not latest_audit.ready:
+        missing_gates.append("latest support case incident operator packet zip verification audit ready state")
+
+    if zip_verification:
+        blockers.extend(zip_verification.blockers)
+        warnings.extend(zip_verification.warnings)
+    if latest_audit:
+        blockers.extend(latest_audit.blockers)
+        warnings.extend(latest_audit.warnings)
+
+    ready = not missing_gates and not blockers
+    if blockers:
+        maturity_label = "blocked"
+    elif missing_gates or warnings:
+        maturity_label = "review_needed"
+    else:
+        maturity_label = "ready"
+    next_actions = (
+        [
+            "Resolve missing final handoff gates before closing the support case incident.",
+            "Re-run operator packet zip verification and record a fresh metadata-only audit.",
+        ]
+        if not ready
+        else [
+            "Attach final checklist, operator packet artifact manifest, zip checksum, and audit export to the support case.",
+            "Close the incident only after a reviewer confirms no raw keys or private payloads were requested.",
+        ]
+    )
+    return SupportCaseIncidentFinalHandoffChecklist(
+        generated_at=datetime.now(timezone.utc),
+        ready=ready,
+        maturity_label=maturity_label,
+        latest_operator_artifact_id=latest_artifact.artifact_id if latest_artifact else None,
+        operator_artifact_file_count=latest_artifact.file_count if latest_artifact else 0,
+        operator_zip_checksum_sha256=zip_manifest.checksum_sha256 if zip_manifest else None,
+        operator_zip_file_count=zip_manifest.file_count if zip_manifest else 0,
+        operator_zip_verification_ready=zip_verification.ready if zip_verification else False,
+        operator_zip_audit_count=len(audit.records),
+        latest_operator_zip_audit_id=latest_audit.audit_id if latest_audit else None,
+        checklist_items=[
+            "Support case incident operator packet metadata artifacts are written and indexed.",
+            "Support case incident operator packet zip is generated from whitelist files.",
+            "Support case incident operator packet zip is verified without executing content.",
+            "Support case incident operator packet zip verification audit is recorded as metadata only.",
+            "Final support closure evidence is ready for handoff.",
+        ],
+        missing_gates=_unique(missing_gates),
+        blockers=_unique(blockers),
+        warnings=_unique(warnings),
+        next_actions=next_actions,
+        evidence_refs=[
+            "/api/v1/player/support-case/incident-operator-packet/artifacts",
+            "/api/v1/player/support-case/incident-operator-packet/artifacts/bundle",
+            "/api/v1/player/support-case/incident-operator-packet/artifacts/bundle/verify",
+            "/api/v1/player/support-case/incident-operator-packet/artifacts/bundle/verification-audit",
+        ],
+    )
+
+
+def render_support_case_incident_final_handoff_checklist_markdown(
+    checklist: SupportCaseIncidentFinalHandoffChecklist,
+) -> str:
+    lines = [
+        "# Support Case Incident Final Handoff Checklist",
+        "",
+        f"- Ready: {checklist.ready}",
+        f"- Maturity: {checklist.maturity_label}",
+        f"- Latest operator artifact: {checklist.latest_operator_artifact_id or 'None'}",
+        f"- Operator artifact files: {checklist.operator_artifact_file_count}",
+        f"- Operator zip files: {checklist.operator_zip_file_count}",
+        f"- Operator zip checksum: {checklist.operator_zip_checksum_sha256 or 'None'}",
+        f"- Operator zip verification ready: {checklist.operator_zip_verification_ready}",
+        f"- Operator zip audit records: {checklist.operator_zip_audit_count}",
+        f"- Boundary: {checklist.boundary}",
+        "",
+        "## Checklist",
+    ]
+    lines.extend(f"- {item}" for item in checklist.checklist_items)
+    lines.extend(["", "## Missing Gates"])
+    lines.extend(f"- {item}" for item in checklist.missing_gates) if checklist.missing_gates else lines.append("- None")
+    lines.extend(["", "## Blockers"])
+    lines.extend(f"- {item}" for item in checklist.blockers) if checklist.blockers else lines.append("- None")
+    lines.extend(["", "## Warnings"])
+    lines.extend(f"- {item}" for item in checklist.warnings) if checklist.warnings else lines.append("- None")
+    lines.extend(["", "## Next Actions"])
+    lines.extend(f"- {item}" for item in checklist.next_actions)
+    return "\n".join(lines) + "\n"
+
+
+def render_support_case_incident_final_handoff_checklist_csv(
+    checklist: SupportCaseIncidentFinalHandoffChecklist,
+) -> str:
+    rows = [
+        "ready,maturity_label,latest_operator_artifact_id,operator_artifact_file_count,operator_zip_file_count,operator_zip_verification_ready,operator_zip_audit_count,missing_gate_count,blocker_count,warning_count",
+        ",".join(
+            [
+                _csv(str(checklist.ready)),
+                _csv(checklist.maturity_label),
+                _csv(checklist.latest_operator_artifact_id or ""),
+                _csv(str(checklist.operator_artifact_file_count)),
+                _csv(str(checklist.operator_zip_file_count)),
+                _csv(str(checklist.operator_zip_verification_ready)),
+                _csv(str(checklist.operator_zip_audit_count)),
+                _csv(str(len(checklist.missing_gates))),
+                _csv(str(len(checklist.blockers))),
+                _csv(str(len(checklist.warnings))),
+            ]
+        ),
+    ]
+    rows.extend(f"checklist_item,{_csv(item)}" for item in checklist.checklist_items)
+    rows.extend(f"missing_gate,{_csv(item)}" for item in checklist.missing_gates)
+    rows.extend(f"blocker,{_csv(item)}" for item in checklist.blockers)
+    rows.extend(f"warning,{_csv(item)}" for item in checklist.warnings)
+    rows.extend(f"next_action,{_csv(item)}" for item in checklist.next_actions)
     return "\n".join(rows) + "\n"
 
 

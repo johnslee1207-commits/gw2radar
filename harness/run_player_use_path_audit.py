@@ -663,6 +663,41 @@ def main() -> int:
             "mature_support_case_incident_operator_packet_zip_verification_audit",
             f"{len(support_case_incident_operator_zip_audit.get('records', []))} metadata-only operator zip audit records available.",
         )
+        support_case_incident_final_checklist_response = _json(
+            client.get("/api/v1/player/support-case/incident-final-handoff-checklist?limit=20"),
+            "load support case incident final handoff checklist",
+            checks,
+        )
+        support_case_incident_final_checklist = _get(
+            support_case_incident_final_checklist_response,
+            "data",
+            "support_case_incident_final_handoff_checklist",
+        ) or {}
+        support_case_incident_final_checklist_markdown = client.get(
+            "/api/v1/player/support-case/incident-final-handoff-checklist?format=markdown&limit=20"
+        )
+        support_case_incident_final_checklist_csv = client.get(
+            "/api/v1/player/support-case/incident-final-handoff-checklist?format=csv&limit=20"
+        )
+        _add(
+            checks,
+            "support_case_incident_final_handoff_checklist",
+            "Support case incident final handoff checklist combines operator artifacts, zip verification, and audit evidence into one closure gate.",
+            support_case_incident_final_checklist.get("schema_version")
+            == "gw2radar.support_case_incident_final_handoff_checklist.v1"
+            and support_case_incident_final_checklist.get("ready") is True
+            and support_case_incident_final_checklist.get("operator_zip_verification_ready") is True
+            and support_case_incident_final_checklist.get("operator_zip_audit_count", 0) >= 1
+            and support_case_incident_final_checklist_markdown.status_code == 200
+            and "# Support Case Incident Final Handoff Checklist"
+            in support_case_incident_final_checklist_markdown.text
+            and support_case_incident_final_checklist_csv.status_code == 200
+            and "ready,maturity_label,latest_operator_artifact_id"
+            in support_case_incident_final_checklist_csv.text
+            and "secret-key" not in json.dumps(support_case_incident_final_checklist).lower(),
+            "mature_support_case_incident_final_handoff_checklist",
+            f"{support_case_incident_final_checklist.get('operator_artifact_file_count', 0)} operator files and {support_case_incident_final_checklist.get('operator_zip_audit_count', 0)} audit records gated.",
+        )
         player_readiness = _json(client.get("/api/v1/player/readiness"), "load player readiness", checks)
         readiness = _get(player_readiness, "data", "readiness") or {}
         _add(
@@ -1481,6 +1516,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "- `SupportCaseIncidentOperatorPacketArtifacts` write deterministic metadata files for incident support handoff.",
             "- `SupportCaseIncidentOperatorPacketZipVerification` packages operator packet artifacts as a read-only zip and verifies checksum, schema, whitelist, and no-secret boundaries.",
             "- `SupportCaseIncidentOperatorPacketZipVerificationAudit` records operator packet zip verification outcomes as metadata-only support evidence.",
+            "- `SupportCaseIncidentFinalHandoffChecklist` combines operator artifact, zip, verification, and audit gates into a support closure view.",
             "- `ReportArtifactManifest` records bridge metadata without storing raw API keys or unredacted private payloads.",
             "",
             "## Known Limits",
@@ -1491,7 +1527,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Next Priority",
             "",
-            "Build Support Case Incident Final Handoff Checklist that combines operator packet artifacts, zip verification, and audit evidence into one closure gate.",
+            "Build Support Case Incident Final Handoff Packet artifacts with deterministic metadata files, manifest, and path-safe retrieval.",
             "",
         ]
     )

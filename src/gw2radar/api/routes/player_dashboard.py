@@ -77,6 +77,7 @@ from gw2radar.commercial.support_case_incidents import (
     SupportCaseIncidentOperatorPacketZipVerificationAuditRequest,
     SupportCaseIncidentPacketZipVerificationAuditRequest,
     build_support_case_incident_dashboard,
+    build_support_case_incident_final_handoff_checklist,
     build_support_case_incident_handoff_checklist,
     build_support_case_incident_operator_packet,
     build_support_case_incident_operator_packet_zip_bundle,
@@ -91,6 +92,8 @@ from gw2radar.commercial.support_case_incidents import (
     resolve_support_case_incident_packet_path,
     render_support_case_incident_dashboard_csv,
     render_support_case_incident_dashboard_markdown,
+    render_support_case_incident_final_handoff_checklist_csv,
+    render_support_case_incident_final_handoff_checklist_markdown,
     render_support_case_incident_handoff_checklist_csv,
     render_support_case_incident_handoff_checklist_markdown,
     render_support_case_incident_operator_packet_csv,
@@ -962,6 +965,41 @@ def get_player_support_case_incident_operator_packet_artifact_bundle_verificatio
         )
     return ApiDataEnvelope(
         data={"support_case_incident_operator_packet_zip_verification_audit": audit.model_dump(mode="json")}
+    )
+
+
+@router.get("/support-case/incident-final-handoff-checklist", response_model=None)
+def get_player_support_case_incident_final_handoff_checklist(
+    format: str = "json",
+    limit: int = 20,
+) -> ApiDataEnvelope | Response:
+    if not list_support_case_incident_operator_packet_artifacts(limit=1):
+        dashboard = _build_support_case_incident_dashboard(limit=limit)
+        _ensure_support_case_incident_packet_and_audit(dashboard)
+        packet = build_support_case_incident_operator_packet(dashboard=dashboard)
+        write_support_case_incident_operator_packet_artifacts(packet)
+    if not list_support_case_incident_operator_packet_zip_verification_audits(limit=1).records:
+        record_support_case_incident_operator_packet_zip_verification_audit(
+            SupportCaseIncidentOperatorPacketZipVerificationAuditRequest(
+                reviewer="system",
+                notes=["System recorded support case incident final handoff checklist operator zip verification audit."],
+            )
+        )
+    checklist = build_support_case_incident_final_handoff_checklist()
+    if format == "markdown":
+        return Response(
+            content=render_support_case_incident_final_handoff_checklist_markdown(checklist),
+            media_type="text/markdown; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="support_case_incident_final_handoff_checklist.md"'},
+        )
+    if format == "csv":
+        return Response(
+            content=render_support_case_incident_final_handoff_checklist_csv(checklist),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="support_case_incident_final_handoff_checklist.csv"'},
+        )
+    return ApiDataEnvelope(
+        data={"support_case_incident_final_handoff_checklist": checklist.model_dump(mode="json")}
     )
 
 

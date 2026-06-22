@@ -44,6 +44,9 @@ const verifyIncidentOperatorPacketZipButton = document.querySelector("#verify-in
 const recordIncidentOperatorPacketZipAuditButton = document.querySelector("#record-incident-operator-packet-zip-audit-button");
 const loadIncidentOperatorPacketZipAuditButton = document.querySelector("#load-incident-operator-packet-zip-audit-button");
 const exportIncidentOperatorPacketZipAuditCsvButton = document.querySelector("#export-incident-operator-packet-zip-audit-csv-button");
+const loadIncidentFinalHandoffChecklistButton = document.querySelector("#load-incident-final-handoff-checklist-button");
+const exportIncidentFinalHandoffChecklistMdButton = document.querySelector("#export-incident-final-handoff-checklist-md-button");
+const exportIncidentFinalHandoffChecklistCsvButton = document.querySelector("#export-incident-final-handoff-checklist-csv-button");
 const exportIncidentDashboardMdButton = document.querySelector("#export-incident-dashboard-md-button");
 const exportIncidentDashboardCsvButton = document.querySelector("#export-incident-dashboard-csv-button");
 const summary = document.querySelector("#support-summary");
@@ -84,6 +87,7 @@ const incidentHandoffChecklistSummary = document.querySelector("#incident-handof
 const incidentOperatorPacketSummary = document.querySelector("#incident-operator-packet-summary");
 const incidentOperatorPacketZipSummary = document.querySelector("#incident-operator-packet-zip-summary");
 const incidentOperatorPacketZipAuditSummary = document.querySelector("#incident-operator-packet-zip-audit-summary");
+const incidentFinalHandoffChecklistSummary = document.querySelector("#incident-final-handoff-checklist-summary");
 const incidentPacketList = document.querySelector("#incident-packet-list");
 const incidentOperatorPacketList = document.querySelector("#incident-operator-packet-list");
 const output = document.querySelector("#support-output");
@@ -486,6 +490,18 @@ async function loadSupportCaseIncidentOperatorPacketZipAudit() {
 function exportSupportCaseIncidentOperatorPacketZipAuditCsv() {
   const reviewer = reviewerName?.value ? `&reviewer=${encodeURIComponent(reviewerName.value)}` : "";
   window.location.href = `/api/v1/player/support-case/incident-operator-packet/artifacts/bundle/verification-audit?format=csv${reviewer}`;
+}
+
+async function loadSupportCaseIncidentFinalHandoffChecklist() {
+  const response = await fetch("/api/v1/player/support-case/incident-final-handoff-checklist?limit=20");
+  const payload = await response.json();
+  const checklist = payload.data?.support_case_incident_final_handoff_checklist || {};
+  incidentFinalHandoffChecklistSummary.textContent = `Final handoff checklist ${checklist.ready ? "ready" : "blocked"} · ${checklist.maturity_label || "unknown"} · missing gates ${(checklist.missing_gates || []).length}.`;
+  output.textContent = JSON.stringify(payload, null, 2);
+}
+
+function exportSupportCaseIncidentFinalHandoffChecklist(format) {
+  window.location.href = `/api/v1/player/support-case/incident-final-handoff-checklist?format=${format}&limit=20`;
 }
 
 function renderSupportCaseIncidentDashboard(dashboard) {
@@ -992,6 +1008,12 @@ recordIncidentOperatorPacketZipAuditButton?.addEventListener("click", recordSupp
 loadIncidentOperatorPacketZipAuditButton?.addEventListener("click", loadSupportCaseIncidentOperatorPacketZipAudit);
 
 exportIncidentOperatorPacketZipAuditCsvButton?.addEventListener("click", exportSupportCaseIncidentOperatorPacketZipAuditCsv);
+
+loadIncidentFinalHandoffChecklistButton?.addEventListener("click", loadSupportCaseIncidentFinalHandoffChecklist);
+
+exportIncidentFinalHandoffChecklistMdButton?.addEventListener("click", () => exportSupportCaseIncidentFinalHandoffChecklist("markdown"));
+
+exportIncidentFinalHandoffChecklistCsvButton?.addEventListener("click", () => exportSupportCaseIncidentFinalHandoffChecklist("csv"));
 
 exportIncidentDashboardMdButton?.addEventListener("click", () => exportSupportCaseIncidentDashboard("markdown"));
 

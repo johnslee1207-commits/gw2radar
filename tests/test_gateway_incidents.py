@@ -259,6 +259,13 @@ def test_player_gateway_incident_timeline_correlates_refresh_events_without_secr
         operator_zip_audit_csv = client.get(
             "/api/v1/player/support-case/incident-operator-packet/artifacts/bundle/verification-audit?format=csv"
         )
+        final_handoff_checklist = client.get("/api/v1/player/support-case/incident-final-handoff-checklist?limit=20")
+        final_handoff_checklist_markdown = client.get(
+            "/api/v1/player/support-case/incident-final-handoff-checklist?format=markdown&limit=20"
+        )
+        final_handoff_checklist_csv = client.get(
+            "/api/v1/player/support-case/incident-final-handoff-checklist?format=csv&limit=20"
+        )
         assert manifest.status_code == 200
         assert "gw2radar.support_case_incident_packet_manifest.v1" in manifest.text
         assert packet_md.status_code == 200
@@ -439,11 +446,32 @@ def test_player_gateway_incident_timeline_correlates_refresh_events_without_secr
         assert "# Support Case Incident Operator Packet Zip Verification Audit" in operator_zip_audit_markdown.text
         assert operator_zip_audit_csv.status_code == 200
         assert "audit_id,recorded_at,reviewer,ready,checksum_sha256" in operator_zip_audit_csv.text
+        assert final_handoff_checklist.status_code == 200
+        final_checklist = final_handoff_checklist.json()["data"]["support_case_incident_final_handoff_checklist"]
+        assert final_checklist["schema_version"] == "gw2radar.support_case_incident_final_handoff_checklist.v1"
+        assert final_checklist["ready"] is True
+        assert final_checklist["operator_artifact_file_count"] == 9
+        assert final_checklist["operator_zip_file_count"] == 9
+        assert final_checklist["operator_zip_verification_ready"] is True
+        assert final_checklist["operator_zip_audit_count"] >= 1
+        assert final_checklist["missing_gates"] == []
+        assert final_handoff_checklist_markdown.status_code == 200
+        assert "# Support Case Incident Final Handoff Checklist" in final_handoff_checklist_markdown.text
+        assert final_handoff_checklist_csv.status_code == 200
+        assert "ready,maturity_label,latest_operator_artifact_id" in final_handoff_checklist_csv.text
         assert tampered_operator_audit.status_code == 200
         tampered_operator_record = tampered_operator_audit.json()["data"]["support_case_incident_operator_packet_zip_verification_audit_record"]
         assert tampered_operator_record["ready"] is False
         assert tampered_operator_record["blocker_count"] >= 1
-        assert "secret-key" not in (str(operator_audit_list) + operator_zip_audit_markdown.text + operator_zip_audit_csv.text + str(tampered_operator_record)).lower()
+        assert "secret-key" not in (
+            str(operator_audit_list)
+            + operator_zip_audit_markdown.text
+            + operator_zip_audit_csv.text
+            + str(final_checklist)
+            + final_handoff_checklist_markdown.text
+            + final_handoff_checklist_csv.text
+            + str(tampered_operator_record)
+        ).lower()
         assert session_packet.status_code == 200
         packet = session_packet.json()["data"]["session_packet"]
         assert packet["gateway_incident_history"]["schema_version"] == "gw2radar.gateway_incident_history.v1"
