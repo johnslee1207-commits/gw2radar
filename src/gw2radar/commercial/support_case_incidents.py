@@ -14,6 +14,7 @@ from gw2radar.support.account_debug_bundle_audit import SupportReviewAuditRecord
 
 SUPPORT_CASE_INCIDENT_PACKET_ROOT = Path("src/gw2radar/reports/artifacts/support_case_incident_packets")
 SUPPORT_CASE_INCIDENT_PACKET_FILES = {"dashboard.json", "dashboard.md", "dashboard.csv", "manifest.json"}
+SUPPORT_CASE_INCIDENT_PACKET_AUDIT_ROOT = Path("src/gw2radar/reports/artifacts/support_case_incident_packet_audits")
 
 
 class SupportCaseIncidentDashboard(BaseModel):
@@ -101,6 +102,44 @@ class SupportCaseIncidentPacketZipVerification(BaseModel):
     boundary: str = (
         "Support case incident packet zip verification reads zip bytes only; it does not execute, publish, "
         "or store uploaded content."
+    )
+
+
+class SupportCaseIncidentPacketZipVerificationAuditRequest(BaseModel):
+    reviewer: str = "support"
+    notes: list[str] = Field(default_factory=list)
+    expected_checksum_sha256: str | None = None
+
+
+class SupportCaseIncidentPacketZipVerificationAuditRecord(BaseModel):
+    schema_version: str = "gw2radar.support_case_incident_packet_zip_verification_audit.v1"
+    audit_id: str
+    recorded_at: datetime
+    reviewer: str
+    ready: bool
+    checksum_sha256: str
+    size_bytes: int
+    file_count: int
+    blocker_count: int
+    warning_count: int
+    verified_files: list[str] = Field(default_factory=list)
+    blockers: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+    source: str = "support_case_incident_packet_zip_verification"
+    boundary: str = (
+        "Support case incident packet verification audit is metadata-only; it records checksum, "
+        "file names, blockers, warnings, and reviewer notes without storing zip bytes, raw API keys, "
+        "raw debug bundles, or private account payloads."
+    )
+
+
+class SupportCaseIncidentPacketZipVerificationAuditList(BaseModel):
+    schema_version: str = "gw2radar.support_case_incident_packet_zip_verification_audit_list.v1"
+    records: list[SupportCaseIncidentPacketZipVerificationAuditRecord]
+    boundary: str = (
+        "Support case incident packet verification audit exports are metadata-only and exclude zip "
+        "content, raw API keys, raw debug bundles, and private account payloads."
     )
 
 
@@ -478,6 +517,124 @@ def verify_support_case_incident_packet_zip_bundle(
     )
 
 
+def record_support_case_incident_packet_zip_verification_audit(
+    request: SupportCaseIncidentPacketZipVerificationAuditRequest,
+    *,
+    bundle_bytes: bytes | None = None,
+    packet_root: Path | None = None,
+    audit_root: Path | None = None,
+) -> SupportCaseIncidentPacketZipVerificationAuditRecord:
+    expected_checksum = request.expected_checksum_sha256
+    if bundle_bytes is None or len(bundle_bytes) == 0:
+        manifest, bundle_bytes = build_support_case_incident_packet_zip_bundle(packet_root=packet_root)
+        expected_checksum = expected_checksum or manifest.checksum_sha256
+    verification = verify_support_case_incident_packet_zip_bundle(
+        bundle_bytes,
+        expected_checksum_sha256=expected_checksum,
+    )
+    recorded_at = datetime.now(timezone.utc)
+    record = SupportCaseIncidentPacketZipVerificationAuditRecord(
+        audit_id=f"support-case-incident-packet-zip-audit-{recorded_at.strftime('%Y%m%dT%H%M%S%fZ')}-{uuid4().hex[:8]}",
+        recorded_at=recorded_at,
+        reviewer=_safe_text(request.reviewer or "support", max_length=80),
+        ready=verification.ready,
+        checksum_sha256=verification.checksum_sha256,
+        size_bytes=verification.size_bytes,
+        file_count=verification.file_count,
+        blocker_count=len(verification.blockers),
+        warning_count=len(verification.warnings),
+        verified_files=verification.verified_files,
+        blockers=verification.blockers,
+        warnings=verification.warnings,
+        notes=[_safe_text(note, max_length=240) for note in (request.notes or [])]
+        or ["Support case incident packet zip verification audit recorded."],
+    )
+    root = audit_root or SUPPORT_CASE_INCIDENT_PACKET_AUDIT_ROOT
+    root.mkdir(parents=True, exist_ok=True)
+    with (root / "verification_audit.jsonl").open("a", encoding="utf-8") as handle:
+        handle.write(record.model_dump_json() + "\n")
+    return record
+
+
+def list_support_case_incident_packet_zip_verification_audits(
+    *,
+    audit_root: Path | None = None,
+    reviewer: str | None = None,
+    limit: int = 20,
+) -> SupportCaseIncidentPacketZipVerificationAuditList:
+    root = audit_root or SUPPORT_CASE_INCIDENT_PACKET_AUDIT_ROOT
+    path = root / "verification_audit.jsonl"
+    if not path.exists():
+        return SupportCaseIncidentPacketZipVerificationAuditList(records=[])
+    safe_reviewer = _safe_text(reviewer, max_length=80) if reviewer else None
+    records: list[SupportCaseIncidentPacketZipVerificationAuditRecord] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        try:
+            record = SupportCaseIncidentPacketZipVerificationAuditRecord.model_validate_json(line)
+        except ValueError:
+            continue
+        if safe_reviewer and record.reviewer != safe_reviewer:
+            continue
+        records.append(record)
+    records.sort(key=lambda item: item.recorded_at, reverse=True)
+    return SupportCaseIncidentPacketZipVerificationAuditList(records=records[: max(1, min(limit, 100))])
+
+
+def render_support_case_incident_packet_zip_verification_audit_markdown(
+    audit: SupportCaseIncidentPacketZipVerificationAuditList,
+) -> str:
+    lines = [
+        "# Support Case Incident Packet Zip Verification Audit",
+        "",
+        f"- Records: {len(audit.records)}",
+        "",
+        "## Records",
+    ]
+    if not audit.records:
+        lines.append("- No verification audit records are available.")
+    for record in audit.records:
+        lines.extend(
+            [
+                f"- {record.audit_id}",
+                f"  - Reviewer: {record.reviewer}",
+                f"  - Ready: {record.ready}",
+                f"  - Checksum: {record.checksum_sha256}",
+                f"  - Files: {record.file_count}",
+                f"  - Blockers: {record.blocker_count}",
+                f"  - Warnings: {record.warning_count}",
+            ]
+        )
+    lines.extend(["", "## Boundary", "", f"- {audit.boundary}"])
+    return "\n".join(lines) + "\n"
+
+
+def render_support_case_incident_packet_zip_verification_audit_csv(
+    audit: SupportCaseIncidentPacketZipVerificationAuditList,
+) -> str:
+    rows = [
+        "audit_id,recorded_at,reviewer,ready,checksum_sha256,size_bytes,file_count,blocker_count,warning_count"
+    ]
+    for record in audit.records:
+        rows.append(
+            ",".join(
+                [
+                    _csv(record.audit_id),
+                    _csv(record.recorded_at.isoformat()),
+                    _csv(record.reviewer),
+                    _csv(str(record.ready)),
+                    _csv(record.checksum_sha256),
+                    _csv(str(record.size_bytes)),
+                    _csv(str(record.file_count)),
+                    _csv(str(record.blocker_count)),
+                    _csv(str(record.warning_count)),
+                ]
+            )
+        )
+    return "\n".join(rows) + "\n"
+
+
 def _unique(values: list[str]) -> list[str]:
     result: list[str] = []
     for value in values:
@@ -492,6 +649,12 @@ def _csv(value: str) -> str:
     if any(character in text for character in [",", "\n", '"']):
         return f'"{text}"'
     return text
+
+
+def _safe_text(value: str | None, *, max_length: int) -> str:
+    text = str(value or "").replace("\x00", "").strip()
+    text = " ".join(text.split())
+    return text[:max_length]
 
 
 def _packet_file_entry(

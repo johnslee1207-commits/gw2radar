@@ -30,6 +30,9 @@ const writeIncidentPacketButton = document.querySelector("#write-incident-packet
 const loadIncidentPacketsButton = document.querySelector("#load-incident-packets-button");
 const loadIncidentPacketZipButton = document.querySelector("#load-incident-packet-zip-button");
 const verifyIncidentPacketZipButton = document.querySelector("#verify-incident-packet-zip-button");
+const recordIncidentPacketZipAuditButton = document.querySelector("#record-incident-packet-zip-audit-button");
+const loadIncidentPacketZipAuditButton = document.querySelector("#load-incident-packet-zip-audit-button");
+const exportIncidentPacketZipAuditCsvButton = document.querySelector("#export-incident-packet-zip-audit-csv-button");
 const exportIncidentDashboardMdButton = document.querySelector("#export-incident-dashboard-md-button");
 const exportIncidentDashboardCsvButton = document.querySelector("#export-incident-dashboard-csv-button");
 const summary = document.querySelector("#support-summary");
@@ -65,6 +68,7 @@ const gatewayNoteList = document.querySelector("#gateway-note-list");
 const incidentDashboardSummary = document.querySelector("#incident-dashboard-summary");
 const incidentDashboardCards = document.querySelector("#incident-dashboard-cards");
 const incidentPacketZipSummary = document.querySelector("#incident-packet-zip-summary");
+const incidentPacketZipAuditSummary = document.querySelector("#incident-packet-zip-audit-summary");
 const incidentPacketList = document.querySelector("#incident-packet-list");
 const output = document.querySelector("#support-output");
 let lastBundle = null;
@@ -357,6 +361,35 @@ async function verifySupportCaseIncidentPacketZip() {
   const verification = payload.data?.support_case_incident_packet_zip_verification || {};
   incidentPacketZipSummary.textContent = `Zip verification ${verification.ready ? "ready" : "blocked"} · ${verification.file_count || 0} files · checksum ${verification.checksum_sha256 || "none"}.`;
   output.textContent = JSON.stringify(payload, null, 2);
+}
+
+async function recordSupportCaseIncidentPacketZipAudit() {
+  const response = await fetch("/api/v1/player/support-case/incident-packet/bundle/verification-audit", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      reviewer: reviewerName?.value || "support",
+      notes: ["Operator recorded support case incident packet zip verification."],
+    }),
+  });
+  const payload = await response.json();
+  const record = payload.data?.support_case_incident_packet_zip_verification_audit_record || {};
+  incidentPacketZipAuditSummary.textContent = `Zip audit ${record.ready ? "ready" : "blocked"} · reviewer ${record.reviewer || "support"} · blockers ${record.blocker_count || 0}.`;
+  output.textContent = JSON.stringify(payload, null, 2);
+}
+
+async function loadSupportCaseIncidentPacketZipAudit() {
+  const reviewer = reviewerName?.value ? `&reviewer=${encodeURIComponent(reviewerName.value)}` : "";
+  const response = await fetch(`/api/v1/player/support-case/incident-packet/bundle/verification-audit?limit=10${reviewer}`);
+  const payload = await response.json();
+  const records = payload.data?.support_case_incident_packet_zip_verification_audit?.records || [];
+  incidentPacketZipAuditSummary.textContent = `${records.length} zip verification audit records loaded.`;
+  output.textContent = JSON.stringify(payload, null, 2);
+}
+
+function exportSupportCaseIncidentPacketZipAuditCsv() {
+  const reviewer = reviewerName?.value ? `&reviewer=${encodeURIComponent(reviewerName.value)}` : "";
+  window.location.href = `/api/v1/player/support-case/incident-packet/bundle/verification-audit?format=csv${reviewer}`;
 }
 
 function renderSupportCaseIncidentDashboard(dashboard) {
@@ -815,6 +848,12 @@ loadIncidentPacketsButton?.addEventListener("click", loadSupportCaseIncidentPack
 loadIncidentPacketZipButton?.addEventListener("click", loadSupportCaseIncidentPacketZipManifest);
 
 verifyIncidentPacketZipButton?.addEventListener("click", verifySupportCaseIncidentPacketZip);
+
+recordIncidentPacketZipAuditButton?.addEventListener("click", recordSupportCaseIncidentPacketZipAudit);
+
+loadIncidentPacketZipAuditButton?.addEventListener("click", loadSupportCaseIncidentPacketZipAudit);
+
+exportIncidentPacketZipAuditCsvButton?.addEventListener("click", exportSupportCaseIncidentPacketZipAuditCsv);
 
 exportIncidentDashboardMdButton?.addEventListener("click", () => exportSupportCaseIncidentDashboard("markdown"));
 

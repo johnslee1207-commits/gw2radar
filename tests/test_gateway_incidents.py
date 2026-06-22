@@ -228,6 +228,13 @@ def test_player_gateway_incident_timeline_correlates_refresh_events_without_secr
         zip_manifest = client.get("/api/v1/player/support-case/incident-packet/bundle?format=manifest")
         zip_bundle = client.get("/api/v1/player/support-case/incident-packet/bundle")
         zip_verify = client.post("/api/v1/player/support-case/incident-packet/bundle/verify")
+        zip_audit_record = client.post(
+            "/api/v1/player/support-case/incident-packet/bundle/verification-audit",
+            json={"reviewer": "incident lead", "notes": ["Verified incident packet zip before handoff."]},
+        )
+        zip_audit_list = client.get("/api/v1/player/support-case/incident-packet/bundle/verification-audit?reviewer=incident%20lead&limit=10")
+        zip_audit_markdown = client.get("/api/v1/player/support-case/incident-packet/bundle/verification-audit?format=markdown")
+        zip_audit_csv = client.get("/api/v1/player/support-case/incident-packet/bundle/verification-audit?format=csv")
         assert manifest.status_code == 200
         assert "gw2radar.support_case_incident_packet_manifest.v1" in manifest.text
         assert packet_md.status_code == 200
@@ -263,8 +270,35 @@ def test_player_gateway_incident_timeline_correlates_refresh_events_without_secr
             content=tampered_buffer.getvalue(),
             headers={"Content-Type": "application/zip"},
         )
+        tampered_audit = client.post(
+            "/api/v1/player/support-case/incident-packet/bundle/verification-audit/upload?reviewer=tamper%20review",
+            content=tampered_buffer.getvalue(),
+            headers={"Content-Type": "application/zip"},
+        )
         assert tampered_verify.status_code == 200
         assert tampered_verify.json()["data"]["support_case_incident_packet_zip_verification"]["ready"] is False
+        assert zip_audit_record.status_code == 200
+        audit_record = zip_audit_record.json()["data"]["support_case_incident_packet_zip_verification_audit_record"]
+        assert audit_record["schema_version"] == "gw2radar.support_case_incident_packet_zip_verification_audit.v1"
+        assert audit_record["reviewer"] == "incident lead"
+        assert audit_record["ready"] is True
+        assert audit_record["checksum_sha256"] == zip_manifest_payload["checksum_sha256"]
+        assert zip_audit_list.status_code == 200
+        audit_list = zip_audit_list.json()["data"]["support_case_incident_packet_zip_verification_audit"]
+        assert audit_list["schema_version"] == "gw2radar.support_case_incident_packet_zip_verification_audit_list.v1"
+        assert audit_list["records"][0]["reviewer"] == "incident lead"
+        assert zip_audit_markdown.status_code == 200
+        assert "# Support Case Incident Packet Zip Verification Audit" in zip_audit_markdown.text
+        assert zip_audit_csv.status_code == 200
+        assert "audit_id,recorded_at,reviewer,ready,checksum_sha256" in zip_audit_csv.text
+        assert tampered_audit.status_code == 200
+        tampered_record = tampered_audit.json()["data"]["support_case_incident_packet_zip_verification_audit_record"]
+        assert tampered_record["reviewer"] == "tamper review"
+        assert tampered_record["ready"] is False
+        assert tampered_record["blocker_count"] >= 1
+        combined_audit_text = str(audit_list) + zip_audit_markdown.text + zip_audit_csv.text + str(tampered_record)
+        assert "secret-key" not in combined_audit_text
+        assert "raw API key" in audit_record["boundary"]
         assert session_packet.status_code == 200
         packet = session_packet.json()["data"]["session_packet"]
         assert packet["gateway_incident_history"]["schema_version"] == "gw2radar.gateway_incident_history.v1"

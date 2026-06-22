@@ -95,6 +95,13 @@ def main() -> int:
     incident_packet_zip_manifest = client.get("/api/v1/player/support-case/incident-packet/bundle?format=manifest")
     incident_packet_zip = client.get("/api/v1/player/support-case/incident-packet/bundle")
     incident_packet_zip_verify = client.post("/api/v1/player/support-case/incident-packet/bundle/verify")
+    incident_packet_zip_audit = client.post(
+        "/api/v1/player/support-case/incident-packet/bundle/verification-audit",
+        json={"reviewer": "smoke", "notes": ["Smoke recorded support case incident packet zip audit."]},
+    )
+    incident_packet_zip_audit_list = client.get("/api/v1/player/support-case/incident-packet/bundle/verification-audit?reviewer=smoke&limit=10")
+    incident_packet_zip_audit_markdown = client.get("/api/v1/player/support-case/incident-packet/bundle/verification-audit?format=markdown")
+    incident_packet_zip_audit_csv = client.get("/api/v1/player/support-case/incident-packet/bundle/verification-audit?format=csv")
 
     _add(checks, "support page is served", page.status_code == 200 and "Debug Bundle Support Review" in page.text, page.text)
     _add(checks, "support script is served", js.status_code == 200 and "/account/debug-bundle/review" in js.text, js.text)
@@ -137,6 +144,10 @@ def main() -> int:
     _add(checks, "support case incident packet zip manifest is visible", incident_packet_zip_manifest.status_code == 200 and incident_packet_zip_manifest.json().get("data", {}).get("support_case_incident_packet_zip_bundle", {}).get("schema_version") == "gw2radar.support_case_incident_packet_zip_manifest.v1", incident_packet_zip_manifest.text)
     _add(checks, "support case incident packet zip downloads", incident_packet_zip.status_code == 200 and incident_packet_zip.headers.get("x-checksum-sha256"), incident_packet_zip.text[:200] if hasattr(incident_packet_zip, "text") else "")
     _add(checks, "support case incident packet zip verifies", incident_packet_zip_verify.status_code == 200 and incident_packet_zip_verify.json().get("data", {}).get("support_case_incident_packet_zip_verification", {}).get("ready") is True, incident_packet_zip_verify.text)
+    _add(checks, "support case incident packet zip audit records metadata", incident_packet_zip_audit.status_code == 200 and incident_packet_zip_audit.json().get("data", {}).get("support_case_incident_packet_zip_verification_audit_record", {}).get("schema_version") == "gw2radar.support_case_incident_packet_zip_verification_audit.v1", incident_packet_zip_audit.text)
+    _add(checks, "support case incident packet zip audit lists records", incident_packet_zip_audit_list.status_code == 200 and incident_packet_zip_audit_list.json().get("data", {}).get("support_case_incident_packet_zip_verification_audit", {}).get("records"), incident_packet_zip_audit_list.text)
+    _add(checks, "support case incident packet zip audit exports markdown", incident_packet_zip_audit_markdown.status_code == 200 and "# Support Case Incident Packet Zip Verification Audit" in incident_packet_zip_audit_markdown.text, incident_packet_zip_audit_markdown.text)
+    _add(checks, "support case incident packet zip audit exports csv", incident_packet_zip_audit_csv.status_code == 200 and "audit_id,recorded_at,reviewer,ready,checksum_sha256" in incident_packet_zip_audit_csv.text, incident_packet_zip_audit_csv.text)
     _add(checks, "no-secret boundary is visible", "Do not ask for a raw GW2 API key" in page.text and "Please do not send your raw GW2 API key" in js.text, "boundary missing")
 
     failed = [check for check in checks if not check[1]]
