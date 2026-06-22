@@ -1,6 +1,8 @@
 import shutil
+from io import BytesIO
 from pathlib import Path
 from uuid import uuid4
+from zipfile import ZipFile
 
 from fastapi.testclient import TestClient
 
@@ -223,12 +225,46 @@ def test_player_gateway_incident_timeline_correlates_refresh_events_without_secr
         packet_md = client.get(f"/api/v1/player/support-case/incident-packet/{packet_payload['packet_id']}/dashboard.md")
         blocked_path = client.get(f"/api/v1/player/support-case/incident-packet/{packet_payload['packet_id']}/../manifest.json")
         missing_file = client.get(f"/api/v1/player/support-case/incident-packet/{packet_payload['packet_id']}/secret.txt")
+        zip_manifest = client.get("/api/v1/player/support-case/incident-packet/bundle?format=manifest")
+        zip_bundle = client.get("/api/v1/player/support-case/incident-packet/bundle")
+        zip_verify = client.post("/api/v1/player/support-case/incident-packet/bundle/verify")
         assert manifest.status_code == 200
         assert "gw2radar.support_case_incident_packet_manifest.v1" in manifest.text
         assert packet_md.status_code == 200
         assert "# Support Case Incident Dashboard" in packet_md.text
         assert blocked_path.status_code == 404
         assert missing_file.status_code == 404
+        assert zip_manifest.status_code == 200
+        zip_manifest_payload = zip_manifest.json()["data"]["support_case_incident_packet_zip_bundle"]
+        assert zip_manifest_payload["schema_version"] == "gw2radar.support_case_incident_packet_zip_manifest.v1"
+        assert zip_manifest_payload["file_count"] == 4
+        assert len(zip_manifest_payload["checksum_sha256"]) == 64
+        assert zip_bundle.status_code == 200
+        assert zip_bundle.headers["x-checksum-sha256"] == zip_manifest_payload["checksum_sha256"]
+        assert set(ZipFile(BytesIO(zip_bundle.content)).namelist()) == {
+            "support_case_incident_packet/dashboard.json",
+            "support_case_incident_packet/dashboard.md",
+            "support_case_incident_packet/dashboard.csv",
+            "support_case_incident_packet/manifest.json",
+        }
+        assert zip_verify.status_code == 200
+        verification = zip_verify.json()["data"]["support_case_incident_packet_zip_verification"]
+        assert verification["schema_version"] == "gw2radar.support_case_incident_packet_zip_verification.v1"
+        assert verification["ready"] is True
+        assert verification["checksum_sha256"] == zip_manifest_payload["checksum_sha256"]
+        tampered_buffer = BytesIO()
+        with ZipFile(BytesIO(zip_bundle.content), mode="r") as source_archive:
+            with ZipFile(tampered_buffer, mode="w") as tampered_archive:
+                for name in source_archive.namelist():
+                    tampered_archive.writestr(name, source_archive.read(name))
+                tampered_archive.writestr("support_case_incident_packet/secret.txt", "secret-key")
+        tampered_verify = client.post(
+            "/api/v1/player/support-case/incident-packet/bundle/verify",
+            content=tampered_buffer.getvalue(),
+            headers={"Content-Type": "application/zip"},
+        )
+        assert tampered_verify.status_code == 200
+        assert tampered_verify.json()["data"]["support_case_incident_packet_zip_verification"]["ready"] is False
         assert session_packet.status_code == 200
         packet = session_packet.json()["data"]["session_packet"]
         assert packet["gateway_incident_history"]["schema_version"] == "gw2radar.gateway_incident_history.v1"

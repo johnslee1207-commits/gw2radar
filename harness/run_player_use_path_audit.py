@@ -385,6 +385,46 @@ def main() -> int:
             "mature_support_case_incident_packet",
             f"4 files with checksum {str(support_case_incident_packet.get('checksum_sha256', ''))[:12]}.",
         )
+        support_case_incident_packet_zip_manifest_response = _json(
+            client.get("/api/v1/player/support-case/incident-packet/bundle?format=manifest"),
+            "load support case incident packet zip manifest",
+            checks,
+        )
+        support_case_incident_packet_zip_manifest = _get(
+            support_case_incident_packet_zip_manifest_response,
+            "data",
+            "support_case_incident_packet_zip_bundle",
+        ) or {}
+        support_case_incident_packet_zip = client.get("/api/v1/player/support-case/incident-packet/bundle")
+        support_case_incident_packet_zip_verification_response = _json(
+            client.post("/api/v1/player/support-case/incident-packet/bundle/verify"),
+            "verify support case incident packet zip",
+            checks,
+        )
+        support_case_incident_packet_zip_verification = _get(
+            support_case_incident_packet_zip_verification_response,
+            "data",
+            "support_case_incident_packet_zip_verification",
+        ) or {}
+        _add(
+            checks,
+            "support_case_incident_packet_zip_verification",
+            "Support case incident packet zip can be downloaded as a read-only transfer bundle and verified for checksum, schema, whitelist, and no-secret boundaries.",
+            support_case_incident_packet_zip_manifest.get("schema_version")
+            == "gw2radar.support_case_incident_packet_zip_manifest.v1"
+            and support_case_incident_packet_zip_manifest.get("file_count") == 4
+            and len(str(support_case_incident_packet_zip_manifest.get("checksum_sha256", ""))) == 64
+            and support_case_incident_packet_zip.status_code == 200
+            and support_case_incident_packet_zip.headers.get("x-checksum-sha256")
+            == support_case_incident_packet_zip_manifest.get("checksum_sha256")
+            and support_case_incident_packet_zip_verification.get("schema_version")
+            == "gw2radar.support_case_incident_packet_zip_verification.v1"
+            and support_case_incident_packet_zip_verification.get("ready") is True
+            and support_case_incident_packet_zip_verification.get("file_count") == 4
+            and "secret-key" not in json.dumps(support_case_incident_packet_zip_verification).lower(),
+            "mature_support_case_incident_packet_zip_verification",
+            f"zip checksum {str(support_case_incident_packet_zip_manifest.get('checksum_sha256', ''))[:12]} verified with {support_case_incident_packet_zip_verification.get('file_count', 0)} files.",
+        )
         player_readiness = _json(client.get("/api/v1/player/readiness"), "load player readiness", checks)
         readiness = _get(player_readiness, "data", "readiness") or {}
         _add(
@@ -1179,6 +1219,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "- `GatewayIncidentReviewNote` lets support annotate, assign, close, and export metadata-only incident follow-up state.",
             "- `SupportCaseIncidentDashboard` aggregates gateway incidents, support review audits, and handoff readiness into one operator case view.",
             "- `SupportCaseIncidentPacket` writes dashboard JSON/Markdown/CSV/manifest files with checksums and path-safe retrieval.",
+            "- `SupportCaseIncidentPacketZipVerification` downloads and verifies read-only packet zip bundles for checksum, schema, whitelist, and no-secret boundaries.",
             "- `PrivatePlayerState` stores private account summaries separately from public game and KB layers.",
             "- `AccountValueSnapshot` normalizes holdings, price coverage, source diagnostics, and remediation actions.",
             "- `AccountValueHistory` stores privacy-safe value coverage snapshots and compares value/coverage/freshness deltas.",
@@ -1207,7 +1248,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Next Priority",
             "",
-            "Add a read-only zip bundle and verification import for support case incident packets.",
+            "Add metadata-only verification audit records for support case incident packet zip imports.",
             "",
         ]
     )

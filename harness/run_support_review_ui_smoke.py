@@ -92,6 +92,9 @@ def main() -> int:
     incident_packet_manifest = client.get(f"/api/v1/player/support-case/incident-packet/{incident_packet_id}/manifest.json")
     incident_packet_dashboard_md = client.get(f"/api/v1/player/support-case/incident-packet/{incident_packet_id}/dashboard.md")
     incident_packet_blocked = client.get(f"/api/v1/player/support-case/incident-packet/{incident_packet_id}/../manifest.json")
+    incident_packet_zip_manifest = client.get("/api/v1/player/support-case/incident-packet/bundle?format=manifest")
+    incident_packet_zip = client.get("/api/v1/player/support-case/incident-packet/bundle")
+    incident_packet_zip_verify = client.post("/api/v1/player/support-case/incident-packet/bundle/verify")
 
     _add(checks, "support page is served", page.status_code == 200 and "Debug Bundle Support Review" in page.text, page.text)
     _add(checks, "support script is served", js.status_code == 200 and "/account/debug-bundle/review" in js.text, js.text)
@@ -131,6 +134,9 @@ def main() -> int:
     _add(checks, "support case incident packet retrieves manifest", incident_packet_manifest.status_code == 200 and "gw2radar.support_case_incident_packet_manifest.v1" in incident_packet_manifest.text, incident_packet_manifest.text)
     _add(checks, "support case incident packet retrieves markdown", incident_packet_dashboard_md.status_code == 200 and "# Support Case Incident Dashboard" in incident_packet_dashboard_md.text, incident_packet_dashboard_md.text)
     _add(checks, "support case incident packet blocks unsafe path", incident_packet_blocked.status_code == 404, incident_packet_blocked.text)
+    _add(checks, "support case incident packet zip manifest is visible", incident_packet_zip_manifest.status_code == 200 and incident_packet_zip_manifest.json().get("data", {}).get("support_case_incident_packet_zip_bundle", {}).get("schema_version") == "gw2radar.support_case_incident_packet_zip_manifest.v1", incident_packet_zip_manifest.text)
+    _add(checks, "support case incident packet zip downloads", incident_packet_zip.status_code == 200 and incident_packet_zip.headers.get("x-checksum-sha256"), incident_packet_zip.text[:200] if hasattr(incident_packet_zip, "text") else "")
+    _add(checks, "support case incident packet zip verifies", incident_packet_zip_verify.status_code == 200 and incident_packet_zip_verify.json().get("data", {}).get("support_case_incident_packet_zip_verification", {}).get("ready") is True, incident_packet_zip_verify.text)
     _add(checks, "no-secret boundary is visible", "Do not ask for a raw GW2 API key" in page.text and "Please do not send your raw GW2 API key" in js.text, "boundary missing")
 
     failed = [check for check in checks if not check[1]]

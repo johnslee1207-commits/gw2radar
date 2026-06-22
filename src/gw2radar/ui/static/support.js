@@ -28,6 +28,8 @@ const exportGatewayNotesCsvButton = document.querySelector("#export-gateway-note
 const refreshIncidentDashboardButton = document.querySelector("#refresh-incident-dashboard-button");
 const writeIncidentPacketButton = document.querySelector("#write-incident-packet-button");
 const loadIncidentPacketsButton = document.querySelector("#load-incident-packets-button");
+const loadIncidentPacketZipButton = document.querySelector("#load-incident-packet-zip-button");
+const verifyIncidentPacketZipButton = document.querySelector("#verify-incident-packet-zip-button");
 const exportIncidentDashboardMdButton = document.querySelector("#export-incident-dashboard-md-button");
 const exportIncidentDashboardCsvButton = document.querySelector("#export-incident-dashboard-csv-button");
 const summary = document.querySelector("#support-summary");
@@ -62,6 +64,7 @@ const gatewayNoteSummary = document.querySelector("#gateway-note-summary");
 const gatewayNoteList = document.querySelector("#gateway-note-list");
 const incidentDashboardSummary = document.querySelector("#incident-dashboard-summary");
 const incidentDashboardCards = document.querySelector("#incident-dashboard-cards");
+const incidentPacketZipSummary = document.querySelector("#incident-packet-zip-summary");
 const incidentPacketList = document.querySelector("#incident-packet-list");
 const output = document.querySelector("#support-output");
 let lastBundle = null;
@@ -338,6 +341,22 @@ async function loadSupportCaseIncidentPackets() {
   const response = await fetch("/api/v1/player/support-case/incident-packet?limit=10");
   const payload = await response.json();
   renderSupportCaseIncidentPackets(payload.data?.support_case_incident_packets || []);
+}
+
+async function loadSupportCaseIncidentPacketZipManifest() {
+  const response = await fetch("/api/v1/player/support-case/incident-packet/bundle?format=manifest");
+  const payload = await response.json();
+  const manifest = payload.data?.support_case_incident_packet_zip_bundle || {};
+  incidentPacketZipSummary.textContent = `${manifest.file_count || 0} zip files · checksum ${manifest.checksum_sha256 || "none"}.`;
+  output.textContent = JSON.stringify(payload, null, 2);
+}
+
+async function verifySupportCaseIncidentPacketZip() {
+  const response = await fetch("/api/v1/player/support-case/incident-packet/bundle/verify", { method: "POST" });
+  const payload = await response.json();
+  const verification = payload.data?.support_case_incident_packet_zip_verification || {};
+  incidentPacketZipSummary.textContent = `Zip verification ${verification.ready ? "ready" : "blocked"} · ${verification.file_count || 0} files · checksum ${verification.checksum_sha256 || "none"}.`;
+  output.textContent = JSON.stringify(payload, null, 2);
 }
 
 function renderSupportCaseIncidentDashboard(dashboard) {
@@ -792,6 +811,10 @@ refreshIncidentDashboardButton?.addEventListener("click", refreshSupportCaseInci
 writeIncidentPacketButton?.addEventListener("click", writeSupportCaseIncidentPacket);
 
 loadIncidentPacketsButton?.addEventListener("click", loadSupportCaseIncidentPackets);
+
+loadIncidentPacketZipButton?.addEventListener("click", loadSupportCaseIncidentPacketZipManifest);
+
+verifyIncidentPacketZipButton?.addEventListener("click", verifySupportCaseIncidentPacketZip);
 
 exportIncidentDashboardMdButton?.addEventListener("click", () => exportSupportCaseIncidentDashboard("markdown"));
 

@@ -75,10 +75,12 @@ from gw2radar.commercial.gateway_incidents import (
 )
 from gw2radar.commercial.support_case_incidents import (
     build_support_case_incident_dashboard,
+    build_support_case_incident_packet_zip_bundle,
     list_support_case_incident_packets,
     resolve_support_case_incident_packet_path,
     render_support_case_incident_dashboard_csv,
     render_support_case_incident_dashboard_markdown,
+    verify_support_case_incident_packet_zip_bundle,
     write_support_case_incident_packet,
 )
 from gw2radar.db import session as db_session
@@ -672,6 +674,47 @@ def post_player_support_case_incident_packet(limit: int = 20) -> ApiDataEnvelope
 def get_player_support_case_incident_packets(limit: int = 20) -> ApiDataEnvelope:
     packets = list_support_case_incident_packets(limit=limit)
     return ApiDataEnvelope(data={"support_case_incident_packets": [packet.model_dump(mode="json") for packet in packets]})
+
+
+@router.get("/support-case/incident-packet/bundle", response_model=None)
+def get_player_support_case_incident_packet_bundle(
+    format: str = Query(default="zip", pattern="^(zip|manifest)$"),
+) -> ApiDataEnvelope | Response:
+    if not list_support_case_incident_packets(limit=1):
+        dashboard = _build_support_case_incident_dashboard(limit=20)
+        write_support_case_incident_packet(dashboard)
+    try:
+        manifest, bundle_bytes = build_support_case_incident_packet_zip_bundle()
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    if format == "manifest":
+        return ApiDataEnvelope(data={"support_case_incident_packet_zip_bundle": manifest.model_dump(mode="json")})
+    return Response(
+        content=bundle_bytes,
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f'attachment; filename="{manifest.filename}"',
+            "X-Checksum-SHA256": manifest.checksum_sha256,
+        },
+    )
+
+
+@router.post("/support-case/incident-packet/bundle/verify", response_model=ApiDataEnvelope)
+def post_player_support_case_incident_packet_bundle_verify(
+    bundle: bytes | None = Body(default=None, media_type="application/zip"),
+    expected_checksum_sha256: str | None = Query(default=None),
+) -> ApiDataEnvelope:
+    if bundle is None or len(bundle) == 0:
+        if not list_support_case_incident_packets(limit=1):
+            dashboard = _build_support_case_incident_dashboard(limit=20)
+            write_support_case_incident_packet(dashboard)
+        manifest, bundle = build_support_case_incident_packet_zip_bundle()
+        expected_checksum_sha256 = expected_checksum_sha256 or manifest.checksum_sha256
+    verification = verify_support_case_incident_packet_zip_bundle(
+        bundle,
+        expected_checksum_sha256=expected_checksum_sha256,
+    )
+    return ApiDataEnvelope(data={"support_case_incident_packet_zip_verification": verification.model_dump(mode="json")})
 
 
 @router.get("/support-case/incident-packet/{packet_id}/{file_name}", response_model=None)
