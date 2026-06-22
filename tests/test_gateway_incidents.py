@@ -243,6 +243,9 @@ def test_player_gateway_incident_timeline_correlates_refresh_events_without_secr
         operator_packet_csv = client.get("/api/v1/player/support-case/incident-operator-packet?format=csv&limit=20")
         operator_artifact = client.post("/api/v1/player/support-case/incident-operator-packet/artifacts?limit=20")
         operator_artifacts = client.get("/api/v1/player/support-case/incident-operator-packet/artifacts?limit=10")
+        operator_zip_manifest = client.get("/api/v1/player/support-case/incident-operator-packet/artifacts/bundle?format=manifest")
+        operator_zip_bundle = client.get("/api/v1/player/support-case/incident-operator-packet/artifacts/bundle")
+        operator_zip_verify = client.post("/api/v1/player/support-case/incident-operator-packet/artifacts/bundle/verify")
         assert manifest.status_code == 200
         assert "gw2radar.support_case_incident_packet_manifest.v1" in manifest.text
         assert packet_md.status_code == 200
@@ -366,6 +369,44 @@ def test_player_gateway_incident_timeline_correlates_refresh_events_without_secr
         combined_operator_text = str(operator_payload) + str(artifact_payload) + operator_manifest.text + operator_md.text
         assert "secret-key" not in combined_operator_text.lower()
         assert "raw API key" in operator_payload["boundary"]
+        assert operator_zip_manifest.status_code == 200
+        operator_zip_manifest_payload = operator_zip_manifest.json()["data"]["support_case_incident_operator_packet_zip_bundle"]
+        assert operator_zip_manifest_payload["schema_version"] == "gw2radar.support_case_incident_operator_packet_zip_manifest.v1"
+        assert operator_zip_manifest_payload["file_count"] == 9
+        assert len(operator_zip_manifest_payload["checksum_sha256"]) == 64
+        assert operator_zip_bundle.status_code == 200
+        assert operator_zip_bundle.headers["x-checksum-sha256"] == operator_zip_manifest_payload["checksum_sha256"]
+        assert set(ZipFile(BytesIO(operator_zip_bundle.content)).namelist()) == {
+            "support_case_incident_operator_packet/operator_packet.json",
+            "support_case_incident_operator_packet/operator_packet.md",
+            "support_case_incident_operator_packet/operator_packet.csv",
+            "support_case_incident_operator_packet/checklist.md",
+            "support_case_incident_operator_packet/dashboard.md",
+            "support_case_incident_operator_packet/packet_manifest.json",
+            "support_case_incident_operator_packet/zip_manifest.json",
+            "support_case_incident_operator_packet/verification_audit.csv",
+            "support_case_incident_operator_packet/manifest.json",
+        }
+        assert operator_zip_verify.status_code == 200
+        operator_verification = operator_zip_verify.json()["data"]["support_case_incident_operator_packet_zip_verification"]
+        assert operator_verification["schema_version"] == "gw2radar.support_case_incident_operator_packet_zip_verification.v1"
+        assert operator_verification["ready"] is True
+        assert operator_verification["checksum_sha256"] == operator_zip_manifest_payload["checksum_sha256"]
+        tampered_operator_buffer = BytesIO()
+        with ZipFile(BytesIO(operator_zip_bundle.content), mode="r") as source_archive:
+            with ZipFile(tampered_operator_buffer, mode="w") as tampered_archive:
+                for name in source_archive.namelist():
+                    tampered_archive.writestr(name, source_archive.read(name))
+                tampered_archive.writestr("support_case_incident_operator_packet/secret.txt", "secret-key")
+        tampered_operator_verify = client.post(
+            "/api/v1/player/support-case/incident-operator-packet/artifacts/bundle/verify",
+            content=tampered_operator_buffer.getvalue(),
+            headers={"Content-Type": "application/zip"},
+        )
+        assert tampered_operator_verify.status_code == 200
+        tampered_operator = tampered_operator_verify.json()["data"]["support_case_incident_operator_packet_zip_verification"]
+        assert tampered_operator["ready"] is False
+        assert "secret-key" not in str(tampered_operator).lower()
         assert session_packet.status_code == 200
         packet = session_packet.json()["data"]["session_packet"]
         assert packet["gateway_incident_history"]["schema_version"] == "gw2radar.gateway_incident_history.v1"

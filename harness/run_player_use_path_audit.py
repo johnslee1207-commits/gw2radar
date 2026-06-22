@@ -566,6 +566,48 @@ def main() -> int:
             "mature_support_case_incident_operator_packet_artifacts",
             f"{support_case_incident_operator_artifact.get('file_count', 0)} metadata files written for operator handoff.",
         )
+        support_case_incident_operator_zip_manifest_response = _json(
+            client.get("/api/v1/player/support-case/incident-operator-packet/artifacts/bundle?format=manifest"),
+            "load support case incident operator packet zip manifest",
+            checks,
+        )
+        support_case_incident_operator_zip_manifest = _get(
+            support_case_incident_operator_zip_manifest_response,
+            "data",
+            "support_case_incident_operator_packet_zip_bundle",
+        ) or {}
+        support_case_incident_operator_zip = client.get(
+            "/api/v1/player/support-case/incident-operator-packet/artifacts/bundle"
+        )
+        support_case_incident_operator_zip_verification_response = _json(
+            client.post("/api/v1/player/support-case/incident-operator-packet/artifacts/bundle/verify"),
+            "verify support case incident operator packet zip",
+            checks,
+        )
+        support_case_incident_operator_zip_verification = _get(
+            support_case_incident_operator_zip_verification_response,
+            "data",
+            "support_case_incident_operator_packet_zip_verification",
+        ) or {}
+        _add(
+            checks,
+            "support_case_incident_operator_packet_zip_verification",
+            "Support case incident operator packet artifacts can be downloaded as a read-only zip and verified for checksum, schema, whitelist, and no-secret boundaries.",
+            support_case_incident_operator_zip_manifest.get("schema_version")
+            == "gw2radar.support_case_incident_operator_packet_zip_manifest.v1"
+            and support_case_incident_operator_zip_manifest.get("file_count") == 9
+            and len(str(support_case_incident_operator_zip_manifest.get("checksum_sha256", ""))) == 64
+            and support_case_incident_operator_zip.status_code == 200
+            and support_case_incident_operator_zip.headers.get("x-checksum-sha256")
+            == support_case_incident_operator_zip_manifest.get("checksum_sha256")
+            and support_case_incident_operator_zip_verification.get("schema_version")
+            == "gw2radar.support_case_incident_operator_packet_zip_verification.v1"
+            and support_case_incident_operator_zip_verification.get("ready") is True
+            and support_case_incident_operator_zip_verification.get("file_count") == 9
+            and "secret-key" not in json.dumps(support_case_incident_operator_zip_verification).lower(),
+            "mature_support_case_incident_operator_packet_zip_verification",
+            f"operator zip checksum {str(support_case_incident_operator_zip_manifest.get('checksum_sha256', ''))[:12]} verified with {support_case_incident_operator_zip_verification.get('file_count', 0)} files.",
+        )
         player_readiness = _json(client.get("/api/v1/player/readiness"), "load player readiness", checks)
         readiness = _get(player_readiness, "data", "readiness") or {}
         _add(
@@ -1382,6 +1424,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "- `SupportCaseIncidentPacketZipVerificationAudit` records incident packet zip verification outcomes as metadata-only support evidence.",
             "- `SupportCaseIncidentHandoffChecklist` summarizes dashboard, packet, zip, verification, and audit gates into one operator-ready handoff view.",
             "- `SupportCaseIncidentOperatorPacketArtifacts` write deterministic metadata files for incident support handoff.",
+            "- `SupportCaseIncidentOperatorPacketZipVerification` packages operator packet artifacts as a read-only zip and verifies checksum, schema, whitelist, and no-secret boundaries.",
             "- `ReportArtifactManifest` records bridge metadata without storing raw API keys or unredacted private payloads.",
             "",
             "## Known Limits",
@@ -1392,7 +1435,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Next Priority",
             "",
-            "Build Support Case Incident Operator Packet Zip Bundle with checksum header, whitelist validation, and import-side verifier.",
+            "Build Support Case Incident Operator Packet Zip Verification Audit Trail with metadata-only records and Markdown/CSV export.",
             "",
         ]
     )

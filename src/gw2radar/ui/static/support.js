@@ -39,6 +39,8 @@ const exportIncidentHandoffChecklistCsvButton = document.querySelector("#export-
 const loadIncidentOperatorPacketButton = document.querySelector("#load-incident-operator-packet-button");
 const writeIncidentOperatorPacketButton = document.querySelector("#write-incident-operator-packet-button");
 const loadIncidentOperatorPacketsButton = document.querySelector("#load-incident-operator-packets-button");
+const loadIncidentOperatorPacketZipButton = document.querySelector("#load-incident-operator-packet-zip-button");
+const verifyIncidentOperatorPacketZipButton = document.querySelector("#verify-incident-operator-packet-zip-button");
 const exportIncidentDashboardMdButton = document.querySelector("#export-incident-dashboard-md-button");
 const exportIncidentDashboardCsvButton = document.querySelector("#export-incident-dashboard-csv-button");
 const summary = document.querySelector("#support-summary");
@@ -77,6 +79,7 @@ const incidentPacketZipSummary = document.querySelector("#incident-packet-zip-su
 const incidentPacketZipAuditSummary = document.querySelector("#incident-packet-zip-audit-summary");
 const incidentHandoffChecklistSummary = document.querySelector("#incident-handoff-checklist-summary");
 const incidentOperatorPacketSummary = document.querySelector("#incident-operator-packet-summary");
+const incidentOperatorPacketZipSummary = document.querySelector("#incident-operator-packet-zip-summary");
 const incidentPacketList = document.querySelector("#incident-packet-list");
 const incidentOperatorPacketList = document.querySelector("#incident-operator-packet-list");
 const output = document.querySelector("#support-output");
@@ -434,6 +437,22 @@ async function loadSupportCaseIncidentOperatorPacketArtifacts() {
   const response = await fetch("/api/v1/player/support-case/incident-operator-packet/artifacts?limit=10");
   const payload = await response.json();
   renderSupportCaseIncidentOperatorPacketArtifacts(payload.data?.support_case_incident_operator_packet_artifacts || []);
+}
+
+async function loadSupportCaseIncidentOperatorPacketZipManifest() {
+  const response = await fetch("/api/v1/player/support-case/incident-operator-packet/artifacts/bundle?format=manifest");
+  const payload = await response.json();
+  const manifest = payload.data?.support_case_incident_operator_packet_zip_bundle || {};
+  incidentOperatorPacketZipSummary.textContent = `${manifest.file_count || 0} operator zip files · checksum ${manifest.checksum_sha256 || "none"}.`;
+  output.textContent = JSON.stringify(payload, null, 2);
+}
+
+async function verifySupportCaseIncidentOperatorPacketZip() {
+  const response = await fetch("/api/v1/player/support-case/incident-operator-packet/artifacts/bundle/verify", { method: "POST" });
+  const payload = await response.json();
+  const verification = payload.data?.support_case_incident_operator_packet_zip_verification || {};
+  incidentOperatorPacketZipSummary.textContent = `Operator zip verification ${verification.ready ? "ready" : "blocked"} · ${verification.file_count || 0} files · checksum ${verification.checksum_sha256 || "none"}.`;
+  output.textContent = JSON.stringify(payload, null, 2);
 }
 
 function renderSupportCaseIncidentDashboard(dashboard) {
@@ -930,6 +949,10 @@ loadIncidentOperatorPacketButton?.addEventListener("click", loadSupportCaseIncid
 writeIncidentOperatorPacketButton?.addEventListener("click", writeSupportCaseIncidentOperatorPacketArtifacts);
 
 loadIncidentOperatorPacketsButton?.addEventListener("click", loadSupportCaseIncidentOperatorPacketArtifacts);
+
+loadIncidentOperatorPacketZipButton?.addEventListener("click", loadSupportCaseIncidentOperatorPacketZipManifest);
+
+verifyIncidentOperatorPacketZipButton?.addEventListener("click", verifySupportCaseIncidentOperatorPacketZip);
 
 exportIncidentDashboardMdButton?.addEventListener("click", () => exportSupportCaseIncidentDashboard("markdown"));
 

@@ -53,10 +53,13 @@ def test_support_review_page_serves_operator_workbench() -> None:
     assert "Load operator packet" in response.text
     assert "Write operator packet" in response.text
     assert "Load operator packets" in response.text
+    assert "Load operator zip manifest" in response.text
+    assert "Verify operator zip" in response.text
     assert "incident-packet-zip-summary" in response.text
     assert "incident-packet-zip-audit-summary" in response.text
     assert "incident-handoff-checklist-summary" in response.text
     assert "incident-operator-packet-summary" in response.text
+    assert "incident-operator-packet-zip-summary" in response.text
     assert "incident-operator-packet-list" in response.text
     assert "audit-severity-filter" in response.text
     assert "Do Not Request Secrets" in response.text
@@ -112,6 +115,8 @@ def test_support_review_static_assets_include_review_workflow() -> None:
     assert "loadSupportCaseIncidentOperatorPacket" in js.text
     assert "writeSupportCaseIncidentOperatorPacketArtifacts" in js.text
     assert "renderSupportCaseIncidentOperatorPacketArtifacts" in js.text
+    assert "loadSupportCaseIncidentOperatorPacketZipManifest" in js.text
+    assert "verifySupportCaseIncidentOperatorPacketZip" in js.text
     assert "/api/v1/player/support-case/incident-operator-packet" in js.text
     assert "/api/v1/player/support-case/incident-packet/bundle/verification-audit" in js.text
     assert "/api/v1/player/support-case/incident-packet/bundle" in js.text

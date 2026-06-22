@@ -228,6 +228,40 @@ class SupportCaseIncidentOperatorPacketManifest(BaseModel):
     )
 
 
+class SupportCaseIncidentOperatorPacketZipManifest(BaseModel):
+    schema_version: str = "gw2radar.support_case_incident_operator_packet_zip_manifest.v1"
+    bundle_id: str
+    source_artifact_id: str
+    generated_at: datetime
+    filename: str
+    media_type: str = "application/zip"
+    file_count: int
+    included_files: list[SupportCaseIncidentPacketFile]
+    checksum_sha256: str
+    size_bytes: int
+    boundary: str = (
+        "Support case incident operator packet zip bundles are read-only metadata transfer files; "
+        "they exclude raw API keys, raw debug bundles, private account payloads, nested zip bytes, "
+        "and executable content."
+    )
+
+
+class SupportCaseIncidentOperatorPacketZipVerification(BaseModel):
+    schema_version: str = "gw2radar.support_case_incident_operator_packet_zip_verification.v1"
+    ready: bool
+    verified_at: datetime
+    checksum_sha256: str
+    size_bytes: int
+    file_count: int
+    verified_files: list[str] = Field(default_factory=list)
+    blockers: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    boundary: str = (
+        "Support case incident operator packet zip verification reads bytes only; it does not execute, "
+        "publish, or store uploaded content."
+    )
+
+
 def build_support_case_incident_dashboard(
     *,
     gateway_history: GatewayIncidentHistory,
@@ -1143,6 +1177,117 @@ def resolve_support_case_incident_operator_packet_artifact_path(
     return candidate
 
 
+def build_support_case_incident_operator_packet_zip_bundle(
+    *,
+    artifact_root: Path | None = None,
+) -> tuple[SupportCaseIncidentOperatorPacketZipManifest, bytes]:
+    artifacts = list_support_case_incident_operator_packet_artifacts(artifact_root=artifact_root, limit=1)
+    if not artifacts:
+        raise ValueError("No support case incident operator packet artifacts are available to bundle.")
+    artifact = artifacts[0]
+    source_files: list[tuple[str, Path, str]] = []
+    for file in artifact.files:
+        path = resolve_support_case_incident_operator_packet_artifact_path(
+            artifact.artifact_id,
+            file.file_name,
+            artifact_root=artifact_root,
+        )
+        if path is not None:
+            source_files.append((file.file_name, path, file.media_type))
+    included_files: list[SupportCaseIncidentPacketFile] = []
+    buffer = BytesIO()
+    with ZipFile(buffer, mode="w", compression=ZIP_DEFLATED) as archive:
+        for file_name, path, media_type in sorted(source_files, key=lambda item: item[0]):
+            if file_name not in SUPPORT_CASE_INCIDENT_OPERATOR_PACKET_FILES:
+                continue
+            content = path.read_bytes()
+            archive_path = f"support_case_incident_operator_packet/{file_name}"
+            info = ZipInfo(archive_path, date_time=(1980, 1, 1, 0, 0, 0))
+            info.compress_type = ZIP_DEFLATED
+            info.external_attr = 0o644 << 16
+            archive.writestr(info, content)
+            included_files.append(
+                SupportCaseIncidentPacketFile(
+                    file_name=file_name,
+                    relative_path=archive_path,
+                    media_type=media_type,
+                    size_bytes=len(content),
+                    checksum_sha256=hashlib.sha256(content).hexdigest(),
+                )
+            )
+    bundle_bytes = buffer.getvalue()
+    checksum = hashlib.sha256(bundle_bytes).hexdigest()
+    return (
+        SupportCaseIncidentOperatorPacketZipManifest(
+            bundle_id=f"support-case-incident-operator-packet-zip:{checksum[:16]}",
+            source_artifact_id=artifact.artifact_id,
+            generated_at=datetime.now(timezone.utc),
+            filename=f"{artifact.artifact_id}_operator_packet.zip",
+            file_count=len(included_files),
+            included_files=included_files,
+            checksum_sha256=checksum,
+            size_bytes=len(bundle_bytes),
+        ),
+        bundle_bytes,
+    )
+
+
+def verify_support_case_incident_operator_packet_zip_bundle(
+    bundle_bytes: bytes,
+    *,
+    expected_checksum_sha256: str | None = None,
+) -> SupportCaseIncidentOperatorPacketZipVerification:
+    checksum = hashlib.sha256(bundle_bytes).hexdigest()
+    blockers: list[str] = []
+    warnings: list[str] = []
+    allowed_names = {
+        f"support_case_incident_operator_packet/{file_name}"
+        for file_name in SUPPORT_CASE_INCIDENT_OPERATOR_PACKET_FILES
+    }
+    verified_files: list[str] = []
+    if expected_checksum_sha256 and expected_checksum_sha256 != checksum:
+        blockers.append("support case incident operator packet checksum does not match the expected SHA-256 value")
+    try:
+        with ZipFile(BytesIO(bundle_bytes), mode="r") as archive:
+            names = sorted(archive.namelist())
+            verified_files = names
+            for name in names:
+                path = Path(name)
+                if path.is_absolute() or ".." in path.parts:
+                    blockers.append(f"support case incident operator packet contains unsafe path: {name}")
+            extra_names = sorted(set(names) - allowed_names)
+            missing_names = sorted(allowed_names - set(names))
+            if extra_names:
+                blockers.append(
+                    "support case incident operator packet contains non-whitelisted files: "
+                    + ", ".join(extra_names)
+                )
+            if missing_names:
+                blockers.append(
+                    "support case incident operator packet is missing required files: "
+                    + ", ".join(missing_names)
+                )
+            for name in names:
+                lowered = archive.read(name).lower()
+                if b"secret-key" in lowered:
+                    blockers.append(f"support case incident operator packet file contains prohibited secret marker: {name}")
+            _verify_support_case_incident_operator_packet_payloads(archive, names, blockers)
+    except Exception as exc:
+        blockers.append(f"support case incident operator packet zip could not be read: {exc}")
+    if len(bundle_bytes) > 5_000_000:
+        warnings.append("support case incident operator packet zip is larger than the MVP verification target of 5 MB")
+    return SupportCaseIncidentOperatorPacketZipVerification(
+        ready=not blockers,
+        verified_at=datetime.now(timezone.utc),
+        checksum_sha256=checksum,
+        size_bytes=len(bundle_bytes),
+        file_count=len(verified_files),
+        verified_files=verified_files,
+        blockers=blockers,
+        warnings=warnings,
+    )
+
+
 def _render_operator_dashboard_summary_markdown(packet: SupportCaseIncidentOperatorPacket) -> str:
     dashboard = packet.dashboard_summary
     lines = [
@@ -1271,3 +1416,62 @@ def _verify_support_case_incident_packet_payloads(archive: ZipFile, names: list[
                 blockers.append("support case incident dashboard CSV header mismatch")
         except UnicodeDecodeError as exc:
             blockers.append(f"support case incident dashboard CSV is not UTF-8: {exc}")
+
+
+def _verify_support_case_incident_operator_packet_payloads(
+    archive: ZipFile,
+    names: list[str],
+    blockers: list[str],
+) -> None:
+    prefix = "support_case_incident_operator_packet/"
+    manifest_name = f"{prefix}manifest.json"
+    operator_json_name = f"{prefix}operator_packet.json"
+    operator_md_name = f"{prefix}operator_packet.md"
+    checklist_md_name = f"{prefix}checklist.md"
+    audit_csv_name = f"{prefix}verification_audit.csv"
+    if manifest_name in names:
+        try:
+            manifest = json.loads(archive.read(manifest_name).decode("utf-8"))
+            if manifest.get("schema_version") != "gw2radar.support_case_incident_operator_packet_manifest.v1":
+                blockers.append("support case incident operator packet manifest schema mismatch")
+            for flag in [
+                "contains_raw_key",
+                "contains_raw_debug_bundle",
+                "contains_private_source_payload",
+                "contains_zip_bytes",
+                "contains_executable_content",
+            ]:
+                if manifest.get(flag) is not False:
+                    blockers.append(f"support case incident operator packet manifest has unsafe flag: {flag}")
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            blockers.append(f"support case incident operator packet manifest validation failed: {exc}")
+    if operator_json_name in names:
+        try:
+            packet = SupportCaseIncidentOperatorPacket.model_validate_json(
+                archive.read(operator_json_name).decode("utf-8")
+            )
+            if packet.schema_version != "gw2radar.support_case_incident_operator_packet.v1":
+                blockers.append("support case incident operator packet schema mismatch")
+        except (UnicodeDecodeError, ValueError) as exc:
+            blockers.append(f"support case incident operator packet JSON validation failed: {exc}")
+    if operator_md_name in names:
+        try:
+            markdown = archive.read(operator_md_name).decode("utf-8")
+            if "Support Case Incident Operator Packet" not in markdown:
+                blockers.append("support case incident operator packet Markdown title is missing")
+        except UnicodeDecodeError as exc:
+            blockers.append(f"support case incident operator packet Markdown is not UTF-8: {exc}")
+    if checklist_md_name in names:
+        try:
+            markdown = archive.read(checklist_md_name).decode("utf-8")
+            if "Support Case Incident Handoff Checklist" not in markdown:
+                blockers.append("support case incident handoff checklist Markdown title is missing")
+        except UnicodeDecodeError as exc:
+            blockers.append(f"support case incident handoff checklist Markdown is not UTF-8: {exc}")
+    if audit_csv_name in names:
+        try:
+            csv_text = archive.read(audit_csv_name).decode("utf-8")
+            if "record_count,latest_audit_id,latest_reviewer" not in csv_text:
+                blockers.append("support case incident operator packet audit CSV header mismatch")
+        except UnicodeDecodeError as exc:
+            blockers.append(f"support case incident operator packet audit CSV is not UTF-8: {exc}")

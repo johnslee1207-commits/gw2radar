@@ -78,6 +78,7 @@ from gw2radar.commercial.support_case_incidents import (
     build_support_case_incident_dashboard,
     build_support_case_incident_handoff_checklist,
     build_support_case_incident_operator_packet,
+    build_support_case_incident_operator_packet_zip_bundle,
     build_support_case_incident_packet_zip_bundle,
     list_support_case_incident_operator_packet_artifacts,
     list_support_case_incident_packet_zip_verification_audits,
@@ -93,6 +94,7 @@ from gw2radar.commercial.support_case_incidents import (
     render_support_case_incident_operator_packet_markdown,
     render_support_case_incident_packet_zip_verification_audit_csv,
     render_support_case_incident_packet_zip_verification_audit_markdown,
+    verify_support_case_incident_operator_packet_zip_bundle,
     verify_support_case_incident_packet_zip_bundle,
     write_support_case_incident_operator_packet_artifacts,
     write_support_case_incident_packet,
@@ -847,6 +849,57 @@ def get_player_support_case_incident_operator_packet_artifacts(limit: int = 20) 
     artifacts = list_support_case_incident_operator_packet_artifacts(limit=limit)
     return ApiDataEnvelope(
         data={"support_case_incident_operator_packet_artifacts": [artifact.model_dump(mode="json") for artifact in artifacts]}
+    )
+
+
+@router.get("/support-case/incident-operator-packet/artifacts/bundle", response_model=None)
+def get_player_support_case_incident_operator_packet_artifact_bundle(
+    format: str = Query(default="zip", pattern="^(zip|manifest)$"),
+    limit: int = 20,
+) -> ApiDataEnvelope | Response:
+    if not list_support_case_incident_operator_packet_artifacts(limit=1):
+        dashboard = _build_support_case_incident_dashboard(limit=limit)
+        _ensure_support_case_incident_packet_and_audit(dashboard)
+        packet = build_support_case_incident_operator_packet(dashboard=dashboard)
+        write_support_case_incident_operator_packet_artifacts(packet)
+    try:
+        manifest, bundle_bytes = build_support_case_incident_operator_packet_zip_bundle()
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    if format == "manifest":
+        return ApiDataEnvelope(
+            data={"support_case_incident_operator_packet_zip_bundle": manifest.model_dump(mode="json")}
+        )
+    return Response(
+        content=bundle_bytes,
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f'attachment; filename="{manifest.filename}"',
+            "X-Checksum-SHA256": manifest.checksum_sha256,
+        },
+    )
+
+
+@router.post("/support-case/incident-operator-packet/artifacts/bundle/verify", response_model=ApiDataEnvelope)
+def post_player_support_case_incident_operator_packet_artifact_bundle_verify(
+    bundle: bytes | None = Body(default=None, media_type="application/zip"),
+    expected_checksum_sha256: str | None = Query(default=None),
+    limit: int = 20,
+) -> ApiDataEnvelope:
+    if bundle is None or len(bundle) == 0:
+        if not list_support_case_incident_operator_packet_artifacts(limit=1):
+            dashboard = _build_support_case_incident_dashboard(limit=limit)
+            _ensure_support_case_incident_packet_and_audit(dashboard)
+            packet = build_support_case_incident_operator_packet(dashboard=dashboard)
+            write_support_case_incident_operator_packet_artifacts(packet)
+        manifest, bundle = build_support_case_incident_operator_packet_zip_bundle()
+        expected_checksum_sha256 = expected_checksum_sha256 or manifest.checksum_sha256
+    verification = verify_support_case_incident_operator_packet_zip_bundle(
+        bundle,
+        expected_checksum_sha256=expected_checksum_sha256,
+    )
+    return ApiDataEnvelope(
+        data={"support_case_incident_operator_packet_zip_verification": verification.model_dump(mode="json")}
     )
 
 
