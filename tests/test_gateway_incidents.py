@@ -272,6 +272,28 @@ def test_player_gateway_incident_timeline_correlates_refresh_events_without_secr
         final_handoff_packets = client.get(
             "/api/v1/player/support-case/incident-final-handoff-packet/artifacts?limit=10"
         )
+        final_handoff_packet_zip_manifest = client.get(
+            "/api/v1/player/support-case/incident-final-handoff-packet/artifacts/bundle?format=manifest"
+        )
+        final_handoff_packet_zip_bundle = client.get(
+            "/api/v1/player/support-case/incident-final-handoff-packet/artifacts/bundle"
+        )
+        final_handoff_packet_zip_verify = client.post(
+            "/api/v1/player/support-case/incident-final-handoff-packet/artifacts/bundle/verify"
+        )
+        final_handoff_packet_zip_audit_record = client.post(
+            "/api/v1/player/support-case/incident-final-handoff-packet/artifacts/bundle/verification-audit",
+            json={"reviewer": "final lead", "notes": ["Verified final handoff packet zip before case closure."]},
+        )
+        final_handoff_packet_zip_audit_list = client.get(
+            "/api/v1/player/support-case/incident-final-handoff-packet/artifacts/bundle/verification-audit?reviewer=final%20lead&limit=10"
+        )
+        final_handoff_packet_zip_audit_markdown = client.get(
+            "/api/v1/player/support-case/incident-final-handoff-packet/artifacts/bundle/verification-audit?format=markdown"
+        )
+        final_handoff_packet_zip_audit_csv = client.get(
+            "/api/v1/player/support-case/incident-final-handoff-packet/artifacts/bundle/verification-audit?format=csv"
+        )
         assert manifest.status_code == 200
         assert "gw2radar.support_case_incident_packet_manifest.v1" in manifest.text
         assert packet_md.status_code == 200
@@ -499,6 +521,64 @@ def test_player_gateway_incident_timeline_correlates_refresh_events_without_secr
         assert "# Support Case Incident Final Handoff Checklist" in final_packet_checklist_md.text
         assert final_packet_blocked.status_code == 404
         assert final_packet_secret.status_code == 404
+        assert final_handoff_packet_zip_manifest.status_code == 200
+        final_zip_manifest_payload = final_handoff_packet_zip_manifest.json()["data"]["support_case_incident_final_handoff_packet_zip_bundle"]
+        assert final_zip_manifest_payload["schema_version"] == "gw2radar.support_case_incident_final_handoff_packet_zip_manifest.v1"
+        assert final_zip_manifest_payload["file_count"] == 6
+        assert len(final_zip_manifest_payload["checksum_sha256"]) == 64
+        assert final_handoff_packet_zip_bundle.status_code == 200
+        assert final_handoff_packet_zip_bundle.headers["x-checksum-sha256"] == final_zip_manifest_payload["checksum_sha256"]
+        assert set(ZipFile(BytesIO(final_handoff_packet_zip_bundle.content)).namelist()) == {
+            "support_case_incident_final_handoff_packet/checklist.json",
+            "support_case_incident_final_handoff_packet/checklist.md",
+            "support_case_incident_final_handoff_packet/checklist.csv",
+            "support_case_incident_final_handoff_packet/operator_artifact_manifest.json",
+            "support_case_incident_final_handoff_packet/operator_zip_verification_audit.csv",
+            "support_case_incident_final_handoff_packet/manifest.json",
+        }
+        assert final_handoff_packet_zip_verify.status_code == 200
+        final_zip_verification = final_handoff_packet_zip_verify.json()["data"]["support_case_incident_final_handoff_packet_zip_verification"]
+        assert final_zip_verification["schema_version"] == "gw2radar.support_case_incident_final_handoff_packet_zip_verification.v1"
+        assert final_zip_verification["ready"] is True
+        assert final_zip_verification["checksum_sha256"] == final_zip_manifest_payload["checksum_sha256"]
+        tampered_final_buffer = BytesIO()
+        with ZipFile(BytesIO(final_handoff_packet_zip_bundle.content), mode="r") as source_archive:
+            with ZipFile(tampered_final_buffer, mode="w") as tampered_archive:
+                for name in source_archive.namelist():
+                    tampered_archive.writestr(name, source_archive.read(name))
+                tampered_archive.writestr("support_case_incident_final_handoff_packet/secret.txt", "secret-key")
+        tampered_final_verify = client.post(
+            "/api/v1/player/support-case/incident-final-handoff-packet/artifacts/bundle/verify",
+            content=tampered_final_buffer.getvalue(),
+            headers={"Content-Type": "application/zip"},
+        )
+        tampered_final_audit = client.post(
+            "/api/v1/player/support-case/incident-final-handoff-packet/artifacts/bundle/verification-audit/upload?reviewer=tamper%20final",
+            content=tampered_final_buffer.getvalue(),
+            headers={"Content-Type": "application/zip"},
+        )
+        assert tampered_final_verify.status_code == 200
+        tampered_final = tampered_final_verify.json()["data"]["support_case_incident_final_handoff_packet_zip_verification"]
+        assert tampered_final["ready"] is False
+        assert "secret-key" not in str(tampered_final).lower()
+        assert final_handoff_packet_zip_audit_record.status_code == 200
+        final_zip_audit_record = final_handoff_packet_zip_audit_record.json()["data"]["support_case_incident_final_handoff_packet_zip_verification_audit_record"]
+        assert final_zip_audit_record["schema_version"] == "gw2radar.support_case_incident_final_handoff_packet_zip_verification_audit.v1"
+        assert final_zip_audit_record["reviewer"] == "final lead"
+        assert final_zip_audit_record["ready"] is True
+        assert final_zip_audit_record["checksum_sha256"] == final_zip_manifest_payload["checksum_sha256"]
+        assert final_handoff_packet_zip_audit_list.status_code == 200
+        final_zip_audit_list = final_handoff_packet_zip_audit_list.json()["data"]["support_case_incident_final_handoff_packet_zip_verification_audit"]
+        assert final_zip_audit_list["schema_version"] == "gw2radar.support_case_incident_final_handoff_packet_zip_verification_audit_list.v1"
+        assert final_zip_audit_list["records"][0]["reviewer"] == "final lead"
+        assert final_handoff_packet_zip_audit_markdown.status_code == 200
+        assert "# Support Case Incident Final Handoff Packet Zip Verification Audit" in final_handoff_packet_zip_audit_markdown.text
+        assert final_handoff_packet_zip_audit_csv.status_code == 200
+        assert "audit_id,recorded_at,reviewer,ready,checksum_sha256" in final_handoff_packet_zip_audit_csv.text
+        assert tampered_final_audit.status_code == 200
+        tampered_final_record = tampered_final_audit.json()["data"]["support_case_incident_final_handoff_packet_zip_verification_audit_record"]
+        assert tampered_final_record["ready"] is False
+        assert tampered_final_record["blocker_count"] >= 1
         assert tampered_operator_audit.status_code == 200
         tampered_operator_record = tampered_operator_audit.json()["data"]["support_case_incident_operator_packet_zip_verification_audit_record"]
         assert tampered_operator_record["ready"] is False
@@ -513,6 +593,10 @@ def test_player_gateway_incident_timeline_correlates_refresh_events_without_secr
             + str(final_packet_payload)
             + final_packet_manifest.text
             + final_packet_checklist_md.text
+            + str(final_zip_audit_list)
+            + final_handoff_packet_zip_audit_markdown.text
+            + final_handoff_packet_zip_audit_csv.text
+            + str(tampered_final_record)
             + str(tampered_operator_record)
         ).lower()
         assert session_packet.status_code == 200

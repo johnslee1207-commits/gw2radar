@@ -149,6 +149,28 @@ def main() -> int:
     incident_final_handoff_packets = client.get(
         "/api/v1/player/support-case/incident-final-handoff-packet/artifacts?limit=10"
     )
+    incident_final_handoff_packet_zip_manifest = client.get(
+        "/api/v1/player/support-case/incident-final-handoff-packet/artifacts/bundle?format=manifest"
+    )
+    incident_final_handoff_packet_zip = client.get(
+        "/api/v1/player/support-case/incident-final-handoff-packet/artifacts/bundle"
+    )
+    incident_final_handoff_packet_zip_verify = client.post(
+        "/api/v1/player/support-case/incident-final-handoff-packet/artifacts/bundle/verify"
+    )
+    incident_final_handoff_packet_zip_audit = client.post(
+        "/api/v1/player/support-case/incident-final-handoff-packet/artifacts/bundle/verification-audit",
+        json={"reviewer": "smoke", "notes": ["Smoke recorded support case incident final handoff packet zip audit."]},
+    )
+    incident_final_handoff_packet_zip_audit_list = client.get(
+        "/api/v1/player/support-case/incident-final-handoff-packet/artifacts/bundle/verification-audit?reviewer=smoke&limit=10"
+    )
+    incident_final_handoff_packet_zip_audit_markdown = client.get(
+        "/api/v1/player/support-case/incident-final-handoff-packet/artifacts/bundle/verification-audit?format=markdown"
+    )
+    incident_final_handoff_packet_zip_audit_csv = client.get(
+        "/api/v1/player/support-case/incident-final-handoff-packet/artifacts/bundle/verification-audit?format=csv"
+    )
 
     _add(checks, "support page is served", page.status_code == 200 and "Debug Bundle Support Review" in page.text, page.text)
     _add(checks, "support script is served", js.status_code == 200 and "/account/debug-bundle/review" in js.text, js.text)
@@ -216,6 +238,13 @@ def main() -> int:
     _add(checks, "support case incident final handoff checklist exports csv", incident_final_handoff_checklist_csv.status_code == 200 and "ready,maturity_label,latest_operator_artifact_id" in incident_final_handoff_checklist_csv.text, incident_final_handoff_checklist_csv.text)
     _add(checks, "support case incident final handoff packet writes artifacts", incident_final_handoff_packet.status_code == 200 and incident_final_handoff_packet.json().get("data", {}).get("support_case_incident_final_handoff_packet", {}).get("schema_version") == "gw2radar.support_case_incident_final_handoff_packet_manifest.v1", incident_final_handoff_packet.text)
     _add(checks, "support case incident final handoff packet lists artifacts", incident_final_handoff_packets.status_code == 200 and incident_final_handoff_packets.json().get("data", {}).get("support_case_incident_final_handoff_packets"), incident_final_handoff_packets.text)
+    _add(checks, "support case incident final handoff packet zip manifest is visible", incident_final_handoff_packet_zip_manifest.status_code == 200 and incident_final_handoff_packet_zip_manifest.json().get("data", {}).get("support_case_incident_final_handoff_packet_zip_bundle", {}).get("schema_version") == "gw2radar.support_case_incident_final_handoff_packet_zip_manifest.v1", incident_final_handoff_packet_zip_manifest.text)
+    _add(checks, "support case incident final handoff packet zip downloads", incident_final_handoff_packet_zip.status_code == 200 and incident_final_handoff_packet_zip.headers.get("x-checksum-sha256"), incident_final_handoff_packet_zip.text[:200] if hasattr(incident_final_handoff_packet_zip, "text") else "")
+    _add(checks, "support case incident final handoff packet zip verifies", incident_final_handoff_packet_zip_verify.status_code == 200 and incident_final_handoff_packet_zip_verify.json().get("data", {}).get("support_case_incident_final_handoff_packet_zip_verification", {}).get("ready") is True, incident_final_handoff_packet_zip_verify.text)
+    _add(checks, "support case incident final handoff packet zip audit records metadata", incident_final_handoff_packet_zip_audit.status_code == 200 and incident_final_handoff_packet_zip_audit.json().get("data", {}).get("support_case_incident_final_handoff_packet_zip_verification_audit_record", {}).get("schema_version") == "gw2radar.support_case_incident_final_handoff_packet_zip_verification_audit.v1", incident_final_handoff_packet_zip_audit.text)
+    _add(checks, "support case incident final handoff packet zip audit lists records", incident_final_handoff_packet_zip_audit_list.status_code == 200 and incident_final_handoff_packet_zip_audit_list.json().get("data", {}).get("support_case_incident_final_handoff_packet_zip_verification_audit", {}).get("records"), incident_final_handoff_packet_zip_audit_list.text)
+    _add(checks, "support case incident final handoff packet zip audit exports markdown", incident_final_handoff_packet_zip_audit_markdown.status_code == 200 and "# Support Case Incident Final Handoff Packet Zip Verification Audit" in incident_final_handoff_packet_zip_audit_markdown.text, incident_final_handoff_packet_zip_audit_markdown.text)
+    _add(checks, "support case incident final handoff packet zip audit exports csv", incident_final_handoff_packet_zip_audit_csv.status_code == 200 and "audit_id,recorded_at,reviewer,ready,checksum_sha256" in incident_final_handoff_packet_zip_audit_csv.text, incident_final_handoff_packet_zip_audit_csv.text)
     _add(checks, "no-secret boundary is visible", "Do not ask for a raw GW2 API key" in page.text and "Please do not send your raw GW2 API key" in js.text, "boundary missing")
 
     failed = [check for check in checks if not check[1]]

@@ -745,6 +745,86 @@ def main() -> int:
             "mature_support_case_incident_final_handoff_packet_artifacts",
             f"{support_case_incident_final_packet.get('file_count', 0)} final handoff files with checksum {support_case_incident_final_packet.get('checksum_sha256', '')[:12]}.",
         )
+        support_case_incident_final_zip_manifest_response = _json(
+            client.get("/api/v1/player/support-case/incident-final-handoff-packet/artifacts/bundle?format=manifest"),
+            "load support case incident final handoff packet zip manifest",
+            checks,
+        )
+        support_case_incident_final_zip_manifest = _get(
+            support_case_incident_final_zip_manifest_response,
+            "data",
+            "support_case_incident_final_handoff_packet_zip_bundle",
+        ) or {}
+        support_case_incident_final_zip_verify_response = _json(
+            client.post("/api/v1/player/support-case/incident-final-handoff-packet/artifacts/bundle/verify"),
+            "verify support case incident final handoff packet zip",
+            checks,
+        )
+        support_case_incident_final_zip_verify = _get(
+            support_case_incident_final_zip_verify_response,
+            "data",
+            "support_case_incident_final_handoff_packet_zip_verification",
+        ) or {}
+        support_case_incident_final_zip_audit_response = _json(
+            client.post(
+                "/api/v1/player/support-case/incident-final-handoff-packet/artifacts/bundle/verification-audit",
+                json={
+                    "reviewer": "player_use_path_audit",
+                    "notes": ["Player use path audit recorded support case incident final handoff packet zip verification."],
+                },
+            ),
+            "record support case incident final handoff packet zip verification audit",
+            checks,
+        )
+        support_case_incident_final_zip_audit_record = _get(
+            support_case_incident_final_zip_audit_response,
+            "data",
+            "support_case_incident_final_handoff_packet_zip_verification_audit_record",
+        ) or {}
+        support_case_incident_final_zip_audit_list_response = _json(
+            client.get(
+                "/api/v1/player/support-case/incident-final-handoff-packet/artifacts/bundle/verification-audit?reviewer=player_use_path_audit&limit=10"
+            ),
+            "list support case incident final handoff packet zip verification audit",
+            checks,
+        )
+        support_case_incident_final_zip_audit = _get(
+            support_case_incident_final_zip_audit_list_response,
+            "data",
+            "support_case_incident_final_handoff_packet_zip_verification_audit",
+        ) or {}
+        support_case_incident_final_zip_audit_markdown = client.get(
+            "/api/v1/player/support-case/incident-final-handoff-packet/artifacts/bundle/verification-audit?format=markdown"
+        )
+        support_case_incident_final_zip_audit_csv = client.get(
+            "/api/v1/player/support-case/incident-final-handoff-packet/artifacts/bundle/verification-audit?format=csv"
+        )
+        _add(
+            checks,
+            "support_case_incident_final_handoff_packet_zip_verification_audit",
+            "Support case incident final handoff packet zip can be downloaded, verified, and audited as metadata-only closure evidence.",
+            support_case_incident_final_zip_manifest.get("schema_version")
+            == "gw2radar.support_case_incident_final_handoff_packet_zip_manifest.v1"
+            and support_case_incident_final_zip_manifest.get("file_count") == 6
+            and support_case_incident_final_zip_verify.get("schema_version")
+            == "gw2radar.support_case_incident_final_handoff_packet_zip_verification.v1"
+            and support_case_incident_final_zip_verify.get("ready") is True
+            and support_case_incident_final_zip_audit_record.get("schema_version")
+            == "gw2radar.support_case_incident_final_handoff_packet_zip_verification_audit.v1"
+            and support_case_incident_final_zip_audit_record.get("ready") is True
+            and support_case_incident_final_zip_audit.get("schema_version")
+            == "gw2radar.support_case_incident_final_handoff_packet_zip_verification_audit_list.v1"
+            and len(support_case_incident_final_zip_audit.get("records", [])) >= 1
+            and support_case_incident_final_zip_audit_markdown.status_code == 200
+            and "# Support Case Incident Final Handoff Packet Zip Verification Audit"
+            in support_case_incident_final_zip_audit_markdown.text
+            and support_case_incident_final_zip_audit_csv.status_code == 200
+            and "audit_id,recorded_at,reviewer,ready,checksum_sha256"
+            in support_case_incident_final_zip_audit_csv.text
+            and "secret-key" not in json.dumps(support_case_incident_final_zip_audit).lower(),
+            "mature_support_case_incident_final_handoff_packet_zip_verification_audit",
+            f"final handoff zip checksum {support_case_incident_final_zip_verify.get('checksum_sha256', '')[:12]} verified with {support_case_incident_final_zip_verify.get('file_count', 0)} files.",
+        )
         player_readiness = _json(client.get("/api/v1/player/readiness"), "load player readiness", checks)
         readiness = _get(player_readiness, "data", "readiness") or {}
         _add(
@@ -1565,6 +1645,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "- `SupportCaseIncidentOperatorPacketZipVerificationAudit` records operator packet zip verification outcomes as metadata-only support evidence.",
             "- `SupportCaseIncidentFinalHandoffChecklist` combines operator artifact, zip, verification, and audit gates into a support closure view.",
             "- `SupportCaseIncidentFinalHandoffPacketArtifacts` write final closure checklist, manifest, operator artifact manifest, and audit export files with checksums.",
+            "- `SupportCaseIncidentFinalHandoffPacketZipVerificationAudit` verifies final handoff packet zip archives and records metadata-only closure audit evidence.",
             "- `ReportArtifactManifest` records bridge metadata without storing raw API keys or unredacted private payloads.",
             "",
             "## Known Limits",
@@ -1575,7 +1656,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Next Priority",
             "",
-            "Build Support Case Incident Final Handoff Packet zip archive with whitelist verification and checksum audit.",
+            "Build Support Case Incident Closure Dashboard that aggregates packet artifacts, zip checks, audits, and final go/no-go state.",
             "",
         ]
     )

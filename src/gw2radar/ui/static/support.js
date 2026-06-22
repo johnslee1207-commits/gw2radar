@@ -49,6 +49,11 @@ const exportIncidentFinalHandoffChecklistMdButton = document.querySelector("#exp
 const exportIncidentFinalHandoffChecklistCsvButton = document.querySelector("#export-incident-final-handoff-checklist-csv-button");
 const writeIncidentFinalHandoffPacketButton = document.querySelector("#write-incident-final-handoff-packet-button");
 const loadIncidentFinalHandoffPacketsButton = document.querySelector("#load-incident-final-handoff-packets-button");
+const loadIncidentFinalHandoffPacketZipButton = document.querySelector("#load-incident-final-handoff-packet-zip-button");
+const verifyIncidentFinalHandoffPacketZipButton = document.querySelector("#verify-incident-final-handoff-packet-zip-button");
+const recordIncidentFinalHandoffPacketZipAuditButton = document.querySelector("#record-incident-final-handoff-packet-zip-audit-button");
+const loadIncidentFinalHandoffPacketZipAuditButton = document.querySelector("#load-incident-final-handoff-packet-zip-audit-button");
+const exportIncidentFinalHandoffPacketZipAuditCsvButton = document.querySelector("#export-incident-final-handoff-packet-zip-audit-csv-button");
 const exportIncidentDashboardMdButton = document.querySelector("#export-incident-dashboard-md-button");
 const exportIncidentDashboardCsvButton = document.querySelector("#export-incident-dashboard-csv-button");
 const summary = document.querySelector("#support-summary");
@@ -91,6 +96,8 @@ const incidentOperatorPacketZipSummary = document.querySelector("#incident-opera
 const incidentOperatorPacketZipAuditSummary = document.querySelector("#incident-operator-packet-zip-audit-summary");
 const incidentFinalHandoffChecklistSummary = document.querySelector("#incident-final-handoff-checklist-summary");
 const incidentFinalHandoffPacketSummary = document.querySelector("#incident-final-handoff-packet-summary");
+const incidentFinalHandoffPacketZipSummary = document.querySelector("#incident-final-handoff-packet-zip-summary");
+const incidentFinalHandoffPacketZipAuditSummary = document.querySelector("#incident-final-handoff-packet-zip-audit-summary");
 const incidentPacketList = document.querySelector("#incident-packet-list");
 const incidentOperatorPacketList = document.querySelector("#incident-operator-packet-list");
 const incidentFinalHandoffPacketList = document.querySelector("#incident-final-handoff-packet-list");
@@ -521,6 +528,51 @@ async function loadSupportCaseIncidentFinalHandoffPackets() {
   const response = await fetch("/api/v1/player/support-case/incident-final-handoff-packet/artifacts?limit=10");
   const payload = await response.json();
   renderSupportCaseIncidentFinalHandoffPackets(payload.data?.support_case_incident_final_handoff_packets || []);
+}
+
+async function loadSupportCaseIncidentFinalHandoffPacketZipManifest() {
+  const response = await fetch("/api/v1/player/support-case/incident-final-handoff-packet/artifacts/bundle?format=manifest");
+  const payload = await response.json();
+  const manifest = payload.data?.support_case_incident_final_handoff_packet_zip_bundle || {};
+  incidentFinalHandoffPacketZipSummary.textContent = `${manifest.file_count || 0} final zip files · checksum ${manifest.checksum_sha256 || "none"}.`;
+  output.textContent = JSON.stringify(payload, null, 2);
+}
+
+async function verifySupportCaseIncidentFinalHandoffPacketZip() {
+  const response = await fetch("/api/v1/player/support-case/incident-final-handoff-packet/artifacts/bundle/verify", { method: "POST" });
+  const payload = await response.json();
+  const verification = payload.data?.support_case_incident_final_handoff_packet_zip_verification || {};
+  incidentFinalHandoffPacketZipSummary.textContent = `Final zip verification ${verification.ready ? "ready" : "blocked"} · ${verification.file_count || 0} files · checksum ${verification.checksum_sha256 || "none"}.`;
+  output.textContent = JSON.stringify(payload, null, 2);
+}
+
+async function recordSupportCaseIncidentFinalHandoffPacketZipAudit() {
+  const response = await fetch("/api/v1/player/support-case/incident-final-handoff-packet/artifacts/bundle/verification-audit", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      reviewer: reviewerName?.value || "support",
+      notes: ["Operator recorded support case incident final handoff packet zip verification."],
+    }),
+  });
+  const payload = await response.json();
+  const record = payload.data?.support_case_incident_final_handoff_packet_zip_verification_audit_record || {};
+  incidentFinalHandoffPacketZipAuditSummary.textContent = `Final zip audit ${record.ready ? "ready" : "blocked"} · reviewer ${record.reviewer || "support"} · blockers ${record.blocker_count || 0}.`;
+  output.textContent = JSON.stringify(payload, null, 2);
+}
+
+async function loadSupportCaseIncidentFinalHandoffPacketZipAudit() {
+  const reviewer = reviewerName?.value ? `&reviewer=${encodeURIComponent(reviewerName.value)}` : "";
+  const response = await fetch(`/api/v1/player/support-case/incident-final-handoff-packet/artifacts/bundle/verification-audit?limit=10${reviewer}`);
+  const payload = await response.json();
+  const records = payload.data?.support_case_incident_final_handoff_packet_zip_verification_audit?.records || [];
+  incidentFinalHandoffPacketZipAuditSummary.textContent = `${records.length} final zip verification audit records loaded.`;
+  output.textContent = JSON.stringify(payload, null, 2);
+}
+
+function exportSupportCaseIncidentFinalHandoffPacketZipAuditCsv() {
+  const reviewer = reviewerName?.value ? `&reviewer=${encodeURIComponent(reviewerName.value)}` : "";
+  window.location.href = `/api/v1/player/support-case/incident-final-handoff-packet/artifacts/bundle/verification-audit?format=csv${reviewer}`;
 }
 
 function renderSupportCaseIncidentDashboard(dashboard) {
@@ -1058,6 +1110,16 @@ exportIncidentFinalHandoffChecklistCsvButton?.addEventListener("click", () => ex
 writeIncidentFinalHandoffPacketButton?.addEventListener("click", writeSupportCaseIncidentFinalHandoffPacket);
 
 loadIncidentFinalHandoffPacketsButton?.addEventListener("click", loadSupportCaseIncidentFinalHandoffPackets);
+
+loadIncidentFinalHandoffPacketZipButton?.addEventListener("click", loadSupportCaseIncidentFinalHandoffPacketZipManifest);
+
+verifyIncidentFinalHandoffPacketZipButton?.addEventListener("click", verifySupportCaseIncidentFinalHandoffPacketZip);
+
+recordIncidentFinalHandoffPacketZipAuditButton?.addEventListener("click", recordSupportCaseIncidentFinalHandoffPacketZipAudit);
+
+loadIncidentFinalHandoffPacketZipAuditButton?.addEventListener("click", loadSupportCaseIncidentFinalHandoffPacketZipAudit);
+
+exportIncidentFinalHandoffPacketZipAuditCsvButton?.addEventListener("click", exportSupportCaseIncidentFinalHandoffPacketZipAuditCsv);
 
 exportIncidentDashboardMdButton?.addEventListener("click", () => exportSupportCaseIncidentDashboard("markdown"));
 
