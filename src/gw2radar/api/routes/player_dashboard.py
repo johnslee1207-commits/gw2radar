@@ -76,6 +76,7 @@ from gw2radar.commercial.gateway_incidents import (
 from gw2radar.commercial.support_case_incidents import (
     SupportCaseIncidentPacketZipVerificationAuditRequest,
     build_support_case_incident_dashboard,
+    build_support_case_incident_handoff_checklist,
     build_support_case_incident_packet_zip_bundle,
     list_support_case_incident_packet_zip_verification_audits,
     list_support_case_incident_packets,
@@ -83,6 +84,8 @@ from gw2radar.commercial.support_case_incidents import (
     resolve_support_case_incident_packet_path,
     render_support_case_incident_dashboard_csv,
     render_support_case_incident_dashboard_markdown,
+    render_support_case_incident_handoff_checklist_csv,
+    render_support_case_incident_handoff_checklist_markdown,
     render_support_case_incident_packet_zip_verification_audit_csv,
     render_support_case_incident_packet_zip_verification_audit_markdown,
     verify_support_case_incident_packet_zip_bundle,
@@ -768,6 +771,37 @@ def get_player_support_case_incident_packet_bundle_verification_audit(
             headers={"Content-Disposition": 'attachment; filename="support_case_incident_packet_zip_verification_audit.csv"'},
         )
     return ApiDataEnvelope(data={"support_case_incident_packet_zip_verification_audit": audit.model_dump(mode="json")})
+
+
+@router.get("/support-case/incident-handoff-checklist", response_model=None)
+def get_player_support_case_incident_handoff_checklist(
+    format: str = "json",
+    limit: int = 20,
+) -> ApiDataEnvelope | Response:
+    dashboard = _build_support_case_incident_dashboard(limit=limit)
+    if not list_support_case_incident_packets(limit=1):
+        write_support_case_incident_packet(dashboard)
+    if not list_support_case_incident_packet_zip_verification_audits(limit=1).records:
+        record_support_case_incident_packet_zip_verification_audit(
+            SupportCaseIncidentPacketZipVerificationAuditRequest(
+                reviewer="system",
+                notes=["System recorded support case incident handoff checklist verification audit."],
+            )
+        )
+    checklist = build_support_case_incident_handoff_checklist(dashboard=dashboard)
+    if format == "markdown":
+        return Response(
+            content=render_support_case_incident_handoff_checklist_markdown(checklist),
+            media_type="text/markdown; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="support_case_incident_handoff_checklist.md"'},
+        )
+    if format == "csv":
+        return Response(
+            content=render_support_case_incident_handoff_checklist_csv(checklist),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="support_case_incident_handoff_checklist.csv"'},
+        )
+    return ApiDataEnvelope(data={"support_case_incident_handoff_checklist": checklist.model_dump(mode="json")})
 
 
 @router.get("/support-case/incident-packet/{packet_id}/{file_name}", response_model=None)

@@ -478,6 +478,43 @@ def main() -> int:
             "mature_support_case_incident_packet_zip_verification_audit",
             f"{len(support_case_incident_packet_zip_audit.get('records', []))} metadata-only zip verification audit records available.",
         )
+        support_case_incident_handoff_checklist_response = _json(
+            client.get("/api/v1/player/support-case/incident-handoff-checklist?limit=20"),
+            "load support case incident handoff checklist",
+            checks,
+        )
+        support_case_incident_handoff_checklist = _get(
+            support_case_incident_handoff_checklist_response,
+            "data",
+            "support_case_incident_handoff_checklist",
+        ) or {}
+        support_case_incident_handoff_checklist_markdown = client.get(
+            "/api/v1/player/support-case/incident-handoff-checklist?format=markdown&limit=20"
+        )
+        support_case_incident_handoff_checklist_csv = client.get(
+            "/api/v1/player/support-case/incident-handoff-checklist?format=csv&limit=20"
+        )
+        _add(
+            checks,
+            "support_case_incident_handoff_checklist",
+            "Support case incident handoff checklist combines dashboard, packet, zip, verification, and audit gates into one operator-ready view.",
+            support_case_incident_handoff_checklist.get("schema_version")
+            == "gw2radar.support_case_incident_handoff_checklist.v1"
+            and support_case_incident_handoff_checklist.get("ready") is True
+            and support_case_incident_handoff_checklist.get("dashboard_ready") is True
+            and support_case_incident_handoff_checklist.get("packet_file_count") == 4
+            and support_case_incident_handoff_checklist.get("zip_file_count") == 4
+            and support_case_incident_handoff_checklist.get("zip_verification_ready") is True
+            and support_case_incident_handoff_checklist.get("verification_audit_count", 0) >= 1
+            and support_case_incident_handoff_checklist.get("missing_gates") == []
+            and support_case_incident_handoff_checklist_markdown.status_code == 200
+            and "# Support Case Incident Handoff Checklist" in support_case_incident_handoff_checklist_markdown.text
+            and support_case_incident_handoff_checklist_csv.status_code == 200
+            and "ready,maturity_label,dashboard_ready" in support_case_incident_handoff_checklist_csv.text
+            and "secret-key" not in json.dumps(support_case_incident_handoff_checklist).lower(),
+            "mature_support_case_incident_handoff_checklist",
+            f"{len(support_case_incident_handoff_checklist.get('checklist_items', []))} gates summarized with {len(support_case_incident_handoff_checklist.get('missing_gates', []))} missing gates.",
+        )
         player_readiness = _json(client.get("/api/v1/player/readiness"), "load player readiness", checks)
         readiness = _get(player_readiness, "data", "readiness") or {}
         _add(
@@ -1292,6 +1329,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "- `PlayerSupportHandoffDashboard` aggregates artifacts, zip verification, audit, readiness, and operator packet state into one support case view.",
             "- `PlayerSupportHandoffFinalArchiveManifest` packages dashboard, operator packet, readiness checklist, and audit exports into deterministic local files and a verified zip.",
             "- `SupportCaseIncidentPacketZipVerificationAudit` records incident packet zip verification outcomes as metadata-only support evidence.",
+            "- `SupportCaseIncidentHandoffChecklist` summarizes dashboard, packet, zip, verification, and audit gates into one operator-ready handoff view.",
             "- `ReportArtifactManifest` records bridge metadata without storing raw API keys or unredacted private payloads.",
             "",
             "## Known Limits",
@@ -1302,7 +1340,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Next Priority",
             "",
-            "Build a Support Case Incident Handoff Checklist that combines dashboard, packet, zip, verification, and audit gates into a single operator-ready view.",
+            "Build Support Case Incident Operator Packet artifacts that package the handoff checklist, dashboard, packet manifest, zip manifest, and audit export as deterministic metadata files.",
             "",
         ]
     )

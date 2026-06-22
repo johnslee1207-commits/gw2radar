@@ -33,6 +33,9 @@ const verifyIncidentPacketZipButton = document.querySelector("#verify-incident-p
 const recordIncidentPacketZipAuditButton = document.querySelector("#record-incident-packet-zip-audit-button");
 const loadIncidentPacketZipAuditButton = document.querySelector("#load-incident-packet-zip-audit-button");
 const exportIncidentPacketZipAuditCsvButton = document.querySelector("#export-incident-packet-zip-audit-csv-button");
+const loadIncidentHandoffChecklistButton = document.querySelector("#load-incident-handoff-checklist-button");
+const exportIncidentHandoffChecklistMdButton = document.querySelector("#export-incident-handoff-checklist-md-button");
+const exportIncidentHandoffChecklistCsvButton = document.querySelector("#export-incident-handoff-checklist-csv-button");
 const exportIncidentDashboardMdButton = document.querySelector("#export-incident-dashboard-md-button");
 const exportIncidentDashboardCsvButton = document.querySelector("#export-incident-dashboard-csv-button");
 const summary = document.querySelector("#support-summary");
@@ -69,6 +72,7 @@ const incidentDashboardSummary = document.querySelector("#incident-dashboard-sum
 const incidentDashboardCards = document.querySelector("#incident-dashboard-cards");
 const incidentPacketZipSummary = document.querySelector("#incident-packet-zip-summary");
 const incidentPacketZipAuditSummary = document.querySelector("#incident-packet-zip-audit-summary");
+const incidentHandoffChecklistSummary = document.querySelector("#incident-handoff-checklist-summary");
 const incidentPacketList = document.querySelector("#incident-packet-list");
 const output = document.querySelector("#support-output");
 let lastBundle = null;
@@ -390,6 +394,18 @@ async function loadSupportCaseIncidentPacketZipAudit() {
 function exportSupportCaseIncidentPacketZipAuditCsv() {
   const reviewer = reviewerName?.value ? `&reviewer=${encodeURIComponent(reviewerName.value)}` : "";
   window.location.href = `/api/v1/player/support-case/incident-packet/bundle/verification-audit?format=csv${reviewer}`;
+}
+
+async function loadSupportCaseIncidentHandoffChecklist() {
+  const response = await fetch("/api/v1/player/support-case/incident-handoff-checklist?limit=20");
+  const payload = await response.json();
+  const checklist = payload.data?.support_case_incident_handoff_checklist || {};
+  incidentHandoffChecklistSummary.textContent = `Handoff checklist ${checklist.ready ? "ready" : "blocked"} · ${checklist.maturity_label || "unknown"} · missing gates ${(checklist.missing_gates || []).length}.`;
+  output.textContent = JSON.stringify(payload, null, 2);
+}
+
+function exportSupportCaseIncidentHandoffChecklist(format) {
+  window.location.href = `/api/v1/player/support-case/incident-handoff-checklist?format=${format}&limit=20`;
 }
 
 function renderSupportCaseIncidentDashboard(dashboard) {
@@ -854,6 +870,12 @@ recordIncidentPacketZipAuditButton?.addEventListener("click", recordSupportCaseI
 loadIncidentPacketZipAuditButton?.addEventListener("click", loadSupportCaseIncidentPacketZipAudit);
 
 exportIncidentPacketZipAuditCsvButton?.addEventListener("click", exportSupportCaseIncidentPacketZipAuditCsv);
+
+loadIncidentHandoffChecklistButton?.addEventListener("click", loadSupportCaseIncidentHandoffChecklist);
+
+exportIncidentHandoffChecklistMdButton?.addEventListener("click", () => exportSupportCaseIncidentHandoffChecklist("markdown"));
+
+exportIncidentHandoffChecklistCsvButton?.addEventListener("click", () => exportSupportCaseIncidentHandoffChecklist("csv"));
 
 exportIncidentDashboardMdButton?.addEventListener("click", () => exportSupportCaseIncidentDashboard("markdown"));
 

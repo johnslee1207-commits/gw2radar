@@ -47,8 +47,12 @@ def test_support_review_page_serves_operator_workbench() -> None:
     assert "Record zip audit" in response.text
     assert "Load zip audit" in response.text
     assert "Export zip audit CSV" in response.text
+    assert "Load handoff checklist" in response.text
+    assert "Export checklist MD" in response.text
+    assert "Export checklist CSV" in response.text
     assert "incident-packet-zip-summary" in response.text
     assert "incident-packet-zip-audit-summary" in response.text
+    assert "incident-handoff-checklist-summary" in response.text
     assert "audit-severity-filter" in response.text
     assert "Do Not Request Secrets" in response.text
     assert "Do not ask for a raw GW2 API key" in response.text
@@ -97,6 +101,9 @@ def test_support_review_static_assets_include_review_workflow() -> None:
     assert "recordSupportCaseIncidentPacketZipAudit" in js.text
     assert "loadSupportCaseIncidentPacketZipAudit" in js.text
     assert "exportSupportCaseIncidentPacketZipAuditCsv" in js.text
+    assert "loadSupportCaseIncidentHandoffChecklist" in js.text
+    assert "exportSupportCaseIncidentHandoffChecklist" in js.text
+    assert "/api/v1/player/support-case/incident-handoff-checklist" in js.text
     assert "/api/v1/player/support-case/incident-packet/bundle/verification-audit" in js.text
     assert "/api/v1/player/support-case/incident-packet/bundle" in js.text
     assert "/api/v1/player/support-case/incident-packet" in js.text

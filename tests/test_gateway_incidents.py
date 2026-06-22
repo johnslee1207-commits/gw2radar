@@ -235,6 +235,9 @@ def test_player_gateway_incident_timeline_correlates_refresh_events_without_secr
         zip_audit_list = client.get("/api/v1/player/support-case/incident-packet/bundle/verification-audit?reviewer=incident%20lead&limit=10")
         zip_audit_markdown = client.get("/api/v1/player/support-case/incident-packet/bundle/verification-audit?format=markdown")
         zip_audit_csv = client.get("/api/v1/player/support-case/incident-packet/bundle/verification-audit?format=csv")
+        handoff_checklist = client.get("/api/v1/player/support-case/incident-handoff-checklist?limit=20")
+        handoff_checklist_markdown = client.get("/api/v1/player/support-case/incident-handoff-checklist?format=markdown&limit=20")
+        handoff_checklist_csv = client.get("/api/v1/player/support-case/incident-handoff-checklist?format=csv&limit=20")
         assert manifest.status_code == 200
         assert "gw2radar.support_case_incident_packet_manifest.v1" in manifest.text
         assert packet_md.status_code == 200
@@ -299,6 +302,21 @@ def test_player_gateway_incident_timeline_correlates_refresh_events_without_secr
         combined_audit_text = str(audit_list) + zip_audit_markdown.text + zip_audit_csv.text + str(tampered_record)
         assert "secret-key" not in combined_audit_text
         assert "raw API key" in audit_record["boundary"]
+        assert handoff_checklist.status_code == 200
+        checklist = handoff_checklist.json()["data"]["support_case_incident_handoff_checklist"]
+        assert checklist["schema_version"] == "gw2radar.support_case_incident_handoff_checklist.v1"
+        assert checklist["ready"] is True
+        assert checklist["dashboard_ready"] is True
+        assert checklist["packet_file_count"] == 4
+        assert checklist["zip_file_count"] == 4
+        assert checklist["zip_verification_ready"] is True
+        assert checklist["verification_audit_count"] >= 1
+        assert checklist["missing_gates"] == []
+        assert handoff_checklist_markdown.status_code == 200
+        assert "# Support Case Incident Handoff Checklist" in handoff_checklist_markdown.text
+        assert handoff_checklist_csv.status_code == 200
+        assert "ready,maturity_label,dashboard_ready,latest_packet_id" in handoff_checklist_csv.text
+        assert "secret-key" not in (str(checklist) + handoff_checklist_markdown.text + handoff_checklist_csv.text).lower()
         assert session_packet.status_code == 200
         packet = session_packet.json()["data"]["session_packet"]
         assert packet["gateway_incident_history"]["schema_version"] == "gw2radar.gateway_incident_history.v1"

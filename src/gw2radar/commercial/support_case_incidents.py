@@ -143,6 +143,32 @@ class SupportCaseIncidentPacketZipVerificationAuditList(BaseModel):
     )
 
 
+class SupportCaseIncidentHandoffChecklist(BaseModel):
+    schema_version: str = "gw2radar.support_case_incident_handoff_checklist.v1"
+    generated_at: datetime
+    ready: bool
+    maturity_label: str
+    dashboard_ready: bool = False
+    latest_packet_id: str | None = None
+    packet_file_count: int = 0
+    zip_checksum_sha256: str | None = None
+    zip_file_count: int = 0
+    zip_verification_ready: bool = False
+    verification_audit_count: int = 0
+    latest_verification_audit_id: str | None = None
+    checklist_items: list[str] = Field(default_factory=list)
+    missing_gates: list[str] = Field(default_factory=list)
+    blockers: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    next_actions: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    boundary: str = (
+        "Support case incident handoff checklist is metadata-only; it summarizes dashboard, packet, "
+        "zip, verification, and audit gates without storing zip bytes, raw API keys, raw debug bundles, "
+        "or private account payloads."
+    )
+
+
 def build_support_case_incident_dashboard(
     *,
     gateway_history: GatewayIncidentHistory,
@@ -632,6 +658,170 @@ def render_support_case_incident_packet_zip_verification_audit_csv(
                 ]
             )
         )
+    return "\n".join(rows) + "\n"
+
+
+def build_support_case_incident_handoff_checklist(
+    *,
+    dashboard: SupportCaseIncidentDashboard | None = None,
+    packet_root: Path | None = None,
+    audit_root: Path | None = None,
+) -> SupportCaseIncidentHandoffChecklist:
+    packets = list_support_case_incident_packets(packet_root=packet_root, limit=1)
+    latest_packet = packets[0] if packets else None
+    missing_gates: list[str] = []
+    blockers: list[str] = []
+    warnings: list[str] = []
+    zip_manifest: SupportCaseIncidentPacketZipManifest | None = None
+    zip_verification: SupportCaseIncidentPacketZipVerification | None = None
+    dashboard_ready = bool(dashboard.ready) if dashboard else bool(latest_packet and latest_packet.ready)
+    if dashboard is None and latest_packet is None:
+        missing_gates.append("support case incident dashboard")
+    if dashboard is not None:
+        blockers.extend(dashboard.blockers)
+        warnings.extend(dashboard.warnings)
+    if not dashboard_ready:
+        missing_gates.append("support case incident dashboard ready state")
+    if latest_packet is None:
+        missing_gates.append("support case incident packet")
+    else:
+        if latest_packet.file_count < len(SUPPORT_CASE_INCIDENT_PACKET_FILES):
+            missing_gates.append("support case incident packet required files")
+        if not latest_packet.ready:
+            missing_gates.append("support case incident packet ready state")
+    if latest_packet is not None:
+        try:
+            zip_manifest, zip_bytes = build_support_case_incident_packet_zip_bundle(packet_root=packet_root)
+            zip_verification = verify_support_case_incident_packet_zip_bundle(
+                zip_bytes,
+                expected_checksum_sha256=zip_manifest.checksum_sha256,
+            )
+        except ValueError as exc:
+            blockers.append(str(exc))
+    if zip_manifest is None or zip_manifest.file_count < len(SUPPORT_CASE_INCIDENT_PACKET_FILES):
+        missing_gates.append("support case incident packet zip bundle")
+    if zip_verification is None or not zip_verification.ready:
+        missing_gates.append("support case incident packet zip verification")
+    audit = list_support_case_incident_packet_zip_verification_audits(audit_root=audit_root, limit=1)
+    latest_audit = audit.records[0] if audit.records else None
+    if latest_audit is None:
+        missing_gates.append("support case incident packet zip verification audit")
+    elif not latest_audit.ready:
+        missing_gates.append("latest support case incident packet zip verification audit ready state")
+    if zip_verification:
+        blockers.extend(zip_verification.blockers)
+        warnings.extend(zip_verification.warnings)
+    if latest_audit:
+        blockers.extend(latest_audit.blockers)
+        warnings.extend(latest_audit.warnings)
+    ready = not missing_gates and not blockers
+    if blockers:
+        maturity_label = "blocked"
+    elif missing_gates or warnings:
+        maturity_label = "review_needed"
+    else:
+        maturity_label = "ready"
+    next_actions = (
+        [
+            "Resolve missing support case incident handoff gates before attaching the incident packet.",
+            "Re-run zip verification and record a fresh metadata-only audit after blockers are fixed.",
+        ]
+        if not ready
+        else [
+            "Attach the incident packet zip, verification audit export, and handoff checklist to the support case.",
+            "Continue support triage without requesting raw API keys or private account payloads.",
+        ]
+    )
+    return SupportCaseIncidentHandoffChecklist(
+        generated_at=datetime.now(timezone.utc),
+        ready=ready,
+        maturity_label=maturity_label,
+        dashboard_ready=dashboard_ready,
+        latest_packet_id=latest_packet.packet_id if latest_packet else None,
+        packet_file_count=latest_packet.file_count if latest_packet else 0,
+        zip_checksum_sha256=zip_manifest.checksum_sha256 if zip_manifest else None,
+        zip_file_count=zip_manifest.file_count if zip_manifest else 0,
+        zip_verification_ready=zip_verification.ready if zip_verification else False,
+        verification_audit_count=len(audit.records),
+        latest_verification_audit_id=latest_audit.audit_id if latest_audit else None,
+        checklist_items=[
+            "Support case incident dashboard reviewed and ready.",
+            "Support case incident packet files written and indexed.",
+            "Support case incident packet zip generated from whitelist files.",
+            "Support case incident packet zip verified without executing content.",
+            "Support case incident packet zip verification audit recorded as metadata only.",
+        ],
+        missing_gates=_unique(missing_gates),
+        blockers=_unique(blockers),
+        warnings=_unique(warnings),
+        next_actions=next_actions,
+        evidence_refs=[
+            "/api/v1/player/support-case/incident-dashboard",
+            "/api/v1/player/support-case/incident-packet",
+            "/api/v1/player/support-case/incident-packet/bundle",
+            "/api/v1/player/support-case/incident-packet/bundle/verify",
+            "/api/v1/player/support-case/incident-packet/bundle/verification-audit",
+        ],
+    )
+
+
+def render_support_case_incident_handoff_checklist_markdown(
+    checklist: SupportCaseIncidentHandoffChecklist,
+) -> str:
+    lines = [
+        "# Support Case Incident Handoff Checklist",
+        "",
+        f"- Ready: {checklist.ready}",
+        f"- Maturity: {checklist.maturity_label}",
+        f"- Dashboard ready: {checklist.dashboard_ready}",
+        f"- Latest packet: {checklist.latest_packet_id or 'None'}",
+        f"- Packet files: {checklist.packet_file_count}",
+        f"- Zip files: {checklist.zip_file_count}",
+        f"- Zip checksum: {checklist.zip_checksum_sha256 or 'None'}",
+        f"- Zip verification ready: {checklist.zip_verification_ready}",
+        f"- Verification audit records: {checklist.verification_audit_count}",
+        f"- Boundary: {checklist.boundary}",
+        "",
+        "## Checklist",
+    ]
+    lines.extend(f"- {item}" for item in checklist.checklist_items)
+    lines.extend(["", "## Missing Gates"])
+    lines.extend(f"- {item}" for item in checklist.missing_gates) if checklist.missing_gates else lines.append("- None")
+    lines.extend(["", "## Blockers"])
+    lines.extend(f"- {item}" for item in checklist.blockers) if checklist.blockers else lines.append("- None")
+    lines.extend(["", "## Warnings"])
+    lines.extend(f"- {item}" for item in checklist.warnings) if checklist.warnings else lines.append("- None")
+    lines.extend(["", "## Next Actions"])
+    lines.extend(f"- {item}" for item in checklist.next_actions)
+    return "\n".join(lines) + "\n"
+
+
+def render_support_case_incident_handoff_checklist_csv(
+    checklist: SupportCaseIncidentHandoffChecklist,
+) -> str:
+    rows = [
+        "ready,maturity_label,dashboard_ready,latest_packet_id,packet_file_count,zip_file_count,zip_verification_ready,verification_audit_count,missing_gate_count,blocker_count,warning_count",
+        ",".join(
+            [
+                _csv(str(checklist.ready)),
+                _csv(checklist.maturity_label),
+                _csv(str(checklist.dashboard_ready)),
+                _csv(checklist.latest_packet_id or ""),
+                _csv(str(checklist.packet_file_count)),
+                _csv(str(checklist.zip_file_count)),
+                _csv(str(checklist.zip_verification_ready)),
+                _csv(str(checklist.verification_audit_count)),
+                _csv(str(len(checklist.missing_gates))),
+                _csv(str(len(checklist.blockers))),
+                _csv(str(len(checklist.warnings))),
+            ]
+        ),
+    ]
+    rows.extend(f"checklist_item,{_csv(item)}" for item in checklist.checklist_items)
+    rows.extend(f"missing_gate,{_csv(item)}" for item in checklist.missing_gates)
+    rows.extend(f"blocker,{_csv(item)}" for item in checklist.blockers)
+    rows.extend(f"warning,{_csv(item)}" for item in checklist.warnings)
+    rows.extend(f"next_action,{_csv(item)}" for item in checklist.next_actions)
     return "\n".join(rows) + "\n"
 
 
