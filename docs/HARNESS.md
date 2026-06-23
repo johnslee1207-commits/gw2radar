@@ -15,6 +15,25 @@ The harness verifies the MVP generation pipeline without calling real AI APIs.
 python harness/run_smoke.py
 ```
 
+## Staged Validation Profiles
+
+Use staged validation to avoid paying the full regression cost on every small
+delivery slice:
+
+```bash
+python harness/run_validation_profile.py fast
+python harness/run_validation_profile.py smoke
+python harness/run_validation_profile.py full
+```
+
+- `fast`: shared delivery lifecycle contract, productized report regression, and
+  player use-path semantic maturity audit.
+- `smoke`: MVP smoke, player UI E2E smoke, and account connection diagnostic.
+- `full`: complete `pytest` regression.
+
+Use `python harness/run_validation_profile.py --list` to print the exact
+commands.
+
 ## Player UI E2E Smoke Command
 
 ```bash

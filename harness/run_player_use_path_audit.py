@@ -2025,6 +2025,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "- `SupportCaseIncidentClosurePacketZipVerificationAudit` verifies closure packet zip archives and records metadata-only final transfer evidence.",
             "- `ReportArtifactManifest` records bridge metadata without storing raw API keys or unredacted private payloads.",
             "- `DeliveryLifecycleFramework` centralizes deterministic packet zip building, whitelist verification, no-secret checks, and readiness gating to reduce repeated operator lifecycle implementations.",
+            "- `ValidationProfile` separates fast, smoke, and full quality gates so small delivery slices can run high-signal checks before paying the full regression cost.",
             "- `ProductizedReportTemplate` exposes Account Value, Legendary Gap, and Build Readiness report contracts with deterministic export formats.",
             "- `ProductizedReportArtifact` writes entitlement-gated Markdown, CSV, and HTML-ready report artifacts with checksums and no-secret boundaries.",
             "- `ProductizedReportPacketZipVerificationAudit` verifies productized report packet zip archives and records metadata-only delivery evidence.",
@@ -2037,7 +2038,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Next Priority",
             "",
-            "Add staged test profiles for fast, smoke, and full validation to reduce delivery-cycle verification time.",
+            "Adopt fast plus smoke as the default stage gate, with full pytest reserved for milestone closure and release checks.",
             "",
         ]
     )
