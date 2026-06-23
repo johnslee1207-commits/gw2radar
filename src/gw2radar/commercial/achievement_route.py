@@ -7,9 +7,16 @@ from datetime import UTC, datetime
 from io import BytesIO, StringIO
 from pathlib import Path
 from typing import Any, Literal, Protocol
-from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
+from zipfile import ZipFile
 
 from pydantic import BaseModel, Field, ValidationError
+
+from gw2radar.delivery.lifecycle import (
+    DeliverySourceFile,
+    DeliveryZipPolicy,
+    build_delivery_packet_zip_bundle,
+    verify_delivery_packet_zip_bundle,
+)
 
 
 RouteStepType = Literal["achievement", "collection"]
@@ -3586,41 +3593,45 @@ def build_achievement_route_release_export_bundle(
     if artifact_index_path is not None:
         source_files.append((artifact_index_relative, artifact_index_path, "application/json"))
 
-    included_files: list[AchievementRouteReleaseExportArtifactFile] = []
-    buffer = BytesIO()
-    with ZipFile(buffer, mode="w", compression=ZIP_DEFLATED) as archive:
-        for relative_path, path, media_type in sorted(source_files, key=lambda item: item[0]):
-            filename = Path(relative_path).name
-            if filename not in allowed_filenames:
-                continue
-            content = path.read_bytes()
-            archive_path = f"achievement_route_release_export/{filename}"
-            info = ZipInfo(archive_path, date_time=(1980, 1, 1, 0, 0, 0))
-            info.compress_type = ZIP_DEFLATED
-            info.external_attr = 0o644 << 16
-            archive.writestr(info, content)
-            included_files.append(
-                AchievementRouteReleaseExportArtifactFile(
-                    filename=filename,
-                    relative_path=archive_path,
-                    media_type=media_type,
-                    size_bytes=len(content),
-                    checksum_sha256=hashlib.sha256(content).hexdigest(),
-                )
-            )
-    bundle_bytes = buffer.getvalue()
     safe_packet_id = _safe_identifier(index.packet_id or "latest")
     filename = f"{safe_packet_id}_release_export_bundle.zip"
-    checksum = hashlib.sha256(bundle_bytes).hexdigest()
+    delivery_manifest, bundle_bytes = build_delivery_packet_zip_bundle(
+        [
+            DeliverySourceFile(
+                item_id=safe_packet_id,
+                path=path,
+                archive_path=f"achievement_route_release_export/{Path(relative_path).name}",
+                media_type=media_type,
+            )
+            for relative_path, path, media_type in source_files
+            if Path(relative_path).name in allowed_filenames
+        ],
+        item_count=1,
+        bundle_id_prefix="achievement-route-release-export-bundle",
+        filename_prefix=safe_packet_id,
+        boundary=(
+            "Achievement route release export bundle is a read-only metadata transfer file; "
+            "it does not publish content, edit source manifests, automate gameplay, or store secrets."
+        ),
+    )
     manifest = AchievementRouteReleaseExportBundleManifest(
-        bundle_id=f"achievement-route-release-export-bundle:{checksum[:16]}",
+        bundle_id=delivery_manifest.bundle_id,
         packet_id=index.packet_id,
-        generated_at=datetime.now(UTC),
+        generated_at=delivery_manifest.generated_at,
         filename=filename,
-        file_count=len(included_files),
-        included_files=included_files,
-        checksum_sha256=checksum,
-        size_bytes=len(bundle_bytes),
+        file_count=delivery_manifest.file_count,
+        included_files=[
+            AchievementRouteReleaseExportArtifactFile(
+                filename=file.file_name,
+                relative_path=file.relative_path,
+                media_type=file.media_type,
+                size_bytes=file.size_bytes,
+                checksum_sha256=file.checksum_sha256,
+            )
+            for file in delivery_manifest.included_files
+        ],
+        checksum_sha256=delivery_manifest.checksum_sha256,
+        size_bytes=delivery_manifest.size_bytes,
     )
     return manifest, bundle_bytes
 
@@ -3630,36 +3641,33 @@ def verify_achievement_route_release_export_bundle(
     *,
     expected_checksum_sha256: str | None = None,
 ) -> AchievementRouteReleaseExportBundleVerification:
-    checksum = hashlib.sha256(bundle_bytes).hexdigest()
-    blockers: list[str] = []
-    warnings: list[str] = []
     allowed_names = {
         "achievement_route_release_export/artifact_index.json",
         "achievement_route_release_export/release_export_packet_manifest.json",
         "achievement_route_release_export/release_export_packet.md",
         "achievement_route_release_export/release_export_packet.csv",
     }
-    verified_files: list[str] = []
-    if expected_checksum_sha256 and expected_checksum_sha256 != checksum:
-        blockers.append("bundle checksum does not match the expected SHA-256 value")
+    delivery_verification = verify_delivery_packet_zip_bundle(
+        bundle_bytes,
+        expected_checksum_sha256=expected_checksum_sha256,
+        policy=DeliveryZipPolicy(
+            label="bundle",
+            root_prefix="achievement_route_release_export",
+            allowed_file_names_for_item=lambda _item_id: {Path(name).name for name in allowed_names},
+            required_file_names_for_item=lambda _item_id: {Path(name).name for name in allowed_names},
+            flat_root=True,
+            prohibited_markers=(b"secret-key",),
+            prohibited_marker_label="secret marker",
+            boundary=(
+                "Achievement route release export bundle verification reads bytes only; it does not "
+                "publish content, edit source manifests, automate gameplay, or store secrets."
+            ),
+        ),
+    )
+    blockers = list(delivery_verification.blockers)
     try:
         with ZipFile(BytesIO(bundle_bytes), mode="r") as archive:
             names = sorted(archive.namelist())
-            verified_files = names
-            for name in names:
-                path = Path(name)
-                if path.is_absolute() or ".." in path.parts:
-                    blockers.append(f"bundle contains unsafe path: {name}")
-            extra_names = sorted(set(names) - allowed_names)
-            missing_names = sorted(allowed_names - set(names))
-            if extra_names:
-                blockers.append("bundle contains non-whitelisted files: " + ", ".join(extra_names))
-            if missing_names:
-                blockers.append("bundle is missing required files: " + ", ".join(missing_names))
-            for name in names:
-                content = archive.read(name)
-                if b"secret-key" in content.lower():
-                    blockers.append(f"bundle file contains prohibited secret marker: {name}")
             if "achievement_route_release_export/artifact_index.json" in names:
                 try:
                     AchievementRouteReleaseExportArtifactIndex.model_validate_json(
@@ -3694,17 +3702,15 @@ def verify_achievement_route_release_export_bundle(
                     blockers.append(f"release export packet CSV is not UTF-8: {exc}")
     except Exception as exc:
         blockers.append(f"bundle zip could not be read: {exc}")
-    if len(bundle_bytes) > 5_000_000:
-        warnings.append("bundle is larger than the MVP verification target of 5 MB")
     return AchievementRouteReleaseExportBundleVerification(
         ready=not blockers,
-        verified_at=datetime.now(UTC),
-        checksum_sha256=checksum,
-        size_bytes=len(bundle_bytes),
-        file_count=len(verified_files),
-        verified_files=verified_files,
+        verified_at=delivery_verification.verified_at,
+        checksum_sha256=delivery_verification.checksum_sha256,
+        size_bytes=delivery_verification.size_bytes,
+        file_count=delivery_verification.file_count,
+        verified_files=delivery_verification.verified_files,
         blockers=blockers,
-        warnings=warnings,
+        warnings=delivery_verification.warnings,
     )
 
 

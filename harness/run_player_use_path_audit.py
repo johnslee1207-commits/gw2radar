@@ -2037,7 +2037,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Next Priority",
             "",
-            "Migrate support-case incident and achievement-route operator lifecycle paths onto DeliveryLifecycleFramework.",
+            "Add staged test profiles for fast, smoke, and full validation to reduce delivery-cycle verification time.",
             "",
         ]
     )

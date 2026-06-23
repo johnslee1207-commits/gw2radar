@@ -4,7 +4,7 @@ from io import BytesIO
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
-from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
+from zipfile import ZipFile
 
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -2031,39 +2031,38 @@ def build_player_support_handoff_final_archive_zip_bundle(
         )
         if path is not None:
             source_files.append((file.file_name, path, file.media_type))
-    included_files: list[PlayerSessionPacketArtifactFile] = []
-    buffer = BytesIO()
-    with ZipFile(buffer, mode="w", compression=ZIP_DEFLATED) as archive:
-        for file_name, path, media_type in sorted(source_files, key=lambda item: item[0]):
-            if file_name not in PLAYER_SUPPORT_HANDOFF_FINAL_ARCHIVE_FILES:
-                continue
-            content = path.read_bytes()
-            archive_path = f"player_support_handoff_final_archive/{file_name}"
-            info = ZipInfo(archive_path, date_time=(1980, 1, 1, 0, 0, 0))
-            info.compress_type = ZIP_DEFLATED
-            info.external_attr = 0o644 << 16
-            archive.writestr(info, content)
-            included_files.append(
-                PlayerSessionPacketArtifactFile(
-                    file_name=file_name,
-                    relative_path=archive_path,
-                    media_type=media_type,
-                    size_bytes=len(content),
-                    checksum_sha256=hashlib.sha256(content).hexdigest(),
-                )
+    delivery_manifest, bundle_bytes = build_delivery_packet_zip_bundle(
+        [
+            DeliverySourceFile(
+                item_id=archive_manifest.archive_id,
+                path=path,
+                archive_path=f"player_support_handoff_final_archive/{file_name}",
+                media_type=media_type,
             )
-    bundle_bytes = buffer.getvalue()
-    checksum = hashlib.sha256(bundle_bytes).hexdigest()
+            for file_name, path, media_type in source_files
+            if file_name in PLAYER_SUPPORT_HANDOFF_FINAL_ARCHIVE_FILES
+        ],
+        item_count=1,
+        bundle_id_prefix="player-support-handoff-final-archive-zip",
+        filename_prefix=archive_manifest.archive_id,
+        boundary=(
+            "Support handoff final archive zip bundles are read-only metadata transfer packages; they do not execute files, "
+            "publish content, store raw keys, or include raw private payloads."
+        ),
+    )
     return (
         PlayerSupportHandoffFinalArchiveZipManifest(
-            bundle_id=f"player-support-handoff-final-archive-zip:{checksum[:16]}",
+            bundle_id=delivery_manifest.bundle_id,
             source_archive_id=archive_manifest.archive_id,
-            generated_at=datetime.now(timezone.utc),
+            generated_at=delivery_manifest.generated_at,
             filename=f"{archive_manifest.archive_id}_final_archive.zip",
-            file_count=len(included_files),
-            included_files=included_files,
-            checksum_sha256=checksum,
-            size_bytes=len(bundle_bytes),
+            file_count=delivery_manifest.file_count,
+            included_files=[
+                PlayerSessionPacketArtifactFile.model_validate(file.model_dump(mode="json"))
+                for file in delivery_manifest.included_files
+            ],
+            checksum_sha256=delivery_manifest.checksum_sha256,
+            size_bytes=delivery_manifest.size_bytes,
         ),
         bundle_bytes,
     )
@@ -2074,31 +2073,15 @@ def verify_player_support_handoff_final_archive_zip_bundle(
     *,
     expected_checksum_sha256: str | None = None,
 ) -> PlayerSupportHandoffFinalArchiveZipVerification:
-    checksum = hashlib.sha256(bundle_bytes).hexdigest()
-    blockers: list[str] = []
-    warnings: list[str] = []
-    allowed_names = {f"player_support_handoff_final_archive/{file_name}" for file_name in PLAYER_SUPPORT_HANDOFF_FINAL_ARCHIVE_FILES}
-    verified_files: list[str] = []
-    if expected_checksum_sha256 and expected_checksum_sha256 != checksum:
-        blockers.append("final archive checksum does not match the expected SHA-256 value")
+    delivery_verification = verify_delivery_packet_zip_bundle(
+        bundle_bytes,
+        expected_checksum_sha256=expected_checksum_sha256,
+        policy=_player_support_handoff_final_archive_zip_policy(),
+    )
+    blockers = list(delivery_verification.blockers)
     try:
         with ZipFile(BytesIO(bundle_bytes), mode="r") as archive:
             names = sorted(archive.namelist())
-            verified_files = names
-            for name in names:
-                path = Path(name)
-                if path.is_absolute() or ".." in path.parts:
-                    blockers.append(f"final archive contains unsafe path: {name}")
-            extra_names = sorted(set(names) - allowed_names)
-            missing_names = sorted(allowed_names - set(names))
-            if extra_names:
-                blockers.append("final archive contains non-whitelisted files: " + ", ".join(extra_names))
-            if missing_names:
-                blockers.append("final archive is missing required files: " + ", ".join(missing_names))
-            for name in names:
-                lowered = archive.read(name).lower()
-                if b"secret-key" in lowered:
-                    blockers.append(f"final archive file contains prohibited secret marker: {name}")
             manifest_name = "player_support_handoff_final_archive/manifest.json"
             if manifest_name in names:
                 manifest = json.loads(archive.read(manifest_name).decode("utf-8"))
@@ -2111,17 +2094,15 @@ def verify_player_support_handoff_final_archive_zip_bundle(
                 blockers.append("final archive manifest.json is missing")
     except Exception as exc:
         blockers.append(f"final archive zip could not be read: {exc}")
-    if len(bundle_bytes) > 5_000_000:
-        warnings.append("final archive is larger than the MVP verification target of 5 MB")
     return PlayerSupportHandoffFinalArchiveZipVerification(
         ready=not blockers,
-        verified_at=datetime.now(timezone.utc),
-        checksum_sha256=checksum,
-        size_bytes=len(bundle_bytes),
-        file_count=len(verified_files),
-        verified_files=verified_files,
+        verified_at=delivery_verification.verified_at,
+        checksum_sha256=delivery_verification.checksum_sha256,
+        size_bytes=delivery_verification.size_bytes,
+        file_count=delivery_verification.file_count,
+        verified_files=delivery_verification.verified_files,
         blockers=blockers,
-        warnings=warnings,
+        warnings=delivery_verification.warnings,
     )
 
 
@@ -2197,6 +2178,22 @@ def _player_support_handoff_zip_policy() -> DeliveryZipPolicy:
         prohibited_marker_label="secret marker",
         boundary=(
             "Support handoff zip verification reads zip bytes only; it does not execute files, write uploaded "
+            "content to disk, publish content, or store secrets."
+        ),
+    )
+
+
+def _player_support_handoff_final_archive_zip_policy() -> DeliveryZipPolicy:
+    return DeliveryZipPolicy(
+        label="final archive",
+        root_prefix="player_support_handoff_final_archive",
+        allowed_file_names_for_item=lambda _item_id: set(PLAYER_SUPPORT_HANDOFF_FINAL_ARCHIVE_FILES),
+        required_file_names_for_item=lambda _item_id: set(PLAYER_SUPPORT_HANDOFF_FINAL_ARCHIVE_FILES),
+        flat_root=True,
+        prohibited_markers=(b"secret-key",),
+        prohibited_marker_label="secret marker",
+        boundary=(
+            "Support handoff final archive verification reads zip bytes only; it does not execute files, write uploaded "
             "content to disk, publish content, or store secrets."
         ),
     )

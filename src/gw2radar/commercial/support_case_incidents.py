@@ -4,12 +4,18 @@ from io import BytesIO
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
-from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
+from zipfile import ZipFile
 
 from pydantic import BaseModel, Field
 
 from gw2radar.commercial.gateway_incidents import GatewayIncidentHistory, GatewayIncidentReviewNoteList
 from gw2radar.commercial.player_intelligence import PlayerSupportHandoffDashboard
+from gw2radar.delivery.lifecycle import (
+    DeliverySourceFile,
+    DeliveryZipPolicy,
+    build_delivery_packet_zip_bundle,
+    verify_delivery_packet_zip_bundle,
+)
 from gw2radar.support.account_debug_bundle_audit import SupportReviewAuditRecord, SupportReviewMetricsSummary
 
 SUPPORT_CASE_INCIDENT_PACKET_ROOT = Path("src/gw2radar/reports/artifacts/support_case_incident_packets")
@@ -858,39 +864,30 @@ def build_support_case_incident_packet_zip_bundle(
         )
         if path is not None:
             source_files.append((file.file_name, path, file.media_type))
-    included_files: list[SupportCaseIncidentPacketFile] = []
-    buffer = BytesIO()
-    with ZipFile(buffer, mode="w", compression=ZIP_DEFLATED) as archive:
-        for file_name, path, media_type in sorted(source_files, key=lambda item: item[0]):
-            if file_name not in SUPPORT_CASE_INCIDENT_PACKET_FILES:
-                continue
-            content = path.read_bytes()
-            archive_path = f"support_case_incident_packet/{file_name}"
-            info = ZipInfo(archive_path, date_time=(1980, 1, 1, 0, 0, 0))
-            info.compress_type = ZIP_DEFLATED
-            info.external_attr = 0o644 << 16
-            archive.writestr(info, content)
-            included_files.append(
-                SupportCaseIncidentPacketFile(
-                    file_name=file_name,
-                    relative_path=archive_path,
-                    media_type=media_type,
-                    size_bytes=len(content),
-                    checksum_sha256=hashlib.sha256(content).hexdigest(),
-                )
-            )
-    bundle_bytes = buffer.getvalue()
-    checksum = hashlib.sha256(bundle_bytes).hexdigest()
+    delivery_manifest, bundle_bytes = _build_flat_delivery_zip(
+        source_files,
+        root_prefix="support_case_incident_packet",
+        allowed_files=SUPPORT_CASE_INCIDENT_PACKET_FILES,
+        bundle_id_prefix="support-case-incident-packet-zip",
+        filename_prefix=packet.packet_id,
+        boundary=(
+            "Support case incident packet zip bundles are read-only transfer files; they exclude raw API keys, "
+            "raw debug bundles, private account payloads, zip bytes in manifests, and executable content."
+        ),
+    )
     return (
         SupportCaseIncidentPacketZipManifest(
-            bundle_id=f"support-case-incident-packet-zip:{checksum[:16]}",
+            bundle_id=delivery_manifest.bundle_id,
             source_packet_id=packet.packet_id,
-            generated_at=datetime.now(timezone.utc),
+            generated_at=delivery_manifest.generated_at,
             filename=f"{packet.packet_id}_support_case_incident_packet.zip",
-            file_count=len(included_files),
-            included_files=included_files,
-            checksum_sha256=checksum,
-            size_bytes=len(bundle_bytes),
+            file_count=delivery_manifest.file_count,
+            included_files=[
+                SupportCaseIncidentPacketFile.model_validate(file.model_dump(mode="json"))
+                for file in delivery_manifest.included_files
+            ],
+            checksum_sha256=delivery_manifest.checksum_sha256,
+            size_bytes=delivery_manifest.size_bytes,
         ),
         bundle_bytes,
     )
@@ -901,45 +898,29 @@ def verify_support_case_incident_packet_zip_bundle(
     *,
     expected_checksum_sha256: str | None = None,
 ) -> SupportCaseIncidentPacketZipVerification:
-    checksum = hashlib.sha256(bundle_bytes).hexdigest()
-    blockers: list[str] = []
-    warnings: list[str] = []
-    allowed_names = {f"support_case_incident_packet/{file_name}" for file_name in SUPPORT_CASE_INCIDENT_PACKET_FILES}
-    verified_files: list[str] = []
-    if expected_checksum_sha256 and expected_checksum_sha256 != checksum:
-        blockers.append("support case incident packet checksum does not match the expected SHA-256 value")
+    delivery_verification = _verify_flat_delivery_zip(
+        bundle_bytes,
+        label="support case incident packet",
+        root_prefix="support_case_incident_packet",
+        allowed_files=SUPPORT_CASE_INCIDENT_PACKET_FILES,
+        expected_checksum_sha256=expected_checksum_sha256,
+    )
+    blockers = list(delivery_verification.blockers)
     try:
         with ZipFile(BytesIO(bundle_bytes), mode="r") as archive:
             names = sorted(archive.namelist())
-            verified_files = names
-            for name in names:
-                path = Path(name)
-                if path.is_absolute() or ".." in path.parts:
-                    blockers.append(f"support case incident packet contains unsafe path: {name}")
-            extra_names = sorted(set(names) - allowed_names)
-            missing_names = sorted(allowed_names - set(names))
-            if extra_names:
-                blockers.append("support case incident packet contains non-whitelisted files: " + ", ".join(extra_names))
-            if missing_names:
-                blockers.append("support case incident packet is missing required files: " + ", ".join(missing_names))
-            for name in names:
-                lowered = archive.read(name).lower()
-                if b"secret-key" in lowered:
-                    blockers.append(f"support case incident packet file contains prohibited secret marker: {name}")
             _verify_support_case_incident_packet_payloads(archive, names, blockers)
     except Exception as exc:
         blockers.append(f"support case incident packet zip could not be read: {exc}")
-    if len(bundle_bytes) > 5_000_000:
-        warnings.append("support case incident packet zip is larger than the MVP verification target of 5 MB")
     return SupportCaseIncidentPacketZipVerification(
         ready=not blockers,
-        verified_at=datetime.now(timezone.utc),
-        checksum_sha256=checksum,
-        size_bytes=len(bundle_bytes),
-        file_count=len(verified_files),
-        verified_files=verified_files,
+        verified_at=delivery_verification.verified_at,
+        checksum_sha256=delivery_verification.checksum_sha256,
+        size_bytes=delivery_verification.size_bytes,
+        file_count=delivery_verification.file_count,
+        verified_files=delivery_verification.verified_files,
         blockers=blockers,
-        warnings=warnings,
+        warnings=delivery_verification.warnings,
     )
 
 
@@ -1501,39 +1482,30 @@ def build_support_case_incident_operator_packet_zip_bundle(
         )
         if path is not None:
             source_files.append((file.file_name, path, file.media_type))
-    included_files: list[SupportCaseIncidentPacketFile] = []
-    buffer = BytesIO()
-    with ZipFile(buffer, mode="w", compression=ZIP_DEFLATED) as archive:
-        for file_name, path, media_type in sorted(source_files, key=lambda item: item[0]):
-            if file_name not in SUPPORT_CASE_INCIDENT_OPERATOR_PACKET_FILES:
-                continue
-            content = path.read_bytes()
-            archive_path = f"support_case_incident_operator_packet/{file_name}"
-            info = ZipInfo(archive_path, date_time=(1980, 1, 1, 0, 0, 0))
-            info.compress_type = ZIP_DEFLATED
-            info.external_attr = 0o644 << 16
-            archive.writestr(info, content)
-            included_files.append(
-                SupportCaseIncidentPacketFile(
-                    file_name=file_name,
-                    relative_path=archive_path,
-                    media_type=media_type,
-                    size_bytes=len(content),
-                    checksum_sha256=hashlib.sha256(content).hexdigest(),
-                )
-            )
-    bundle_bytes = buffer.getvalue()
-    checksum = hashlib.sha256(bundle_bytes).hexdigest()
+    delivery_manifest, bundle_bytes = _build_flat_delivery_zip(
+        source_files,
+        root_prefix="support_case_incident_operator_packet",
+        allowed_files=SUPPORT_CASE_INCIDENT_OPERATOR_PACKET_FILES,
+        bundle_id_prefix="support-case-incident-operator-packet-zip",
+        filename_prefix=artifact.artifact_id,
+        boundary=(
+            "Support case incident operator packet zip bundles are read-only metadata transfer files; "
+            "they exclude raw API keys, raw debug bundles, private account payloads, zip bytes, and executable content."
+        ),
+    )
     return (
         SupportCaseIncidentOperatorPacketZipManifest(
-            bundle_id=f"support-case-incident-operator-packet-zip:{checksum[:16]}",
+            bundle_id=delivery_manifest.bundle_id,
             source_artifact_id=artifact.artifact_id,
-            generated_at=datetime.now(timezone.utc),
+            generated_at=delivery_manifest.generated_at,
             filename=f"{artifact.artifact_id}_operator_packet.zip",
-            file_count=len(included_files),
-            included_files=included_files,
-            checksum_sha256=checksum,
-            size_bytes=len(bundle_bytes),
+            file_count=delivery_manifest.file_count,
+            included_files=[
+                SupportCaseIncidentPacketFile.model_validate(file.model_dump(mode="json"))
+                for file in delivery_manifest.included_files
+            ],
+            checksum_sha256=delivery_manifest.checksum_sha256,
+            size_bytes=delivery_manifest.size_bytes,
         ),
         bundle_bytes,
     )
@@ -1544,54 +1516,29 @@ def verify_support_case_incident_operator_packet_zip_bundle(
     *,
     expected_checksum_sha256: str | None = None,
 ) -> SupportCaseIncidentOperatorPacketZipVerification:
-    checksum = hashlib.sha256(bundle_bytes).hexdigest()
-    blockers: list[str] = []
-    warnings: list[str] = []
-    allowed_names = {
-        f"support_case_incident_operator_packet/{file_name}"
-        for file_name in SUPPORT_CASE_INCIDENT_OPERATOR_PACKET_FILES
-    }
-    verified_files: list[str] = []
-    if expected_checksum_sha256 and expected_checksum_sha256 != checksum:
-        blockers.append("support case incident operator packet checksum does not match the expected SHA-256 value")
+    delivery_verification = _verify_flat_delivery_zip(
+        bundle_bytes,
+        label="support case incident operator packet",
+        root_prefix="support_case_incident_operator_packet",
+        allowed_files=SUPPORT_CASE_INCIDENT_OPERATOR_PACKET_FILES,
+        expected_checksum_sha256=expected_checksum_sha256,
+    )
+    blockers = list(delivery_verification.blockers)
     try:
         with ZipFile(BytesIO(bundle_bytes), mode="r") as archive:
             names = sorted(archive.namelist())
-            verified_files = names
-            for name in names:
-                path = Path(name)
-                if path.is_absolute() or ".." in path.parts:
-                    blockers.append(f"support case incident operator packet contains unsafe path: {name}")
-            extra_names = sorted(set(names) - allowed_names)
-            missing_names = sorted(allowed_names - set(names))
-            if extra_names:
-                blockers.append(
-                    "support case incident operator packet contains non-whitelisted files: "
-                    + ", ".join(extra_names)
-                )
-            if missing_names:
-                blockers.append(
-                    "support case incident operator packet is missing required files: "
-                    + ", ".join(missing_names)
-                )
-            for name in names:
-                lowered = archive.read(name).lower()
-                if b"secret-key" in lowered:
-                    blockers.append(f"support case incident operator packet file contains prohibited secret marker: {name}")
             _verify_support_case_incident_operator_packet_payloads(archive, names, blockers)
     except Exception as exc:
         blockers.append(f"support case incident operator packet zip could not be read: {exc}")
-    if len(bundle_bytes) > 5_000_000:
-        warnings.append("support case incident operator packet zip is larger than the MVP verification target of 5 MB")
     return SupportCaseIncidentOperatorPacketZipVerification(
         ready=not blockers,
-        verified_at=datetime.now(timezone.utc),
-        checksum_sha256=checksum,
-        size_bytes=len(bundle_bytes),
-        file_count=len(verified_files),
-        verified_files=verified_files,
+        verified_at=delivery_verification.verified_at,
+        checksum_sha256=delivery_verification.checksum_sha256,
+        size_bytes=delivery_verification.size_bytes,
+        file_count=delivery_verification.file_count,
+        verified_files=delivery_verification.verified_files,
         blockers=blockers,
-        warnings=warnings,
+        warnings=delivery_verification.warnings,
     )
 
 
@@ -2022,39 +1969,30 @@ def build_support_case_incident_final_handoff_packet_zip_bundle(
         )
         if path is not None:
             source_files.append((file.file_name, path, file.media_type))
-    included_files: list[SupportCaseIncidentPacketFile] = []
-    buffer = BytesIO()
-    with ZipFile(buffer, mode="w", compression=ZIP_DEFLATED) as archive:
-        for file_name, path, media_type in sorted(source_files, key=lambda item: item[0]):
-            if file_name not in SUPPORT_CASE_INCIDENT_FINAL_HANDOFF_PACKET_FILES:
-                continue
-            content = path.read_bytes()
-            archive_path = f"support_case_incident_final_handoff_packet/{file_name}"
-            info = ZipInfo(archive_path, date_time=(1980, 1, 1, 0, 0, 0))
-            info.compress_type = ZIP_DEFLATED
-            info.external_attr = 0o644 << 16
-            archive.writestr(info, content)
-            included_files.append(
-                SupportCaseIncidentPacketFile(
-                    file_name=file_name,
-                    relative_path=archive_path,
-                    media_type=media_type,
-                    size_bytes=len(content),
-                    checksum_sha256=hashlib.sha256(content).hexdigest(),
-                )
-            )
-    bundle_bytes = buffer.getvalue()
-    checksum = hashlib.sha256(bundle_bytes).hexdigest()
+    delivery_manifest, bundle_bytes = _build_flat_delivery_zip(
+        source_files,
+        root_prefix="support_case_incident_final_handoff_packet",
+        allowed_files=SUPPORT_CASE_INCIDENT_FINAL_HANDOFF_PACKET_FILES,
+        bundle_id_prefix="support-case-incident-final-handoff-packet-zip",
+        filename_prefix=packet.packet_id,
+        boundary=(
+            "Support case incident final handoff packet zip bundles are read-only metadata transfer files; "
+            "they exclude raw API keys, raw debug bundles, private account payloads, zip bytes, and executable content."
+        ),
+    )
     return (
         SupportCaseIncidentFinalHandoffPacketZipManifest(
-            bundle_id=f"support-case-incident-final-handoff-packet-zip:{checksum[:16]}",
+            bundle_id=delivery_manifest.bundle_id,
             source_packet_id=packet.packet_id,
-            generated_at=datetime.now(timezone.utc),
+            generated_at=delivery_manifest.generated_at,
             filename=f"{packet.packet_id}_final_handoff_packet.zip",
-            file_count=len(included_files),
-            included_files=included_files,
-            checksum_sha256=checksum,
-            size_bytes=len(bundle_bytes),
+            file_count=delivery_manifest.file_count,
+            included_files=[
+                SupportCaseIncidentPacketFile.model_validate(file.model_dump(mode="json"))
+                for file in delivery_manifest.included_files
+            ],
+            checksum_sha256=delivery_manifest.checksum_sha256,
+            size_bytes=delivery_manifest.size_bytes,
         ),
         bundle_bytes,
     )
@@ -2065,55 +2003,22 @@ def verify_support_case_incident_final_handoff_packet_zip_bundle(
     *,
     expected_checksum_sha256: str | None = None,
 ) -> SupportCaseIncidentFinalHandoffPacketZipVerification:
-    checksum = hashlib.sha256(bundle_bytes).hexdigest()
-    blockers: list[str] = []
-    warnings: list[str] = []
-    allowed_names = {
-        f"support_case_incident_final_handoff_packet/{file_name}"
-        for file_name in SUPPORT_CASE_INCIDENT_FINAL_HANDOFF_PACKET_FILES
-    }
-    verified_files: list[str] = []
-    if expected_checksum_sha256 and expected_checksum_sha256 != checksum:
-        blockers.append("support case incident final handoff packet checksum does not match the expected SHA-256 value")
-    try:
-        with ZipFile(BytesIO(bundle_bytes), mode="r") as archive:
-            names = sorted(archive.namelist())
-            verified_files = names
-            for name in names:
-                path = Path(name)
-                if path.is_absolute() or ".." in path.parts:
-                    blockers.append(f"support case incident final handoff packet contains unsafe path: {name}")
-            extra_names = sorted(set(names) - allowed_names)
-            missing_names = sorted(allowed_names - set(names))
-            if extra_names:
-                blockers.append(
-                    "support case incident final handoff packet contains non-whitelisted files: "
-                    + ", ".join(extra_names)
-                )
-            if missing_names:
-                blockers.append(
-                    "support case incident final handoff packet is missing required files: "
-                    + ", ".join(missing_names)
-                )
-            for name in names:
-                lowered = archive.read(name).lower()
-                if b"secret-key" in lowered:
-                    blockers.append(f"support case incident final handoff packet file contains prohibited secret marker: {name}")
-                if name.endswith(".zip"):
-                    blockers.append(f"support case incident final handoff packet contains nested zip content: {name}")
-    except Exception as exc:
-        blockers.append(f"support case incident final handoff packet zip could not be read: {exc}")
-    if len(bundle_bytes) > 5_000_000:
-        warnings.append("support case incident final handoff packet zip is larger than the MVP verification target of 5 MB")
+    delivery_verification = _verify_flat_delivery_zip(
+        bundle_bytes,
+        label="support case incident final handoff packet",
+        root_prefix="support_case_incident_final_handoff_packet",
+        allowed_files=SUPPORT_CASE_INCIDENT_FINAL_HANDOFF_PACKET_FILES,
+        expected_checksum_sha256=expected_checksum_sha256,
+    )
     return SupportCaseIncidentFinalHandoffPacketZipVerification(
-        ready=not blockers,
-        verified_at=datetime.now(timezone.utc),
-        checksum_sha256=checksum,
-        size_bytes=len(bundle_bytes),
-        file_count=len(verified_files),
-        verified_files=verified_files,
-        blockers=blockers,
-        warnings=warnings,
+        ready=delivery_verification.ready,
+        verified_at=delivery_verification.verified_at,
+        checksum_sha256=delivery_verification.checksum_sha256,
+        size_bytes=delivery_verification.size_bytes,
+        file_count=delivery_verification.file_count,
+        verified_files=delivery_verification.verified_files,
+        blockers=delivery_verification.blockers,
+        warnings=delivery_verification.warnings,
     )
 
 
@@ -2648,39 +2553,30 @@ def build_support_case_incident_closure_packet_zip_bundle(
         )
         if path is not None:
             source_files.append((file.file_name, path, file.media_type))
-    included_files: list[SupportCaseIncidentPacketFile] = []
-    buffer = BytesIO()
-    with ZipFile(buffer, mode="w", compression=ZIP_DEFLATED) as archive:
-        for file_name, path, media_type in sorted(source_files, key=lambda item: item[0]):
-            if file_name not in SUPPORT_CASE_INCIDENT_CLOSURE_PACKET_FILES:
-                continue
-            content = path.read_bytes()
-            archive_path = f"support_case_incident_closure_packet/{file_name}"
-            info = ZipInfo(archive_path, date_time=(1980, 1, 1, 0, 0, 0))
-            info.compress_type = ZIP_DEFLATED
-            info.external_attr = 0o644 << 16
-            archive.writestr(info, content)
-            included_files.append(
-                SupportCaseIncidentPacketFile(
-                    file_name=file_name,
-                    relative_path=archive_path,
-                    media_type=media_type,
-                    size_bytes=len(content),
-                    checksum_sha256=hashlib.sha256(content).hexdigest(),
-                )
-            )
-    bundle_bytes = buffer.getvalue()
-    checksum = hashlib.sha256(bundle_bytes).hexdigest()
+    delivery_manifest, bundle_bytes = _build_flat_delivery_zip(
+        source_files,
+        root_prefix="support_case_incident_closure_packet",
+        allowed_files=SUPPORT_CASE_INCIDENT_CLOSURE_PACKET_FILES,
+        bundle_id_prefix="support-case-incident-closure-packet-zip",
+        filename_prefix=packet.packet_id,
+        boundary=(
+            "Support case incident closure packet zip bundles are read-only metadata transfer files; "
+            "they exclude raw API keys, raw debug bundles, private account payloads, zip bytes, and executable content."
+        ),
+    )
     return (
         SupportCaseIncidentClosurePacketZipManifest(
-            bundle_id=f"support-case-incident-closure-packet-zip:{checksum[:16]}",
+            bundle_id=delivery_manifest.bundle_id,
             source_packet_id=packet.packet_id,
-            generated_at=datetime.now(timezone.utc),
+            generated_at=delivery_manifest.generated_at,
             filename=f"{packet.packet_id}_closure_packet.zip",
-            file_count=len(included_files),
-            included_files=included_files,
-            checksum_sha256=checksum,
-            size_bytes=len(bundle_bytes),
+            file_count=delivery_manifest.file_count,
+            included_files=[
+                SupportCaseIncidentPacketFile.model_validate(file.model_dump(mode="json"))
+                for file in delivery_manifest.included_files
+            ],
+            checksum_sha256=delivery_manifest.checksum_sha256,
+            size_bytes=delivery_manifest.size_bytes,
         ),
         bundle_bytes,
     )
@@ -2691,55 +2587,22 @@ def verify_support_case_incident_closure_packet_zip_bundle(
     *,
     expected_checksum_sha256: str | None = None,
 ) -> SupportCaseIncidentClosurePacketZipVerification:
-    checksum = hashlib.sha256(bundle_bytes).hexdigest()
-    blockers: list[str] = []
-    warnings: list[str] = []
-    allowed_names = {
-        f"support_case_incident_closure_packet/{file_name}"
-        for file_name in SUPPORT_CASE_INCIDENT_CLOSURE_PACKET_FILES
-    }
-    verified_files: list[str] = []
-    if expected_checksum_sha256 and expected_checksum_sha256 != checksum:
-        blockers.append("support case incident closure packet checksum does not match the expected SHA-256 value")
-    try:
-        with ZipFile(BytesIO(bundle_bytes), mode="r") as archive:
-            names = sorted(archive.namelist())
-            verified_files = names
-            for name in names:
-                path = Path(name)
-                if path.is_absolute() or ".." in path.parts:
-                    blockers.append(f"support case incident closure packet contains unsafe path: {name}")
-            extra_names = sorted(set(names) - allowed_names)
-            missing_names = sorted(allowed_names - set(names))
-            if extra_names:
-                blockers.append(
-                    "support case incident closure packet contains non-whitelisted files: "
-                    + ", ".join(extra_names)
-                )
-            if missing_names:
-                blockers.append(
-                    "support case incident closure packet is missing required files: "
-                    + ", ".join(missing_names)
-                )
-            for name in names:
-                lowered = archive.read(name).lower()
-                if b"secret-key" in lowered:
-                    blockers.append(f"support case incident closure packet file contains prohibited secret marker: {name}")
-                if name.endswith(".zip"):
-                    blockers.append(f"support case incident closure packet contains nested zip content: {name}")
-    except Exception as exc:
-        blockers.append(f"support case incident closure packet zip could not be read: {exc}")
-    if len(bundle_bytes) > 5_000_000:
-        warnings.append("support case incident closure packet zip is larger than the MVP verification target of 5 MB")
+    delivery_verification = _verify_flat_delivery_zip(
+        bundle_bytes,
+        label="support case incident closure packet",
+        root_prefix="support_case_incident_closure_packet",
+        allowed_files=SUPPORT_CASE_INCIDENT_CLOSURE_PACKET_FILES,
+        expected_checksum_sha256=expected_checksum_sha256,
+    )
     return SupportCaseIncidentClosurePacketZipVerification(
-        ready=not blockers,
-        verified_at=datetime.now(timezone.utc),
-        checksum_sha256=checksum,
-        size_bytes=len(bundle_bytes),
-        file_count=len(verified_files),
-        verified_files=verified_files,
-        blockers=blockers,
-        warnings=warnings,
+        ready=delivery_verification.ready,
+        verified_at=delivery_verification.verified_at,
+        checksum_sha256=delivery_verification.checksum_sha256,
+        size_bytes=delivery_verification.size_bytes,
+        file_count=delivery_verification.file_count,
+        verified_files=delivery_verification.verified_files,
+        blockers=delivery_verification.blockers,
+        warnings=delivery_verification.warnings,
     )
 
 
@@ -2953,6 +2816,57 @@ def _media_type(file_name: str) -> str:
     if file_name.endswith(".csv"):
         return "text/csv"
     return "text/plain"
+
+
+def _build_flat_delivery_zip(
+    source_files: list[tuple[str, Path, str]],
+    *,
+    root_prefix: str,
+    allowed_files: set[str],
+    bundle_id_prefix: str,
+    filename_prefix: str,
+    boundary: str,
+):
+    return build_delivery_packet_zip_bundle(
+        [
+            DeliverySourceFile(
+                item_id=filename_prefix,
+                path=path,
+                archive_path=f"{root_prefix}/{file_name}",
+                media_type=media_type,
+            )
+            for file_name, path, media_type in source_files
+            if file_name in allowed_files
+        ],
+        item_count=1,
+        bundle_id_prefix=bundle_id_prefix,
+        filename_prefix=filename_prefix,
+        boundary=boundary,
+    )
+
+
+def _verify_flat_delivery_zip(
+    bundle_bytes: bytes,
+    *,
+    label: str,
+    root_prefix: str,
+    allowed_files: set[str],
+    expected_checksum_sha256: str | None,
+):
+    return verify_delivery_packet_zip_bundle(
+        bundle_bytes,
+        expected_checksum_sha256=expected_checksum_sha256,
+        policy=DeliveryZipPolicy(
+            label=label,
+            root_prefix=root_prefix,
+            allowed_file_names_for_item=lambda _item_id: set(allowed_files),
+            required_file_names_for_item=lambda _item_id: set(allowed_files),
+            flat_root=True,
+            prohibited_markers=(b"secret-key",),
+            prohibited_marker_label="secret marker",
+            boundary=f"{label.title()} zip verification reads bytes only; it does not execute files, publish content, or store secrets.",
+        ),
+    )
 
 
 def _verify_support_case_incident_packet_payloads(archive: ZipFile, names: list[str], blockers: list[str]) -> None:
