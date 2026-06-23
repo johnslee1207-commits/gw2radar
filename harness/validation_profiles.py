@@ -18,6 +18,13 @@ class ValidationProfile:
     steps: tuple[ValidationStep, ...]
 
 
+@dataclass(frozen=True)
+class ValidationStageGate:
+    gate_id: str
+    description: str
+    profile_ids: tuple[str, ...]
+
+
 PYTHON = sys.executable
 
 
@@ -78,6 +85,20 @@ VALIDATION_PROFILES: dict[str, ValidationProfile] = {
 }
 
 
+VALIDATION_STAGE_GATES: dict[str, ValidationStageGate] = {
+    "stage": ValidationStageGate(
+        gate_id="stage",
+        description="Default stage gate for ordinary development slices; runs fast and smoke checks only.",
+        profile_ids=("fast", "smoke"),
+    ),
+    "release": ValidationStageGate(
+        gate_id="release",
+        description="Milestone or release gate; runs fast, smoke, and full regression.",
+        profile_ids=("fast", "smoke", "full"),
+    ),
+}
+
+
 def get_validation_profile(profile_id: str) -> ValidationProfile:
     try:
         return VALIDATION_PROFILES[profile_id]
@@ -88,3 +109,13 @@ def get_validation_profile(profile_id: str) -> ValidationProfile:
 def list_validation_profiles() -> list[ValidationProfile]:
     return [VALIDATION_PROFILES[key] for key in sorted(VALIDATION_PROFILES)]
 
+
+def get_validation_stage_gate(gate_id: str) -> ValidationStageGate:
+    try:
+        return VALIDATION_STAGE_GATES[gate_id]
+    except KeyError as exc:
+        raise ValueError(f"Unknown validation stage gate: {gate_id}") from exc
+
+
+def list_validation_stage_gates() -> list[ValidationStageGate]:
+    return [VALIDATION_STAGE_GATES[key] for key in sorted(VALIDATION_STAGE_GATES)]

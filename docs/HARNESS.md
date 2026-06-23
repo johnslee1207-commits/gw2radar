@@ -21,18 +21,22 @@ Use staged validation to avoid paying the full regression cost on every small
 delivery slice:
 
 ```bash
+python harness/run_stage_gate.py stage
+python harness/run_stage_gate.py release
 python harness/run_validation_profile.py fast
 python harness/run_validation_profile.py smoke
 python harness/run_validation_profile.py full
 ```
 
+- `stage`: default stage gate for normal development; runs `fast` then `smoke`.
+- `release`: milestone / release gate; runs `fast`, `smoke`, then `full`.
 - `fast`: shared delivery lifecycle contract, productized report regression, and
   player use-path semantic maturity audit.
 - `smoke`: MVP smoke, player UI E2E smoke, and account connection diagnostic.
 - `full`: complete `pytest` regression.
 
-Use `python harness/run_validation_profile.py --list` to print the exact
-commands.
+Use `python harness/run_stage_gate.py --list` or
+`python harness/run_validation_profile.py --list` to print the exact commands.
 
 ## Player UI E2E Smoke Command
 

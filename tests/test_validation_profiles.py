@@ -1,4 +1,9 @@
-from harness.validation_profiles import get_validation_profile, list_validation_profiles
+from harness.validation_profiles import (
+    get_validation_profile,
+    get_validation_stage_gate,
+    list_validation_profiles,
+    list_validation_stage_gates,
+)
 
 
 def test_validation_profiles_are_staged_and_stable() -> None:
@@ -30,3 +35,11 @@ def test_validation_profile_commands_use_project_entrypoints() -> None:
     assert any("harness\\run_account_connection_diagnostic.py" in command for command in smoke_commands)
     assert full_commands == [f"{get_validation_profile('full').steps[0].command[0]} -m pytest -q"]
 
+
+def test_validation_stage_gates_keep_full_regression_for_release_only() -> None:
+    gates = {gate.gate_id: gate for gate in list_validation_stage_gates()}
+
+    assert set(gates) == {"release", "stage"}
+    assert get_validation_stage_gate("stage").profile_ids == ("fast", "smoke")
+    assert get_validation_stage_gate("release").profile_ids == ("fast", "smoke", "full")
+    assert "full" not in get_validation_stage_gate("stage").profile_ids
