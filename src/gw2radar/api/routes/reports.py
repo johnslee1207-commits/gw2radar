@@ -12,6 +12,12 @@ from gw2radar.commercial.report_engine import (
     list_report_products,
     resolve_artifact_path,
 )
+from gw2radar.commercial.report_productization import (
+    generate_productized_report_artifact,
+    list_productized_report_templates,
+    resolve_productized_report_artifact_path,
+)
+from gw2radar.commercial.build_fit import AccountGearSnapshot
 from gw2radar.db import session as db_session
 from gw2radar.db.init_db import init_db
 from gw2radar.exports.package_builder import build_export_package
@@ -33,6 +39,13 @@ class ReportGenerateRequest(BaseModel):
     goal_id: str = "gw2:goal:aurora"
     format: ReportExportFormat = ReportExportFormat.MARKDOWN
     knowledge_backed: bool = False
+
+
+class ProductizedReportGenerateRequest(BaseModel):
+    template_id: str
+    format: str = "markdown"
+    build_id: str | None = None
+    account_gear: AccountGearSnapshot | None = None
 
 
 @router.get("/reports/{goal_id}/markdown")
@@ -80,6 +93,39 @@ def get_report_products() -> ApiDataEnvelope:
     with db_session.SessionLocal() as session:
         products = [product.model_dump(mode="json") for product in list_report_products(session)]
     return ApiDataEnvelope(data={"products": products})
+
+
+@router.get("/api/v1/reports/productized/templates", response_model=ApiDataEnvelope)
+def get_productized_report_templates() -> ApiDataEnvelope:
+    templates = [template.model_dump(mode="json") for template in list_productized_report_templates()]
+    return ApiDataEnvelope(
+        data={
+            "templates": templates,
+            "boundary": "Templates are deterministic commercial report contracts; generation requires entitlement.",
+        }
+    )
+
+
+@router.post("/api/v1/reports/productized/generate", response_model=ApiDataEnvelope)
+def post_productized_report_generate(request: ProductizedReportGenerateRequest) -> ApiDataEnvelope:
+    graph = get_graph()
+    init_db()
+    with db_session.SessionLocal() as session:
+        try:
+            manifest = generate_productized_report_artifact(
+                session,
+                graph,
+                user_id=LOCAL_USER_ID,
+                template_id=request.template_id,
+                export_format=request.format,
+                build_id=request.build_id,
+                account_gear=request.account_gear,
+            )
+        except PermissionError as exc:
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return ApiDataEnvelope(data={"productized_report": manifest.model_dump(mode="json")})
 
 
 @router.post("/api/v1/reports/preview", response_model=ApiDataEnvelope)
@@ -131,6 +177,8 @@ def get_report_export_job(job_id: str) -> ApiDataEnvelope:
 def get_report_artifact(artifact_id: str) -> Response:
     path = resolve_artifact_path(artifact_id)
     if path is None:
+        path = resolve_productized_report_artifact_path(artifact_id)
+    if path is None:
         raise HTTPException(status_code=404, detail="Report artifact not found")
-    media_type = "text/html" if path.suffix == ".html" else "text/markdown"
+    media_type = "text/html" if path.suffix == ".html" else "text/csv" if path.suffix == ".csv" else "text/markdown"
     return Response(content=path.read_text(encoding="utf-8"), media_type=f"{media_type}; charset=utf-8")

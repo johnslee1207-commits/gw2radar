@@ -1606,6 +1606,8 @@ def main() -> int:
         with db_session.SessionLocal() as session:
             ensure_default_report_products(session)
             create_report_entitlement(session, "local-user", "build_fit_report")
+            create_report_entitlement(session, "local-user", "account_value_report")
+            create_report_entitlement(session, "local-user", "legendary_planner_pro_report")
 
         build_report = _json(
             client.post(
@@ -1630,6 +1632,71 @@ def main() -> int:
             and "api_key" not in json.dumps(manifest).lower(),
             "mature_export_metadata",
             "POST /api/v1/builds/report writes report_manifest.json account_value_snapshot.evidence_bridge.",
+        )
+        productized_templates = _json(
+            client.get("/api/v1/reports/productized/templates"),
+            "load productized report templates",
+            checks,
+        )
+        productized_template_ids = {
+            template.get("template_id")
+            for template in (_get(productized_templates, "data", "templates") or [])
+        }
+        productized_account = _json(
+            client.post(
+                "/api/v1/reports/productized/generate",
+                json={"template_id": "account_value_analysis", "format": "markdown"},
+            ),
+            "generate account value productized report",
+            checks,
+        )
+        productized_legendary = _json(
+            client.post(
+                "/api/v1/reports/productized/generate",
+                json={"template_id": "legendary_gap_analysis", "format": "csv"},
+            ),
+            "generate legendary gap productized report",
+            checks,
+        )
+        productized_build = _json(
+            client.post(
+                "/api/v1/reports/productized/generate",
+                json={"template_id": "build_readiness_advisor", "format": "html"},
+            ),
+            "generate build readiness productized report",
+            checks,
+        )
+        productized_manifests = [
+            _get(productized_account, "data", "productized_report") or {},
+            _get(productized_legendary, "data", "productized_report") or {},
+            _get(productized_build, "data", "productized_report") or {},
+        ]
+        productized_artifacts = [
+            client.get(f"/api/v1/reports/artifacts/{Path(str(manifest.get('artifact_path') or '')).name}")
+            for manifest in productized_manifests
+        ]
+        _add(
+            checks,
+            "productized_report_templates",
+            "Productized reports expose Account Value, Legendary Gap, and Build Readiness templates with artifact manifests and retrieval.",
+            productized_template_ids
+            == {"account_value_analysis", "legendary_gap_analysis", "build_readiness_advisor"}
+            and all(
+                manifest.get("schema_version") == "gw2radar.productized_report_artifact.v1"
+                and len(str(manifest.get("checksum_sha256") or "")) == 64
+                for manifest in productized_manifests
+            )
+            and all(artifact.status_code == 200 for artifact in productized_artifacts)
+            and "Account Value Analysis Report" in productized_artifacts[0].text
+            and "row_type,entity_id,name,quantity,detail" in productized_artifacts[1].text
+            and "Build Readiness And Gear Transition Report" in productized_artifacts[2].text
+            and "secret-key"
+            not in (
+                json.dumps(productized_manifests)
+                + "".join(artifact.text for artifact in productized_artifacts)
+            ).lower(),
+            "mature_productized_reports",
+            "Account Value markdown, Legendary Gap CSV, and Build Readiness HTML artifacts generated through one template API.",
         )
 
         _write_audit(checks)
@@ -1815,6 +1882,8 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "- `SupportCaseIncidentClosurePacketArtifacts` write closure dashboard, final audit, checksum manifest, and path-safe retrieval metadata files.",
             "- `SupportCaseIncidentClosurePacketZipVerificationAudit` verifies closure packet zip archives and records metadata-only final transfer evidence.",
             "- `ReportArtifactManifest` records bridge metadata without storing raw API keys or unredacted private payloads.",
+            "- `ProductizedReportTemplate` exposes Account Value, Legendary Gap, and Build Readiness report contracts with deterministic export formats.",
+            "- `ProductizedReportArtifact` writes entitlement-gated Markdown, CSV, and HTML-ready report artifacts with checksums and no-secret boundaries.",
             "",
             "## Known Limits",
             "",
@@ -1824,7 +1893,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Next Priority",
             "",
-            "Start Report Productization MVP with Account Value, Legendary Gap, and Build Readiness report templates.",
+            "Add Productized Report Packet zip download, whitelist verification, and metadata-only audit trail.",
             "",
         ]
     )

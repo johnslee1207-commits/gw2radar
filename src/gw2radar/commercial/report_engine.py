@@ -100,6 +100,13 @@ DEFAULT_PRODUCTS = [
         price_cents=900,
     ),
     ReportProduct(
+        product_id="account_value_report",
+        name="Account Value Analysis Report",
+        report_type="account_value",
+        tier=ReportTier.PAID_ONCE,
+        price_cents=800,
+    ),
+    ReportProduct(
         product_id="legendary_planner_pro_report",
         name="Legendary Planner Pro Report",
         report_type="legendary_pro",
