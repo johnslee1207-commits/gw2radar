@@ -1,10 +1,8 @@
 import hashlib
 import json
-from io import BytesIO
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
-from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -34,6 +32,13 @@ from gw2radar.commercial.legendary_planner import (
     render_legendary_planner_report,
 )
 from gw2radar.commercial.report_engine import ensure_default_report_products, has_report_entitlement
+from gw2radar.delivery.lifecycle import (
+    DeliverySourceFile,
+    DeliveryZipPolicy,
+    build_delivery_lifecycle_readiness,
+    build_delivery_packet_zip_bundle,
+    verify_delivery_packet_zip_bundle,
+)
 from gw2radar.graph.graph_query import GraphData
 from gw2radar.kb.kb_repository import list_rules
 from gw2radar.security.log_sanitizer import sanitize_log_payload
@@ -352,43 +357,40 @@ def build_productized_report_packet_zip_bundle(
     artifacts = list_productized_report_artifacts(output_root=output_root, limit=limit)
     if not artifacts:
         raise ValueError("No productized report artifacts are available to bundle.")
-    included_files: list[ProductizedReportPacketFile] = []
-    buffer = BytesIO()
-    with ZipFile(buffer, mode="w", compression=ZIP_DEFLATED) as archive:
-        for manifest in sorted(artifacts, key=lambda item: item.generated_at):
-            artifact_path = Path(manifest.artifact_path)
-            manifest_path = Path(manifest.manifest_path)
-            for path in [artifact_path, manifest_path]:
-                if not path.exists() or not path.is_file():
-                    continue
-                file_name = path.name
-                content = path.read_bytes()
-                archive_path = f"productized_report_packet/{manifest.artifact_id}/{file_name}"
-                info = ZipInfo(archive_path, date_time=(1980, 1, 1, 0, 0, 0))
-                info.compress_type = ZIP_DEFLATED
-                info.external_attr = 0o644 << 16
-                archive.writestr(info, content)
-                included_files.append(
-                    ProductizedReportPacketFile(
-                        file_name=file_name,
-                        relative_path=archive_path,
-                        media_type=_media_type(file_name),
-                        size_bytes=len(content),
-                        checksum_sha256=hashlib.sha256(content).hexdigest(),
-                    )
+    source_files = []
+    for manifest in sorted(artifacts, key=lambda item: item.generated_at):
+        for path in [Path(manifest.artifact_path), Path(manifest.manifest_path)]:
+            source_files.append(
+                DeliverySourceFile(
+                    item_id=manifest.artifact_id,
+                    path=path,
+                    archive_path=f"productized_report_packet/{manifest.artifact_id}/{path.name}",
+                    media_type=_media_type(path.name),
                 )
-    bundle_bytes = buffer.getvalue()
-    checksum = hashlib.sha256(bundle_bytes).hexdigest()
+            )
+    delivery_manifest, bundle_bytes = build_delivery_packet_zip_bundle(
+        source_files,
+        item_count=len(artifacts),
+        bundle_id_prefix="productized-report-packet-zip",
+        filename_prefix="productized_report_packet",
+        boundary=(
+            "Productized report packet zip bundles contain report artifacts and manifests only; "
+            "they exclude raw API keys, private source payloads, uploaded inputs, and executable content."
+        ),
+    )
     return (
         ProductizedReportPacketZipManifest(
-            bundle_id=f"productized-report-packet-zip:{checksum[:16]}",
-            generated_at=datetime.now(timezone.utc),
-            filename=f"productized_report_packet_{checksum[:12]}.zip",
-            artifact_count=len(artifacts),
-            file_count=len(included_files),
-            included_files=included_files,
-            checksum_sha256=checksum,
-            size_bytes=len(bundle_bytes),
+            bundle_id=delivery_manifest.bundle_id,
+            generated_at=delivery_manifest.generated_at,
+            filename=delivery_manifest.filename,
+            artifact_count=delivery_manifest.item_count,
+            file_count=delivery_manifest.file_count,
+            included_files=[
+                ProductizedReportPacketFile.model_validate(file.model_dump(mode="json"))
+                for file in delivery_manifest.included_files
+            ],
+            checksum_sha256=delivery_manifest.checksum_sha256,
+            size_bytes=delivery_manifest.size_bytes,
         ),
         bundle_bytes,
     )
@@ -399,59 +401,20 @@ def verify_productized_report_packet_zip_bundle(
     *,
     expected_checksum_sha256: str | None = None,
 ) -> ProductizedReportPacketZipVerification:
-    checksum = hashlib.sha256(bundle_bytes).hexdigest()
-    blockers: list[str] = []
-    warnings: list[str] = []
-    verified_files: list[str] = []
-    if expected_checksum_sha256 and expected_checksum_sha256 != checksum:
-        blockers.append("productized report packet checksum does not match the expected SHA-256 value")
-    try:
-        with ZipFile(BytesIO(bundle_bytes), mode="r") as archive:
-            names = sorted(archive.namelist())
-            verified_files = names
-            if not names:
-                blockers.append("productized report packet zip contains no files")
-            artifact_dirs: dict[str, set[str]] = {}
-            for name in names:
-                path = Path(name)
-                parts = path.parts
-                if path.is_absolute() or ".." in parts:
-                    blockers.append(f"productized report packet contains unsafe path: {name}")
-                    continue
-                if len(parts) != 3 or parts[0] != "productized_report_packet":
-                    blockers.append(f"productized report packet contains non-whitelisted path: {name}")
-                    continue
-                artifact_id = parts[1]
-                file_name = parts[2]
-                allowed_artifact_file = file_name == f"{artifact_id}.md" or file_name == f"{artifact_id}.csv" or file_name == f"{artifact_id}.html"
-                if file_name != "manifest.json" and not allowed_artifact_file:
-                    blockers.append(f"productized report packet contains non-whitelisted file: {name}")
-                artifact_dirs.setdefault(artifact_id, set()).add(file_name)
-            for artifact_id, files in artifact_dirs.items():
-                has_report = any(file_name in files for file_name in {f"{artifact_id}.md", f"{artifact_id}.csv", f"{artifact_id}.html"})
-                if "manifest.json" not in files:
-                    blockers.append(f"productized report packet artifact is missing manifest.json: {artifact_id}")
-                if not has_report:
-                    blockers.append(f"productized report packet artifact is missing a report file: {artifact_id}")
-            for name in names:
-                if name.endswith(".zip"):
-                    blockers.append(f"productized report packet contains nested zip content: {name}")
-                lowered = archive.read(name).lower()
-                if b"secret-key" in lowered or b"private_source_payload" in lowered:
-                    blockers.append(f"productized report packet file contains prohibited private marker: {name}")
-    except Exception as exc:
-        blockers.append(f"productized report packet zip could not be read: {exc}")
-    if len(bundle_bytes) > 5_000_000:
-        warnings.append("productized report packet zip is larger than the MVP verification target of 5 MB")
+    delivery_verification = verify_delivery_packet_zip_bundle(
+        bundle_bytes,
+        expected_checksum_sha256=expected_checksum_sha256,
+        policy=_productized_report_packet_zip_policy(),
+    )
     return ProductizedReportPacketZipVerification(
-        ready=not blockers,
-        verified_at=datetime.now(timezone.utc),
-        checksum_sha256=checksum,
-        size_bytes=len(bundle_bytes),
-        file_count=len(verified_files),
-        verified_files=verified_files,
-        blockers=blockers,
-        warnings=warnings,
+        ready=delivery_verification.ready,
+        verified_at=delivery_verification.verified_at,
+        checksum_sha256=delivery_verification.checksum_sha256,
+        size_bytes=delivery_verification.size_bytes,
+        file_count=delivery_verification.file_count,
+        verified_files=delivery_verification.verified_files,
+        blockers=delivery_verification.blockers,
+        warnings=delivery_verification.warnings,
     )
 
 
@@ -620,17 +583,6 @@ def build_productized_report_delivery_checklist(
         f"Packet verification ready: {bool(verification and verification.ready)}.",
         f"Verification audit records: {len(audits.records)}.",
     ]
-    next_actions = []
-    if missing_gates:
-        next_actions.extend(missing_gates)
-    else:
-        next_actions.extend(
-            [
-                "Download the productized report packet zip from the reports API.",
-                "Confirm the zip checksum against the checklist before manual delivery.",
-                "Export the audit CSV or Markdown if the customer handoff requires evidence.",
-            ]
-        )
     evidence_refs = [f"template:{template.template_id}" for template in templates]
     evidence_refs.extend(f"artifact:{artifact.artifact_id}" for artifact in artifacts)
     if packet_manifest:
@@ -638,11 +590,22 @@ def build_productized_report_delivery_checklist(
     if latest_audit:
         evidence_refs.append(f"audit:{latest_audit.audit_id}")
 
-    ready = not missing_gates and not blockers
+    readiness = build_delivery_lifecycle_readiness(
+        checklist_items=checklist_items,
+        missing_gates=missing_gates,
+        blockers=blockers,
+        warnings=warnings,
+        ready_next_actions=[
+            "Download the productized report packet zip from the reports API.",
+            "Confirm the zip checksum against the checklist before manual delivery.",
+            "Export the audit CSV or Markdown if the customer handoff requires evidence.",
+        ],
+        evidence_refs=evidence_refs,
+    )
     return ProductizedReportDeliveryChecklist(
-        generated_at=datetime.now(timezone.utc),
-        ready=ready,
-        maturity_label="ready" if ready else "needs_review",
+        generated_at=readiness.generated_at,
+        ready=readiness.ready,
+        maturity_label=readiness.maturity_label,
         template_count=len(templates),
         artifact_count=len(artifacts),
         packet_file_count=packet_manifest.file_count if packet_manifest else 0,
@@ -650,12 +613,12 @@ def build_productized_report_delivery_checklist(
         packet_verification_ready=bool(verification and verification.ready),
         verification_audit_count=len(audits.records),
         latest_verification_audit_id=latest_audit.audit_id if latest_audit else None,
-        checklist_items=checklist_items,
-        missing_gates=missing_gates,
-        blockers=blockers,
-        warnings=warnings,
-        next_actions=next_actions,
-        evidence_refs=evidence_refs,
+        checklist_items=readiness.checklist_items,
+        missing_gates=readiness.missing_gates,
+        blockers=readiness.blockers,
+        warnings=readiness.warnings,
+        next_actions=readiness.next_actions,
+        evidence_refs=readiness.evidence_refs,
     )
 
 
@@ -991,6 +954,29 @@ def _media_type(file_name: str) -> str:
     if file_name.endswith(".html"):
         return "text/html"
     return "text/markdown"
+
+
+def _productized_report_packet_zip_policy() -> DeliveryZipPolicy:
+    def allowed_file_names(artifact_id: str) -> set[str]:
+        return {"manifest.json", f"{artifact_id}.md", f"{artifact_id}.csv", f"{artifact_id}.html"}
+
+    def validate_report_file(artifact_id: str, file_names: set[str]) -> list[str]:
+        report_file_names = {f"{artifact_id}.md", f"{artifact_id}.csv", f"{artifact_id}.html"}
+        if not file_names.intersection(report_file_names):
+            return [f"productized report packet item is missing a report file: {artifact_id}"]
+        return []
+
+    return DeliveryZipPolicy(
+        label="productized report packet",
+        root_prefix="productized_report_packet",
+        allowed_file_names_for_item=allowed_file_names,
+        required_file_names_for_item=lambda _artifact_id: {"manifest.json"},
+        validate_item_files=validate_report_file,
+        boundary=(
+            "Productized report packet zip verification reads bytes only; it does not execute, publish, "
+            "or store uploaded content."
+        ),
+    )
 
 
 def _safe_text(value: str, *, max_length: int) -> str:

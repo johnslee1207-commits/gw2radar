@@ -2024,6 +2024,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "- `SupportCaseIncidentClosurePacketArtifacts` write closure dashboard, final audit, checksum manifest, and path-safe retrieval metadata files.",
             "- `SupportCaseIncidentClosurePacketZipVerificationAudit` verifies closure packet zip archives and records metadata-only final transfer evidence.",
             "- `ReportArtifactManifest` records bridge metadata without storing raw API keys or unredacted private payloads.",
+            "- `DeliveryLifecycleFramework` centralizes deterministic packet zip building, whitelist verification, no-secret checks, and readiness gating to reduce repeated operator lifecycle implementations.",
             "- `ProductizedReportTemplate` exposes Account Value, Legendary Gap, and Build Readiness report contracts with deterministic export formats.",
             "- `ProductizedReportArtifact` writes entitlement-gated Markdown, CSV, and HTML-ready report artifacts with checksums and no-secret boundaries.",
             "- `ProductizedReportPacketZipVerificationAudit` verifies productized report packet zip archives and records metadata-only delivery evidence.",
@@ -2036,7 +2037,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Next Priority",
             "",
-            "Add Productized Report Handoff file artifacts and zip verification for operator packet delivery.",
+            "Migrate support-case, player-support, and achievement-route operator lifecycle paths onto DeliveryLifecycleFramework.",
             "",
         ]
     )
