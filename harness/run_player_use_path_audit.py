@@ -2039,7 +2039,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Next Priority",
             "",
-            "Update project governance docs so AGENTS, PRD, and SDD reflect GW2Radar's current product instead of the old generic generator brief.",
+            "Clean workspace hygiene by deciding which untracked docs, source archives, generated artifacts, and desktop.ini files should be ignored, committed, or removed.",
             "",
         ]
     )

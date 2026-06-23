@@ -2,12 +2,16 @@
 
 ## Project Mission
 
-This project builds two MVP products on one shared delivery-generation engine:
+This project builds GW2Radar: a local-first Guild Wars 2 player intelligence
+tool for account connection diagnostics, legendary goal planning, build fit,
+market/value insight, explainable knowledge-base rules, and privacy-safe support
+handoff packets.
 
-1. AI Export Website Kit Generator
-2. AI Technical Proposal / PDF Report Generator
-
-The product is not a general chatbot. It is a structured deliverable generator that collects user input, builds a project knowledge pack, renders domain templates, generates structured content, validates outputs, and exports PDF / Markdown / CSV / DOCX-ready files.
+The product is not a general chatbot and does not automate gameplay, trading, or
+external publishing. It is a deterministic, evidence-backed analysis and
+delivery system that separates public game data, private player state, personal
+intelligence, knowledge-base evidence, generated recommendations, and operator
+handoff artifacts.
 
 ## Core Engineering Principles
 
@@ -20,7 +24,9 @@ The product is not a general chatbot. It is a structured deliverable generator t
 7. Export files must be deterministic enough for validation.
 8. Do not break existing tests to pass new ones.
 9. Do not remove validation logic unless explicitly instructed.
-10. Keep the MVP simple: no multi-tenant SaaS, no complex billing portal, no template marketplace.
+10. Keep the MVP local-first and manual-review-first: no automated trading, no
+    gameplay automation, no secret leakage, no guaranteed-return claims, and no
+    external publishing unless explicitly requested.
 
 ## Required Workflow
 
@@ -47,40 +53,46 @@ After implementation:
 ## MVP Scope
 
 In scope:
-- Intake form schema
-- Project workspace
-- Knowledge pack builder
-- Template renderer
-- AI generation interface with mock provider
-- Output validator
-- Markdown export
-- CSV export
-- PDF-ready HTML export
-- Sample data harness
-- Admin preview page
-- File package manifest
+- GW2 API key lifecycle with encrypted local secret storage and masked status.
+- Public game, private player state, and personal intelligence graph layers.
+- Account sync queue, public refresh queue, diagnostics, and retry metadata.
+- Legendary planner, Build Fit, Market Radar, account value, readiness, and
+  player cockpit workflows.
+- Knowledge-base source registry, reviewed rule packs, patch review flow, and
+  explainable report artifacts.
+- Productized commercial reports, support handoff packets, delivery lifecycle
+  zip verification, metadata-only audits, and deterministic Markdown/CSV/JSON
+  exports.
+- Stage validation profiles and smoke harnesses.
 
 Out of scope for MVP:
 - Full SaaS subscription system
 - Team collaboration
 - Multi-language dashboard
 - Template marketplace
-- Automatic website deployment
-- WordPress/Webflow direct publishing
+- Automatic deployment or external publishing
 - Complex role-based enterprise admin
 - Real payment integration unless explicitly requested
+- Automated GW2 trading, automatic gameplay actions, or profit guarantees
 
 ## Quality Gates
 
 A task is not complete unless:
-1. `pytest` or the project test command passes.
-2. The generation smoke harness passes.
-3. Sample Export Website Kit can be generated.
-4. Sample Technical Proposal can be generated.
-5. Required output sections are present.
-6. Missing facts are marked as assumptions.
-7. No fake certificates, fake customers, fake market data, or fake case studies are generated.
-8. The output manifest matches the expected schema.
+1. The relevant validation profile passes. Default stage gate:
+   `python harness/run_stage_gate.py stage`.
+2. Milestone or release closure also runs:
+   `python harness/run_stage_gate.py release`.
+3. Player use-path maturity audit remains ready with no failed checks.
+4. Smoke harnesses preserve the mock legendary loop, player UI flow, and account
+   connection diagnostic flow.
+5. Required output sections and artifact manifests are present.
+6. Missing or low-confidence facts are marked as assumptions, warnings, or
+   review gates.
+7. No raw API keys, raw debug bundles, private source payloads, fake market
+   data, guaranteed-return claims, or automatic-trading instructions appear in
+   generated outputs.
+8. The output manifest, checksum, whitelist, and metadata-only audit schemas
+   match their expected contracts.
 
 ## Security and Safety
 
@@ -91,3 +103,5 @@ A task is not complete unless:
 - Do not execute uploaded files.
 - Do not trust user-provided HTML.
 - Keep generated documents separate from raw user uploads.
+- Keep private account data out of public knowledge-base content and public game
+  data.
