@@ -87,6 +87,7 @@ from gw2radar.commercial.support_case_incidents import (
     build_support_case_incident_packet_zip_bundle,
     list_support_case_incident_final_handoff_packets,
     list_support_case_incident_final_handoff_packet_zip_verification_audits,
+    list_support_case_incident_closure_packets,
     list_support_case_incident_operator_packet_artifacts,
     list_support_case_incident_operator_packet_zip_verification_audits,
     list_support_case_incident_packet_zip_verification_audits,
@@ -94,6 +95,7 @@ from gw2radar.commercial.support_case_incidents import (
     record_support_case_incident_final_handoff_packet_zip_verification_audit,
     record_support_case_incident_operator_packet_zip_verification_audit,
     record_support_case_incident_packet_zip_verification_audit,
+    resolve_support_case_incident_closure_packet_path,
     resolve_support_case_incident_final_handoff_packet_path,
     resolve_support_case_incident_operator_packet_artifact_path,
     resolve_support_case_incident_packet_path,
@@ -117,6 +119,7 @@ from gw2radar.commercial.support_case_incidents import (
     verify_support_case_incident_operator_packet_zip_bundle,
     verify_support_case_incident_packet_zip_bundle,
     write_support_case_incident_final_handoff_packet_artifacts,
+    write_support_case_incident_closure_packet_artifacts,
     write_support_case_incident_operator_packet_artifacts,
     write_support_case_incident_packet,
 )
@@ -1151,6 +1154,33 @@ def get_player_support_case_incident_closure_dashboard(
     return ApiDataEnvelope(
         data={"support_case_incident_closure_dashboard": dashboard.model_dump(mode="json")}
     )
+
+
+@router.post("/support-case/incident-closure-packet/artifacts", response_model=ApiDataEnvelope)
+def post_player_support_case_incident_closure_packet_artifacts(limit: int = 20) -> ApiDataEnvelope:
+    _ensure_support_case_incident_closure_evidence(limit=limit)
+    dashboard = build_support_case_incident_closure_dashboard()
+    packet = write_support_case_incident_closure_packet_artifacts(dashboard)
+    return ApiDataEnvelope(
+        data={"support_case_incident_closure_packet": packet.model_dump(mode="json")}
+    )
+
+
+@router.get("/support-case/incident-closure-packet/artifacts", response_model=ApiDataEnvelope)
+def get_player_support_case_incident_closure_packet_artifacts(limit: int = 20) -> ApiDataEnvelope:
+    packets = list_support_case_incident_closure_packets(limit=limit)
+    return ApiDataEnvelope(
+        data={"support_case_incident_closure_packets": [packet.model_dump(mode="json") for packet in packets]}
+    )
+
+
+@router.get("/support-case/incident-closure-packet/artifacts/{packet_id}/{file_name}", response_model=None)
+def get_player_support_case_incident_closure_packet_file(packet_id: str, file_name: str) -> Response:
+    path = resolve_support_case_incident_closure_packet_path(packet_id, file_name)
+    if path is None:
+        raise HTTPException(status_code=404, detail="Support case incident closure packet file not found")
+    media_type = "application/json" if file_name.endswith(".json") else "text/markdown" if file_name.endswith(".md") else "text/csv" if file_name.endswith(".csv") else "text/plain"
+    return Response(content=path.read_text(encoding="utf-8"), media_type=f"{media_type}; charset=utf-8")
 
 
 @router.get("/support-case/incident-final-handoff-packet/artifacts/{packet_id}/{file_name}", response_model=None)

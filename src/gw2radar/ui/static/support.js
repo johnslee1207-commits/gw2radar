@@ -57,6 +57,8 @@ const exportIncidentFinalHandoffPacketZipAuditCsvButton = document.querySelector
 const loadIncidentClosureDashboardButton = document.querySelector("#load-incident-closure-dashboard-button");
 const exportIncidentClosureDashboardMdButton = document.querySelector("#export-incident-closure-dashboard-md-button");
 const exportIncidentClosureDashboardCsvButton = document.querySelector("#export-incident-closure-dashboard-csv-button");
+const writeIncidentClosurePacketButton = document.querySelector("#write-incident-closure-packet-button");
+const loadIncidentClosurePacketsButton = document.querySelector("#load-incident-closure-packets-button");
 const exportIncidentDashboardMdButton = document.querySelector("#export-incident-dashboard-md-button");
 const exportIncidentDashboardCsvButton = document.querySelector("#export-incident-dashboard-csv-button");
 const summary = document.querySelector("#support-summary");
@@ -102,9 +104,11 @@ const incidentFinalHandoffPacketSummary = document.querySelector("#incident-fina
 const incidentFinalHandoffPacketZipSummary = document.querySelector("#incident-final-handoff-packet-zip-summary");
 const incidentFinalHandoffPacketZipAuditSummary = document.querySelector("#incident-final-handoff-packet-zip-audit-summary");
 const incidentClosureDashboardSummary = document.querySelector("#incident-closure-dashboard-summary");
+const incidentClosurePacketSummary = document.querySelector("#incident-closure-packet-summary");
 const incidentPacketList = document.querySelector("#incident-packet-list");
 const incidentOperatorPacketList = document.querySelector("#incident-operator-packet-list");
 const incidentFinalHandoffPacketList = document.querySelector("#incident-final-handoff-packet-list");
+const incidentClosurePacketList = document.querySelector("#incident-closure-packet-list");
 const output = document.querySelector("#support-output");
 let lastBundle = null;
 let lastReview = null;
@@ -591,6 +595,21 @@ function exportSupportCaseIncidentClosureDashboard(format) {
   window.location.href = `/api/v1/player/support-case/incident-closure-dashboard?format=${format}&limit=20`;
 }
 
+async function writeSupportCaseIncidentClosurePacket() {
+  const response = await fetch("/api/v1/player/support-case/incident-closure-packet/artifacts?limit=20", { method: "POST" });
+  const payload = await response.json();
+  const packet = payload.data?.support_case_incident_closure_packet || {};
+  incidentClosurePacketSummary.textContent = `Closure packet written: ${packet.packet_id || "unknown"} · ${packet.file_count || 0} files · checksum ${packet.checksum_sha256 || "none"}.`;
+  output.textContent = JSON.stringify(payload, null, 2);
+  await loadSupportCaseIncidentClosurePackets();
+}
+
+async function loadSupportCaseIncidentClosurePackets() {
+  const response = await fetch("/api/v1/player/support-case/incident-closure-packet/artifacts?limit=10");
+  const payload = await response.json();
+  renderSupportCaseIncidentClosurePackets(payload.data?.support_case_incident_closure_packets || []);
+}
+
 function renderSupportCaseIncidentDashboard(dashboard) {
   const cards = Array.isArray(dashboard.status_cards) ? dashboard.status_cards : [];
   incidentDashboardSummary.textContent = `${dashboard.support_status || "unknown"} · ${dashboard.maturity_label || "unknown"} · gateway notes ${dashboard.gateway_note_count || 0} · support audits ${dashboard.support_audit_count || 0}.`;
@@ -629,6 +648,27 @@ function renderSupportCaseIncidentFinalHandoffPackets(packets) {
     files.textContent = `Files: ${(packet.files || []).map((file) => file.file_name).join(", ")}`;
     item.append(title, meta, files);
     incidentFinalHandoffPacketList.appendChild(item);
+  }
+}
+
+function renderSupportCaseIncidentClosurePackets(packets) {
+  incidentClosurePacketList.innerHTML = "";
+  if (!packets.length) {
+    incidentClosurePacketList.textContent = "No support case incident closure packets are available yet.";
+    return;
+  }
+  incidentClosurePacketSummary.textContent = `${packets.length} closure packets loaded.`;
+  for (const packet of packets) {
+    const item = document.createElement("article");
+    item.className = "support-audit-record info";
+    const title = document.createElement("strong");
+    title.textContent = `${packet.packet_id || "unknown"} · ${packet.file_count || 0} files`;
+    const meta = document.createElement("p");
+    meta.textContent = `Closure ${packet.closure_status || "unknown"} · score ${packet.readiness_score ?? "n/a"} · checksum ${packet.checksum_sha256 || "none"}.`;
+    const files = document.createElement("p");
+    files.textContent = `Files: ${(packet.files || []).map((file) => file.file_name).join(", ")}`;
+    item.append(title, meta, files);
+    incidentClosurePacketList.appendChild(item);
   }
 }
 
@@ -1142,6 +1182,10 @@ loadIncidentClosureDashboardButton?.addEventListener("click", loadSupportCaseInc
 exportIncidentClosureDashboardMdButton?.addEventListener("click", () => exportSupportCaseIncidentClosureDashboard("markdown"));
 
 exportIncidentClosureDashboardCsvButton?.addEventListener("click", () => exportSupportCaseIncidentClosureDashboard("csv"));
+
+writeIncidentClosurePacketButton?.addEventListener("click", writeSupportCaseIncidentClosurePacket);
+
+loadIncidentClosurePacketsButton?.addEventListener("click", loadSupportCaseIncidentClosurePackets);
 
 exportIncidentDashboardMdButton?.addEventListener("click", () => exportSupportCaseIncidentDashboard("markdown"));
 

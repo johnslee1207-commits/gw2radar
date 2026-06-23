@@ -301,6 +301,8 @@ def test_player_gateway_incident_timeline_correlates_refresh_events_without_secr
         closure_dashboard_csv = client.get(
             "/api/v1/player/support-case/incident-closure-dashboard?format=csv&limit=20"
         )
+        closure_packet = client.post("/api/v1/player/support-case/incident-closure-packet/artifacts?limit=20")
+        closure_packets = client.get("/api/v1/player/support-case/incident-closure-packet/artifacts?limit=10")
         assert manifest.status_code == 200
         assert "gw2radar.support_case_incident_packet_manifest.v1" in manifest.text
         assert packet_md.status_code == 200
@@ -606,6 +608,47 @@ def test_player_gateway_incident_timeline_correlates_refresh_events_without_secr
         assert "# Support Case Incident Closure Dashboard" in closure_dashboard_markdown.text
         assert closure_dashboard_csv.status_code == 200
         assert "ready,maturity_label,closure_status,readiness_score" in closure_dashboard_csv.text
+        assert closure_packet.status_code == 200
+        closure_packet_payload = closure_packet.json()["data"]["support_case_incident_closure_packet"]
+        assert closure_packet_payload["schema_version"] == "gw2radar.support_case_incident_closure_packet_manifest.v1"
+        assert closure_packet_payload["ready"] is True
+        assert closure_packet_payload["closure_status"] == "go"
+        assert closure_packet_payload["file_count"] == 7
+        assert len(closure_packet_payload["checksum_sha256"]) == 64
+        assert {file["file_name"] for file in closure_packet_payload["files"]} == {
+            "dashboard.json",
+            "dashboard.md",
+            "dashboard.csv",
+            "final_packet_manifest.json",
+            "final_zip_verification_audit.csv",
+            "checksum_manifest.json",
+            "manifest.json",
+        }
+        assert closure_packets.status_code == 200
+        assert closure_packets.json()["data"]["support_case_incident_closure_packets"][0]["packet_id"] == closure_packet_payload["packet_id"]
+        closure_packet_manifest = client.get(
+            f"/api/v1/player/support-case/incident-closure-packet/artifacts/{closure_packet_payload['packet_id']}/manifest.json"
+        )
+        closure_packet_dashboard = client.get(
+            f"/api/v1/player/support-case/incident-closure-packet/artifacts/{closure_packet_payload['packet_id']}/dashboard.md"
+        )
+        closure_packet_checksum = client.get(
+            f"/api/v1/player/support-case/incident-closure-packet/artifacts/{closure_packet_payload['packet_id']}/checksum_manifest.json"
+        )
+        closure_packet_blocked = client.get(
+            f"/api/v1/player/support-case/incident-closure-packet/artifacts/{closure_packet_payload['packet_id']}/../manifest.json"
+        )
+        closure_packet_secret = client.get(
+            f"/api/v1/player/support-case/incident-closure-packet/artifacts/{closure_packet_payload['packet_id']}/secret.txt"
+        )
+        assert closure_packet_manifest.status_code == 200
+        assert "gw2radar.support_case_incident_closure_packet_manifest.v1" in closure_packet_manifest.text
+        assert closure_packet_dashboard.status_code == 200
+        assert "# Support Case Incident Closure Dashboard" in closure_packet_dashboard.text
+        assert closure_packet_checksum.status_code == 200
+        assert "gw2radar.support_case_incident_closure_packet_checksum_manifest.v1" in closure_packet_checksum.text
+        assert closure_packet_blocked.status_code == 404
+        assert closure_packet_secret.status_code == 404
         assert tampered_operator_audit.status_code == 200
         tampered_operator_record = tampered_operator_audit.json()["data"]["support_case_incident_operator_packet_zip_verification_audit_record"]
         assert tampered_operator_record["ready"] is False
@@ -626,6 +669,10 @@ def test_player_gateway_incident_timeline_correlates_refresh_events_without_secr
             + str(closure_payload)
             + closure_dashboard_markdown.text
             + closure_dashboard_csv.text
+            + str(closure_packet_payload)
+            + closure_packet_manifest.text
+            + closure_packet_dashboard.text
+            + closure_packet_checksum.text
             + str(tampered_final_record)
             + str(tampered_operator_record)
         ).lower()

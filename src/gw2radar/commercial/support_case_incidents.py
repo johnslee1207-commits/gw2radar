@@ -38,6 +38,18 @@ SUPPORT_CASE_INCIDENT_FINAL_HANDOFF_PACKET_FILES = {
     "operator_zip_verification_audit.csv",
     "manifest.json",
 }
+SUPPORT_CASE_INCIDENT_CLOSURE_PACKET_ROOT = Path(
+    "src/gw2radar/reports/artifacts/support_case_incident_closure_packets"
+)
+SUPPORT_CASE_INCIDENT_CLOSURE_PACKET_FILES = {
+    "dashboard.json",
+    "dashboard.md",
+    "dashboard.csv",
+    "final_packet_manifest.json",
+    "final_zip_verification_audit.csv",
+    "checksum_manifest.json",
+    "manifest.json",
+}
 
 
 class SupportCaseIncidentDashboard(BaseModel):
@@ -456,6 +468,32 @@ class SupportCaseIncidentClosureDashboard(BaseModel):
         "Support case incident closure dashboard is metadata-only; it aggregates artifact, zip, "
         "verification, and audit state without storing zip bytes, raw API keys, raw debug bundles, "
         "or private account payloads."
+    )
+
+
+class SupportCaseIncidentClosurePacketManifest(BaseModel):
+    schema_version: str = "gw2radar.support_case_incident_closure_packet_manifest.v1"
+    packet_id: str
+    artifact_root: str
+    generated_at: datetime
+    source_dashboard_schema_version: str
+    ready: bool
+    maturity_label: str
+    closure_status: str
+    readiness_score: float
+    file_count: int
+    files: list[SupportCaseIncidentPacketFile]
+    manifest_path: str
+    checksum_sha256: str
+    contains_raw_key: bool = False
+    contains_raw_debug_bundle: bool = False
+    contains_private_source_payload: bool = False
+    contains_zip_bytes: bool = False
+    contains_executable_content: bool = False
+    allowed_files: list[str] = Field(default_factory=lambda: sorted(SUPPORT_CASE_INCIDENT_CLOSURE_PACKET_FILES))
+    boundary: str = (
+        "Support case incident closure packet files are deterministic metadata exports and exclude "
+        "zip bytes, raw API keys, raw debug bundles, private account payloads, and executable content."
     )
 
 
@@ -2370,6 +2408,155 @@ def render_support_case_incident_closure_dashboard_csv(
     rows.extend(f"warning,{_csv(item)}" for item in dashboard.warnings)
     rows.extend(f"next_action,{_csv(item)}" for item in dashboard.next_actions)
     return "\n".join(rows) + "\n"
+
+
+def write_support_case_incident_closure_packet_artifacts(
+    dashboard: SupportCaseIncidentClosureDashboard,
+    *,
+    artifact_root: Path | None = None,
+) -> SupportCaseIncidentClosurePacketManifest:
+    root = artifact_root or SUPPORT_CASE_INCIDENT_CLOSURE_PACKET_ROOT
+    generated_at = datetime.now(timezone.utc)
+    packet_id = f"support-case-incident-closure-{generated_at.strftime('%Y%m%dT%H%M%S%fZ')}-{uuid4().hex[:8]}"
+    packet_dir = root / packet_id
+    packet_dir.mkdir(parents=True, exist_ok=False)
+    final_packets = list_support_case_incident_final_handoff_packets(limit=1)
+    final_packet = final_packets[0] if final_packets else None
+    final_zip_audit = list_support_case_incident_final_handoff_packet_zip_verification_audits(limit=20)
+    checksum_manifest = {
+        "schema_version": "gw2radar.support_case_incident_closure_packet_checksum_manifest.v1",
+        "generated_at": generated_at.isoformat(),
+        "closure_dashboard_schema_version": dashboard.schema_version,
+        "closure_ready": dashboard.ready,
+        "closure_status": dashboard.closure_status,
+        "readiness_score": dashboard.readiness_score,
+        "latest_packet_id": dashboard.latest_packet_id,
+        "latest_operator_artifact_id": dashboard.latest_operator_artifact_id,
+        "latest_final_packet_id": dashboard.latest_final_packet_id,
+        "final_zip_checksum_sha256": dashboard.final_zip_checksum_sha256,
+        "final_zip_audit_count": dashboard.final_zip_audit_count,
+        "contains_zip_bytes": False,
+        "contains_raw_key": False,
+        "boundary": "Checksum manifest stores metadata references and SHA-256 values only.",
+    }
+    contents = {
+        "dashboard.json": dashboard.model_dump_json(indent=2),
+        "dashboard.md": render_support_case_incident_closure_dashboard_markdown(dashboard),
+        "dashboard.csv": render_support_case_incident_closure_dashboard_csv(dashboard),
+        "final_packet_manifest.json": final_packet.model_dump_json(indent=2) if final_packet else json.dumps({}, indent=2),
+        "final_zip_verification_audit.csv": render_support_case_incident_final_handoff_packet_zip_verification_audit_csv(
+            final_zip_audit
+        ),
+        "checksum_manifest.json": json.dumps(checksum_manifest, indent=2, sort_keys=True),
+    }
+    files: list[SupportCaseIncidentPacketFile] = []
+    for file_name, text in contents.items():
+        file_path = packet_dir / file_name
+        file_path.write_text(text, encoding="utf-8")
+        files.append(_packet_file_entry(root, file_path, file_name, _media_type(file_name), text))
+    manifest_payload = {
+        "schema_version": "gw2radar.support_case_incident_closure_packet_manifest.v1",
+        "packet_id": packet_id,
+        "generated_at": generated_at.isoformat(),
+        "source_dashboard_schema_version": dashboard.schema_version,
+        "ready": dashboard.ready,
+        "maturity_label": dashboard.maturity_label,
+        "closure_status": dashboard.closure_status,
+        "readiness_score": dashboard.readiness_score,
+        "files": [file.model_dump(mode="json") for file in files],
+        "contains_raw_key": False,
+        "contains_raw_debug_bundle": False,
+        "contains_private_source_payload": False,
+        "contains_zip_bytes": False,
+        "contains_executable_content": False,
+        "allowed_files": sorted(SUPPORT_CASE_INCIDENT_CLOSURE_PACKET_FILES),
+        "boundary": "Support case incident closure packet artifacts store metadata only.",
+    }
+    manifest_text = json.dumps(manifest_payload, indent=2, sort_keys=True)
+    manifest_path = packet_dir / "manifest.json"
+    manifest_path.write_text(manifest_text, encoding="utf-8")
+    manifest_file = _packet_file_entry(root, manifest_path, "manifest.json", "application/json", manifest_text)
+    files.append(manifest_file)
+    return SupportCaseIncidentClosurePacketManifest(
+        packet_id=packet_id,
+        artifact_root=root.as_posix(),
+        generated_at=generated_at,
+        source_dashboard_schema_version=dashboard.schema_version,
+        ready=dashboard.ready,
+        maturity_label=dashboard.maturity_label,
+        closure_status=dashboard.closure_status,
+        readiness_score=dashboard.readiness_score,
+        file_count=len(files),
+        files=files,
+        manifest_path=manifest_file.relative_path,
+        checksum_sha256=_packet_checksum(files),
+    )
+
+
+def list_support_case_incident_closure_packets(
+    *,
+    artifact_root: Path | None = None,
+    limit: int = 20,
+) -> list[SupportCaseIncidentClosurePacketManifest]:
+    root = artifact_root or SUPPORT_CASE_INCIDENT_CLOSURE_PACKET_ROOT
+    if not root.exists():
+        return []
+    packets: list[SupportCaseIncidentClosurePacketManifest] = []
+    for packet_dir in sorted([path for path in root.iterdir() if path.is_dir()], key=lambda item: item.name, reverse=True)[: max(1, min(limit, 100))]:
+        manifest_path = packet_dir / "manifest.json"
+        if not manifest_path.exists():
+            continue
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        files = [
+            SupportCaseIncidentPacketFile(**file)
+            for file in manifest.get("files", [])
+            if file.get("file_name") in SUPPORT_CASE_INCIDENT_CLOSURE_PACKET_FILES
+        ]
+        manifest_text = manifest_path.read_text(encoding="utf-8")
+        manifest_file = _packet_file_entry(root, manifest_path, "manifest.json", "application/json", manifest_text)
+        if not any(file.file_name == "manifest.json" for file in files):
+            files.append(manifest_file)
+        packets.append(
+            SupportCaseIncidentClosurePacketManifest(
+                packet_id=packet_dir.name,
+                artifact_root=root.as_posix(),
+                generated_at=datetime.fromisoformat(manifest["generated_at"]),
+                source_dashboard_schema_version=str(manifest.get("source_dashboard_schema_version") or "unknown"),
+                ready=bool(manifest.get("ready")),
+                maturity_label=str(manifest.get("maturity_label") or "unknown"),
+                closure_status=str(manifest.get("closure_status") or "unknown"),
+                readiness_score=float(manifest.get("readiness_score") or 0),
+                file_count=len(files),
+                files=files,
+                manifest_path=manifest_file.relative_path,
+                checksum_sha256=_packet_checksum(files),
+            )
+        )
+    return packets
+
+
+def resolve_support_case_incident_closure_packet_path(
+    packet_id: str,
+    file_name: str,
+    *,
+    artifact_root: Path | None = None,
+) -> Path | None:
+    if "/" in packet_id or "\\" in packet_id or ".." in packet_id:
+        return None
+    if file_name not in SUPPORT_CASE_INCIDENT_CLOSURE_PACKET_FILES:
+        return None
+    root = artifact_root or SUPPORT_CASE_INCIDENT_CLOSURE_PACKET_ROOT
+    candidate = root / packet_id / file_name
+    try:
+        candidate.resolve().relative_to(root.resolve())
+    except ValueError:
+        return None
+    if not candidate.exists() or not candidate.is_file():
+        return None
+    return candidate
 
 
 def _render_operator_dashboard_summary_markdown(packet: SupportCaseIncidentOperatorPacket) -> str:

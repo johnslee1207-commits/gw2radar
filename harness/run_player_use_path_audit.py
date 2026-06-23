@@ -860,6 +860,54 @@ def main() -> int:
             "mature_support_case_incident_closure_dashboard",
             f"{support_case_incident_closure.get('closure_status', 'unknown')} at {support_case_incident_closure.get('readiness_score', 0)} with {support_case_incident_closure.get('final_zip_audit_count', 0)} final audits.",
         )
+        support_case_incident_closure_packet_response = _json(
+            client.post("/api/v1/player/support-case/incident-closure-packet/artifacts?limit=20"),
+            "write support case incident closure packet artifacts",
+            checks,
+        )
+        support_case_incident_closure_packet = _get(
+            support_case_incident_closure_packet_response,
+            "data",
+            "support_case_incident_closure_packet",
+        ) or {}
+        support_case_incident_closure_packets_response = _json(
+            client.get("/api/v1/player/support-case/incident-closure-packet/artifacts?limit=10"),
+            "list support case incident closure packet artifacts",
+            checks,
+        )
+        support_case_incident_closure_packets = _get(
+            support_case_incident_closure_packets_response,
+            "data",
+            "support_case_incident_closure_packets",
+        ) or []
+        closure_packet_id = support_case_incident_closure_packet.get("packet_id", "")
+        support_case_incident_closure_packet_manifest = client.get(
+            f"/api/v1/player/support-case/incident-closure-packet/artifacts/{closure_packet_id}/manifest.json"
+        )
+        support_case_incident_closure_packet_dashboard = client.get(
+            f"/api/v1/player/support-case/incident-closure-packet/artifacts/{closure_packet_id}/dashboard.md"
+        )
+        _add(
+            checks,
+            "support_case_incident_closure_packet_artifacts",
+            "Support case incident closure packet writes deterministic dashboard, final audit, checksum manifest, and path-safe retrieval artifacts.",
+            support_case_incident_closure_packet.get("schema_version")
+            == "gw2radar.support_case_incident_closure_packet_manifest.v1"
+            and support_case_incident_closure_packet.get("ready") is True
+            and support_case_incident_closure_packet.get("closure_status") == "go"
+            and support_case_incident_closure_packet.get("file_count") == 7
+            and len(support_case_incident_closure_packet.get("checksum_sha256", "")) == 64
+            and len(support_case_incident_closure_packets) >= 1
+            and support_case_incident_closure_packet_manifest.status_code == 200
+            and "gw2radar.support_case_incident_closure_packet_manifest.v1"
+            in support_case_incident_closure_packet_manifest.text
+            and support_case_incident_closure_packet_dashboard.status_code == 200
+            and "# Support Case Incident Closure Dashboard"
+            in support_case_incident_closure_packet_dashboard.text
+            and "secret-key" not in json.dumps(support_case_incident_closure_packet).lower(),
+            "mature_support_case_incident_closure_packet_artifacts",
+            f"{support_case_incident_closure_packet.get('file_count', 0)} closure files with checksum {support_case_incident_closure_packet.get('checksum_sha256', '')[:12]}.",
+        )
         player_readiness = _json(client.get("/api/v1/player/readiness"), "load player readiness", checks)
         readiness = _get(player_readiness, "data", "readiness") or {}
         _add(
@@ -1682,6 +1730,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "- `SupportCaseIncidentFinalHandoffPacketArtifacts` write final closure checklist, manifest, operator artifact manifest, and audit export files with checksums.",
             "- `SupportCaseIncidentFinalHandoffPacketZipVerificationAudit` verifies final handoff packet zip archives and records metadata-only closure audit evidence.",
             "- `SupportCaseIncidentClosureDashboard` aggregates incident packet, operator packet, final packet, zip audit, and final go/no-go state.",
+            "- `SupportCaseIncidentClosurePacketArtifacts` write closure dashboard, final audit, checksum manifest, and path-safe retrieval metadata files.",
             "- `ReportArtifactManifest` records bridge metadata without storing raw API keys or unredacted private payloads.",
             "",
             "## Known Limits",
@@ -1692,7 +1741,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Next Priority",
             "",
-            "Build Support Case Incident Closure Packet export with dashboard, final audit, checksum manifest, and path-safe retrieval.",
+            "Build Support Case Incident Closure Packet zip archive with whitelist verification and metadata-only audit.",
             "",
         ]
     )
