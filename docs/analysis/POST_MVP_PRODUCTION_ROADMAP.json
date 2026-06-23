@@ -1,8 +1,8 @@
 {
   "blocking_current_mvp": false,
   "current_mvp_status": "ready_to_close_mvp_stage",
-  "decision": "Phase A Trust & Credential MVP, Phase B Report Product Close Loop, Phase C Progression Decision Engine v1, Phase D 7-Day Planning / DAG, and Phase E Production SaaS Foundation are implemented at MVP foundation level. Start Phase F Growth / Retention next; keep real billing, team workspace credential sharing, full SaaS launch, and autonomous agents as later explicit stages.",
-  "next_phase": "phase_f_growth_retention",
+  "decision": "Phase A Trust & Credential MVP, Phase B Report Product Close Loop, Phase C Progression Decision Engine v1, Phase D 7-Day Planning / DAG, Phase E Production SaaS Foundation, and Phase F Growth / Retention are implemented at MVP or foundation level. Move next into post-MVP operational hardening, release validation, and maturity audit; keep real billing, team workspace credential sharing, full SaaS launch, and autonomous agents as later explicit stages.",
+  "next_phase": "post_mvp_operational_hardening",
   "phase_count": 6,
   "phases": [
     {
@@ -138,6 +138,9 @@
         "public sharing of private account payloads",
         "real email provider lock-in"
       ],
+      "evidence_tests": [
+        "tests/test_growth_retention.py"
+      ],
       "phase_id": "phase_f_growth_retention",
       "priority": 6,
       "scope": [
@@ -147,7 +150,7 @@
         "mock email delivery abstraction",
         "subscription retention UX"
       ],
-      "status": "next_recommended",
+      "status": "implemented_mvp",
       "title": "Phase F Growth / Retention"
     }
   ],

@@ -4,11 +4,11 @@
 - Current MVP status: ready_to_close_mvp_stage
 - Blocking current MVP: false
 - Phase count: 6
-- Next phase: phase_f_growth_retention
+- Next phase: post_mvp_operational_hardening
 
 ## Decision
 
-Phase A Trust & Credential MVP, Phase B Report Product Close Loop, Phase C Progression Decision Engine v1, Phase D 7-Day Planning / DAG, and Phase E Production SaaS Foundation are implemented at MVP foundation level. Start Phase F Growth / Retention next; keep real billing, team workspace credential sharing, full SaaS launch, and autonomous agents as later explicit stages.
+Phase A Trust & Credential MVP, Phase B Report Product Close Loop, Phase C Progression Decision Engine v1, Phase D 7-Day Planning / DAG, Phase E Production SaaS Foundation, and Phase F Growth / Retention are implemented at MVP or foundation level. Move next into post-MVP operational hardening, release validation, and maturity audit; keep real billing, team workspace credential sharing, full SaaS launch, and autonomous agents as later explicit stages.
 
 ## Source Documents
 
@@ -25,7 +25,7 @@ Phase A Trust & Credential MVP, Phase B Report Product Close Loop, Phase C Progr
 | 3 | Phase C Progression Decision Engine v1 | implemented_mvp | manual action model, scoring model, Top-K recommendation API, KB-backed recommendation explanation | automatic trading, automatic gameplay execution, profit guarantees |
 | 4 | Phase D 7-Day Planning / DAG | implemented_mvp | goal interpreter, action dependency graph, 7-day plan generator, plan export Markdown/CSV/JSON | real-time autonomous replanning |
 | 5 | Phase E Production SaaS Foundation | implemented_foundation | auth/session model, workspace model, PostgreSQL migration plan, Redis/cache/queue plan, object storage abstraction, billing guard abstraction | full multi-tenant SaaS launch, real payment integration |
-| 6 | Phase F Growth / Retention | next_recommended | weekly report job, report history, safe share preview, mock email delivery abstraction, subscription retention UX | public sharing of private account payloads, real email provider lock-in |
+| 6 | Phase F Growth / Retention | implemented_mvp | weekly report job, report history, safe share preview, mock email delivery abstraction, subscription retention UX | public sharing of private account payloads, real email provider lock-in |
 
 ## Phase A Acceptance
 

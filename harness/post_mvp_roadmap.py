@@ -118,7 +118,7 @@ PHASES = [
         "phase_id": "phase_f_growth_retention",
         "title": "Phase F Growth / Retention",
         "priority": 6,
-        "status": "next_recommended",
+        "status": "implemented_mvp",
         "scope": [
             "weekly report job",
             "report history",
@@ -132,6 +132,7 @@ PHASES = [
             "delete/unsubscribe path is documented",
             "weekly outputs preserve no-guarantee language",
         ],
+        "evidence_tests": ["tests/test_growth_retention.py"],
     },
 ]
 
@@ -175,9 +176,9 @@ def build_roadmap() -> dict[str, object]:
         ],
         "source_coverage": source_coverage,
         "phase_count": len(PHASES),
-        "next_phase": "phase_f_growth_retention",
+        "next_phase": "post_mvp_operational_hardening",
         "phases": PHASES,
-        "decision": "Phase A Trust & Credential MVP, Phase B Report Product Close Loop, Phase C Progression Decision Engine v1, Phase D 7-Day Planning / DAG, and Phase E Production SaaS Foundation are implemented at MVP foundation level. Start Phase F Growth / Retention next; keep real billing, team workspace credential sharing, full SaaS launch, and autonomous agents as later explicit stages.",
+        "decision": "Phase A Trust & Credential MVP, Phase B Report Product Close Loop, Phase C Progression Decision Engine v1, Phase D 7-Day Planning / DAG, Phase E Production SaaS Foundation, and Phase F Growth / Retention are implemented at MVP or foundation level. Move next into post-MVP operational hardening, release validation, and maturity audit; keep real billing, team workspace credential sharing, full SaaS launch, and autonomous agents as later explicit stages.",
     }
 
 
