@@ -1,8 +1,8 @@
 {
   "blocking_current_mvp": false,
   "current_mvp_status": "ready_to_close_mvp_stage",
-  "decision": "Start Phase A only; keep production SaaS, real billing, team workspace, and autonomous agents as later explicit stages.",
-  "next_phase": "phase_a_trust_credential_mvp",
+  "decision": "Phase A Trust & Credential MVP is implemented. Start Phase B Report Product Close Loop next; keep production SaaS, real billing, team workspace, and autonomous agents as later explicit stages.",
+  "next_phase": "phase_b_report_product_close_loop",
   "phase_count": 6,
   "phases": [
     {
@@ -15,6 +15,9 @@
         "team workspace credential sharing",
         "KMS production vault"
       ],
+      "evidence_tests": [
+        "tests/test_security_api_routes.py"
+      ],
       "phase_id": "phase_a_trust_credential_mvp",
       "priority": 1,
       "scope": [
@@ -24,7 +27,7 @@
         "credential usage audit summary",
         "revoke/delete/rotate UX"
       ],
-      "status": "next_recommended",
+      "status": "implemented_mvp",
       "title": "Phase A Trust & Credential MVP"
     },
     {
@@ -45,7 +48,7 @@
         "mock license and entitlement lifecycle",
         "delivery artifacts through shared lifecycle"
       ],
-      "status": "recommended_after_phase_a",
+      "status": "next_recommended",
       "title": "Phase B Report Product Close Loop"
     },
     {

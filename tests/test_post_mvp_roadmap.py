@@ -8,13 +8,15 @@ def test_post_mvp_roadmap_preserves_current_mvp_closure() -> None:
     assert roadmap["current_mvp_status"] == "ready_to_close_mvp_stage"
     assert roadmap["blocking_current_mvp"] is False
     assert roadmap["phase_count"] == 6
-    assert roadmap["next_phase"] == "phase_a_trust_credential_mvp"
+    assert roadmap["next_phase"] == "phase_b_report_product_close_loop"
 
 
 def test_post_mvp_roadmap_defers_saas_and_automation() -> None:
     roadmap = build_roadmap()
     phases = {phase["phase_id"]: phase for phase in roadmap["phases"]}
 
+    assert phases["phase_a_trust_credential_mvp"]["status"] == "implemented_mvp"
+    assert phases["phase_b_report_product_close_loop"]["status"] == "next_recommended"
     assert "real payment integration" in phases["phase_e_production_saas_foundation"]["defer"]
     assert "automatic trading" in phases["phase_c_progression_decision_engine_v1"]["defer"]
     assert "team workspace credential sharing" in phases["phase_a_trust_credential_mvp"]["defer"]

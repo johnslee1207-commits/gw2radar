@@ -20,7 +20,7 @@ PHASES = [
         "phase_id": "phase_a_trust_credential_mvp",
         "title": "Phase A Trust & Credential MVP",
         "priority": 1,
-        "status": "next_recommended",
+        "status": "implemented_mvp",
         "scope": [
             "session-only BYOK mode",
             "credential mode model",
@@ -34,12 +34,13 @@ PHASES = [
             "session-only mode requires no persisted secret",
             "encrypted persistent mode remains local-first unless production mode is explicit",
         ],
+        "evidence_tests": ["tests/test_security_api_routes.py"],
     },
     {
         "phase_id": "phase_b_report_product_close_loop",
         "title": "Phase B Report Product Close Loop",
         "priority": 2,
-        "status": "recommended_after_phase_a",
+        "status": "next_recommended",
         "scope": [
             "clear report product contracts",
             "preview vs full report boundary",
@@ -170,9 +171,9 @@ def build_roadmap() -> dict[str, object]:
         ],
         "source_coverage": source_coverage,
         "phase_count": len(PHASES),
-        "next_phase": PHASES[0]["phase_id"],
+        "next_phase": "phase_b_report_product_close_loop",
         "phases": PHASES,
-        "decision": "Start Phase A only; keep production SaaS, real billing, team workspace, and autonomous agents as later explicit stages.",
+        "decision": "Phase A Trust & Credential MVP is implemented. Start Phase B Report Product Close Loop next; keep production SaaS, real billing, team workspace, and autonomous agents as later explicit stages.",
     }
 
 
