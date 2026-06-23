@@ -887,6 +887,56 @@ def main() -> int:
         support_case_incident_closure_packet_dashboard = client.get(
             f"/api/v1/player/support-case/incident-closure-packet/artifacts/{closure_packet_id}/dashboard.md"
         )
+        support_case_incident_closure_packet_zip_manifest_response = _json(
+            client.get("/api/v1/player/support-case/incident-closure-packet/artifacts/bundle?format=manifest"),
+            "load support case incident closure packet zip manifest",
+            checks,
+        )
+        support_case_incident_closure_packet_zip_manifest = _get(
+            support_case_incident_closure_packet_zip_manifest_response,
+            "data",
+            "support_case_incident_closure_packet_zip_bundle",
+        ) or {}
+        support_case_incident_closure_packet_zip_verify_response = _json(
+            client.post("/api/v1/player/support-case/incident-closure-packet/artifacts/bundle/verify"),
+            "verify support case incident closure packet zip",
+            checks,
+        )
+        support_case_incident_closure_packet_zip_verify = _get(
+            support_case_incident_closure_packet_zip_verify_response,
+            "data",
+            "support_case_incident_closure_packet_zip_verification",
+        ) or {}
+        support_case_incident_closure_packet_zip_audit_response = _json(
+            client.post(
+                "/api/v1/player/support-case/incident-closure-packet/artifacts/bundle/verification-audit",
+                json={"reviewer": "audit", "notes": ["Use-path audit verified closure packet zip."]},
+            ),
+            "record support case incident closure packet zip audit",
+            checks,
+        )
+        support_case_incident_closure_packet_zip_audit = _get(
+            support_case_incident_closure_packet_zip_audit_response,
+            "data",
+            "support_case_incident_closure_packet_zip_verification_audit_record",
+        ) or {}
+        support_case_incident_closure_packet_zip_audit_list_response = _json(
+            client.get("/api/v1/player/support-case/incident-closure-packet/artifacts/bundle/verification-audit?reviewer=audit&limit=10"),
+            "list support case incident closure packet zip audit",
+            checks,
+        )
+        support_case_incident_closure_packet_zip_audit_list = _get(
+            support_case_incident_closure_packet_zip_audit_list_response,
+            "data",
+            "support_case_incident_closure_packet_zip_verification_audit",
+            "records",
+        ) or []
+        support_case_incident_closure_packet_zip_audit_markdown = client.get(
+            "/api/v1/player/support-case/incident-closure-packet/artifacts/bundle/verification-audit?format=markdown"
+        )
+        support_case_incident_closure_packet_zip_audit_csv = client.get(
+            "/api/v1/player/support-case/incident-closure-packet/artifacts/bundle/verification-audit?format=csv"
+        )
         _add(
             checks,
             "support_case_incident_closure_packet_artifacts",
@@ -907,6 +957,38 @@ def main() -> int:
             and "secret-key" not in json.dumps(support_case_incident_closure_packet).lower(),
             "mature_support_case_incident_closure_packet_artifacts",
             f"{support_case_incident_closure_packet.get('file_count', 0)} closure files with checksum {support_case_incident_closure_packet.get('checksum_sha256', '')[:12]}.",
+        )
+        _add(
+            checks,
+            "support_case_incident_closure_packet_zip_verification_audit",
+            "Support case incident closure packet zip manifest, verification, and metadata-only audit close the final transfer evidence loop.",
+            support_case_incident_closure_packet_zip_manifest.get("schema_version")
+            == "gw2radar.support_case_incident_closure_packet_zip_manifest.v1"
+            and support_case_incident_closure_packet_zip_manifest.get("file_count") == 7
+            and len(support_case_incident_closure_packet_zip_manifest.get("checksum_sha256", "")) == 64
+            and support_case_incident_closure_packet_zip_verify.get("schema_version")
+            == "gw2radar.support_case_incident_closure_packet_zip_verification.v1"
+            and support_case_incident_closure_packet_zip_verify.get("ready") is True
+            and support_case_incident_closure_packet_zip_audit.get("schema_version")
+            == "gw2radar.support_case_incident_closure_packet_zip_verification_audit.v1"
+            and support_case_incident_closure_packet_zip_audit.get("ready") is True
+            and len(support_case_incident_closure_packet_zip_audit_list) >= 1
+            and support_case_incident_closure_packet_zip_audit_markdown.status_code == 200
+            and "# Support Case Incident Closure Packet Zip Verification Audit"
+            in support_case_incident_closure_packet_zip_audit_markdown.text
+            and support_case_incident_closure_packet_zip_audit_csv.status_code == 200
+            and "audit_id,recorded_at,reviewer,ready,checksum_sha256"
+            in support_case_incident_closure_packet_zip_audit_csv.text
+            and "secret-key"
+            not in json.dumps(
+                {
+                    "manifest": support_case_incident_closure_packet_zip_manifest,
+                    "verify": support_case_incident_closure_packet_zip_verify,
+                    "audit": support_case_incident_closure_packet_zip_audit,
+                }
+            ).lower(),
+            "mature_support_case_incident_closure_packet_zip_verification_audit",
+            f"closure zip checksum {support_case_incident_closure_packet_zip_manifest.get('checksum_sha256', '')[:12]} verified with {support_case_incident_closure_packet_zip_verify.get('file_count', 0)} files.",
         )
         player_readiness = _json(client.get("/api/v1/player/readiness"), "load player readiness", checks)
         readiness = _get(player_readiness, "data", "readiness") or {}
@@ -1731,6 +1813,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "- `SupportCaseIncidentFinalHandoffPacketZipVerificationAudit` verifies final handoff packet zip archives and records metadata-only closure audit evidence.",
             "- `SupportCaseIncidentClosureDashboard` aggregates incident packet, operator packet, final packet, zip audit, and final go/no-go state.",
             "- `SupportCaseIncidentClosurePacketArtifacts` write closure dashboard, final audit, checksum manifest, and path-safe retrieval metadata files.",
+            "- `SupportCaseIncidentClosurePacketZipVerificationAudit` verifies closure packet zip archives and records metadata-only final transfer evidence.",
             "- `ReportArtifactManifest` records bridge metadata without storing raw API keys or unredacted private payloads.",
             "",
             "## Known Limits",
@@ -1741,7 +1824,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Next Priority",
             "",
-            "Build Support Case Incident Closure Packet zip archive with whitelist verification and metadata-only audit.",
+            "Start Report Productization MVP with Account Value, Legendary Gap, and Build Readiness report templates.",
             "",
         ]
     )

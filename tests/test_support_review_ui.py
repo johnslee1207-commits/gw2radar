@@ -85,6 +85,8 @@ def test_support_review_page_serves_operator_workbench() -> None:
     assert "incident-final-handoff-packet-zip-audit-summary" in response.text
     assert "incident-closure-dashboard-summary" in response.text
     assert "incident-closure-packet-summary" in response.text
+    assert "incident-closure-packet-zip-summary" in response.text
+    assert "incident-closure-packet-zip-audit-summary" in response.text
     assert "incident-closure-packet-list" in response.text
     assert "incident-final-handoff-packet-list" in response.text
     assert "incident-operator-packet-list" in response.text
@@ -161,11 +163,17 @@ def test_support_review_static_assets_include_review_workflow() -> None:
     assert "exportSupportCaseIncidentClosureDashboard" in js.text
     assert "writeSupportCaseIncidentClosurePacket" in js.text
     assert "loadSupportCaseIncidentClosurePackets" in js.text
+    assert "loadSupportCaseIncidentClosurePacketZipManifest" in js.text
+    assert "verifySupportCaseIncidentClosurePacketZip" in js.text
+    assert "recordSupportCaseIncidentClosurePacketZipAudit" in js.text
+    assert "loadSupportCaseIncidentClosurePacketZipAudit" in js.text
+    assert "exportSupportCaseIncidentClosurePacketZipAuditCsv" in js.text
     assert "renderSupportCaseIncidentClosurePackets" in js.text
     assert "/api/v1/player/support-case/incident-final-handoff-checklist" in js.text
     assert "/api/v1/player/support-case/incident-final-handoff-packet/artifacts" in js.text
     assert "/api/v1/player/support-case/incident-closure-dashboard" in js.text
     assert "/api/v1/player/support-case/incident-closure-packet/artifacts" in js.text
+    assert "/api/v1/player/support-case/incident-closure-packet/artifacts/bundle" in js.text
     assert "/api/v1/player/support-case/incident-operator-packet" in js.text
     assert "/api/v1/player/support-case/incident-packet/bundle/verification-audit" in js.text
     assert "/api/v1/player/support-case/incident-packet/bundle" in js.text

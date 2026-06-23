@@ -180,6 +180,26 @@ def main() -> int:
     )
     incident_closure_packet = client.post("/api/v1/player/support-case/incident-closure-packet/artifacts?limit=20")
     incident_closure_packets = client.get("/api/v1/player/support-case/incident-closure-packet/artifacts?limit=10")
+    incident_closure_packet_zip_manifest = client.get(
+        "/api/v1/player/support-case/incident-closure-packet/artifacts/bundle?format=manifest"
+    )
+    incident_closure_packet_zip = client.get("/api/v1/player/support-case/incident-closure-packet/artifacts/bundle")
+    incident_closure_packet_zip_verify = client.post(
+        "/api/v1/player/support-case/incident-closure-packet/artifacts/bundle/verify"
+    )
+    incident_closure_packet_zip_audit = client.post(
+        "/api/v1/player/support-case/incident-closure-packet/artifacts/bundle/verification-audit",
+        json={"reviewer": "smoke", "notes": ["Smoke recorded support case incident closure packet zip audit."]},
+    )
+    incident_closure_packet_zip_audit_list = client.get(
+        "/api/v1/player/support-case/incident-closure-packet/artifacts/bundle/verification-audit?reviewer=smoke&limit=10"
+    )
+    incident_closure_packet_zip_audit_markdown = client.get(
+        "/api/v1/player/support-case/incident-closure-packet/artifacts/bundle/verification-audit?format=markdown"
+    )
+    incident_closure_packet_zip_audit_csv = client.get(
+        "/api/v1/player/support-case/incident-closure-packet/artifacts/bundle/verification-audit?format=csv"
+    )
 
     _add(checks, "support page is served", page.status_code == 200 and "Debug Bundle Support Review" in page.text, page.text)
     _add(checks, "support script is served", js.status_code == 200 and "/account/debug-bundle/review" in js.text, js.text)
@@ -259,6 +279,13 @@ def main() -> int:
     _add(checks, "support case incident closure dashboard exports csv", incident_closure_dashboard_csv.status_code == 200 and "ready,maturity_label,closure_status,readiness_score" in incident_closure_dashboard_csv.text, incident_closure_dashboard_csv.text)
     _add(checks, "support case incident closure packet writes artifacts", incident_closure_packet.status_code == 200 and incident_closure_packet.json().get("data", {}).get("support_case_incident_closure_packet", {}).get("schema_version") == "gw2radar.support_case_incident_closure_packet_manifest.v1", incident_closure_packet.text)
     _add(checks, "support case incident closure packet lists artifacts", incident_closure_packets.status_code == 200 and incident_closure_packets.json().get("data", {}).get("support_case_incident_closure_packets"), incident_closure_packets.text)
+    _add(checks, "support case incident closure packet zip manifest is visible", incident_closure_packet_zip_manifest.status_code == 200 and incident_closure_packet_zip_manifest.json().get("data", {}).get("support_case_incident_closure_packet_zip_bundle", {}).get("schema_version") == "gw2radar.support_case_incident_closure_packet_zip_manifest.v1", incident_closure_packet_zip_manifest.text)
+    _add(checks, "support case incident closure packet zip downloads", incident_closure_packet_zip.status_code == 200 and incident_closure_packet_zip.headers.get("x-checksum-sha256"), incident_closure_packet_zip.text[:200] if hasattr(incident_closure_packet_zip, "text") else "")
+    _add(checks, "support case incident closure packet zip verifies", incident_closure_packet_zip_verify.status_code == 200 and incident_closure_packet_zip_verify.json().get("data", {}).get("support_case_incident_closure_packet_zip_verification", {}).get("ready") is True, incident_closure_packet_zip_verify.text)
+    _add(checks, "support case incident closure packet zip audit records metadata", incident_closure_packet_zip_audit.status_code == 200 and incident_closure_packet_zip_audit.json().get("data", {}).get("support_case_incident_closure_packet_zip_verification_audit_record", {}).get("schema_version") == "gw2radar.support_case_incident_closure_packet_zip_verification_audit.v1", incident_closure_packet_zip_audit.text)
+    _add(checks, "support case incident closure packet zip audit lists records", incident_closure_packet_zip_audit_list.status_code == 200 and incident_closure_packet_zip_audit_list.json().get("data", {}).get("support_case_incident_closure_packet_zip_verification_audit", {}).get("records"), incident_closure_packet_zip_audit_list.text)
+    _add(checks, "support case incident closure packet zip audit exports markdown", incident_closure_packet_zip_audit_markdown.status_code == 200 and "# Support Case Incident Closure Packet Zip Verification Audit" in incident_closure_packet_zip_audit_markdown.text, incident_closure_packet_zip_audit_markdown.text)
+    _add(checks, "support case incident closure packet zip audit exports csv", incident_closure_packet_zip_audit_csv.status_code == 200 and "audit_id,recorded_at,reviewer,ready,checksum_sha256" in incident_closure_packet_zip_audit_csv.text, incident_closure_packet_zip_audit_csv.text)
     _add(checks, "no-secret boundary is visible", "Do not ask for a raw GW2 API key" in page.text and "Please do not send your raw GW2 API key" in js.text, "boundary missing")
 
     failed = [check for check in checks if not check[1]]

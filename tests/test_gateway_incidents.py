@@ -303,6 +303,26 @@ def test_player_gateway_incident_timeline_correlates_refresh_events_without_secr
         )
         closure_packet = client.post("/api/v1/player/support-case/incident-closure-packet/artifacts?limit=20")
         closure_packets = client.get("/api/v1/player/support-case/incident-closure-packet/artifacts?limit=10")
+        closure_packet_zip_manifest = client.get(
+            "/api/v1/player/support-case/incident-closure-packet/artifacts/bundle?format=manifest"
+        )
+        closure_packet_zip_bundle = client.get("/api/v1/player/support-case/incident-closure-packet/artifacts/bundle")
+        closure_packet_zip_verify = client.post(
+            "/api/v1/player/support-case/incident-closure-packet/artifacts/bundle/verify"
+        )
+        closure_packet_zip_audit_record = client.post(
+            "/api/v1/player/support-case/incident-closure-packet/artifacts/bundle/verification-audit",
+            json={"reviewer": "closure lead", "notes": ["Verified closure packet zip before support closure."]},
+        )
+        closure_packet_zip_audit_list = client.get(
+            "/api/v1/player/support-case/incident-closure-packet/artifacts/bundle/verification-audit?reviewer=closure%20lead&limit=10"
+        )
+        closure_packet_zip_audit_markdown = client.get(
+            "/api/v1/player/support-case/incident-closure-packet/artifacts/bundle/verification-audit?format=markdown"
+        )
+        closure_packet_zip_audit_csv = client.get(
+            "/api/v1/player/support-case/incident-closure-packet/artifacts/bundle/verification-audit?format=csv"
+        )
         assert manifest.status_code == 200
         assert "gw2radar.support_case_incident_packet_manifest.v1" in manifest.text
         assert packet_md.status_code == 200
@@ -649,6 +669,65 @@ def test_player_gateway_incident_timeline_correlates_refresh_events_without_secr
         assert "gw2radar.support_case_incident_closure_packet_checksum_manifest.v1" in closure_packet_checksum.text
         assert closure_packet_blocked.status_code == 404
         assert closure_packet_secret.status_code == 404
+        assert closure_packet_zip_manifest.status_code == 200
+        closure_zip_manifest_payload = closure_packet_zip_manifest.json()["data"]["support_case_incident_closure_packet_zip_bundle"]
+        assert closure_zip_manifest_payload["schema_version"] == "gw2radar.support_case_incident_closure_packet_zip_manifest.v1"
+        assert closure_zip_manifest_payload["file_count"] == 7
+        assert len(closure_zip_manifest_payload["checksum_sha256"]) == 64
+        assert closure_packet_zip_bundle.status_code == 200
+        assert closure_packet_zip_bundle.headers["x-checksum-sha256"] == closure_zip_manifest_payload["checksum_sha256"]
+        assert set(ZipFile(BytesIO(closure_packet_zip_bundle.content)).namelist()) == {
+            "support_case_incident_closure_packet/dashboard.json",
+            "support_case_incident_closure_packet/dashboard.md",
+            "support_case_incident_closure_packet/dashboard.csv",
+            "support_case_incident_closure_packet/final_packet_manifest.json",
+            "support_case_incident_closure_packet/final_zip_verification_audit.csv",
+            "support_case_incident_closure_packet/checksum_manifest.json",
+            "support_case_incident_closure_packet/manifest.json",
+        }
+        assert closure_packet_zip_verify.status_code == 200
+        closure_zip_verification = closure_packet_zip_verify.json()["data"]["support_case_incident_closure_packet_zip_verification"]
+        assert closure_zip_verification["schema_version"] == "gw2radar.support_case_incident_closure_packet_zip_verification.v1"
+        assert closure_zip_verification["ready"] is True
+        assert closure_zip_verification["checksum_sha256"] == closure_zip_manifest_payload["checksum_sha256"]
+        tampered_closure_buffer = BytesIO()
+        with ZipFile(BytesIO(closure_packet_zip_bundle.content), mode="r") as source_archive:
+            with ZipFile(tampered_closure_buffer, mode="w") as tampered_archive:
+                for name in source_archive.namelist():
+                    tampered_archive.writestr(name, source_archive.read(name))
+                tampered_archive.writestr("support_case_incident_closure_packet/secret.txt", "secret-key")
+        tampered_closure_verify = client.post(
+            "/api/v1/player/support-case/incident-closure-packet/artifacts/bundle/verify",
+            content=tampered_closure_buffer.getvalue(),
+            headers={"Content-Type": "application/zip"},
+        )
+        tampered_closure_audit = client.post(
+            "/api/v1/player/support-case/incident-closure-packet/artifacts/bundle/verification-audit/upload?reviewer=tamper%20closure",
+            content=tampered_closure_buffer.getvalue(),
+            headers={"Content-Type": "application/zip"},
+        )
+        assert tampered_closure_verify.status_code == 200
+        tampered_closure = tampered_closure_verify.json()["data"]["support_case_incident_closure_packet_zip_verification"]
+        assert tampered_closure["ready"] is False
+        assert "secret-key" not in str(tampered_closure).lower()
+        assert closure_packet_zip_audit_record.status_code == 200
+        closure_zip_audit_record = closure_packet_zip_audit_record.json()["data"]["support_case_incident_closure_packet_zip_verification_audit_record"]
+        assert closure_zip_audit_record["schema_version"] == "gw2radar.support_case_incident_closure_packet_zip_verification_audit.v1"
+        assert closure_zip_audit_record["reviewer"] == "closure lead"
+        assert closure_zip_audit_record["ready"] is True
+        assert closure_zip_audit_record["checksum_sha256"] == closure_zip_manifest_payload["checksum_sha256"]
+        assert closure_packet_zip_audit_list.status_code == 200
+        closure_zip_audit_list = closure_packet_zip_audit_list.json()["data"]["support_case_incident_closure_packet_zip_verification_audit"]
+        assert closure_zip_audit_list["schema_version"] == "gw2radar.support_case_incident_closure_packet_zip_verification_audit_list.v1"
+        assert closure_zip_audit_list["records"][0]["reviewer"] == "closure lead"
+        assert closure_packet_zip_audit_markdown.status_code == 200
+        assert "# Support Case Incident Closure Packet Zip Verification Audit" in closure_packet_zip_audit_markdown.text
+        assert closure_packet_zip_audit_csv.status_code == 200
+        assert "audit_id,recorded_at,reviewer,ready,checksum_sha256" in closure_packet_zip_audit_csv.text
+        assert tampered_closure_audit.status_code == 200
+        tampered_closure_record = tampered_closure_audit.json()["data"]["support_case_incident_closure_packet_zip_verification_audit_record"]
+        assert tampered_closure_record["ready"] is False
+        assert tampered_closure_record["blocker_count"] >= 1
         assert tampered_operator_audit.status_code == 200
         tampered_operator_record = tampered_operator_audit.json()["data"]["support_case_incident_operator_packet_zip_verification_audit_record"]
         assert tampered_operator_record["ready"] is False
@@ -673,8 +752,12 @@ def test_player_gateway_incident_timeline_correlates_refresh_events_without_secr
             + closure_packet_manifest.text
             + closure_packet_dashboard.text
             + closure_packet_checksum.text
+            + str(closure_zip_audit_list)
+            + closure_packet_zip_audit_markdown.text
+            + closure_packet_zip_audit_csv.text
             + str(tampered_final_record)
             + str(tampered_operator_record)
+            + str(tampered_closure_record)
         ).lower()
         assert session_packet.status_code == 200
         packet = session_packet.json()["data"]["session_packet"]

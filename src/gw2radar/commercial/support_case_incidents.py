@@ -497,6 +497,78 @@ class SupportCaseIncidentClosurePacketManifest(BaseModel):
     )
 
 
+class SupportCaseIncidentClosurePacketZipManifest(BaseModel):
+    schema_version: str = "gw2radar.support_case_incident_closure_packet_zip_manifest.v1"
+    bundle_id: str
+    source_packet_id: str
+    generated_at: datetime
+    filename: str
+    media_type: str = "application/zip"
+    file_count: int
+    included_files: list[SupportCaseIncidentPacketFile]
+    checksum_sha256: str
+    size_bytes: int
+    boundary: str = (
+        "Support case incident closure packet zip bundles are read-only metadata transfer files; "
+        "they exclude raw API keys, raw debug bundles, private account payloads, nested zip bytes, "
+        "and executable content."
+    )
+
+
+class SupportCaseIncidentClosurePacketZipVerification(BaseModel):
+    schema_version: str = "gw2radar.support_case_incident_closure_packet_zip_verification.v1"
+    ready: bool
+    verified_at: datetime
+    checksum_sha256: str
+    size_bytes: int
+    file_count: int
+    verified_files: list[str] = Field(default_factory=list)
+    blockers: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    boundary: str = (
+        "Support case incident closure packet zip verification reads bytes only; it does not execute, "
+        "publish, or store uploaded content."
+    )
+
+
+class SupportCaseIncidentClosurePacketZipVerificationAuditRequest(BaseModel):
+    reviewer: str = "support"
+    notes: list[str] = Field(default_factory=list)
+    expected_checksum_sha256: str | None = None
+
+
+class SupportCaseIncidentClosurePacketZipVerificationAuditRecord(BaseModel):
+    schema_version: str = "gw2radar.support_case_incident_closure_packet_zip_verification_audit.v1"
+    audit_id: str
+    recorded_at: datetime
+    reviewer: str
+    ready: bool
+    checksum_sha256: str
+    size_bytes: int
+    file_count: int
+    blocker_count: int
+    warning_count: int
+    verified_files: list[str] = Field(default_factory=list)
+    blockers: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+    source: str = "support_case_incident_closure_packet_zip_verification"
+    boundary: str = (
+        "Support case incident closure packet zip verification audit is metadata-only; it records "
+        "checksum, file names, blockers, warnings, and reviewer notes without storing zip bytes, "
+        "raw API keys, raw debug bundles, or private account payloads."
+    )
+
+
+class SupportCaseIncidentClosurePacketZipVerificationAuditList(BaseModel):
+    schema_version: str = "gw2radar.support_case_incident_closure_packet_zip_verification_audit_list.v1"
+    records: list[SupportCaseIncidentClosurePacketZipVerificationAuditRecord]
+    boundary: str = (
+        "Support case incident closure packet zip verification audit exports are metadata-only and "
+        "exclude zip content, raw API keys, raw debug bundles, and private account payloads."
+    )
+
+
 def build_support_case_incident_dashboard(
     *,
     gateway_history: GatewayIncidentHistory,
@@ -2557,6 +2629,240 @@ def resolve_support_case_incident_closure_packet_path(
     if not candidate.exists() or not candidate.is_file():
         return None
     return candidate
+
+
+def build_support_case_incident_closure_packet_zip_bundle(
+    *,
+    artifact_root: Path | None = None,
+) -> tuple[SupportCaseIncidentClosurePacketZipManifest, bytes]:
+    packets = list_support_case_incident_closure_packets(artifact_root=artifact_root, limit=1)
+    if not packets:
+        raise ValueError("No support case incident closure packet artifacts are available to bundle.")
+    packet = packets[0]
+    source_files: list[tuple[str, Path, str]] = []
+    for file in packet.files:
+        path = resolve_support_case_incident_closure_packet_path(
+            packet.packet_id,
+            file.file_name,
+            artifact_root=artifact_root,
+        )
+        if path is not None:
+            source_files.append((file.file_name, path, file.media_type))
+    included_files: list[SupportCaseIncidentPacketFile] = []
+    buffer = BytesIO()
+    with ZipFile(buffer, mode="w", compression=ZIP_DEFLATED) as archive:
+        for file_name, path, media_type in sorted(source_files, key=lambda item: item[0]):
+            if file_name not in SUPPORT_CASE_INCIDENT_CLOSURE_PACKET_FILES:
+                continue
+            content = path.read_bytes()
+            archive_path = f"support_case_incident_closure_packet/{file_name}"
+            info = ZipInfo(archive_path, date_time=(1980, 1, 1, 0, 0, 0))
+            info.compress_type = ZIP_DEFLATED
+            info.external_attr = 0o644 << 16
+            archive.writestr(info, content)
+            included_files.append(
+                SupportCaseIncidentPacketFile(
+                    file_name=file_name,
+                    relative_path=archive_path,
+                    media_type=media_type,
+                    size_bytes=len(content),
+                    checksum_sha256=hashlib.sha256(content).hexdigest(),
+                )
+            )
+    bundle_bytes = buffer.getvalue()
+    checksum = hashlib.sha256(bundle_bytes).hexdigest()
+    return (
+        SupportCaseIncidentClosurePacketZipManifest(
+            bundle_id=f"support-case-incident-closure-packet-zip:{checksum[:16]}",
+            source_packet_id=packet.packet_id,
+            generated_at=datetime.now(timezone.utc),
+            filename=f"{packet.packet_id}_closure_packet.zip",
+            file_count=len(included_files),
+            included_files=included_files,
+            checksum_sha256=checksum,
+            size_bytes=len(bundle_bytes),
+        ),
+        bundle_bytes,
+    )
+
+
+def verify_support_case_incident_closure_packet_zip_bundle(
+    bundle_bytes: bytes,
+    *,
+    expected_checksum_sha256: str | None = None,
+) -> SupportCaseIncidentClosurePacketZipVerification:
+    checksum = hashlib.sha256(bundle_bytes).hexdigest()
+    blockers: list[str] = []
+    warnings: list[str] = []
+    allowed_names = {
+        f"support_case_incident_closure_packet/{file_name}"
+        for file_name in SUPPORT_CASE_INCIDENT_CLOSURE_PACKET_FILES
+    }
+    verified_files: list[str] = []
+    if expected_checksum_sha256 and expected_checksum_sha256 != checksum:
+        blockers.append("support case incident closure packet checksum does not match the expected SHA-256 value")
+    try:
+        with ZipFile(BytesIO(bundle_bytes), mode="r") as archive:
+            names = sorted(archive.namelist())
+            verified_files = names
+            for name in names:
+                path = Path(name)
+                if path.is_absolute() or ".." in path.parts:
+                    blockers.append(f"support case incident closure packet contains unsafe path: {name}")
+            extra_names = sorted(set(names) - allowed_names)
+            missing_names = sorted(allowed_names - set(names))
+            if extra_names:
+                blockers.append(
+                    "support case incident closure packet contains non-whitelisted files: "
+                    + ", ".join(extra_names)
+                )
+            if missing_names:
+                blockers.append(
+                    "support case incident closure packet is missing required files: "
+                    + ", ".join(missing_names)
+                )
+            for name in names:
+                lowered = archive.read(name).lower()
+                if b"secret-key" in lowered:
+                    blockers.append(f"support case incident closure packet file contains prohibited secret marker: {name}")
+                if name.endswith(".zip"):
+                    blockers.append(f"support case incident closure packet contains nested zip content: {name}")
+    except Exception as exc:
+        blockers.append(f"support case incident closure packet zip could not be read: {exc}")
+    if len(bundle_bytes) > 5_000_000:
+        warnings.append("support case incident closure packet zip is larger than the MVP verification target of 5 MB")
+    return SupportCaseIncidentClosurePacketZipVerification(
+        ready=not blockers,
+        verified_at=datetime.now(timezone.utc),
+        checksum_sha256=checksum,
+        size_bytes=len(bundle_bytes),
+        file_count=len(verified_files),
+        verified_files=verified_files,
+        blockers=blockers,
+        warnings=warnings,
+    )
+
+
+def record_support_case_incident_closure_packet_zip_verification_audit(
+    request: SupportCaseIncidentClosurePacketZipVerificationAuditRequest,
+    *,
+    bundle_bytes: bytes | None = None,
+    artifact_root: Path | None = None,
+    audit_root: Path | None = None,
+) -> SupportCaseIncidentClosurePacketZipVerificationAuditRecord:
+    expected_checksum = request.expected_checksum_sha256
+    if bundle_bytes is None or len(bundle_bytes) == 0:
+        manifest, bundle_bytes = build_support_case_incident_closure_packet_zip_bundle(
+            artifact_root=artifact_root
+        )
+        expected_checksum = expected_checksum or manifest.checksum_sha256
+    verification = verify_support_case_incident_closure_packet_zip_bundle(
+        bundle_bytes,
+        expected_checksum_sha256=expected_checksum,
+    )
+    recorded_at = datetime.now(timezone.utc)
+    record = SupportCaseIncidentClosurePacketZipVerificationAuditRecord(
+        audit_id=f"support-case-incident-closure-packet-zip-audit-{recorded_at.strftime('%Y%m%dT%H%M%S%fZ')}-{uuid4().hex[:8]}",
+        recorded_at=recorded_at,
+        reviewer=_safe_text(request.reviewer or "support", max_length=80),
+        ready=verification.ready,
+        checksum_sha256=verification.checksum_sha256,
+        size_bytes=verification.size_bytes,
+        file_count=verification.file_count,
+        blocker_count=len(verification.blockers),
+        warning_count=len(verification.warnings),
+        verified_files=verification.verified_files,
+        blockers=verification.blockers,
+        warnings=verification.warnings,
+        notes=[_safe_text(note, max_length=240) for note in (request.notes or [])]
+        or ["Support case incident closure packet zip verification audit recorded."],
+    )
+    root = audit_root or SUPPORT_CASE_INCIDENT_PACKET_AUDIT_ROOT
+    root.mkdir(parents=True, exist_ok=True)
+    with (root / "closure_packet_zip_verification_audit.jsonl").open("a", encoding="utf-8") as handle:
+        handle.write(record.model_dump_json() + "\n")
+    return record
+
+
+def list_support_case_incident_closure_packet_zip_verification_audits(
+    *,
+    audit_root: Path | None = None,
+    reviewer: str | None = None,
+    limit: int = 20,
+) -> SupportCaseIncidentClosurePacketZipVerificationAuditList:
+    root = audit_root or SUPPORT_CASE_INCIDENT_PACKET_AUDIT_ROOT
+    path = root / "closure_packet_zip_verification_audit.jsonl"
+    if not path.exists():
+        return SupportCaseIncidentClosurePacketZipVerificationAuditList(records=[])
+    safe_reviewer = _safe_text(reviewer, max_length=80) if reviewer else None
+    records: list[SupportCaseIncidentClosurePacketZipVerificationAuditRecord] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        try:
+            record = SupportCaseIncidentClosurePacketZipVerificationAuditRecord.model_validate_json(line)
+        except ValueError:
+            continue
+        if safe_reviewer and record.reviewer != safe_reviewer:
+            continue
+        records.append(record)
+    records.sort(key=lambda item: item.recorded_at, reverse=True)
+    return SupportCaseIncidentClosurePacketZipVerificationAuditList(
+        records=records[: max(1, min(limit, 100))]
+    )
+
+
+def render_support_case_incident_closure_packet_zip_verification_audit_markdown(
+    audit: SupportCaseIncidentClosurePacketZipVerificationAuditList,
+) -> str:
+    lines = [
+        "# Support Case Incident Closure Packet Zip Verification Audit",
+        "",
+        f"- Records: {len(audit.records)}",
+        "",
+        "## Records",
+    ]
+    if not audit.records:
+        lines.append("- No verification audit records are available.")
+    for record in audit.records:
+        lines.extend(
+            [
+                f"- {record.audit_id}",
+                f"  - Reviewer: {record.reviewer}",
+                f"  - Ready: {record.ready}",
+                f"  - Checksum: {record.checksum_sha256}",
+                f"  - Files: {record.file_count}",
+                f"  - Blockers: {record.blocker_count}",
+                f"  - Warnings: {record.warning_count}",
+            ]
+        )
+    lines.extend(["", "## Boundary", "", f"- {audit.boundary}"])
+    return "\n".join(lines) + "\n"
+
+
+def render_support_case_incident_closure_packet_zip_verification_audit_csv(
+    audit: SupportCaseIncidentClosurePacketZipVerificationAuditList,
+) -> str:
+    rows = [
+        "audit_id,recorded_at,reviewer,ready,checksum_sha256,size_bytes,file_count,blocker_count,warning_count"
+    ]
+    for record in audit.records:
+        rows.append(
+            ",".join(
+                [
+                    _csv(record.audit_id),
+                    _csv(record.recorded_at.isoformat()),
+                    _csv(record.reviewer),
+                    _csv(str(record.ready)),
+                    _csv(record.checksum_sha256),
+                    _csv(str(record.size_bytes)),
+                    _csv(str(record.file_count)),
+                    _csv(str(record.blocker_count)),
+                    _csv(str(record.warning_count)),
+                ]
+            )
+        )
+    return "\n".join(rows) + "\n"
 
 
 def _render_operator_dashboard_summary_markdown(packet: SupportCaseIncidentOperatorPacket) -> str:

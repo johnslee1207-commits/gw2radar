@@ -59,6 +59,11 @@ const exportIncidentClosureDashboardMdButton = document.querySelector("#export-i
 const exportIncidentClosureDashboardCsvButton = document.querySelector("#export-incident-closure-dashboard-csv-button");
 const writeIncidentClosurePacketButton = document.querySelector("#write-incident-closure-packet-button");
 const loadIncidentClosurePacketsButton = document.querySelector("#load-incident-closure-packets-button");
+const loadIncidentClosurePacketZipButton = document.querySelector("#load-incident-closure-packet-zip-button");
+const verifyIncidentClosurePacketZipButton = document.querySelector("#verify-incident-closure-packet-zip-button");
+const recordIncidentClosurePacketZipAuditButton = document.querySelector("#record-incident-closure-packet-zip-audit-button");
+const loadIncidentClosurePacketZipAuditButton = document.querySelector("#load-incident-closure-packet-zip-audit-button");
+const exportIncidentClosurePacketZipAuditCsvButton = document.querySelector("#export-incident-closure-packet-zip-audit-csv-button");
 const exportIncidentDashboardMdButton = document.querySelector("#export-incident-dashboard-md-button");
 const exportIncidentDashboardCsvButton = document.querySelector("#export-incident-dashboard-csv-button");
 const summary = document.querySelector("#support-summary");
@@ -105,6 +110,8 @@ const incidentFinalHandoffPacketZipSummary = document.querySelector("#incident-f
 const incidentFinalHandoffPacketZipAuditSummary = document.querySelector("#incident-final-handoff-packet-zip-audit-summary");
 const incidentClosureDashboardSummary = document.querySelector("#incident-closure-dashboard-summary");
 const incidentClosurePacketSummary = document.querySelector("#incident-closure-packet-summary");
+const incidentClosurePacketZipSummary = document.querySelector("#incident-closure-packet-zip-summary");
+const incidentClosurePacketZipAuditSummary = document.querySelector("#incident-closure-packet-zip-audit-summary");
 const incidentPacketList = document.querySelector("#incident-packet-list");
 const incidentOperatorPacketList = document.querySelector("#incident-operator-packet-list");
 const incidentFinalHandoffPacketList = document.querySelector("#incident-final-handoff-packet-list");
@@ -608,6 +615,51 @@ async function loadSupportCaseIncidentClosurePackets() {
   const response = await fetch("/api/v1/player/support-case/incident-closure-packet/artifacts?limit=10");
   const payload = await response.json();
   renderSupportCaseIncidentClosurePackets(payload.data?.support_case_incident_closure_packets || []);
+}
+
+async function loadSupportCaseIncidentClosurePacketZipManifest() {
+  const response = await fetch("/api/v1/player/support-case/incident-closure-packet/artifacts/bundle?format=manifest");
+  const payload = await response.json();
+  const manifest = payload.data?.support_case_incident_closure_packet_zip_bundle || {};
+  incidentClosurePacketZipSummary.textContent = `${manifest.file_count || 0} closure zip files · checksum ${manifest.checksum_sha256 || "none"}.`;
+  output.textContent = JSON.stringify(payload, null, 2);
+}
+
+async function verifySupportCaseIncidentClosurePacketZip() {
+  const response = await fetch("/api/v1/player/support-case/incident-closure-packet/artifacts/bundle/verify", { method: "POST" });
+  const payload = await response.json();
+  const verification = payload.data?.support_case_incident_closure_packet_zip_verification || {};
+  incidentClosurePacketZipSummary.textContent = `Closure zip verification ${verification.ready ? "ready" : "blocked"} · ${verification.file_count || 0} files · checksum ${verification.checksum_sha256 || "none"}.`;
+  output.textContent = JSON.stringify(payload, null, 2);
+}
+
+async function recordSupportCaseIncidentClosurePacketZipAudit() {
+  const response = await fetch("/api/v1/player/support-case/incident-closure-packet/artifacts/bundle/verification-audit", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      reviewer: reviewerName?.value || "support",
+      notes: ["Operator recorded support case incident closure packet zip verification."],
+    }),
+  });
+  const payload = await response.json();
+  const record = payload.data?.support_case_incident_closure_packet_zip_verification_audit_record || {};
+  incidentClosurePacketZipAuditSummary.textContent = `Closure zip audit ${record.ready ? "ready" : "blocked"} · reviewer ${record.reviewer || "support"} · blockers ${record.blocker_count || 0}.`;
+  output.textContent = JSON.stringify(payload, null, 2);
+}
+
+async function loadSupportCaseIncidentClosurePacketZipAudit() {
+  const reviewer = reviewerName?.value ? `&reviewer=${encodeURIComponent(reviewerName.value)}` : "";
+  const response = await fetch(`/api/v1/player/support-case/incident-closure-packet/artifacts/bundle/verification-audit?limit=10${reviewer}`);
+  const payload = await response.json();
+  const records = payload.data?.support_case_incident_closure_packet_zip_verification_audit?.records || [];
+  incidentClosurePacketZipAuditSummary.textContent = `${records.length} closure zip verification audit records loaded.`;
+  output.textContent = JSON.stringify(payload, null, 2);
+}
+
+function exportSupportCaseIncidentClosurePacketZipAuditCsv() {
+  const reviewer = reviewerName?.value ? `&reviewer=${encodeURIComponent(reviewerName.value)}` : "";
+  window.location.href = `/api/v1/player/support-case/incident-closure-packet/artifacts/bundle/verification-audit?format=csv${reviewer}`;
 }
 
 function renderSupportCaseIncidentDashboard(dashboard) {
@@ -1186,6 +1238,16 @@ exportIncidentClosureDashboardCsvButton?.addEventListener("click", () => exportS
 writeIncidentClosurePacketButton?.addEventListener("click", writeSupportCaseIncidentClosurePacket);
 
 loadIncidentClosurePacketsButton?.addEventListener("click", loadSupportCaseIncidentClosurePackets);
+
+loadIncidentClosurePacketZipButton?.addEventListener("click", loadSupportCaseIncidentClosurePacketZipManifest);
+
+verifyIncidentClosurePacketZipButton?.addEventListener("click", verifySupportCaseIncidentClosurePacketZip);
+
+recordIncidentClosurePacketZipAuditButton?.addEventListener("click", recordSupportCaseIncidentClosurePacketZipAudit);
+
+loadIncidentClosurePacketZipAuditButton?.addEventListener("click", loadSupportCaseIncidentClosurePacketZipAudit);
+
+exportIncidentClosurePacketZipAuditCsvButton?.addEventListener("click", exportSupportCaseIncidentClosurePacketZipAuditCsv);
 
 exportIncidentDashboardMdButton?.addEventListener("click", () => exportSupportCaseIncidentDashboard("markdown"));
 
