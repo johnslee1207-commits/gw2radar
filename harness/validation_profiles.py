@@ -78,6 +78,11 @@ VALIDATION_PROFILES: dict[str, ValidationProfile] = {
                 "Operator release packet readiness freshness check.",
                 (PYTHON, "harness\\run_operator_release_packet.py", "--check"),
             ),
+            ValidationStep(
+                "final_closeout_dashboard",
+                "Final closeout dashboard freshness check.",
+                (PYTHON, "harness\\run_final_closeout_dashboard.py", "--check"),
+            ),
         ),
     ),
     "smoke": ValidationProfile(

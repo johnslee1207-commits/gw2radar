@@ -34,7 +34,7 @@ python harness/run_validation_profile.py full
   player use-path semantic maturity audit, spec registry freshness, and partial
   spec reconciliation freshness, MVP closure readiness, post-MVP roadmap
   freshness, operational hardening readiness freshness, and operator release
-  packet readiness freshness.
+  packet readiness freshness, and final closeout dashboard freshness.
 - `smoke`: MVP smoke, player UI E2E smoke, and account connection diagnostic.
 - `full`: complete `pytest` regression.
 
@@ -287,6 +287,20 @@ This harness writes `docs/analysis/OPERATOR_RELEASE_PACKET_READINESS.md` and
 operator handoff packet can be built from metadata-only release evidence and
 that required validation commands, deferred tracks, packet file names, and
 safety boundaries are visible before any external handoff.
+
+## Final Closeout Dashboard Command
+
+```bash
+python harness/run_final_closeout_dashboard.py
+python harness/run_final_closeout_dashboard.py --check
+```
+
+This harness writes `docs/analysis/FINAL_CLOSEOUT_DASHBOARD.md` and
+`docs/analysis/FINAL_CLOSEOUT_DASHBOARD.json`. It aggregates MVP closure,
+post-MVP phase completion, operational readiness, operator release packet
+readiness, trial entrypoints, defect intake channels, deferred tracks, and a
+stop-line review that shifts future work away from broad phase expansion and
+toward real user trial plus targeted defect fixes.
 
 ## Account Debug Bundle Review Command
 

@@ -1,6 +1,6 @@
 {
   "maturity_counts": {
-    "implemented": 51,
+    "implemented": 52,
     "partial": 13
   },
   "next_tranche": [
@@ -525,6 +525,45 @@
       "source_path": "docs/analysis/CODE_SPECTRUM_AND_SEMANTIC_GRAPH.md",
       "spec_id": "code_spectrum_and_semantic_graph",
       "title": "GW2Radar Code Spectrum and Semantic Graph Analysis"
+    },
+    {
+      "category": "analysis",
+      "domains": [
+        "account",
+        "delivery",
+        "guild",
+        "kb",
+        "player_ui",
+        "support"
+      ],
+      "evidence": [
+        "12 related tests",
+        "manual review gate referenced",
+        "privacy/safety boundary referenced",
+        "domain:account",
+        "domain:delivery",
+        "domain:guild"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "cross-cutting",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_source_attribution.py",
+        "tests/test_delivery_lifecycle.py"
+      ],
+      "source_path": "docs/analysis/FINAL_CLOSEOUT_DASHBOARD.md",
+      "spec_id": "final_closeout_dashboard",
+      "title": "Final Closeout Dashboard"
     },
     {
       "category": "analysis",
@@ -2802,5 +2841,5 @@
     }
   ],
   "schema_version": "gw2radar.spec_registry_backlog.v1",
-  "spec_count": 64
+  "spec_count": 65
 }

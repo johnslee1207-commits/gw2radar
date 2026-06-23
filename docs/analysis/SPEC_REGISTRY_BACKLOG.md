@@ -1,13 +1,13 @@
 # Spec Registry And Backlog Index
 
 - Schema: gw2radar.spec_registry_backlog.v1
-- Spec count: 64
+- Spec count: 65
 - Player use-path checks: 46
 - Failed player use-path checks: 0
 
 ## Maturity Counts
 
-- implemented: 51
+- implemented: 52
 - partial: 13
 
 ## Next Stage Tranche
@@ -32,6 +32,7 @@
 | [Account Value, Build Fit, And Market Semantic Maturity Audit](docs/analysis/ACCOUNT_VALUE_BUILD_MARKET_SEMANTIC_MATURITY_AUDIT.md) | analysis | implemented | 12 related tests, maturity/audit language present, privacy/safety boundary referenced, domain:account, domain:api_gateway, domain:build_fit | 12 |
 | [All-Stage Code Graph, Semantic Graph, and Maturity Audit](docs/analysis/ALL_STAGE_CODE_SEMANTIC_MATURITY_AUDIT.md) | analysis | implemented | 12 related tests, maturity/audit language present, manual review gate referenced, privacy/safety boundary referenced, domain:account, domain:api_gateway | 12 |
 | [GW2Radar Code Spectrum and Semantic Graph Analysis](docs/analysis/CODE_SPECTRUM_AND_SEMANTIC_GRAPH.md) | analysis | implemented | 12 related tests, maturity/audit language present, manual review gate referenced, privacy/safety boundary referenced, domain:account, domain:api_gateway | 12 |
+| [Final Closeout Dashboard](docs/analysis/FINAL_CLOSEOUT_DASHBOARD.md) | analysis | implemented | 12 related tests, manual review gate referenced, privacy/safety boundary referenced, domain:account, domain:delivery, domain:guild | 12 |
 | [GW2Radar Final Project Acceptance And Graph Audit](docs/analysis/FINAL_PROJECT_ACCEPTANCE_AND_GRAPH_AUDIT.md) | analysis | implemented | 12 related tests, maturity/audit language present, manual review gate referenced, domain:account, domain:api_gateway, domain:commercial | 12 |
 | [GitNexus MVP Maturity Analysis](docs/analysis/GITNEXUS_MVP_MATURITY_ANALYSIS.md) | analysis | implemented | 12 related tests, maturity/audit language present, privacy/safety boundary referenced, domain:account, domain:api_gateway, domain:build_fit | 12 |
 | [GW2 Progression API Key Value And Visualization Borrowing Plan](docs/analysis/GW2_PROGRESSION_API_KEY_VALUE_VISUALIZATION_BORROWING_PLAN.md) | analysis | implemented | 12 related tests, maturity/audit language present, manual review gate referenced, privacy/safety boundary referenced, domain:account, domain:api_gateway | 12 |

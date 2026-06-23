@@ -19,6 +19,14 @@ from gw2radar.ops.operator_release_packet import (
     verify_operator_release_packet_bundle,
     write_operator_release_packet_artifacts,
 )
+from gw2radar.ops.final_closeout import (
+    build_final_closeout_dashboard,
+    build_stop_line_review,
+    render_final_closeout_dashboard_csv,
+    render_final_closeout_dashboard_markdown,
+    render_stop_line_review_csv,
+    render_stop_line_review_markdown,
+)
 
 router = APIRouter(prefix="/api/v1/ops", tags=["ops"])
 
@@ -124,3 +132,39 @@ def post_operator_release_packet_bundle_verify() -> ApiDataEnvelope:
         expected_checksum_sha256=manifest.checksum_sha256,
     )
     return ApiDataEnvelope(data={"operator_release_packet_bundle_verification": verification.model_dump(mode="json")})
+
+
+@router.get("/final-closeout-dashboard", response_model=None)
+def get_final_closeout_dashboard(
+    format: str = Query(default="json", pattern="^(json|markdown|csv)$"),
+):
+    dashboard = build_final_closeout_dashboard()
+    if format == "markdown":
+        return Response(
+            content=render_final_closeout_dashboard_markdown(dashboard),
+            media_type="text/markdown; charset=utf-8",
+        )
+    if format == "csv":
+        return Response(
+            content=render_final_closeout_dashboard_csv(dashboard),
+            media_type="text/csv; charset=utf-8",
+        )
+    return ApiDataEnvelope(data={"final_closeout_dashboard": dashboard.model_dump(mode="json")})
+
+
+@router.get("/stop-line-review", response_model=None)
+def get_stop_line_review(
+    format: str = Query(default="json", pattern="^(json|markdown|csv)$"),
+):
+    review = build_stop_line_review()
+    if format == "markdown":
+        return Response(
+            content=render_stop_line_review_markdown(review),
+            media_type="text/markdown; charset=utf-8",
+        )
+    if format == "csv":
+        return Response(
+            content=render_stop_line_review_csv(review),
+            media_type="text/csv; charset=utf-8",
+        )
+    return ApiDataEnvelope(data={"stop_line_review": review.model_dump(mode="json")})
