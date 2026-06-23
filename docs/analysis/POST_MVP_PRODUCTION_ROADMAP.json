@@ -1,8 +1,8 @@
 {
   "blocking_current_mvp": false,
   "current_mvp_status": "ready_to_close_mvp_stage",
-  "decision": "Phase A Trust & Credential MVP is implemented. Start Phase B Report Product Close Loop next; keep production SaaS, real billing, team workspace, and autonomous agents as later explicit stages.",
-  "next_phase": "phase_b_report_product_close_loop",
+  "decision": "Phase A Trust & Credential MVP and Phase B Report Product Close Loop are implemented. Start Phase C Progression Decision Engine v1 next; keep production SaaS, real billing, team workspace, and autonomous agents as later explicit stages.",
+  "next_phase": "phase_c_progression_decision_engine_v1",
   "phase_count": 6,
   "phases": [
     {
@@ -40,6 +40,9 @@
         "real payment provider",
         "email delivery provider"
       ],
+      "evidence_tests": [
+        "tests/test_report_close_loop.py"
+      ],
       "phase_id": "phase_b_report_product_close_loop",
       "priority": 2,
       "scope": [
@@ -48,7 +51,7 @@
         "mock license and entitlement lifecycle",
         "delivery artifacts through shared lifecycle"
       ],
-      "status": "next_recommended",
+      "status": "implemented_mvp",
       "title": "Phase B Report Product Close Loop"
     },
     {
@@ -70,7 +73,7 @@
         "Top-K recommendation API",
         "KB-backed recommendation explanation"
       ],
-      "status": "recommended_after_phase_b",
+      "status": "next_recommended",
       "title": "Phase C Progression Decision Engine v1"
     },
     {

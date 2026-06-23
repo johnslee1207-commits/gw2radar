@@ -12,6 +12,14 @@ from gw2radar.commercial.report_engine import (
     list_report_products,
     resolve_artifact_path,
 )
+from gw2radar.commercial.report_close_loop import (
+    build_report_close_loop_preview,
+    build_report_close_loop_readiness,
+    build_report_close_loop_workflow,
+    build_report_product_contracts,
+    generate_report_close_loop_full,
+    grant_mock_report_license,
+)
 from gw2radar.commercial.report_productization import (
     ProductizedReportPacketZipVerificationAuditRequest,
     build_productized_report_delivery_checklist,
@@ -61,6 +69,30 @@ class ProductizedReportGenerateRequest(BaseModel):
     account_gear: AccountGearSnapshot | None = None
 
 
+class ReportCloseLoopProductRequest(BaseModel):
+    product_id: str
+    goal_id: str = "gw2:goal:aurora"
+
+
+class ReportCloseLoopLicenseRequest(BaseModel):
+    product_id: str
+
+
+class ReportCloseLoopGenerateRequest(BaseModel):
+    product_id: str
+    goal_id: str = "gw2:goal:aurora"
+    format: ReportExportFormat = ReportExportFormat.MARKDOWN
+    knowledge_backed: bool = False
+
+
+class ReportCloseLoopWorkflowRequest(BaseModel):
+    product_id: str
+    goal_id: str = "gw2:goal:aurora"
+    format: ReportExportFormat = ReportExportFormat.MARKDOWN
+    grant_mock_license: bool = False
+    include_preview: bool = True
+
+
 @router.get("/reports/{goal_id}/markdown")
 def get_markdown_report(goal_id: str) -> Response:
     graph = get_graph()
@@ -106,6 +138,113 @@ def get_report_products() -> ApiDataEnvelope:
     with db_session.SessionLocal() as session:
         products = [product.model_dump(mode="json") for product in list_report_products(session)]
     return ApiDataEnvelope(data={"products": products})
+
+
+@router.get("/api/v1/reports/close-loop/catalog", response_model=ApiDataEnvelope)
+def get_report_close_loop_catalog() -> ApiDataEnvelope:
+    init_db()
+    with db_session.SessionLocal() as session:
+        contracts = [contract.model_dump(mode="json") for contract in build_report_product_contracts(session, LOCAL_USER_ID)]
+        readiness = build_report_close_loop_readiness(session, LOCAL_USER_ID)
+    return ApiDataEnvelope(
+        data={
+            "schema_version": "gw2radar.report_close_loop_catalog.v1",
+            "contracts": contracts,
+            "readiness": readiness.model_dump(mode="json"),
+        }
+    )
+
+
+@router.post("/api/v1/reports/close-loop/preview", response_model=ApiDataEnvelope)
+def post_report_close_loop_preview(request: ReportCloseLoopProductRequest) -> ApiDataEnvelope:
+    graph = get_graph()
+    if request.goal_id not in graph.entities:
+        raise HTTPException(status_code=404, detail="Goal not found")
+    init_db()
+    with db_session.SessionLocal() as session:
+        try:
+            preview = build_report_close_loop_preview(
+                session,
+                graph,
+                user_id=LOCAL_USER_ID,
+                product_id=request.product_id,
+                goal_id=request.goal_id,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return ApiDataEnvelope(data={"report_close_loop_preview": preview})
+
+
+@router.post("/api/v1/reports/close-loop/mock-license", response_model=ApiDataEnvelope)
+def post_report_close_loop_mock_license(request: ReportCloseLoopLicenseRequest) -> ApiDataEnvelope:
+    init_db()
+    with db_session.SessionLocal() as session:
+        try:
+            grant = grant_mock_report_license(session, user_id=LOCAL_USER_ID, product_id=request.product_id)
+            readiness = build_report_close_loop_readiness(session, LOCAL_USER_ID)
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return ApiDataEnvelope(
+        data={
+            "mock_license_grant": grant.model_dump(mode="json"),
+            "readiness": readiness.model_dump(mode="json"),
+        }
+    )
+
+
+@router.post("/api/v1/reports/close-loop/generate", response_model=ApiDataEnvelope)
+def post_report_close_loop_generate(request: ReportCloseLoopGenerateRequest) -> ApiDataEnvelope:
+    graph = get_graph()
+    if request.goal_id not in graph.entities:
+        raise HTTPException(status_code=404, detail="Goal not found")
+    init_db()
+    with db_session.SessionLocal() as session:
+        try:
+            generation = generate_report_close_loop_full(
+                session,
+                graph,
+                user_id=LOCAL_USER_ID,
+                product_id=request.product_id,
+                goal_id=request.goal_id,
+                export_format=request.format,
+                knowledge_backed=request.knowledge_backed,
+            )
+            readiness = build_report_close_loop_readiness(session, LOCAL_USER_ID)
+        except PermissionError as exc:
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return ApiDataEnvelope(
+        data={
+            "report_close_loop_generation": generation,
+            "readiness": readiness.model_dump(mode="json"),
+        }
+    )
+
+
+@router.post("/api/v1/reports/close-loop/workflow", response_model=ApiDataEnvelope)
+def post_report_close_loop_workflow(request: ReportCloseLoopWorkflowRequest) -> ApiDataEnvelope:
+    graph = get_graph()
+    if request.goal_id not in graph.entities:
+        raise HTTPException(status_code=404, detail="Goal not found")
+    init_db()
+    with db_session.SessionLocal() as session:
+        try:
+            workflow = build_report_close_loop_workflow(
+                session,
+                graph,
+                user_id=LOCAL_USER_ID,
+                product_id=request.product_id,
+                goal_id=request.goal_id,
+                export_format=request.format,
+                grant_mock_license=request.grant_mock_license,
+                include_preview=request.include_preview,
+            )
+        except PermissionError as exc:
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return ApiDataEnvelope(data={"report_close_loop_workflow": workflow})
 
 
 @router.get("/api/v1/reports/productized/templates", response_model=ApiDataEnvelope)

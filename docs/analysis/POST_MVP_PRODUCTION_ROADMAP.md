@@ -4,11 +4,11 @@
 - Current MVP status: ready_to_close_mvp_stage
 - Blocking current MVP: false
 - Phase count: 6
-- Next phase: phase_b_report_product_close_loop
+- Next phase: phase_c_progression_decision_engine_v1
 
 ## Decision
 
-Phase A Trust & Credential MVP is implemented. Start Phase B Report Product Close Loop next; keep production SaaS, real billing, team workspace, and autonomous agents as later explicit stages.
+Phase A Trust & Credential MVP and Phase B Report Product Close Loop are implemented. Start Phase C Progression Decision Engine v1 next; keep production SaaS, real billing, team workspace, and autonomous agents as later explicit stages.
 
 ## Source Documents
 
@@ -21,8 +21,8 @@ Phase A Trust & Credential MVP is implemented. Start Phase B Report Product Clos
 | Priority | Phase | Status | Scope | Deferred |
 | --- | --- | --- | --- | --- |
 | 1 | Phase A Trust & Credential MVP | implemented_mvp | session-only BYOK mode, credential mode model, permission explanation UI/API, credential usage audit summary, revoke/delete/rotate UX | team workspace credential sharing, KMS production vault |
-| 2 | Phase B Report Product Close Loop | next_recommended | clear report product contracts, preview vs full report boundary, mock license and entitlement lifecycle, delivery artifacts through shared lifecycle | real payment provider, email delivery provider |
-| 3 | Phase C Progression Decision Engine v1 | recommended_after_phase_b | manual action model, scoring model, Top-K recommendation API, KB-backed recommendation explanation | automatic trading, automatic gameplay execution, profit guarantees |
+| 2 | Phase B Report Product Close Loop | implemented_mvp | clear report product contracts, preview vs full report boundary, mock license and entitlement lifecycle, delivery artifacts through shared lifecycle | real payment provider, email delivery provider |
+| 3 | Phase C Progression Decision Engine v1 | next_recommended | manual action model, scoring model, Top-K recommendation API, KB-backed recommendation explanation | automatic trading, automatic gameplay execution, profit guarantees |
 | 4 | Phase D 7-Day Planning / DAG | post_phase_c | goal interpreter, action dependency graph, 7-day plan generator, plan export Markdown/CSV/JSON | real-time autonomous replanning |
 | 5 | Phase E Production SaaS Foundation | large_separate_stage | auth/session model, workspace model, PostgreSQL migration plan, Redis/cache/queue plan, object storage abstraction, billing guard abstraction | full multi-tenant SaaS launch, real payment integration |
 | 6 | Phase F Growth / Retention | after_saas_foundation | weekly report job, report history, safe share preview, mock email delivery abstraction, subscription retention UX | public sharing of private account payloads, real email provider lock-in |

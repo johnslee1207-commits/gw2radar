@@ -40,7 +40,7 @@ PHASES = [
         "phase_id": "phase_b_report_product_close_loop",
         "title": "Phase B Report Product Close Loop",
         "priority": 2,
-        "status": "next_recommended",
+        "status": "implemented_mvp",
         "scope": [
             "clear report product contracts",
             "preview vs full report boundary",
@@ -53,12 +53,13 @@ PHASES = [
             "deterministic report artifacts",
             "no unsupported claims or guaranteed outcomes",
         ],
+        "evidence_tests": ["tests/test_report_close_loop.py"],
     },
     {
         "phase_id": "phase_c_progression_decision_engine_v1",
         "title": "Phase C Progression Decision Engine v1",
         "priority": 3,
-        "status": "recommended_after_phase_b",
+        "status": "next_recommended",
         "scope": [
             "manual action model",
             "scoring model",
@@ -171,9 +172,9 @@ def build_roadmap() -> dict[str, object]:
         ],
         "source_coverage": source_coverage,
         "phase_count": len(PHASES),
-        "next_phase": "phase_b_report_product_close_loop",
+        "next_phase": "phase_c_progression_decision_engine_v1",
         "phases": PHASES,
-        "decision": "Phase A Trust & Credential MVP is implemented. Start Phase B Report Product Close Loop next; keep production SaaS, real billing, team workspace, and autonomous agents as later explicit stages.",
+        "decision": "Phase A Trust & Credential MVP and Phase B Report Product Close Loop are implemented. Start Phase C Progression Decision Engine v1 next; keep production SaaS, real billing, team workspace, and autonomous agents as later explicit stages.",
     }
 
 
