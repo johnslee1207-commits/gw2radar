@@ -13,6 +13,10 @@ MVP_DIR = ROOT / "docs" / "mvp"
 UI_AUDIT = ROOT / "docs" / "ui" / "PLAYER_USE_PATH_COMPLETENESS_AUDIT.md"
 OUTPUT_JSON = ROOT / "docs" / "analysis" / "SPEC_REGISTRY_BACKLOG.json"
 OUTPUT_MD = ROOT / "docs" / "analysis" / "SPEC_REGISTRY_BACKLOG.md"
+GENERATED_SPEC_OUTPUTS = {
+    "SPEC_REGISTRY_BACKLOG.md",
+    "PARTIAL_SPEC_RECONCILIATION.md",
+}
 
 DOMAIN_KEYWORDS = {
     "account": ["account", "api key", "tokeninfo", "permission", "sync"],
@@ -195,7 +199,7 @@ def build_registry() -> dict[str, object]:
     records: list[SpecRecord] = []
 
     for path in spec_paths:
-        if path.name in {"SPEC_REGISTRY_BACKLOG.md"}:
+        if path.name in GENERATED_SPEC_OUTPUTS:
             continue
         text = _read_text(path)
         domains = _domains_for(text)

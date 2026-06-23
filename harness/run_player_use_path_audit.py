@@ -2039,7 +2039,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Next Priority",
             "",
-            "Close the first partial spec backlog tranche by reconciling official API compatibility, project constitution, commercial roadmap, and senior player guide gaps against current tests.",
+            "Promote reconciled partial specs into a smaller execution backlog: reviewed content depth, optional live API smoke documentation, and UI visual polish when explicitly scheduled.",
             "",
         ]
     )

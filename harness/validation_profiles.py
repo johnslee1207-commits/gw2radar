@@ -53,6 +53,11 @@ VALIDATION_PROFILES: dict[str, ValidationProfile] = {
                 "Spec registry and backlog index freshness check.",
                 (PYTHON, "harness\\run_spec_registry.py", "--check"),
             ),
+            ValidationStep(
+                "spec_reconciliation",
+                "Partial spec reconciliation freshness check.",
+                (PYTHON, "harness\\run_spec_reconciliation.py", "--check"),
+            ),
         ),
     ),
     "smoke": ValidationProfile(

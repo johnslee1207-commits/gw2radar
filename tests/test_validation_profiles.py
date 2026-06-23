@@ -15,6 +15,7 @@ def test_validation_profiles_are_staged_and_stable() -> None:
         "productized_report",
         "player_use_path_audit",
         "spec_registry",
+        "spec_reconciliation",
     ]
     assert [step.step_id for step in get_validation_profile("smoke").steps] == [
         "mvp_smoke",
@@ -32,6 +33,7 @@ def test_validation_profile_commands_use_project_entrypoints() -> None:
     assert any("tests\\test_delivery_lifecycle.py" in command for command in fast_commands)
     assert any("harness\\run_player_use_path_audit.py" in command for command in fast_commands)
     assert any("harness\\run_spec_registry.py --check" in command for command in fast_commands)
+    assert any("harness\\run_spec_reconciliation.py --check" in command for command in fast_commands)
     assert any("harness\\run_smoke.py" in command for command in smoke_commands)
     assert any("harness\\run_player_ui_e2e_smoke.py" in command for command in smoke_commands)
     assert any("harness\\run_account_connection_diagnostic.py" in command for command in smoke_commands)

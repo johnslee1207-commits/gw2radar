@@ -31,7 +31,8 @@ python harness/run_validation_profile.py full
 - `stage`: default stage gate for normal development; runs `fast` then `smoke`.
 - `release`: milestone / release gate; runs `fast`, `smoke`, then `full`.
 - `fast`: shared delivery lifecycle contract, productized report regression,
-  player use-path semantic maturity audit, and spec registry freshness.
+  player use-path semantic maturity audit, spec registry freshness, and partial
+  spec reconciliation freshness.
 - `smoke`: MVP smoke, player UI E2E smoke, and account connection diagnostic.
 - `full`: complete `pytest` regression.
 
@@ -210,6 +211,20 @@ use-path maturity audit to generate
 `docs/analysis/SPEC_REGISTRY_BACKLOG.md` and
 `docs/analysis/SPEC_REGISTRY_BACKLOG.json`. The `--check` mode verifies the
 registry is current and is part of the fast validation profile.
+
+## Partial Spec Reconciliation Command
+
+```bash
+python harness/run_spec_reconciliation.py
+python harness/run_spec_reconciliation.py --check
+```
+
+This harness reads `docs/analysis/SPEC_REGISTRY_BACKLOG.json`, extracts partial
+specs, and writes `docs/analysis/PARTIAL_SPEC_RECONCILIATION.md` plus
+`docs/analysis/PARTIAL_SPEC_RECONCILIATION.json`. It explains whether a partial
+status is legacy spec drift, broad roadmap scope, MVP-out-of-scope live/provider
+work, or a content-depth backlog. The `--check` mode is part of the fast
+validation profile.
 
 ## Account Debug Bundle Review Command
 

@@ -1,0 +1,188 @@
+{
+  "gap_type_counts": {
+    "broad_roadmap": 2,
+    "governance_aligned": 1,
+    "implemented_core_team_model": 1,
+    "implemented_for_mock_payment": 1,
+    "implemented_with_content_depth_backlog": 1,
+    "implemented_with_live_gateway_limit": 2,
+    "legacy_spec_drift": 2,
+    "superseded_by_delivery_lifecycle": 1,
+    "ui_guide_partially_operationalized": 1
+  },
+  "needs_review_count": 0,
+  "next_priority": "Promote reconciled partial specs into a smaller backlog: reviewed content depth, optional live API smoke documentation, and UI visual polish only when explicitly scheduled.",
+  "partial_count": 12,
+  "reconciled_count": 12,
+  "records": [
+    {
+      "evidence_tests": [
+        "tests/test_report_productization.py",
+        "tests/test_market_api.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "gap_type": "broad_roadmap",
+      "rationale": "The roadmap intentionally spans multiple commercial stages. Core MVP commercial loops are implemented, while full roadmap breadth remains an operating backlog.",
+      "recommended_action": "Keep implemented commercial slices covered by report, entitlement, guild, creator, market, build, and player UI tests; schedule only explicitly selected roadmap gaps.",
+      "source_path": "docs/analysis/GW2Radar_Commercial_Opportunity_Full_Implementation_Roadmap_Codex_Spec.md",
+      "spec_id": "gw2radar_commercial_opportunity_full_implementation_roadmap_codex_spec",
+      "status_after_reconciliation": "reconciled",
+      "title": "GW2Radar Commercial Opportunity Full Implementation Roadmap \u2014 Codex Spec"
+    },
+    {
+      "evidence_tests": [
+        "tests/test_kb_backed_report.py",
+        "tests/test_kb_release_readiness.py",
+        "tests/test_patch_admin_workflow_api.py"
+      ],
+      "gap_type": "broad_roadmap",
+      "rationale": "KB, rule, patch, and report infrastructure exists, but the plan is intentionally larger than the current reviewed rule content inventory.",
+      "recommended_action": "Prioritize reviewed rule pack content and source-evidence quality, not new lifecycle plumbing.",
+      "source_path": "docs/analysis/GW2Radar_KB_Graph_Commercial_Intelligence_Implementation_Plan.md",
+      "spec_id": "gw2radar_kb_graph_commercial_intelligence_implementation_plan",
+      "status_after_reconciliation": "reconciled",
+      "title": "GW2Radar Knowledge Base, Knowledge Graph & Commercial Intelligence Implementation Plan"
+    },
+    {
+      "evidence_tests": [
+        "tests/test_goal_gap.py",
+        "tests/test_graph_layers.py",
+        "tests/test_account_connection_diagnostic.py"
+      ],
+      "gap_type": "legacy_spec_drift",
+      "rationale": "This early planning spec predates later API, UI, commercial, KB, and delivery lifecycle work; partial status mostly reflects historical wording.",
+      "recommended_action": "Use current PRD/SDD, MVP docs, and stage gate as source of truth; keep this spec as historical input.",
+      "source_path": "docs/analysis/GW2Radar_MVP_0_1_Codex_Development_Spec.md",
+      "spec_id": "gw2radar_mvp_0_1_codex_development_spec",
+      "status_after_reconciliation": "reconciled",
+      "title": "GW2Radar MVP 0.1 \u7814\u5236\u89c4\u8303"
+    },
+    {
+      "evidence_tests": [
+        "tests/test_gw2_api_client_official_contract.py",
+        "tests/test_gw2_api_key_safety.py",
+        "tests/test_gw2_api_rate_limit_behavior.py"
+      ],
+      "gap_type": "implemented_with_live_gateway_limit",
+      "rationale": "Official-compatible client, token safety, permission checks, batching, refresh queues, and diagnostics are covered by tests; live GW2 availability remains an external runtime condition.",
+      "recommended_action": "Do not expand scope into live certification. Keep fake gateway and contract tests strict, then add optional live smoke only behind explicit operator configuration.",
+      "source_path": "docs/analysis/GW2Radar_Official_GW2_API_Compatibility_Layer_Codex_Spec.md",
+      "spec_id": "gw2radar_official_gw2_api_compatibility_layer_codex_spec",
+      "status_after_reconciliation": "reconciled",
+      "title": "GW2Radar Official GW2 API Compatibility Layer \u2014 Codex Development Spec"
+    },
+    {
+      "evidence_tests": [
+        "tests/test_constitution_compliance_security.py",
+        "tests/test_no_auto_trading.py",
+        "tests/test_workspace_hygiene.py"
+      ],
+      "gap_type": "governance_aligned",
+      "rationale": "Current AGENTS/PRD/SDD now express local-first, manual-review, no-secret, no-trading, and source-boundary governance; older spec remains broader than the active MVP.",
+      "recommended_action": "Keep governance enforced through stage gate, no-secret tests, and workspace hygiene; avoid adding SaaS or automation scope.",
+      "source_path": "docs/analysis/GW2Radar_Project_Constitution_API_Governance_Codex_Spec.md",
+      "spec_id": "gw2radar_project_constitution_api_governance_codex_spec",
+      "status_after_reconciliation": "reconciled",
+      "title": "GW2Radar Project Constitution & API Access Governance \u2014 Codex Development Spec"
+    },
+    {
+      "evidence_tests": [
+        "tests/test_player_ui.py",
+        "tests/test_player_ui_e2e_smoke.py",
+        "tests/test_player_dashboard_completion.py"
+      ],
+      "gap_type": "ui_guide_partially_operationalized",
+      "rationale": "Player cockpit, account diagnostics, Build Fit, Legendary, Market, reports, and support handoff are implemented; guide-level polish and browser visual review remain iterative.",
+      "recommended_action": "Use future UI slices for browser screenshots and senior-player copy refinement when layout changes are made.",
+      "source_path": "docs/analysis/SENIOR_PLAYER_USER_GUIDE.md",
+      "spec_id": "senior_player_user_guide",
+      "status_after_reconciliation": "reconciled",
+      "title": "GW2Radar Senior Player User Guide"
+    },
+    {
+      "evidence_tests": [
+        "tests/test_report_productization.py",
+        "tests/test_delivery_lifecycle.py",
+        "tests/test_export_package.py"
+      ],
+      "gap_type": "superseded_by_delivery_lifecycle",
+      "rationale": "Report export is now covered by productized report artifacts and shared delivery lifecycle verification rather than the original narrow MVP package wording.",
+      "recommended_action": "Treat this as superseded by delivery lifecycle regression unless a legacy export route is explicitly requested.",
+      "source_path": "docs/mvp/MVP_0_1_2_REPORT_EXPORT_PACKAGE.md",
+      "spec_id": "mvp_0_1_2_report_export_package",
+      "status_after_reconciliation": "reconciled",
+      "title": "MVP 0.1.2 Report Export Package"
+    },
+    {
+      "evidence_tests": [
+        "tests/test_evidence_quality.py",
+        "tests/test_source_attribution.py",
+        "tests/test_kb_report_quality.py"
+      ],
+      "gap_type": "implemented_with_content_depth_backlog",
+      "rationale": "Evidence quality patterns exist across KB, reports, source attribution, and player diagnostics; remaining maturity is richer reviewed source coverage.",
+      "recommended_action": "Invest next in reviewed content depth and source freshness, not new evidence framework mechanics.",
+      "source_path": "docs/mvp/MVP_0_1_5_EVIDENCE_QUALITY_RULES.md",
+      "spec_id": "mvp_0_1_5_evidence_quality_rules",
+      "status_after_reconciliation": "reconciled",
+      "title": "MVP 0.1.5 Evidence Freshness and Confidence Rules"
+    },
+    {
+      "evidence_tests": [
+        "tests/test_markdown_report.py",
+        "tests/test_graph_builder.py",
+        "tests/test_report_no_secret_leakage.py"
+      ],
+      "gap_type": "legacy_spec_drift",
+      "rationale": "The original MVP 0.1 spec describes an earlier scope; the implemented system has moved through later account, commercial, KB, and UI milestones.",
+      "recommended_action": "Keep for audit traceability; rely on current registry and maturity audits for execution priority.",
+      "source_path": "docs/mvp/MVP_0_1_CODEX_DEVELOPMENT_SPEC.md",
+      "spec_id": "mvp_0_1_codex_development_spec",
+      "status_after_reconciliation": "reconciled",
+      "title": "GW2Radar MVP 0.1 Codex Development Spec"
+    },
+    {
+      "evidence_tests": [
+        "tests/test_gw2_api_client_official_contract.py",
+        "tests/test_gw2_api_permissions.py",
+        "tests/test_gw2_api_batching.py"
+      ],
+      "gap_type": "implemented_with_live_gateway_limit",
+      "rationale": "Compatibility hardening is covered through official contract, permission, safety, batching, and queue tests; live network behavior remains intentionally outside default tests.",
+      "recommended_action": "Add optional live smoke documentation only after local contract stability remains clean.",
+      "source_path": "docs/mvp/MVP_0_2_0_OFFICIAL_API_COMPATIBILITY_HARDENING.md",
+      "spec_id": "mvp_0_2_0_official_api_compatibility_hardening",
+      "status_after_reconciliation": "reconciled",
+      "title": "MVP 0.2.0 Official API Compatibility Hardening"
+    },
+    {
+      "evidence_tests": [
+        "tests/test_report_entitlement.py",
+        "tests/test_payment_provider_mock.py",
+        "tests/test_paid_report_api_routes.py"
+      ],
+      "gap_type": "implemented_for_mock_payment",
+      "rationale": "Paid report engine, entitlement, productized artifacts, and mock payment contracts exist; real payment integration remains explicitly out of MVP scope.",
+      "recommended_action": "Keep mock payment and entitlement integration; defer real provider work until explicitly requested.",
+      "source_path": "docs/mvp/MVP_0_3_0_PAID_REPORT_ENGINE.md",
+      "spec_id": "mvp_0_3_0_paid_report_engine",
+      "status_after_reconciliation": "reconciled",
+      "title": "MVP 0.3.0 Paid Report Engine"
+    },
+    {
+      "evidence_tests": [
+        "tests/test_guild_api.py",
+        "tests/test_team_consent.py",
+        "tests/test_member_privacy_summary.py"
+      ],
+      "gap_type": "implemented_core_team_model",
+      "rationale": "Guild/static readiness includes team, consent, role coverage, privacy-safe member summary, and report coverage; broader SaaS collaboration is out of MVP scope.",
+      "recommended_action": "Preserve privacy-safe team modeling and avoid expanding into full collaboration or subscription administration.",
+      "source_path": "docs/mvp/MVP_0_3_5_GUILD_READINESS_CONSOLE.md",
+      "spec_id": "mvp_0_3_5_guild_readiness_console",
+      "status_after_reconciliation": "reconciled",
+      "title": "MVP 0.3.5 Guild / Static Readiness Console"
+    }
+  ],
+  "schema_version": "gw2radar.partial_spec_reconciliation.v1"
+}
