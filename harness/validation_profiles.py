@@ -68,6 +68,11 @@ VALIDATION_PROFILES: dict[str, ValidationProfile] = {
                 "Post-MVP production roadmap freshness check.",
                 (PYTHON, "harness\\run_post_mvp_roadmap.py", "--check"),
             ),
+            ValidationStep(
+                "operational_hardening_readiness",
+                "Operational hardening readiness freshness check.",
+                (PYTHON, "harness\\run_operational_hardening_readiness.py", "--check"),
+            ),
         ),
     ),
     "smoke": ValidationProfile(

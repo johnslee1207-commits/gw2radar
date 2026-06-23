@@ -1,13 +1,13 @@
 # Spec Registry And Backlog Index
 
 - Schema: gw2radar.spec_registry_backlog.v1
-- Spec count: 62
+- Spec count: 63
 - Player use-path checks: 46
 - Failed player use-path checks: 0
 
 ## Maturity Counts
 
-- implemented: 49
+- implemented: 50
 - partial: 13
 
 ## Next Stage Tranche
@@ -50,6 +50,7 @@
 | [GW2Radar Project Constitution & API Access Governance — Codex Development Spec](docs/analysis/GW2Radar_Project_Constitution_API_Governance_Codex_Spec.md) | analysis | partial | 12 related tests, manual review gate referenced, privacy/safety boundary referenced, domain:account, domain:api_gateway, domain:build_fit | 12 |
 | [GW2Radar / AegisRadar 信任体系与 API Key 安全架构设计](docs/analysis/GW2Radar_Trust_Credential_Architecture.md) | analysis | implemented | 12 related tests, maturity/audit language present, domain:account, domain:guild | 12 |
 | [KB Semantic Maturity And Priorities](docs/analysis/KB_SEMANTIC_MATURITY_AND_PRIORITIES.md) | analysis | implemented | 12 related tests, maturity/audit language present, manual review gate referenced, domain:account, domain:api_gateway, domain:build_fit | 12 |
+| [Operational Hardening Readiness](docs/analysis/OPERATIONAL_HARDENING_READINESS.md) | analysis | implemented | 6 related tests, maturity/audit language present, manual review gate referenced, privacy/safety boundary referenced, domain:guild | 6 |
 | [Post-MVP Graph Maturity And Roadmap](docs/analysis/POST_MVP_GRAPH_MATURITY_AND_ROADMAP.md) | analysis | implemented | 12 related tests, maturity/audit language present, manual review gate referenced, privacy/safety boundary referenced, domain:account, domain:api_gateway | 12 |
 | [GW2Radar Senior Player User Guide](docs/analysis/SENIOR_PLAYER_USER_GUIDE.md) | analysis | partial | 12 related tests, maturity/audit language present, manual review gate referenced, domain:account, domain:build_fit, domain:commercial | 12 |
 | [GW2Radar Three Commercial Opportunities User Guide](docs/analysis/THREE_COMMERCIAL_OPPORTUNITIES_USER_GUIDE.md) | analysis | implemented | 12 related tests, maturity/audit language present, privacy/safety boundary referenced, domain:account, domain:api_gateway, domain:build_fit | 12 |

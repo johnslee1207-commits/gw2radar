@@ -1,11 +1,16 @@
 from sqlalchemy import func, select
-from fastapi import APIRouter
+from fastapi import APIRouter, Query, Response
 
 from gw2radar.api.envelope import ApiDataEnvelope
 from gw2radar.api.state import get_graph
 from gw2radar.db import session as db_session
 from gw2radar.db.init_db import init_db
 from gw2radar.db.models import ApiKeySecretModel, RefreshQueueModel
+from gw2radar.ops.release_readiness import (
+    build_operational_hardening_readiness,
+    render_operational_hardening_csv,
+    render_operational_hardening_markdown,
+)
 
 router = APIRouter(prefix="/api/v1/ops", tags=["ops"])
 
@@ -42,3 +47,21 @@ def get_operational_status() -> ApiDataEnvelope:
             },
         }
     )
+
+
+@router.get("/release-readiness", response_model=None)
+def get_operational_release_readiness(
+    format: str = Query(default="json", pattern="^(json|markdown|csv)$"),
+):
+    readiness = build_operational_hardening_readiness()
+    if format == "markdown":
+        return Response(
+            content=render_operational_hardening_markdown(readiness),
+            media_type="text/markdown; charset=utf-8",
+        )
+    if format == "csv":
+        return Response(
+            content=render_operational_hardening_csv(readiness),
+            media_type="text/csv; charset=utf-8",
+        )
+    return ApiDataEnvelope(data={"release_readiness": readiness.model_dump(mode="json")})

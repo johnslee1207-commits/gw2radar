@@ -1,6 +1,6 @@
 {
   "maturity_counts": {
-    "implemented": 49,
+    "implemented": 50,
     "partial": 13
   },
   "next_tranche": [
@@ -1265,6 +1265,33 @@
       "source_path": "docs/analysis/KB_SEMANTIC_MATURITY_AND_PRIORITIES.md",
       "spec_id": "kb_semantic_maturity_and_priorities",
       "title": "KB Semantic Maturity And Priorities"
+    },
+    {
+      "category": "analysis",
+      "domains": [
+        "guild"
+      ],
+      "evidence": [
+        "6 related tests",
+        "maturity/audit language present",
+        "manual review gate referenced",
+        "privacy/safety boundary referenced",
+        "domain:guild"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "cross-cutting",
+      "related_tests": [
+        "tests/test_guild_api.py",
+        "tests/test_guild_report.py",
+        "tests/test_member_privacy_summary.py",
+        "tests/test_role_coverage.py",
+        "tests/test_team_consent.py",
+        "tests/test_team_readiness_score.py"
+      ],
+      "source_path": "docs/analysis/OPERATIONAL_HARDENING_READINESS.md",
+      "spec_id": "operational_hardening_readiness",
+      "title": "Operational Hardening Readiness"
     },
     {
       "category": "analysis",
@@ -2742,5 +2769,5 @@
     }
   ],
   "schema_version": "gw2radar.spec_registry_backlog.v1",
-  "spec_count": 62
+  "spec_count": 63
 }

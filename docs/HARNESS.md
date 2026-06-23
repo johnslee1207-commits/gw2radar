@@ -32,8 +32,8 @@ python harness/run_validation_profile.py full
 - `release`: milestone / release gate; runs `fast`, `smoke`, then `full`.
 - `fast`: shared delivery lifecycle contract, productized report regression,
   player use-path semantic maturity audit, spec registry freshness, and partial
-  spec reconciliation freshness, MVP closure readiness, and post-MVP roadmap
-  freshness.
+  spec reconciliation freshness, MVP closure readiness, post-MVP roadmap
+  freshness, and operational hardening readiness freshness.
 - `smoke`: MVP smoke, player UI E2E smoke, and account connection diagnostic.
 - `full`: complete `pytest` regression.
 
@@ -259,6 +259,20 @@ implemented at MVP or foundation level, and that post-MVP operational hardening,
 release validation, and maturity audit are the next recommended stage while
 real billing, team workspace credential sharing, full SaaS launch, and
 autonomous agents remain later explicit stages.
+
+## Operational Hardening Readiness Command
+
+```bash
+python harness/run_operational_hardening_readiness.py
+python harness/run_operational_hardening_readiness.py --check
+```
+
+This harness reads closure readiness, post-MVP roadmap, spec registry, spec
+reconciliation, and player use-path audit artifacts, then writes
+`docs/analysis/OPERATIONAL_HARDENING_READINESS.md` and
+`docs/analysis/OPERATIONAL_HARDENING_READINESS.json`. It confirms A-F phases are
+implemented, release and GitNexus commands are declared, player use-path checks
+remain green, and later provider / SaaS tracks stay explicitly deferred.
 
 ## Account Debug Bundle Review Command
 

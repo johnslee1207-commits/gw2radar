@@ -6,10 +6,10 @@
     "player_use_path_failed_checks": 0,
     "reconciled_count": 13,
     "registry_maturity_counts": {
-      "implemented": 49,
+      "implemented": 50,
       "partial": 13
     },
-    "spec_count": 62
+    "spec_count": 63
   },
   "next_priority": "Close the current MVP stage; treat the remaining three tracks as optional post-MVP work only when explicitly scheduled.",
   "optional_post_mvp_tasks": [
