@@ -1,6 +1,8 @@
 __pycache__/
 *.py[cod]
 *.egg-info/
+desktop.ini
+Thumbs.db
 .pytest_cache/
 .test_tmp/
 .mypy_cache/
@@ -14,8 +16,11 @@ env/
 *.sqlite
 *.log
 outputs/
+agent_execution_pack*.zip
 data/extracted/
 data/achievement_route_audit/
+src/gw2radar/reports/artifacts/
+docs/knowledge_base/_sources/
 docs/knowledge_base/_sources/pdf/
 docs/knowledge_base/official/*.pdf
 docs/knowledge_base/official/*.html

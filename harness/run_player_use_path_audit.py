@@ -2039,7 +2039,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Next Priority",
             "",
-            "Clean workspace hygiene by deciding which untracked docs, source archives, generated artifacts, and desktop.ini files should be ignored, committed, or removed.",
+            "Build a spec registry and backlog index that links tracked planning docs to implemented maturity, remaining gaps, and the next stage tranche.",
             "",
         ]
     )
