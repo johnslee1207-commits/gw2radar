@@ -155,6 +155,52 @@ class ProductizedReportPacketZipVerificationAuditList(BaseModel):
     )
 
 
+class ProductizedReportDeliveryChecklist(BaseModel):
+    schema_version: str = "gw2radar.productized_report_delivery_checklist.v1"
+    generated_at: datetime
+    ready: bool
+    maturity_label: str
+    template_count: int
+    artifact_count: int
+    packet_file_count: int
+    packet_checksum_sha256: str | None = None
+    packet_verification_ready: bool = False
+    verification_audit_count: int = 0
+    latest_verification_audit_id: str | None = None
+    checklist_items: list[str] = Field(default_factory=list)
+    missing_gates: list[str] = Field(default_factory=list)
+    blockers: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    next_actions: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    boundary: str = (
+        "Delivery checklist is operational metadata only; it excludes raw API keys, private source payloads, "
+        "automatic publishing, automatic trading, and guaranteed-return claims."
+    )
+
+
+class ProductizedReportOperatorHandoffPacket(BaseModel):
+    schema_version: str = "gw2radar.productized_report_operator_handoff_packet.v1"
+    packet_id: str
+    generated_at: datetime
+    ready: bool
+    maturity_label: str
+    checklist: ProductizedReportDeliveryChecklist
+    template_summary: list[dict] = Field(default_factory=list)
+    artifact_summary: list[dict] = Field(default_factory=list)
+    zip_manifest: dict = Field(default_factory=dict)
+    audit_summary: dict = Field(default_factory=dict)
+    runbook_steps: list[str] = Field(default_factory=list)
+    transfer_files: list[str] = Field(default_factory=list)
+    operator_next_actions: list[str] = Field(default_factory=list)
+    safety_boundaries: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    boundary: str = (
+        "Operator handoff packet is a metadata and runbook wrapper for manual fulfillment; it does not store "
+        "zip bytes, raw API keys, private source payloads, or executable delivery content."
+    )
+
+
 REPORT_TEMPLATES = [
     ProductizedReportTemplate(
         template_id="account_value_analysis",
@@ -520,6 +566,271 @@ def render_productized_report_packet_zip_verification_audit_csv(
                 ]
             )
         )
+    return "\n".join(rows) + "\n"
+
+
+def build_productized_report_delivery_checklist(
+    *,
+    output_root: Path = PRODUCTIZED_REPORT_ROOT,
+    audit_root: Path = PRODUCTIZED_REPORT_AUDIT_ROOT,
+    limit: int = 20,
+) -> ProductizedReportDeliveryChecklist:
+    templates = list_productized_report_templates()
+    artifacts = list_productized_report_artifacts(output_root=output_root, limit=limit)
+    packet_manifest: ProductizedReportPacketZipManifest | None = None
+    verification: ProductizedReportPacketZipVerification | None = None
+    blockers: list[str] = []
+    warnings: list[str] = []
+
+    if artifacts:
+        try:
+            packet_manifest, bundle_bytes = build_productized_report_packet_zip_bundle(
+                output_root=output_root,
+                limit=limit,
+            )
+            verification = verify_productized_report_packet_zip_bundle(
+                bundle_bytes,
+                expected_checksum_sha256=packet_manifest.checksum_sha256,
+            )
+            blockers.extend(verification.blockers)
+            warnings.extend(verification.warnings)
+        except ValueError as exc:
+            blockers.append(str(exc))
+    else:
+        blockers.append("No productized report artifacts are available for delivery.")
+
+    audits = list_productized_report_packet_zip_verification_audits(audit_root=audit_root, limit=limit)
+    missing_gates: list[str] = []
+    if len(templates) < 3:
+        missing_gates.append("All three commercial report templates must be registered.")
+    if len(artifacts) < 3:
+        missing_gates.append("Generate at least one artifact for each productized report template.")
+    if packet_manifest is None or packet_manifest.file_count < max(1, len(artifacts) * 2):
+        missing_gates.append("Build a packet zip containing each report artifact and manifest.")
+    if verification is None or not verification.ready:
+        missing_gates.append("Packet zip verification must pass before handoff.")
+    if not audits.records:
+        missing_gates.append("Record at least one metadata-only verification audit.")
+
+    latest_audit = audits.records[0] if audits.records else None
+    checklist_items = [
+        f"Productized templates registered: {len(templates)}.",
+        f"Report artifacts generated: {len(artifacts)}.",
+        f"Packet zip files included: {packet_manifest.file_count if packet_manifest else 0}.",
+        f"Packet verification ready: {bool(verification and verification.ready)}.",
+        f"Verification audit records: {len(audits.records)}.",
+    ]
+    next_actions = []
+    if missing_gates:
+        next_actions.extend(missing_gates)
+    else:
+        next_actions.extend(
+            [
+                "Download the productized report packet zip from the reports API.",
+                "Confirm the zip checksum against the checklist before manual delivery.",
+                "Export the audit CSV or Markdown if the customer handoff requires evidence.",
+            ]
+        )
+    evidence_refs = [f"template:{template.template_id}" for template in templates]
+    evidence_refs.extend(f"artifact:{artifact.artifact_id}" for artifact in artifacts)
+    if packet_manifest:
+        evidence_refs.append(f"packet_checksum:{packet_manifest.checksum_sha256}")
+    if latest_audit:
+        evidence_refs.append(f"audit:{latest_audit.audit_id}")
+
+    ready = not missing_gates and not blockers
+    return ProductizedReportDeliveryChecklist(
+        generated_at=datetime.now(timezone.utc),
+        ready=ready,
+        maturity_label="ready" if ready else "needs_review",
+        template_count=len(templates),
+        artifact_count=len(artifacts),
+        packet_file_count=packet_manifest.file_count if packet_manifest else 0,
+        packet_checksum_sha256=packet_manifest.checksum_sha256 if packet_manifest else None,
+        packet_verification_ready=bool(verification and verification.ready),
+        verification_audit_count=len(audits.records),
+        latest_verification_audit_id=latest_audit.audit_id if latest_audit else None,
+        checklist_items=checklist_items,
+        missing_gates=missing_gates,
+        blockers=blockers,
+        warnings=warnings,
+        next_actions=next_actions,
+        evidence_refs=evidence_refs,
+    )
+
+
+def build_productized_report_operator_handoff_packet(
+    *,
+    output_root: Path = PRODUCTIZED_REPORT_ROOT,
+    audit_root: Path = PRODUCTIZED_REPORT_AUDIT_ROOT,
+    limit: int = 20,
+) -> ProductizedReportOperatorHandoffPacket:
+    checklist = build_productized_report_delivery_checklist(
+        output_root=output_root,
+        audit_root=audit_root,
+        limit=limit,
+    )
+    templates = list_productized_report_templates()
+    artifacts = list_productized_report_artifacts(output_root=output_root, limit=limit)
+    zip_manifest: dict = {}
+    transfer_files: list[str] = []
+    try:
+        manifest, _bundle_bytes = build_productized_report_packet_zip_bundle(output_root=output_root, limit=limit)
+        zip_manifest = manifest.model_dump(mode="json")
+        transfer_files = [file.relative_path for file in manifest.included_files]
+    except ValueError:
+        zip_manifest = {}
+    audits = list_productized_report_packet_zip_verification_audits(audit_root=audit_root, limit=limit)
+    packet_id = f"productized-report-operator-handoff-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{uuid4().hex[:8]}"
+    ready_count = sum(1 for record in audits.records if record.ready)
+    blocker_count = sum(record.blocker_count for record in audits.records)
+    warning_count = sum(record.warning_count for record in audits.records)
+    return ProductizedReportOperatorHandoffPacket(
+        packet_id=packet_id,
+        generated_at=datetime.now(timezone.utc),
+        ready=checklist.ready,
+        maturity_label=checklist.maturity_label,
+        checklist=checklist,
+        template_summary=[
+            {
+                "template_id": template.template_id,
+                "product_id": template.product_id,
+                "title": template.title,
+                "export_formats": template.export_formats,
+            }
+            for template in templates
+        ],
+        artifact_summary=[
+            {
+                "artifact_id": artifact.artifact_id,
+                "template_id": artifact.template_id,
+                "product_id": artifact.product_id,
+                "format": artifact.format,
+                "checksum_sha256": artifact.checksum_sha256,
+                "artifact_path": Path(artifact.artifact_path).name,
+                "manifest_path": Path(artifact.manifest_path).name,
+            }
+            for artifact in artifacts
+        ],
+        zip_manifest=zip_manifest,
+        audit_summary={
+            "schema_version": "gw2radar.productized_report_operator_audit_summary.v1",
+            "record_count": len(audits.records),
+            "latest_audit_id": audits.records[0].audit_id if audits.records else None,
+            "ready_count": ready_count,
+            "blocker_count": blocker_count,
+            "warning_count": warning_count,
+        },
+        runbook_steps=[
+            "Confirm Account Value, Legendary Gap, and Build Readiness artifacts are present.",
+            "Download the productized report packet zip and compare the SHA-256 checksum.",
+            "Confirm verification audit readiness and export the audit evidence when required.",
+            "Deliver the zip manually through the approved customer channel.",
+            "Remind the recipient that all recommendations require manual player review and action.",
+        ],
+        transfer_files=transfer_files,
+        operator_next_actions=checklist.next_actions,
+        safety_boundaries=[
+            "Do not include raw API keys or private source payloads in the handoff.",
+            "Do not publish or deploy customer artifacts automatically.",
+            "Do not make guaranteed profit, automatic trading, or automatic gear-change claims.",
+            "Use checksum and audit evidence before delivery.",
+        ],
+        evidence_refs=checklist.evidence_refs,
+    )
+
+
+def render_productized_report_delivery_checklist_markdown(
+    checklist: ProductizedReportDeliveryChecklist,
+) -> str:
+    lines = [
+        "# Productized Report Delivery Checklist",
+        "",
+        f"- Ready: {checklist.ready}",
+        f"- Maturity: {checklist.maturity_label}",
+        f"- Templates: {checklist.template_count}",
+        f"- Artifacts: {checklist.artifact_count}",
+        f"- Packet files: {checklist.packet_file_count}",
+        f"- Packet checksum: {checklist.packet_checksum_sha256 or 'not available'}",
+        f"- Verification audits: {checklist.verification_audit_count}",
+        "",
+        "## Checklist",
+    ]
+    lines.extend(f"- {item}" for item in checklist.checklist_items)
+    lines.extend(["", "## Missing Gates"])
+    lines.extend(f"- {gate}" for gate in checklist.missing_gates) if checklist.missing_gates else lines.append("- None.")
+    lines.extend(["", "## Next Actions"])
+    lines.extend(f"- {action}" for action in checklist.next_actions)
+    lines.extend(["", "## Boundary", "", f"- {checklist.boundary}"])
+    return "\n".join(lines) + "\n"
+
+
+def render_productized_report_delivery_checklist_csv(
+    checklist: ProductizedReportDeliveryChecklist,
+) -> str:
+    rows = [
+        "ready,maturity_label,template_count,artifact_count,packet_file_count,packet_verification_ready,verification_audit_count,packet_checksum_sha256,latest_verification_audit_id",
+        ",".join(
+            [
+                _csv(str(checklist.ready)),
+                _csv(checklist.maturity_label),
+                _csv(str(checklist.template_count)),
+                _csv(str(checklist.artifact_count)),
+                _csv(str(checklist.packet_file_count)),
+                _csv(str(checklist.packet_verification_ready)),
+                _csv(str(checklist.verification_audit_count)),
+                _csv(checklist.packet_checksum_sha256 or ""),
+                _csv(checklist.latest_verification_audit_id or ""),
+            ]
+        ),
+    ]
+    return "\n".join(rows) + "\n"
+
+
+def render_productized_report_operator_handoff_packet_markdown(
+    packet: ProductizedReportOperatorHandoffPacket,
+) -> str:
+    lines = [
+        "# Productized Report Operator Handoff Packet",
+        "",
+        f"- Packet ID: {packet.packet_id}",
+        f"- Ready: {packet.ready}",
+        f"- Maturity: {packet.maturity_label}",
+        f"- Transfer files: {len(packet.transfer_files)}",
+        "",
+        "## Runbook",
+    ]
+    lines.extend(f"- {step}" for step in packet.runbook_steps)
+    lines.extend(["", "## Templates"])
+    for template in packet.template_summary:
+        lines.append(f"- {template.get('template_id')}: {template.get('title')}")
+    lines.extend(["", "## Artifacts"])
+    for artifact in packet.artifact_summary:
+        lines.append(f"- {artifact.get('artifact_id')} ({artifact.get('format')}): {artifact.get('checksum_sha256')}")
+    lines.extend(["", "## Safety Boundaries"])
+    lines.extend(f"- {boundary}" for boundary in packet.safety_boundaries)
+    lines.extend(["", "## Boundary", "", f"- {packet.boundary}"])
+    return "\n".join(lines) + "\n"
+
+
+def render_productized_report_operator_handoff_packet_csv(
+    packet: ProductizedReportOperatorHandoffPacket,
+) -> str:
+    rows = [
+        "packet_id,ready,maturity_label,template_count,artifact_count,packet_file_count,audit_record_count,transfer_file_count",
+        ",".join(
+            [
+                _csv(packet.packet_id),
+                _csv(str(packet.ready)),
+                _csv(packet.maturity_label),
+                _csv(str(packet.checklist.template_count)),
+                _csv(str(packet.checklist.artifact_count)),
+                _csv(str(packet.checklist.packet_file_count)),
+                _csv(str(packet.audit_summary.get("record_count", 0))),
+                _csv(str(len(packet.transfer_files))),
+            ]
+        ),
+    ]
     return "\n".join(rows) + "\n"
 
 

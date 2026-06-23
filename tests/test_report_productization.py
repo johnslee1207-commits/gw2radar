@@ -118,6 +118,16 @@ def test_productized_report_templates_generate_artifacts_and_preserve_boundaries
         zip_audit_csv = client.get(
             "/api/v1/reports/productized/artifacts/bundle/verification-audit?format=csv"
         )
+        delivery_checklist = client.get("/api/v1/reports/productized/delivery-checklist?limit=10")
+        delivery_checklist_markdown = client.get(
+            "/api/v1/reports/productized/delivery-checklist?format=markdown&limit=10"
+        )
+        delivery_checklist_csv = client.get("/api/v1/reports/productized/delivery-checklist?format=csv&limit=10")
+        operator_handoff = client.get("/api/v1/reports/productized/operator-handoff?limit=10")
+        operator_handoff_markdown = client.get(
+            "/api/v1/reports/productized/operator-handoff?format=markdown&limit=10"
+        )
+        operator_handoff_csv = client.get("/api/v1/reports/productized/operator-handoff?format=csv&limit=10")
 
         assert zip_manifest.status_code == 200
         zip_manifest_payload = zip_manifest.json()["data"]["productized_report_packet_zip_bundle"]
@@ -179,12 +189,47 @@ def test_productized_report_templates_generate_artifacts_and_preserve_boundaries
         tampered_record = tampered_audit.json()["data"]["productized_report_packet_zip_verification_audit_record"]
         assert tampered_record["ready"] is False
         assert tampered_record["blocker_count"] >= 1
+        assert delivery_checklist.status_code == 200
+        checklist = delivery_checklist.json()["data"]["productized_report_delivery_checklist"]
+        assert checklist["schema_version"] == "gw2radar.productized_report_delivery_checklist.v1"
+        assert checklist["ready"] is True
+        assert checklist["maturity_label"] == "ready"
+        assert checklist["template_count"] == 3
+        assert checklist["artifact_count"] >= 3
+        assert checklist["packet_file_count"] >= 6
+        assert checklist["packet_verification_ready"] is True
+        assert checklist["verification_audit_count"] >= 1
+        assert checklist["missing_gates"] == []
+        assert delivery_checklist_markdown.status_code == 200
+        assert "# Productized Report Delivery Checklist" in delivery_checklist_markdown.text
+        assert delivery_checklist_csv.status_code == 200
+        assert "ready,maturity_label,template_count,artifact_count" in delivery_checklist_csv.text
+
+        assert operator_handoff.status_code == 200
+        handoff = operator_handoff.json()["data"]["productized_report_operator_handoff_packet"]
+        assert handoff["schema_version"] == "gw2radar.productized_report_operator_handoff_packet.v1"
+        assert handoff["ready"] is True
+        assert handoff["checklist"]["schema_version"] == "gw2radar.productized_report_delivery_checklist.v1"
+        assert len(handoff["template_summary"]) == 3
+        assert len(handoff["artifact_summary"]) >= 3
+        assert len(handoff["runbook_steps"]) >= 4
+        assert len(handoff["transfer_files"]) >= 6
+        assert operator_handoff_markdown.status_code == 200
+        assert "# Productized Report Operator Handoff Packet" in operator_handoff_markdown.text
+        assert operator_handoff_csv.status_code == 200
+        assert "packet_id,ready,maturity_label,template_count" in operator_handoff_csv.text
         assert "secret-key" not in (
             str(audit_record)
             + str(audit_list)
             + zip_audit_markdown.text
             + zip_audit_csv.text
             + str(tampered_record)
+            + str(checklist)
+            + delivery_checklist_markdown.text
+            + delivery_checklist_csv.text
+            + str(handoff)
+            + operator_handoff_markdown.text
+            + operator_handoff_csv.text
         ).lower()
     finally:
         close_database()

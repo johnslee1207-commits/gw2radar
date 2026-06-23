@@ -14,11 +14,17 @@ from gw2radar.commercial.report_engine import (
 )
 from gw2radar.commercial.report_productization import (
     ProductizedReportPacketZipVerificationAuditRequest,
+    build_productized_report_delivery_checklist,
+    build_productized_report_operator_handoff_packet,
     build_productized_report_packet_zip_bundle,
     generate_productized_report_artifact,
     list_productized_report_packet_zip_verification_audits,
     list_productized_report_templates,
     record_productized_report_packet_zip_verification_audit,
+    render_productized_report_delivery_checklist_csv,
+    render_productized_report_delivery_checklist_markdown,
+    render_productized_report_operator_handoff_packet_csv,
+    render_productized_report_operator_handoff_packet_markdown,
     render_productized_report_packet_zip_verification_audit_csv,
     render_productized_report_packet_zip_verification_audit_markdown,
     resolve_productized_report_artifact_path,
@@ -224,6 +230,48 @@ def get_productized_report_artifact_bundle_verification_audit(
             headers={"Content-Disposition": 'attachment; filename="productized_report_packet_zip_verification_audit.csv"'},
         )
     return ApiDataEnvelope(data={"productized_report_packet_zip_verification_audit": audit.model_dump(mode="json")})
+
+
+@router.get("/api/v1/reports/productized/delivery-checklist", response_model=None)
+def get_productized_report_delivery_checklist(
+    limit: int = 20,
+    format: str = "json",
+) -> ApiDataEnvelope | Response:
+    checklist = build_productized_report_delivery_checklist(limit=limit)
+    if format == "markdown":
+        return Response(
+            content=render_productized_report_delivery_checklist_markdown(checklist),
+            media_type="text/markdown; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="productized_report_delivery_checklist.md"'},
+        )
+    if format == "csv":
+        return Response(
+            content=render_productized_report_delivery_checklist_csv(checklist),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="productized_report_delivery_checklist.csv"'},
+        )
+    return ApiDataEnvelope(data={"productized_report_delivery_checklist": checklist.model_dump(mode="json")})
+
+
+@router.get("/api/v1/reports/productized/operator-handoff", response_model=None)
+def get_productized_report_operator_handoff(
+    limit: int = 20,
+    format: str = "json",
+) -> ApiDataEnvelope | Response:
+    packet = build_productized_report_operator_handoff_packet(limit=limit)
+    if format == "markdown":
+        return Response(
+            content=render_productized_report_operator_handoff_packet_markdown(packet),
+            media_type="text/markdown; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="productized_report_operator_handoff.md"'},
+        )
+    if format == "csv":
+        return Response(
+            content=render_productized_report_operator_handoff_packet_csv(packet),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="productized_report_operator_handoff.csv"'},
+        )
+    return ApiDataEnvelope(data={"productized_report_operator_handoff_packet": packet.model_dump(mode="json")})
 
 
 @router.post("/api/v1/reports/preview", response_model=ApiDataEnvelope)

@@ -1779,6 +1779,67 @@ def main() -> int:
             "mature_productized_report_packet_zip_audit",
             f"{productized_packet_manifest.get('artifact_count', 0)} productized report artifacts bundled with checksum {str(productized_packet_manifest.get('checksum_sha256') or '')[:12]}.",
         )
+        productized_delivery_response = _json(
+            client.get("/api/v1/reports/productized/delivery-checklist?limit=10"),
+            "load productized report delivery checklist",
+            checks,
+        )
+        productized_delivery = _get(
+            productized_delivery_response,
+            "data",
+            "productized_report_delivery_checklist",
+        ) or {}
+        productized_delivery_markdown = client.get(
+            "/api/v1/reports/productized/delivery-checklist?format=markdown&limit=10"
+        )
+        productized_delivery_csv = client.get("/api/v1/reports/productized/delivery-checklist?format=csv&limit=10")
+        productized_handoff_response = _json(
+            client.get("/api/v1/reports/productized/operator-handoff?limit=10"),
+            "load productized report operator handoff",
+            checks,
+        )
+        productized_handoff = _get(
+            productized_handoff_response,
+            "data",
+            "productized_report_operator_handoff_packet",
+        ) or {}
+        productized_handoff_markdown = client.get(
+            "/api/v1/reports/productized/operator-handoff?format=markdown&limit=10"
+        )
+        productized_handoff_csv = client.get("/api/v1/reports/productized/operator-handoff?format=csv&limit=10")
+        _add(
+            checks,
+            "productized_report_delivery_handoff",
+            "Productized report delivery readiness and operator handoff are exposed as checklist, runbook, and exportable evidence.",
+            productized_delivery.get("schema_version") == "gw2radar.productized_report_delivery_checklist.v1"
+            and productized_delivery.get("ready") is True
+            and productized_delivery.get("missing_gates") == []
+            and productized_delivery.get("artifact_count", 0) >= 3
+            and productized_delivery.get("packet_file_count", 0) >= 6
+            and productized_delivery.get("packet_verification_ready") is True
+            and productized_delivery.get("verification_audit_count", 0) >= 1
+            and productized_delivery_markdown.status_code == 200
+            and "# Productized Report Delivery Checklist" in productized_delivery_markdown.text
+            and productized_delivery_csv.status_code == 200
+            and "ready,maturity_label,template_count,artifact_count" in productized_delivery_csv.text
+            and productized_handoff.get("schema_version") == "gw2radar.productized_report_operator_handoff_packet.v1"
+            and productized_handoff.get("ready") is True
+            and len(productized_handoff.get("runbook_steps", [])) >= 4
+            and len(productized_handoff.get("transfer_files", [])) >= 6
+            and productized_handoff_markdown.status_code == 200
+            and "# Productized Report Operator Handoff Packet" in productized_handoff_markdown.text
+            and productized_handoff_csv.status_code == 200
+            and "packet_id,ready,maturity_label,template_count" in productized_handoff_csv.text
+            and "secret-key"
+            not in json.dumps(
+                {
+                    "delivery": productized_delivery,
+                    "handoff": productized_handoff,
+                }
+            ).lower(),
+            "mature_productized_report_delivery_handoff",
+            f"{productized_delivery.get('artifact_count', 0)} artifacts, {productized_delivery.get('packet_file_count', 0)} packet files, {len(productized_handoff.get('runbook_steps', []))} handoff steps.",
+        )
 
         _write_audit(checks)
     except Exception as exc:  # pragma: no cover - harness defensive reporting
@@ -1975,7 +2036,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Next Priority",
             "",
-            "Add Productized Report Delivery Checklist and operator handoff packet for report fulfillment.",
+            "Add Productized Report Handoff file artifacts and zip verification for operator packet delivery.",
             "",
         ]
     )
