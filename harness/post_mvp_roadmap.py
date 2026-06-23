@@ -59,7 +59,7 @@ PHASES = [
         "phase_id": "phase_c_progression_decision_engine_v1",
         "title": "Phase C Progression Decision Engine v1",
         "priority": 3,
-        "status": "next_recommended",
+        "status": "implemented_mvp",
         "scope": [
             "manual action model",
             "scoring model",
@@ -72,12 +72,13 @@ PHASES = [
             "every action includes evidence, risk, and assumptions",
             "manual review boundary is visible in outputs",
         ],
+        "evidence_tests": ["tests/test_progression_decision_engine.py"],
     },
     {
         "phase_id": "phase_d_7_day_planning_dag",
         "title": "Phase D 7-Day Planning / DAG",
         "priority": 4,
-        "status": "post_phase_c",
+        "status": "next_recommended",
         "scope": [
             "goal interpreter",
             "action dependency graph",
@@ -172,9 +173,9 @@ def build_roadmap() -> dict[str, object]:
         ],
         "source_coverage": source_coverage,
         "phase_count": len(PHASES),
-        "next_phase": "phase_c_progression_decision_engine_v1",
+        "next_phase": "phase_d_7_day_planning_dag",
         "phases": PHASES,
-        "decision": "Phase A Trust & Credential MVP and Phase B Report Product Close Loop are implemented. Start Phase C Progression Decision Engine v1 next; keep production SaaS, real billing, team workspace, and autonomous agents as later explicit stages.",
+        "decision": "Phase A Trust & Credential MVP, Phase B Report Product Close Loop, and Phase C Progression Decision Engine v1 are implemented. Start Phase D 7-Day Planning / DAG next; keep production SaaS, real billing, team workspace, and autonomous agents as later explicit stages.",
     }
 
 

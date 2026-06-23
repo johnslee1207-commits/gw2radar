@@ -252,10 +252,10 @@ This harness reads the Trust/Credential, Production SaaS, and Master Planning
 documents from `docs/analysis`, then writes
 `docs/analysis/POST_MVP_PRODUCTION_ROADMAP.md` and
 `docs/analysis/POST_MVP_PRODUCTION_ROADMAP.json`. It confirms the current MVP
-remains closed, that Phase A Trust & Credential MVP and Phase B Report Product
-Close Loop are implemented, and that Phase C Progression Decision Engine v1 is
-the next recommended stage while SaaS, real billing, team workspace, and
-autonomous agents remain later explicit stages.
+remains closed, that Phase A Trust & Credential MVP, Phase B Report Product
+Close Loop, and Phase C Progression Decision Engine v1 are implemented, and that
+Phase D 7-Day Planning / DAG is the next recommended stage while SaaS, real
+billing, team workspace, and autonomous agents remain later explicit stages.
 
 ## Account Debug Bundle Review Command
 

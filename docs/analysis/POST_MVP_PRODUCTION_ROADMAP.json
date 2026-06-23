@@ -1,8 +1,8 @@
 {
   "blocking_current_mvp": false,
   "current_mvp_status": "ready_to_close_mvp_stage",
-  "decision": "Phase A Trust & Credential MVP and Phase B Report Product Close Loop are implemented. Start Phase C Progression Decision Engine v1 next; keep production SaaS, real billing, team workspace, and autonomous agents as later explicit stages.",
-  "next_phase": "phase_c_progression_decision_engine_v1",
+  "decision": "Phase A Trust & Credential MVP, Phase B Report Product Close Loop, and Phase C Progression Decision Engine v1 are implemented. Start Phase D 7-Day Planning / DAG next; keep production SaaS, real billing, team workspace, and autonomous agents as later explicit stages.",
+  "next_phase": "phase_d_7_day_planning_dag",
   "phase_count": 6,
   "phases": [
     {
@@ -65,6 +65,9 @@
         "automatic gameplay execution",
         "profit guarantees"
       ],
+      "evidence_tests": [
+        "tests/test_progression_decision_engine.py"
+      ],
       "phase_id": "phase_c_progression_decision_engine_v1",
       "priority": 3,
       "scope": [
@@ -73,7 +76,7 @@
         "Top-K recommendation API",
         "KB-backed recommendation explanation"
       ],
-      "status": "next_recommended",
+      "status": "implemented_mvp",
       "title": "Phase C Progression Decision Engine v1"
     },
     {
@@ -93,7 +96,7 @@
         "7-day plan generator",
         "plan export Markdown/CSV/JSON"
       ],
-      "status": "post_phase_c",
+      "status": "next_recommended",
       "title": "Phase D 7-Day Planning / DAG"
     },
     {

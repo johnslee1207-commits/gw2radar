@@ -23,6 +23,7 @@ from gw2radar.api.routes.market import router as market_router
 from gw2radar.api.routes.ops import router as ops_router
 from gw2radar.api.routes.player_dashboard import router as player_dashboard_router
 from gw2radar.api.routes.player_ui import router as player_ui_router
+from gw2radar.api.routes.progression import router as progression_router
 from gw2radar.api.routes.public_refresh import router as public_refresh_router
 from gw2radar.api.routes.reports import router as reports_router
 from gw2radar.api.routes.returner import router as returner_router
@@ -83,3 +84,4 @@ app.include_router(player_dashboard_router)
 app.include_router(player_ui_router)
 app.include_router(security_router)
 app.include_router(acquisition_router)
+app.include_router(progression_router)
