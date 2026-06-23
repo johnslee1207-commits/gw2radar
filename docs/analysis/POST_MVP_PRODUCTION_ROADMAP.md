@@ -4,11 +4,11 @@
 - Current MVP status: ready_to_close_mvp_stage
 - Blocking current MVP: false
 - Phase count: 6
-- Next phase: phase_d_7_day_planning_dag
+- Next phase: phase_e_production_saas_foundation
 
 ## Decision
 
-Phase A Trust & Credential MVP, Phase B Report Product Close Loop, and Phase C Progression Decision Engine v1 are implemented. Start Phase D 7-Day Planning / DAG next; keep production SaaS, real billing, team workspace, and autonomous agents as later explicit stages.
+Phase A Trust & Credential MVP, Phase B Report Product Close Loop, Phase C Progression Decision Engine v1, and Phase D 7-Day Planning / DAG are implemented. Start Phase E Production SaaS Foundation next as a separate large stage; keep real billing, team workspace credential sharing, and autonomous agents as later explicit stages.
 
 ## Source Documents
 
@@ -23,8 +23,8 @@ Phase A Trust & Credential MVP, Phase B Report Product Close Loop, and Phase C P
 | 1 | Phase A Trust & Credential MVP | implemented_mvp | session-only BYOK mode, credential mode model, permission explanation UI/API, credential usage audit summary, revoke/delete/rotate UX | team workspace credential sharing, KMS production vault |
 | 2 | Phase B Report Product Close Loop | implemented_mvp | clear report product contracts, preview vs full report boundary, mock license and entitlement lifecycle, delivery artifacts through shared lifecycle | real payment provider, email delivery provider |
 | 3 | Phase C Progression Decision Engine v1 | implemented_mvp | manual action model, scoring model, Top-K recommendation API, KB-backed recommendation explanation | automatic trading, automatic gameplay execution, profit guarantees |
-| 4 | Phase D 7-Day Planning / DAG | next_recommended | goal interpreter, action dependency graph, 7-day plan generator, plan export Markdown/CSV/JSON | real-time autonomous replanning |
-| 5 | Phase E Production SaaS Foundation | large_separate_stage | auth/session model, workspace model, PostgreSQL migration plan, Redis/cache/queue plan, object storage abstraction, billing guard abstraction | full multi-tenant SaaS launch, real payment integration |
+| 4 | Phase D 7-Day Planning / DAG | implemented_mvp | goal interpreter, action dependency graph, 7-day plan generator, plan export Markdown/CSV/JSON | real-time autonomous replanning |
+| 5 | Phase E Production SaaS Foundation | next_recommended_large_stage | auth/session model, workspace model, PostgreSQL migration plan, Redis/cache/queue plan, object storage abstraction, billing guard abstraction | full multi-tenant SaaS launch, real payment integration |
 | 6 | Phase F Growth / Retention | after_saas_foundation | weekly report job, report history, safe share preview, mock email delivery abstraction, subscription retention UX | public sharing of private account payloads, real email provider lock-in |
 
 ## Phase A Acceptance

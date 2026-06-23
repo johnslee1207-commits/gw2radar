@@ -1,8 +1,8 @@
 {
   "blocking_current_mvp": false,
   "current_mvp_status": "ready_to_close_mvp_stage",
-  "decision": "Phase A Trust & Credential MVP, Phase B Report Product Close Loop, and Phase C Progression Decision Engine v1 are implemented. Start Phase D 7-Day Planning / DAG next; keep production SaaS, real billing, team workspace, and autonomous agents as later explicit stages.",
-  "next_phase": "phase_d_7_day_planning_dag",
+  "decision": "Phase A Trust & Credential MVP, Phase B Report Product Close Loop, Phase C Progression Decision Engine v1, and Phase D 7-Day Planning / DAG are implemented. Start Phase E Production SaaS Foundation next as a separate large stage; keep real billing, team workspace credential sharing, and autonomous agents as later explicit stages.",
+  "next_phase": "phase_e_production_saas_foundation",
   "phase_count": 6,
   "phases": [
     {
@@ -88,6 +88,9 @@
       "defer": [
         "real-time autonomous replanning"
       ],
+      "evidence_tests": [
+        "tests/test_seven_day_plan.py"
+      ],
       "phase_id": "phase_d_7_day_planning_dag",
       "priority": 4,
       "scope": [
@@ -96,7 +99,7 @@
         "7-day plan generator",
         "plan export Markdown/CSV/JSON"
       ],
-      "status": "next_recommended",
+      "status": "implemented_mvp",
       "title": "Phase D 7-Day Planning / DAG"
     },
     {
@@ -119,7 +122,7 @@
         "object storage abstraction",
         "billing guard abstraction"
       ],
-      "status": "large_separate_stage",
+      "status": "next_recommended_large_stage",
       "title": "Phase E Production SaaS Foundation"
     },
     {

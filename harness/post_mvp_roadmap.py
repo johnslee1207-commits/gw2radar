@@ -78,7 +78,7 @@ PHASES = [
         "phase_id": "phase_d_7_day_planning_dag",
         "title": "Phase D 7-Day Planning / DAG",
         "priority": 4,
-        "status": "next_recommended",
+        "status": "implemented_mvp",
         "scope": [
             "goal interpreter",
             "action dependency graph",
@@ -91,12 +91,13 @@ PHASES = [
             "missing facts become assumptions",
             "no guaranteed completion claim",
         ],
+        "evidence_tests": ["tests/test_seven_day_plan.py"],
     },
     {
         "phase_id": "phase_e_production_saas_foundation",
         "title": "Phase E Production SaaS Foundation",
         "priority": 5,
-        "status": "large_separate_stage",
+        "status": "next_recommended_large_stage",
         "scope": [
             "auth/session model",
             "workspace model",
@@ -173,9 +174,9 @@ def build_roadmap() -> dict[str, object]:
         ],
         "source_coverage": source_coverage,
         "phase_count": len(PHASES),
-        "next_phase": "phase_d_7_day_planning_dag",
+        "next_phase": "phase_e_production_saas_foundation",
         "phases": PHASES,
-        "decision": "Phase A Trust & Credential MVP, Phase B Report Product Close Loop, and Phase C Progression Decision Engine v1 are implemented. Start Phase D 7-Day Planning / DAG next; keep production SaaS, real billing, team workspace, and autonomous agents as later explicit stages.",
+        "decision": "Phase A Trust & Credential MVP, Phase B Report Product Close Loop, Phase C Progression Decision Engine v1, and Phase D 7-Day Planning / DAG are implemented. Start Phase E Production SaaS Foundation next as a separate large stage; keep real billing, team workspace credential sharing, and autonomous agents as later explicit stages.",
     }
 
 
