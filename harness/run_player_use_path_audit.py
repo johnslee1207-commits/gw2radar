@@ -1698,6 +1698,87 @@ def main() -> int:
             "mature_productized_reports",
             "Account Value markdown, Legendary Gap CSV, and Build Readiness HTML artifacts generated through one template API.",
         )
+        productized_packet_manifest_response = _json(
+            client.get("/api/v1/reports/productized/artifacts/bundle?format=manifest&limit=10"),
+            "load productized report packet zip manifest",
+            checks,
+        )
+        productized_packet_manifest = _get(
+            productized_packet_manifest_response,
+            "data",
+            "productized_report_packet_zip_bundle",
+        ) or {}
+        productized_packet_verify_response = _json(
+            client.post("/api/v1/reports/productized/artifacts/bundle/verify?limit=10"),
+            "verify productized report packet zip",
+            checks,
+        )
+        productized_packet_verify = _get(
+            productized_packet_verify_response,
+            "data",
+            "productized_report_packet_zip_verification",
+        ) or {}
+        productized_packet_audit_response = _json(
+            client.post(
+                "/api/v1/reports/productized/artifacts/bundle/verification-audit",
+                json={"reviewer": "player_use_path_audit", "notes": ["Use-path audit verified productized report packet zip."]},
+            ),
+            "record productized report packet zip audit",
+            checks,
+        )
+        productized_packet_audit = _get(
+            productized_packet_audit_response,
+            "data",
+            "productized_report_packet_zip_verification_audit_record",
+        ) or {}
+        productized_packet_audit_list_response = _json(
+            client.get("/api/v1/reports/productized/artifacts/bundle/verification-audit?reviewer=player_use_path_audit&limit=10"),
+            "list productized report packet zip audit",
+            checks,
+        )
+        productized_packet_audit_records = _get(
+            productized_packet_audit_list_response,
+            "data",
+            "productized_report_packet_zip_verification_audit",
+            "records",
+        ) or []
+        productized_packet_audit_markdown = client.get(
+            "/api/v1/reports/productized/artifacts/bundle/verification-audit?format=markdown"
+        )
+        productized_packet_audit_csv = client.get(
+            "/api/v1/reports/productized/artifacts/bundle/verification-audit?format=csv"
+        )
+        _add(
+            checks,
+            "productized_report_packet_zip_verification_audit",
+            "Productized report artifacts can be bundled as a read-only zip, verified, and recorded as metadata-only audit evidence.",
+            productized_packet_manifest.get("schema_version")
+            == "gw2radar.productized_report_packet_zip_manifest.v1"
+            and productized_packet_manifest.get("artifact_count", 0) >= 3
+            and productized_packet_manifest.get("file_count", 0) >= 6
+            and len(str(productized_packet_manifest.get("checksum_sha256") or "")) == 64
+            and productized_packet_verify.get("schema_version")
+            == "gw2radar.productized_report_packet_zip_verification.v1"
+            and productized_packet_verify.get("ready") is True
+            and productized_packet_audit.get("schema_version")
+            == "gw2radar.productized_report_packet_zip_verification_audit.v1"
+            and productized_packet_audit.get("ready") is True
+            and len(productized_packet_audit_records) >= 1
+            and productized_packet_audit_markdown.status_code == 200
+            and "# Productized Report Packet Zip Verification Audit" in productized_packet_audit_markdown.text
+            and productized_packet_audit_csv.status_code == 200
+            and "audit_id,recorded_at,reviewer,ready,checksum_sha256" in productized_packet_audit_csv.text
+            and "secret-key"
+            not in json.dumps(
+                {
+                    "manifest": productized_packet_manifest,
+                    "verify": productized_packet_verify,
+                    "audit": productized_packet_audit,
+                }
+            ).lower(),
+            "mature_productized_report_packet_zip_audit",
+            f"{productized_packet_manifest.get('artifact_count', 0)} productized report artifacts bundled with checksum {str(productized_packet_manifest.get('checksum_sha256') or '')[:12]}.",
+        )
 
         _write_audit(checks)
     except Exception as exc:  # pragma: no cover - harness defensive reporting
@@ -1884,6 +1965,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "- `ReportArtifactManifest` records bridge metadata without storing raw API keys or unredacted private payloads.",
             "- `ProductizedReportTemplate` exposes Account Value, Legendary Gap, and Build Readiness report contracts with deterministic export formats.",
             "- `ProductizedReportArtifact` writes entitlement-gated Markdown, CSV, and HTML-ready report artifacts with checksums and no-secret boundaries.",
+            "- `ProductizedReportPacketZipVerificationAudit` verifies productized report packet zip archives and records metadata-only delivery evidence.",
             "",
             "## Known Limits",
             "",
@@ -1893,7 +1975,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Next Priority",
             "",
-            "Add Productized Report Packet zip download, whitelist verification, and metadata-only audit trail.",
+            "Add Productized Report Delivery Checklist and operator handoff packet for report fulfillment.",
             "",
         ]
     )

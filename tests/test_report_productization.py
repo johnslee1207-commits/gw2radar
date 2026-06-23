@@ -1,6 +1,8 @@
 import shutil
+from io import BytesIO
 from pathlib import Path
 from uuid import uuid4
+from zipfile import ZipFile
 
 from fastapi.testclient import TestClient
 
@@ -99,6 +101,91 @@ def test_productized_report_templates_generate_artifacts_and_preserve_boundaries
         assert "secret-key" not in combined
         assert "private_source_payload" not in combined
         assert "manual player review" in account_manifest["manual_action_boundary"]
+
+        zip_manifest = client.get("/api/v1/reports/productized/artifacts/bundle?format=manifest&limit=10")
+        zip_bundle = client.get("/api/v1/reports/productized/artifacts/bundle?limit=10")
+        zip_verify = client.post("/api/v1/reports/productized/artifacts/bundle/verify?limit=10")
+        zip_audit_record = client.post(
+            "/api/v1/reports/productized/artifacts/bundle/verification-audit",
+            json={"reviewer": "report lead", "notes": ["Verified productized report packet before delivery."]},
+        )
+        zip_audit_list = client.get(
+            "/api/v1/reports/productized/artifacts/bundle/verification-audit?reviewer=report%20lead&limit=10"
+        )
+        zip_audit_markdown = client.get(
+            "/api/v1/reports/productized/artifacts/bundle/verification-audit?format=markdown"
+        )
+        zip_audit_csv = client.get(
+            "/api/v1/reports/productized/artifacts/bundle/verification-audit?format=csv"
+        )
+
+        assert zip_manifest.status_code == 200
+        zip_manifest_payload = zip_manifest.json()["data"]["productized_report_packet_zip_bundle"]
+        assert zip_manifest_payload["schema_version"] == "gw2radar.productized_report_packet_zip_manifest.v1"
+        assert zip_manifest_payload["artifact_count"] >= 3
+        assert zip_manifest_payload["file_count"] >= 6
+        assert len(zip_manifest_payload["checksum_sha256"]) == 64
+        assert zip_bundle.status_code == 200
+        assert zip_bundle.headers["x-checksum-sha256"] == zip_manifest_payload["checksum_sha256"]
+        names = set(ZipFile(BytesIO(zip_bundle.content)).namelist())
+        assert any(name.endswith("/manifest.json") for name in names)
+        assert any(name.endswith(".md") for name in names)
+        assert any(name.endswith(".csv") for name in names)
+        assert any(name.endswith(".html") for name in names)
+        assert all(name.startswith("productized_report_packet/") for name in names)
+
+        assert zip_verify.status_code == 200
+        verification = zip_verify.json()["data"]["productized_report_packet_zip_verification"]
+        assert verification["schema_version"] == "gw2radar.productized_report_packet_zip_verification.v1"
+        assert verification["ready"] is True
+        assert verification["checksum_sha256"] == zip_manifest_payload["checksum_sha256"]
+
+        tampered_buffer = BytesIO()
+        with ZipFile(BytesIO(zip_bundle.content), mode="r") as source_archive:
+            with ZipFile(tampered_buffer, mode="w") as tampered_archive:
+                for name in source_archive.namelist():
+                    tampered_archive.writestr(name, source_archive.read(name))
+                tampered_archive.writestr("productized_report_packet/bad/secret.txt", "secret-key")
+        tampered_verify = client.post(
+            "/api/v1/reports/productized/artifacts/bundle/verify",
+            content=tampered_buffer.getvalue(),
+            headers={"Content-Type": "application/zip"},
+        )
+        tampered_audit = client.post(
+            "/api/v1/reports/productized/artifacts/bundle/verification-audit/upload?reviewer=tamper%20report",
+            content=tampered_buffer.getvalue(),
+            headers={"Content-Type": "application/zip"},
+        )
+        assert tampered_verify.status_code == 200
+        tampered_verification = tampered_verify.json()["data"]["productized_report_packet_zip_verification"]
+        assert tampered_verification["ready"] is False
+        assert "secret-key" not in str(tampered_verification).lower()
+
+        assert zip_audit_record.status_code == 200
+        audit_record = zip_audit_record.json()["data"]["productized_report_packet_zip_verification_audit_record"]
+        assert audit_record["schema_version"] == "gw2radar.productized_report_packet_zip_verification_audit.v1"
+        assert audit_record["reviewer"] == "report lead"
+        assert audit_record["ready"] is True
+        assert audit_record["checksum_sha256"] == zip_manifest_payload["checksum_sha256"]
+        assert zip_audit_list.status_code == 200
+        audit_list = zip_audit_list.json()["data"]["productized_report_packet_zip_verification_audit"]
+        assert audit_list["schema_version"] == "gw2radar.productized_report_packet_zip_verification_audit_list.v1"
+        assert audit_list["records"][0]["reviewer"] == "report lead"
+        assert zip_audit_markdown.status_code == 200
+        assert "# Productized Report Packet Zip Verification Audit" in zip_audit_markdown.text
+        assert zip_audit_csv.status_code == 200
+        assert "audit_id,recorded_at,reviewer,ready,checksum_sha256" in zip_audit_csv.text
+        assert tampered_audit.status_code == 200
+        tampered_record = tampered_audit.json()["data"]["productized_report_packet_zip_verification_audit_record"]
+        assert tampered_record["ready"] is False
+        assert tampered_record["blocker_count"] >= 1
+        assert "secret-key" not in (
+            str(audit_record)
+            + str(audit_list)
+            + zip_audit_markdown.text
+            + zip_audit_csv.text
+            + str(tampered_record)
+        ).lower()
     finally:
         close_database()
         configure_database(get_settings().database_url)

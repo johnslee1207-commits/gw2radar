@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Response
+from fastapi import APIRouter, Body, HTTPException, Response
 from pathlib import Path
 from pydantic import BaseModel
 
@@ -13,9 +13,16 @@ from gw2radar.commercial.report_engine import (
     resolve_artifact_path,
 )
 from gw2radar.commercial.report_productization import (
+    ProductizedReportPacketZipVerificationAuditRequest,
+    build_productized_report_packet_zip_bundle,
     generate_productized_report_artifact,
+    list_productized_report_packet_zip_verification_audits,
     list_productized_report_templates,
+    record_productized_report_packet_zip_verification_audit,
+    render_productized_report_packet_zip_verification_audit_csv,
+    render_productized_report_packet_zip_verification_audit_markdown,
     resolve_productized_report_artifact_path,
+    verify_productized_report_packet_zip_bundle,
 )
 from gw2radar.commercial.build_fit import AccountGearSnapshot
 from gw2radar.db import session as db_session
@@ -126,6 +133,97 @@ def post_productized_report_generate(request: ProductizedReportGenerateRequest) 
         except ValueError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
     return ApiDataEnvelope(data={"productized_report": manifest.model_dump(mode="json")})
+
+
+@router.get("/api/v1/reports/productized/artifacts/bundle", response_model=None)
+def get_productized_report_artifact_bundle(
+    format: str = "zip",
+    limit: int = 20,
+) -> ApiDataEnvelope | Response:
+    try:
+        manifest, bundle_bytes = build_productized_report_packet_zip_bundle(limit=limit)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    if format == "manifest":
+        return ApiDataEnvelope(data={"productized_report_packet_zip_bundle": manifest.model_dump(mode="json")})
+    if format != "zip":
+        raise HTTPException(status_code=400, detail="Unsupported bundle format")
+    return Response(
+        content=bundle_bytes,
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f'attachment; filename="{manifest.filename}"',
+            "X-Checksum-SHA256": manifest.checksum_sha256,
+        },
+    )
+
+
+@router.post("/api/v1/reports/productized/artifacts/bundle/verify", response_model=ApiDataEnvelope)
+def post_productized_report_artifact_bundle_verify(
+    bundle: bytes | None = Body(default=None, media_type="application/zip"),
+    expected_checksum_sha256: str | None = None,
+    limit: int = 20,
+) -> ApiDataEnvelope:
+    if bundle is None or len(bundle) == 0:
+        manifest, bundle = build_productized_report_packet_zip_bundle(limit=limit)
+        expected_checksum_sha256 = expected_checksum_sha256 or manifest.checksum_sha256
+    verification = verify_productized_report_packet_zip_bundle(
+        bundle,
+        expected_checksum_sha256=expected_checksum_sha256,
+    )
+    return ApiDataEnvelope(data={"productized_report_packet_zip_verification": verification.model_dump(mode="json")})
+
+
+@router.post("/api/v1/reports/productized/artifacts/bundle/verification-audit", response_model=ApiDataEnvelope)
+def post_productized_report_artifact_bundle_verification_audit(
+    request: ProductizedReportPacketZipVerificationAuditRequest,
+) -> ApiDataEnvelope:
+    try:
+        record = record_productized_report_packet_zip_verification_audit(request)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return ApiDataEnvelope(
+        data={"productized_report_packet_zip_verification_audit_record": record.model_dump(mode="json")}
+    )
+
+
+@router.post("/api/v1/reports/productized/artifacts/bundle/verification-audit/upload", response_model=ApiDataEnvelope)
+def post_productized_report_artifact_bundle_verification_audit_upload(
+    bundle: bytes = Body(media_type="application/zip"),
+    reviewer: str = "report-ops",
+    expected_checksum_sha256: str | None = None,
+) -> ApiDataEnvelope:
+    request = ProductizedReportPacketZipVerificationAuditRequest(
+        reviewer=reviewer,
+        expected_checksum_sha256=expected_checksum_sha256,
+        notes=["Productized report packet zip verification audit recorded from uploaded zip bytes."],
+    )
+    record = record_productized_report_packet_zip_verification_audit(request, bundle_bytes=bundle)
+    return ApiDataEnvelope(
+        data={"productized_report_packet_zip_verification_audit_record": record.model_dump(mode="json")}
+    )
+
+
+@router.get("/api/v1/reports/productized/artifacts/bundle/verification-audit", response_model=None)
+def get_productized_report_artifact_bundle_verification_audit(
+    reviewer: str | None = None,
+    limit: int = 20,
+    format: str = "json",
+) -> ApiDataEnvelope | Response:
+    audit = list_productized_report_packet_zip_verification_audits(reviewer=reviewer, limit=limit)
+    if format == "markdown":
+        return Response(
+            content=render_productized_report_packet_zip_verification_audit_markdown(audit),
+            media_type="text/markdown; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="productized_report_packet_zip_verification_audit.md"'},
+        )
+    if format == "csv":
+        return Response(
+            content=render_productized_report_packet_zip_verification_audit_csv(audit),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="productized_report_packet_zip_verification_audit.csv"'},
+        )
+    return ApiDataEnvelope(data={"productized_report_packet_zip_verification_audit": audit.model_dump(mode="json")})
 
 
 @router.post("/api/v1/reports/preview", response_model=ApiDataEnvelope)
