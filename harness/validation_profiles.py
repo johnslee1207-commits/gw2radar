@@ -73,6 +73,11 @@ VALIDATION_PROFILES: dict[str, ValidationProfile] = {
                 "Operational hardening readiness freshness check.",
                 (PYTHON, "harness\\run_operational_hardening_readiness.py", "--check"),
             ),
+            ValidationStep(
+                "operator_release_packet",
+                "Operator release packet readiness freshness check.",
+                (PYTHON, "harness\\run_operator_release_packet.py", "--check"),
+            ),
         ),
     ),
     "smoke": ValidationProfile(

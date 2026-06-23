@@ -7,8 +7,8 @@
 
 ## Evidence
 
-- Spec count: 63
-- Registry maturity counts: {'implemented': 50, 'partial': 13}
+- Spec count: 64
+- Registry maturity counts: {'implemented': 51, 'partial': 13}
 - Partial specs: 13
 - Reconciled partial specs: 13
 - Needs review: 0

@@ -11,6 +11,14 @@ from gw2radar.ops.release_readiness import (
     render_operational_hardening_csv,
     render_operational_hardening_markdown,
 )
+from gw2radar.ops.operator_release_packet import (
+    build_operator_release_packet_bundle,
+    build_operator_release_packet_summary,
+    render_operator_release_packet_summary_csv,
+    render_operator_release_packet_summary_markdown,
+    verify_operator_release_packet_bundle,
+    write_operator_release_packet_artifacts,
+)
 
 router = APIRouter(prefix="/api/v1/ops", tags=["ops"])
 
@@ -65,3 +73,54 @@ def get_operational_release_readiness(
             media_type="text/csv; charset=utf-8",
         )
     return ApiDataEnvelope(data={"release_readiness": readiness.model_dump(mode="json")})
+
+
+@router.get("/release-packet", response_model=None)
+def get_operator_release_packet(
+    format: str = Query(default="json", pattern="^(json|markdown|csv)$"),
+):
+    summary = build_operator_release_packet_summary()
+    if format == "markdown":
+        return Response(
+            content=render_operator_release_packet_summary_markdown(summary),
+            media_type="text/markdown; charset=utf-8",
+        )
+    if format == "csv":
+        return Response(
+            content=render_operator_release_packet_summary_csv(summary),
+            media_type="text/csv; charset=utf-8",
+        )
+    return ApiDataEnvelope(data={"operator_release_packet": summary.model_dump(mode="json")})
+
+
+@router.post("/release-packet/artifacts", response_model=ApiDataEnvelope)
+def post_operator_release_packet_artifacts() -> ApiDataEnvelope:
+    index = write_operator_release_packet_artifacts()
+    return ApiDataEnvelope(data={"operator_release_packet_artifacts": index.model_dump(mode="json")})
+
+
+@router.get("/release-packet/artifacts/bundle", response_model=None)
+def get_operator_release_packet_bundle(
+    format: str = Query(default="zip", pattern="^(zip|manifest)$"),
+):
+    manifest, bundle_bytes = build_operator_release_packet_bundle()
+    if format == "manifest":
+        return ApiDataEnvelope(data={"operator_release_packet_bundle": manifest.model_dump(mode="json")})
+    return Response(
+        content=bundle_bytes,
+        media_type="application/zip",
+        headers={
+            "x-checksum-sha256": manifest.checksum_sha256,
+            "content-disposition": f'attachment; filename="{manifest.filename}"',
+        },
+    )
+
+
+@router.post("/release-packet/artifacts/bundle/verify", response_model=ApiDataEnvelope)
+def post_operator_release_packet_bundle_verify() -> ApiDataEnvelope:
+    manifest, bundle_bytes = build_operator_release_packet_bundle()
+    verification = verify_operator_release_packet_bundle(
+        bundle_bytes,
+        expected_checksum_sha256=manifest.checksum_sha256,
+    )
+    return ApiDataEnvelope(data={"operator_release_packet_bundle_verification": verification.model_dump(mode="json")})

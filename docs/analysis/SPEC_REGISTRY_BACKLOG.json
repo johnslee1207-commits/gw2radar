@@ -1,6 +1,6 @@
 {
   "maturity_counts": {
-    "implemented": 50,
+    "implemented": 51,
     "partial": 13
   },
   "next_tranche": [
@@ -1292,6 +1292,39 @@
       "source_path": "docs/analysis/OPERATIONAL_HARDENING_READINESS.md",
       "spec_id": "operational_hardening_readiness",
       "title": "Operational Hardening Readiness"
+    },
+    {
+      "category": "analysis",
+      "domains": [
+        "delivery",
+        "guild"
+      ],
+      "evidence": [
+        "11 related tests",
+        "maturity/audit language present",
+        "privacy/safety boundary referenced",
+        "domain:delivery",
+        "domain:guild"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "cross-cutting",
+      "related_tests": [
+        "tests/test_delivery_lifecycle.py",
+        "tests/test_export_package.py",
+        "tests/test_guild_api.py",
+        "tests/test_guild_report.py",
+        "tests/test_member_privacy_summary.py",
+        "tests/test_patch_dashboard_export.py",
+        "tests/test_report_export_job.py",
+        "tests/test_report_productization.py",
+        "tests/test_role_coverage.py",
+        "tests/test_team_consent.py",
+        "tests/test_team_readiness_score.py"
+      ],
+      "source_path": "docs/analysis/OPERATOR_RELEASE_PACKET_READINESS.md",
+      "spec_id": "operator_release_packet_readiness",
+      "title": "Operator Release Packet"
     },
     {
       "category": "analysis",
@@ -2769,5 +2802,5 @@
     }
   ],
   "schema_version": "gw2radar.spec_registry_backlog.v1",
-  "spec_count": 63
+  "spec_count": 64
 }

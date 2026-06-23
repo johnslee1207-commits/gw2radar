@@ -33,7 +33,8 @@ python harness/run_validation_profile.py full
 - `fast`: shared delivery lifecycle contract, productized report regression,
   player use-path semantic maturity audit, spec registry freshness, and partial
   spec reconciliation freshness, MVP closure readiness, post-MVP roadmap
-  freshness, and operational hardening readiness freshness.
+  freshness, operational hardening readiness freshness, and operator release
+  packet readiness freshness.
 - `smoke`: MVP smoke, player UI E2E smoke, and account connection diagnostic.
 - `full`: complete `pytest` regression.
 
@@ -273,6 +274,19 @@ reconciliation, and player use-path audit artifacts, then writes
 `docs/analysis/OPERATIONAL_HARDENING_READINESS.json`. It confirms A-F phases are
 implemented, release and GitNexus commands are declared, player use-path checks
 remain green, and later provider / SaaS tracks stay explicitly deferred.
+
+## Operator Release Packet Command
+
+```bash
+python harness/run_operator_release_packet.py
+python harness/run_operator_release_packet.py --check
+```
+
+This harness writes `docs/analysis/OPERATOR_RELEASE_PACKET_READINESS.md` and
+`docs/analysis/OPERATOR_RELEASE_PACKET_READINESS.json`. It confirms the
+operator handoff packet can be built from metadata-only release evidence and
+that required validation commands, deferred tracks, packet file names, and
+safety boundaries are visible before any external handoff.
 
 ## Account Debug Bundle Review Command
 
