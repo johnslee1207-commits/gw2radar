@@ -2039,7 +2039,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Next Priority",
             "",
-            "Build a spec registry and backlog index that links tracked planning docs to implemented maturity, remaining gaps, and the next stage tranche.",
+            "Close the first partial spec backlog tranche by reconciling official API compatibility, project constitution, commercial roadmap, and senior player guide gaps against current tests.",
             "",
         ]
     )

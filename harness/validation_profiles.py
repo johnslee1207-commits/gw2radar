@@ -48,6 +48,11 @@ VALIDATION_PROFILES: dict[str, ValidationProfile] = {
                 "Executable player use-path and semantic maturity audit.",
                 (PYTHON, "harness\\run_player_use_path_audit.py"),
             ),
+            ValidationStep(
+                "spec_registry",
+                "Spec registry and backlog index freshness check.",
+                (PYTHON, "harness\\run_spec_registry.py", "--check"),
+            ),
         ),
     ),
     "smoke": ValidationProfile(

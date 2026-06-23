@@ -1,0 +1,2631 @@
+{
+  "maturity_counts": {
+    "implemented": 47,
+    "partial": 12
+  },
+  "next_tranche": [
+    {
+      "category": "analysis",
+      "domains": [
+        "account",
+        "api_gateway",
+        "build_fit",
+        "commercial",
+        "delivery",
+        "guild",
+        "kb",
+        "legendary",
+        "market",
+        "player_ui",
+        "support"
+      ],
+      "evidence": [
+        "12 related tests",
+        "manual review gate referenced",
+        "privacy/safety boundary referenced",
+        "domain:account",
+        "domain:api_gateway",
+        "domain:build_fit"
+      ],
+      "maturity": "partial",
+      "next_action": "Close remaining documented gaps with focused tests for linked domains.",
+      "phase": "MVP 0.1",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/analysis/GW2Radar_Commercial_Opportunity_Full_Implementation_Roadmap_Codex_Spec.md",
+      "spec_id": "gw2radar_commercial_opportunity_full_implementation_roadmap_codex_spec",
+      "title": "GW2Radar Commercial Opportunity Full Implementation Roadmap \u2014 Codex Spec"
+    },
+    {
+      "category": "analysis",
+      "domains": [
+        "account",
+        "api_gateway",
+        "build_fit",
+        "commercial",
+        "delivery",
+        "guild",
+        "kb",
+        "legendary",
+        "market",
+        "player_ui",
+        "support"
+      ],
+      "evidence": [
+        "12 related tests",
+        "maturity/audit language present",
+        "privacy/safety boundary referenced",
+        "domain:account",
+        "domain:api_gateway",
+        "domain:build_fit"
+      ],
+      "maturity": "partial",
+      "next_action": "Close remaining documented gaps with focused tests for linked domains.",
+      "phase": "cross-cutting",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/analysis/GW2Radar_KB_Graph_Commercial_Intelligence_Implementation_Plan.md",
+      "spec_id": "gw2radar_kb_graph_commercial_intelligence_implementation_plan",
+      "title": "GW2Radar Knowledge Base, Knowledge Graph & Commercial Intelligence Implementation Plan"
+    },
+    {
+      "category": "analysis",
+      "domains": [
+        "account",
+        "build_fit",
+        "guild",
+        "kb",
+        "legendary",
+        "market"
+      ],
+      "evidence": [
+        "12 related tests",
+        "domain:account",
+        "domain:build_fit",
+        "domain:guild"
+      ],
+      "maturity": "partial",
+      "next_action": "Close remaining documented gaps with focused tests for linked domains.",
+      "phase": "MVP 0.1",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/analysis/GW2Radar_MVP_0_1_Codex_Development_Spec.md",
+      "spec_id": "gw2radar_mvp_0_1_codex_development_spec",
+      "title": "GW2Radar MVP 0.1 \u7814\u5236\u89c4\u8303"
+    },
+    {
+      "category": "analysis",
+      "domains": [
+        "account",
+        "api_gateway",
+        "build_fit",
+        "guild",
+        "kb",
+        "legendary",
+        "market",
+        "support"
+      ],
+      "evidence": [
+        "12 related tests",
+        "manual review gate referenced",
+        "privacy/safety boundary referenced",
+        "domain:account",
+        "domain:api_gateway",
+        "domain:build_fit"
+      ],
+      "maturity": "partial",
+      "next_action": "Close remaining documented gaps with focused tests for linked domains.",
+      "phase": "MVP 0.1",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/analysis/GW2Radar_Official_GW2_API_Compatibility_Layer_Codex_Spec.md",
+      "spec_id": "gw2radar_official_gw2_api_compatibility_layer_codex_spec",
+      "title": "GW2Radar Official GW2 API Compatibility Layer \u2014 Codex Development Spec"
+    },
+    {
+      "category": "analysis",
+      "domains": [
+        "account",
+        "api_gateway",
+        "build_fit",
+        "commercial",
+        "guild",
+        "kb",
+        "legendary",
+        "market",
+        "support"
+      ],
+      "evidence": [
+        "12 related tests",
+        "manual review gate referenced",
+        "privacy/safety boundary referenced",
+        "domain:account",
+        "domain:api_gateway",
+        "domain:build_fit"
+      ],
+      "maturity": "partial",
+      "next_action": "Close remaining documented gaps with focused tests for linked domains.",
+      "phase": "MVP 0.1",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/analysis/GW2Radar_Project_Constitution_API_Governance_Codex_Spec.md",
+      "spec_id": "gw2radar_project_constitution_api_governance_codex_spec",
+      "title": "GW2Radar Project Constitution & API Access Governance \u2014 Codex Development Spec"
+    },
+    {
+      "category": "analysis",
+      "domains": [
+        "account",
+        "build_fit",
+        "commercial",
+        "delivery",
+        "guild",
+        "kb",
+        "legendary",
+        "market",
+        "player_ui",
+        "support"
+      ],
+      "evidence": [
+        "12 related tests",
+        "maturity/audit language present",
+        "manual review gate referenced",
+        "domain:account",
+        "domain:build_fit",
+        "domain:commercial"
+      ],
+      "maturity": "partial",
+      "next_action": "Close remaining documented gaps with focused tests for linked domains.",
+      "phase": "cross-cutting",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/analysis/SENIOR_PLAYER_USER_GUIDE.md",
+      "spec_id": "senior_player_user_guide",
+      "title": "GW2Radar Senior Player User Guide"
+    },
+    {
+      "category": "mvp",
+      "domains": [
+        "delivery",
+        "legendary"
+      ],
+      "evidence": [
+        "12 related tests",
+        "domain:delivery",
+        "domain:legendary"
+      ],
+      "maturity": "partial",
+      "next_action": "Close remaining documented gaps with focused tests for linked domains.",
+      "phase": "MVP 0.1.2",
+      "related_tests": [
+        "tests/test_delivery_lifecycle.py",
+        "tests/test_do_not_sell_multi_goal.py",
+        "tests/test_export_package.py",
+        "tests/test_goal_conflicts.py",
+        "tests/test_goal_cost_index.py",
+        "tests/test_goal_gap.py",
+        "tests/test_goal_portfolio.py",
+        "tests/test_legendary_pro_api.py",
+        "tests/test_legendary_pro_report.py",
+        "tests/test_patch_dashboard_export.py",
+        "tests/test_report_export_job.py",
+        "tests/test_report_productization.py"
+      ],
+      "source_path": "docs/mvp/MVP_0_1_2_REPORT_EXPORT_PACKAGE.md",
+      "spec_id": "mvp_0_1_2_report_export_package",
+      "title": "MVP 0.1.2 Report Export Package"
+    },
+    {
+      "category": "mvp",
+      "domains": [
+        "kb"
+      ],
+      "evidence": [
+        "12 related tests",
+        "domain:kb"
+      ],
+      "maturity": "partial",
+      "next_action": "Close remaining documented gaps with focused tests for linked domains.",
+      "phase": "MVP 0.1.5",
+      "related_tests": [
+        "tests/test_build_source_attribution.py",
+        "tests/test_kb_api.py",
+        "tests/test_kb_article_model.py",
+        "tests/test_kb_backed_report.py",
+        "tests/test_kb_directory_loader.py",
+        "tests/test_kb_domain_rule_packs.py",
+        "tests/test_kb_domain_seed_loader.py",
+        "tests/test_kb_entity_linker.py",
+        "tests/test_kb_entity_linking.py",
+        "tests/test_kb_explanation.py",
+        "tests/test_kb_explanation_api.py",
+        "tests/test_kb_linker_distiller_api.py"
+      ],
+      "source_path": "docs/mvp/MVP_0_1_5_EVIDENCE_QUALITY_RULES.md",
+      "spec_id": "mvp_0_1_5_evidence_quality_rules",
+      "title": "MVP 0.1.5 Evidence Freshness and Confidence Rules"
+    },
+    {
+      "category": "mvp",
+      "domains": [
+        "account",
+        "commercial",
+        "legendary",
+        "support"
+      ],
+      "evidence": [
+        "12 related tests",
+        "privacy/safety boundary referenced",
+        "domain:account",
+        "domain:commercial",
+        "domain:legendary"
+      ],
+      "maturity": "partial",
+      "next_action": "Close remaining documented gaps with focused tests for linked domains.",
+      "phase": "MVP 0.1",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_report.py",
+        "tests/test_creator_report.py"
+      ],
+      "source_path": "docs/mvp/MVP_0_1_CODEX_DEVELOPMENT_SPEC.md",
+      "spec_id": "mvp_0_1_codex_development_spec",
+      "title": "GW2Radar MVP 0.1 Codex Development Spec"
+    },
+    {
+      "category": "mvp",
+      "domains": [
+        "account",
+        "api_gateway",
+        "build_fit",
+        "guild"
+      ],
+      "evidence": [
+        "12 related tests",
+        "privacy/safety boundary referenced",
+        "domain:account",
+        "domain:api_gateway",
+        "domain:build_fit"
+      ],
+      "maturity": "partial",
+      "next_action": "Close remaining documented gaps with focused tests for linked domains.",
+      "phase": "MVP 0.2.0",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/mvp/MVP_0_2_0_OFFICIAL_API_COMPATIBILITY_HARDENING.md",
+      "spec_id": "mvp_0_2_0_official_api_compatibility_hardening",
+      "title": "MVP 0.2.0 Official API Compatibility Hardening"
+    }
+  ],
+  "player_use_path": {
+    "audit_path": "docs/ui/PLAYER_USE_PATH_COMPLETENESS_AUDIT.md",
+    "checks": 46,
+    "failed_checks": 0
+  },
+  "records": [
+    {
+      "category": "analysis",
+      "domains": [
+        "account",
+        "api_gateway",
+        "build_fit",
+        "commercial",
+        "delivery",
+        "legendary",
+        "market",
+        "player_ui"
+      ],
+      "evidence": [
+        "12 related tests",
+        "maturity/audit language present",
+        "privacy/safety boundary referenced",
+        "domain:account",
+        "domain:api_gateway",
+        "domain:build_fit"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "cross-cutting",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/analysis/ACCOUNT_VALUE_BUILD_MARKET_SEMANTIC_MATURITY_AUDIT.md",
+      "spec_id": "account_value_build_market_semantic_maturity_audit",
+      "title": "Account Value, Build Fit, And Market Semantic Maturity Audit"
+    },
+    {
+      "category": "analysis",
+      "domains": [
+        "account",
+        "api_gateway",
+        "build_fit",
+        "commercial",
+        "delivery",
+        "guild",
+        "kb",
+        "legendary",
+        "market",
+        "player_ui"
+      ],
+      "evidence": [
+        "12 related tests",
+        "maturity/audit language present",
+        "manual review gate referenced",
+        "privacy/safety boundary referenced",
+        "domain:account",
+        "domain:api_gateway"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "cross-cutting",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/analysis/ALL_STAGE_CODE_SEMANTIC_MATURITY_AUDIT.md",
+      "spec_id": "all_stage_code_semantic_maturity_audit",
+      "title": "All-Stage Code Graph, Semantic Graph, and Maturity Audit"
+    },
+    {
+      "category": "analysis",
+      "domains": [
+        "account",
+        "api_gateway",
+        "build_fit",
+        "commercial",
+        "delivery",
+        "guild",
+        "kb",
+        "legendary",
+        "market",
+        "player_ui",
+        "support"
+      ],
+      "evidence": [
+        "12 related tests",
+        "maturity/audit language present",
+        "manual review gate referenced",
+        "privacy/safety boundary referenced",
+        "domain:account",
+        "domain:api_gateway"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "MVP 0.1.9",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/analysis/CODE_SPECTRUM_AND_SEMANTIC_GRAPH.md",
+      "spec_id": "code_spectrum_and_semantic_graph",
+      "title": "GW2Radar Code Spectrum and Semantic Graph Analysis"
+    },
+    {
+      "category": "analysis",
+      "domains": [
+        "account",
+        "api_gateway",
+        "commercial",
+        "delivery",
+        "guild",
+        "kb",
+        "market",
+        "player_ui",
+        "support"
+      ],
+      "evidence": [
+        "12 related tests",
+        "maturity/audit language present",
+        "manual review gate referenced",
+        "domain:account",
+        "domain:api_gateway",
+        "domain:commercial"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "cross-cutting",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_report.py",
+        "tests/test_build_source_attribution.py"
+      ],
+      "source_path": "docs/analysis/FINAL_PROJECT_ACCEPTANCE_AND_GRAPH_AUDIT.md",
+      "spec_id": "final_project_acceptance_and_graph_audit",
+      "title": "GW2Radar Final Project Acceptance And Graph Audit"
+    },
+    {
+      "category": "analysis",
+      "domains": [
+        "account",
+        "api_gateway",
+        "build_fit",
+        "commercial",
+        "delivery",
+        "guild",
+        "kb",
+        "legendary",
+        "market",
+        "player_ui"
+      ],
+      "evidence": [
+        "12 related tests",
+        "maturity/audit language present",
+        "privacy/safety boundary referenced",
+        "domain:account",
+        "domain:api_gateway",
+        "domain:build_fit"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "cross-cutting",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/analysis/GITNEXUS_MVP_MATURITY_ANALYSIS.md",
+      "spec_id": "gitnexus_mvp_maturity_analysis",
+      "title": "GitNexus MVP Maturity Analysis"
+    },
+    {
+      "category": "analysis",
+      "domains": [
+        "account",
+        "api_gateway",
+        "build_fit",
+        "commercial",
+        "delivery",
+        "kb",
+        "legendary",
+        "market",
+        "player_ui",
+        "support"
+      ],
+      "evidence": [
+        "12 related tests",
+        "maturity/audit language present",
+        "manual review gate referenced",
+        "privacy/safety boundary referenced",
+        "domain:account",
+        "domain:api_gateway"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "cross-cutting",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/analysis/GW2_PROGRESSION_API_KEY_VALUE_VISUALIZATION_BORROWING_PLAN.md",
+      "spec_id": "gw2_progression_api_key_value_visualization_borrowing_plan",
+      "title": "GW2 Progression API Key Value And Visualization Borrowing Plan"
+    },
+    {
+      "category": "analysis",
+      "domains": [
+        "account",
+        "api_gateway",
+        "build_fit",
+        "commercial",
+        "delivery",
+        "guild",
+        "kb",
+        "legendary",
+        "market",
+        "player_ui",
+        "support"
+      ],
+      "evidence": [
+        "12 related tests",
+        "manual review gate referenced",
+        "privacy/safety boundary referenced",
+        "domain:account",
+        "domain:api_gateway",
+        "domain:build_fit"
+      ],
+      "maturity": "partial",
+      "next_action": "Close remaining documented gaps with focused tests for linked domains.",
+      "phase": "MVP 0.1",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/analysis/GW2Radar_Commercial_Opportunity_Full_Implementation_Roadmap_Codex_Spec.md",
+      "spec_id": "gw2radar_commercial_opportunity_full_implementation_roadmap_codex_spec",
+      "title": "GW2Radar Commercial Opportunity Full Implementation Roadmap \u2014 Codex Spec"
+    },
+    {
+      "category": "analysis",
+      "domains": [
+        "account",
+        "api_gateway",
+        "build_fit",
+        "commercial",
+        "delivery",
+        "guild",
+        "kb",
+        "legendary",
+        "market",
+        "support"
+      ],
+      "evidence": [
+        "12 related tests",
+        "manual review gate referenced",
+        "privacy/safety boundary referenced",
+        "domain:account",
+        "domain:api_gateway",
+        "domain:build_fit"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "cross-cutting",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/analysis/GW2Radar_Downloaded_PDF_Knowledge_Source_Processing_Plan.md",
+      "spec_id": "gw2radar_downloaded_pdf_knowledge_source_processing_plan",
+      "title": "GW2Radar Downloaded PDF Knowledge Source Processing Plan"
+    },
+    {
+      "category": "analysis",
+      "domains": [
+        "account",
+        "api_gateway",
+        "build_fit",
+        "commercial",
+        "delivery",
+        "guild",
+        "kb",
+        "legendary",
+        "market",
+        "player_ui",
+        "support"
+      ],
+      "evidence": [
+        "12 related tests",
+        "maturity/audit language present",
+        "privacy/safety boundary referenced",
+        "domain:account",
+        "domain:api_gateway",
+        "domain:build_fit"
+      ],
+      "maturity": "partial",
+      "next_action": "Close remaining documented gaps with focused tests for linked domains.",
+      "phase": "cross-cutting",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/analysis/GW2Radar_KB_Graph_Commercial_Intelligence_Implementation_Plan.md",
+      "spec_id": "gw2radar_kb_graph_commercial_intelligence_implementation_plan",
+      "title": "GW2Radar Knowledge Base, Knowledge Graph & Commercial Intelligence Implementation Plan"
+    },
+    {
+      "category": "analysis",
+      "domains": [
+        "account",
+        "api_gateway",
+        "build_fit",
+        "commercial",
+        "guild",
+        "kb",
+        "legendary",
+        "market",
+        "support"
+      ],
+      "evidence": [
+        "12 related tests",
+        "manual review gate referenced",
+        "privacy/safety boundary referenced",
+        "domain:account",
+        "domain:api_gateway",
+        "domain:build_fit"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "cross-cutting",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/analysis/GW2Radar_Knowledge_Source_Registry_Official_Authoritative_Links.md",
+      "spec_id": "gw2radar_knowledge_source_registry_official_authoritative_links",
+      "title": "GW2Radar Knowledge Source Registry \u2014 Official & Authoritative Links"
+    },
+    {
+      "category": "analysis",
+      "domains": [
+        "account",
+        "build_fit",
+        "guild",
+        "kb",
+        "legendary",
+        "market"
+      ],
+      "evidence": [
+        "12 related tests",
+        "domain:account",
+        "domain:build_fit",
+        "domain:guild"
+      ],
+      "maturity": "partial",
+      "next_action": "Close remaining documented gaps with focused tests for linked domains.",
+      "phase": "MVP 0.1",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/analysis/GW2Radar_MVP_0_1_Codex_Development_Spec.md",
+      "spec_id": "gw2radar_mvp_0_1_codex_development_spec",
+      "title": "GW2Radar MVP 0.1 \u7814\u5236\u89c4\u8303"
+    },
+    {
+      "category": "analysis",
+      "domains": [
+        "account",
+        "api_gateway",
+        "build_fit",
+        "guild",
+        "kb",
+        "legendary",
+        "market"
+      ],
+      "evidence": [
+        "12 related tests",
+        "privacy/safety boundary referenced",
+        "domain:account",
+        "domain:api_gateway",
+        "domain:build_fit"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "MVP 0.2",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/analysis/GW2Radar_MVP_0_2_Returner_Diagnosis_Codex_Spec.md",
+      "spec_id": "gw2radar_mvp_0_2_returner_diagnosis_codex_spec",
+      "title": "GW2Radar MVP 0.2 Returner Account Diagnosis \u2014 Codex Development Spec"
+    },
+    {
+      "category": "analysis",
+      "domains": [
+        "account",
+        "api_gateway",
+        "build_fit",
+        "guild",
+        "kb",
+        "legendary",
+        "market",
+        "support"
+      ],
+      "evidence": [
+        "12 related tests",
+        "manual review gate referenced",
+        "privacy/safety boundary referenced",
+        "domain:account",
+        "domain:api_gateway",
+        "domain:build_fit"
+      ],
+      "maturity": "partial",
+      "next_action": "Close remaining documented gaps with focused tests for linked domains.",
+      "phase": "MVP 0.1",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/analysis/GW2Radar_Official_GW2_API_Compatibility_Layer_Codex_Spec.md",
+      "spec_id": "gw2radar_official_gw2_api_compatibility_layer_codex_spec",
+      "title": "GW2Radar Official GW2 API Compatibility Layer \u2014 Codex Development Spec"
+    },
+    {
+      "category": "analysis",
+      "domains": [
+        "account",
+        "api_gateway",
+        "build_fit",
+        "guild",
+        "kb",
+        "legendary",
+        "market",
+        "support"
+      ],
+      "evidence": [
+        "12 related tests",
+        "maturity/audit language present",
+        "manual review gate referenced",
+        "privacy/safety boundary referenced",
+        "domain:account",
+        "domain:api_gateway"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "MVP 0.1",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/analysis/GW2Radar_P4_P5_Detailed_Design_Codex_Spec.md",
+      "spec_id": "gw2radar_p4_p5_detailed_design_codex_spec",
+      "title": "GW2Radar P4 & P5 Detailed Design \u2014 Codex Development Spec"
+    },
+    {
+      "category": "analysis",
+      "domains": [
+        "account",
+        "api_gateway",
+        "build_fit",
+        "guild",
+        "kb",
+        "legendary",
+        "market",
+        "support"
+      ],
+      "evidence": [
+        "12 related tests",
+        "maturity/audit language present",
+        "manual review gate referenced",
+        "privacy/safety boundary referenced",
+        "domain:account",
+        "domain:api_gateway"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "MVP 0.2",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/analysis/GW2Radar_Post_MVP_Development_Tasks_Detailed_Design_Codex_Spec.md",
+      "spec_id": "gw2radar_post_mvp_development_tasks_detailed_design_codex_spec",
+      "title": "GW2Radar Post-MVP Development Tasks & Detailed Design \u2014 Codex Spec"
+    },
+    {
+      "category": "analysis",
+      "domains": [
+        "account",
+        "api_gateway",
+        "build_fit",
+        "commercial",
+        "guild",
+        "kb",
+        "legendary",
+        "market",
+        "player_ui",
+        "support"
+      ],
+      "evidence": [
+        "12 related tests",
+        "manual review gate referenced",
+        "privacy/safety boundary referenced",
+        "domain:account",
+        "domain:api_gateway",
+        "domain:build_fit"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "MVP 0.1",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/analysis/GW2Radar_Product_Roadmap_v0_1_to_v1_0.md",
+      "spec_id": "gw2radar_product_roadmap_v0_1_to_v1_0",
+      "title": "GW2Radar Product Roadmap v0.1 to v1.0"
+    },
+    {
+      "category": "analysis",
+      "domains": [
+        "account",
+        "api_gateway",
+        "build_fit",
+        "commercial",
+        "guild",
+        "kb",
+        "legendary",
+        "market",
+        "support"
+      ],
+      "evidence": [
+        "12 related tests",
+        "manual review gate referenced",
+        "privacy/safety boundary referenced",
+        "domain:account",
+        "domain:api_gateway",
+        "domain:build_fit"
+      ],
+      "maturity": "partial",
+      "next_action": "Close remaining documented gaps with focused tests for linked domains.",
+      "phase": "MVP 0.1",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/analysis/GW2Radar_Project_Constitution_API_Governance_Codex_Spec.md",
+      "spec_id": "gw2radar_project_constitution_api_governance_codex_spec",
+      "title": "GW2Radar Project Constitution & API Access Governance \u2014 Codex Development Spec"
+    },
+    {
+      "category": "analysis",
+      "domains": [
+        "account",
+        "api_gateway",
+        "build_fit",
+        "commercial",
+        "delivery",
+        "guild",
+        "kb",
+        "market",
+        "player_ui"
+      ],
+      "evidence": [
+        "12 related tests",
+        "maturity/audit language present",
+        "manual review gate referenced",
+        "domain:account",
+        "domain:api_gateway",
+        "domain:build_fit"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "cross-cutting",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/analysis/KB_SEMANTIC_MATURITY_AND_PRIORITIES.md",
+      "spec_id": "kb_semantic_maturity_and_priorities",
+      "title": "KB Semantic Maturity And Priorities"
+    },
+    {
+      "category": "analysis",
+      "domains": [
+        "account",
+        "api_gateway",
+        "build_fit",
+        "commercial",
+        "delivery",
+        "guild",
+        "kb",
+        "legendary",
+        "market"
+      ],
+      "evidence": [
+        "12 related tests",
+        "maturity/audit language present",
+        "manual review gate referenced",
+        "privacy/safety boundary referenced",
+        "domain:account",
+        "domain:api_gateway"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "MVP 0.2.0",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/analysis/POST_MVP_GRAPH_MATURITY_AND_ROADMAP.md",
+      "spec_id": "post_mvp_graph_maturity_and_roadmap",
+      "title": "Post-MVP Graph Maturity And Roadmap"
+    },
+    {
+      "category": "analysis",
+      "domains": [
+        "account",
+        "build_fit",
+        "commercial",
+        "delivery",
+        "guild",
+        "kb",
+        "legendary",
+        "market",
+        "player_ui",
+        "support"
+      ],
+      "evidence": [
+        "12 related tests",
+        "maturity/audit language present",
+        "manual review gate referenced",
+        "domain:account",
+        "domain:build_fit",
+        "domain:commercial"
+      ],
+      "maturity": "partial",
+      "next_action": "Close remaining documented gaps with focused tests for linked domains.",
+      "phase": "cross-cutting",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/analysis/SENIOR_PLAYER_USER_GUIDE.md",
+      "spec_id": "senior_player_user_guide",
+      "title": "GW2Radar Senior Player User Guide"
+    },
+    {
+      "category": "analysis",
+      "domains": [
+        "account",
+        "api_gateway",
+        "build_fit",
+        "commercial",
+        "delivery",
+        "guild",
+        "kb",
+        "legendary",
+        "market",
+        "player_ui",
+        "support"
+      ],
+      "evidence": [
+        "12 related tests",
+        "maturity/audit language present",
+        "privacy/safety boundary referenced",
+        "domain:account",
+        "domain:api_gateway",
+        "domain:build_fit"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "cross-cutting",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/analysis/THREE_COMMERCIAL_OPPORTUNITIES_USER_GUIDE.md",
+      "spec_id": "three_commercial_opportunities_user_guide",
+      "title": "GW2Radar Three Commercial Opportunities User Guide"
+    },
+    {
+      "category": "mvp",
+      "domains": [
+        "delivery",
+        "legendary"
+      ],
+      "evidence": [
+        "12 related tests",
+        "domain:delivery",
+        "domain:legendary"
+      ],
+      "maturity": "partial",
+      "next_action": "Close remaining documented gaps with focused tests for linked domains.",
+      "phase": "MVP 0.1.2",
+      "related_tests": [
+        "tests/test_delivery_lifecycle.py",
+        "tests/test_do_not_sell_multi_goal.py",
+        "tests/test_export_package.py",
+        "tests/test_goal_conflicts.py",
+        "tests/test_goal_cost_index.py",
+        "tests/test_goal_gap.py",
+        "tests/test_goal_portfolio.py",
+        "tests/test_legendary_pro_api.py",
+        "tests/test_legendary_pro_report.py",
+        "tests/test_patch_dashboard_export.py",
+        "tests/test_report_export_job.py",
+        "tests/test_report_productization.py"
+      ],
+      "source_path": "docs/mvp/MVP_0_1_2_REPORT_EXPORT_PACKAGE.md",
+      "spec_id": "mvp_0_1_2_report_export_package",
+      "title": "MVP 0.1.2 Report Export Package"
+    },
+    {
+      "category": "mvp",
+      "domains": [
+        "account",
+        "build_fit",
+        "legendary"
+      ],
+      "evidence": [
+        "12 related tests",
+        "privacy/safety boundary referenced",
+        "domain:account",
+        "domain:build_fit",
+        "domain:legendary"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "MVP 0.1.3",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/mvp/MVP_0_1_3_GRAPH_LAYER_SEPARATION.md",
+      "spec_id": "mvp_0_1_3_graph_layer_separation",
+      "title": "MVP 0.1.3 Graph Layer Separation"
+    },
+    {
+      "category": "mvp",
+      "domains": [
+        "api_gateway",
+        "market",
+        "support"
+      ],
+      "evidence": [
+        "12 related tests",
+        "domain:api_gateway",
+        "domain:market",
+        "domain:support"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "MVP 0.1.4",
+      "related_tests": [
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_do_not_sell_multi_goal.py",
+        "tests/test_durable_refresh_queue.py",
+        "tests/test_gateway_contract.py",
+        "tests/test_gateway_incidents.py",
+        "tests/test_gw2_api_batching.py",
+        "tests/test_gw2_api_client.py",
+        "tests/test_gw2_api_client_official_contract.py",
+        "tests/test_gw2_api_evidence_sanitization.py",
+        "tests/test_gw2_api_key_safety.py"
+      ],
+      "source_path": "docs/mvp/MVP_0_1_4_GATEWAY_CONTRACT_HARDENING.md",
+      "spec_id": "mvp_0_1_4_gateway_contract_hardening",
+      "title": "MVP 0.1.4 Gateway Contract Hardening"
+    },
+    {
+      "category": "mvp",
+      "domains": [
+        "kb"
+      ],
+      "evidence": [
+        "12 related tests",
+        "domain:kb"
+      ],
+      "maturity": "partial",
+      "next_action": "Close remaining documented gaps with focused tests for linked domains.",
+      "phase": "MVP 0.1.5",
+      "related_tests": [
+        "tests/test_build_source_attribution.py",
+        "tests/test_kb_api.py",
+        "tests/test_kb_article_model.py",
+        "tests/test_kb_backed_report.py",
+        "tests/test_kb_directory_loader.py",
+        "tests/test_kb_domain_rule_packs.py",
+        "tests/test_kb_domain_seed_loader.py",
+        "tests/test_kb_entity_linker.py",
+        "tests/test_kb_entity_linking.py",
+        "tests/test_kb_explanation.py",
+        "tests/test_kb_explanation_api.py",
+        "tests/test_kb_linker_distiller_api.py"
+      ],
+      "source_path": "docs/mvp/MVP_0_1_5_EVIDENCE_QUALITY_RULES.md",
+      "spec_id": "mvp_0_1_5_evidence_quality_rules",
+      "title": "MVP 0.1.5 Evidence Freshness and Confidence Rules"
+    },
+    {
+      "category": "mvp",
+      "domains": [
+        "account",
+        "api_gateway"
+      ],
+      "evidence": [
+        "12 related tests",
+        "domain:account",
+        "domain:api_gateway"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "MVP 0.1.6",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_durable_refresh_queue.py",
+        "tests/test_encrypted_api_key_store.py"
+      ],
+      "source_path": "docs/mvp/MVP_0_1_6_REAL_GW2_API_CLIENT_SKELETON.md",
+      "spec_id": "mvp_0_1_6_real_gw2_api_client_skeleton",
+      "title": "MVP 0.1.6 Real GW2 API Client Skeleton"
+    },
+    {
+      "category": "mvp",
+      "domains": [
+        "account",
+        "legendary",
+        "support"
+      ],
+      "evidence": [
+        "12 related tests",
+        "privacy/safety boundary referenced",
+        "domain:account",
+        "domain:legendary",
+        "domain:support"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "MVP 0.1.7",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_do_not_sell_multi_goal.py",
+        "tests/test_encrypted_api_key_store.py"
+      ],
+      "source_path": "docs/mvp/MVP_0_1_7_API_KEY_AND_SNAPSHOT_LIFECYCLE.md",
+      "spec_id": "mvp_0_1_7_api_key_and_snapshot_lifecycle",
+      "title": "MVP 0.1.7 API Key and Account Snapshot Lifecycle"
+    },
+    {
+      "category": "mvp",
+      "domains": [
+        "account",
+        "api_gateway",
+        "guild"
+      ],
+      "evidence": [
+        "12 related tests",
+        "maturity/audit language present",
+        "privacy/safety boundary referenced",
+        "domain:account",
+        "domain:api_gateway",
+        "domain:guild"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "MVP 0.1.8",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_durable_refresh_queue.py",
+        "tests/test_encrypted_api_key_store.py"
+      ],
+      "source_path": "docs/mvp/MVP_0_1_8_DURABLE_QUEUE_AND_SYNC_WORKERS.md",
+      "spec_id": "mvp_0_1_8_durable_queue_and_sync_workers",
+      "title": "MVP 0.1.8 Durable Queue And Sync Workers"
+    },
+    {
+      "category": "mvp",
+      "domains": [
+        "account",
+        "api_gateway",
+        "build_fit",
+        "guild",
+        "legendary",
+        "market"
+      ],
+      "evidence": [
+        "12 related tests",
+        "privacy/safety boundary referenced",
+        "domain:account",
+        "domain:api_gateway",
+        "domain:build_fit"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "MVP 0.1.9",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/mvp/MVP_0_1_9_REFRESH_QUEUE_DETAILED_CONTRACT.md",
+      "spec_id": "mvp_0_1_9_refresh_queue_detailed_contract",
+      "title": "MVP 0.1.9 Refresh Queue Detailed Contract"
+    },
+    {
+      "category": "mvp",
+      "domains": [
+        "account",
+        "commercial",
+        "legendary",
+        "support"
+      ],
+      "evidence": [
+        "12 related tests",
+        "privacy/safety boundary referenced",
+        "domain:account",
+        "domain:commercial",
+        "domain:legendary"
+      ],
+      "maturity": "partial",
+      "next_action": "Close remaining documented gaps with focused tests for linked domains.",
+      "phase": "MVP 0.1",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_report.py",
+        "tests/test_creator_report.py"
+      ],
+      "source_path": "docs/mvp/MVP_0_1_CODEX_DEVELOPMENT_SPEC.md",
+      "spec_id": "mvp_0_1_codex_development_spec",
+      "title": "GW2Radar MVP 0.1 Codex Development Spec"
+    },
+    {
+      "category": "mvp",
+      "domains": [
+        "account",
+        "api_gateway",
+        "delivery",
+        "legendary"
+      ],
+      "evidence": [
+        "12 related tests",
+        "privacy/safety boundary referenced",
+        "domain:account",
+        "domain:api_gateway",
+        "domain:delivery"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "MVP 0.1",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_delivery_lifecycle.py",
+        "tests/test_do_not_sell_multi_goal.py"
+      ],
+      "source_path": "docs/mvp/MVP_0_1_LEGENDARY_GOAL.md",
+      "spec_id": "mvp_0_1_legendary_goal",
+      "title": "MVP 0.1 Legendary Goal Intelligence"
+    },
+    {
+      "category": "mvp",
+      "domains": [
+        "account",
+        "api_gateway",
+        "build_fit",
+        "guild"
+      ],
+      "evidence": [
+        "12 related tests",
+        "privacy/safety boundary referenced",
+        "domain:account",
+        "domain:api_gateway",
+        "domain:build_fit"
+      ],
+      "maturity": "partial",
+      "next_action": "Close remaining documented gaps with focused tests for linked domains.",
+      "phase": "MVP 0.2.0",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/mvp/MVP_0_2_0_OFFICIAL_API_COMPATIBILITY_HARDENING.md",
+      "spec_id": "mvp_0_2_0_official_api_compatibility_hardening",
+      "title": "MVP 0.2.0 Official API Compatibility Hardening"
+    },
+    {
+      "category": "mvp",
+      "domains": [
+        "account",
+        "api_gateway",
+        "build_fit",
+        "guild"
+      ],
+      "evidence": [
+        "12 related tests",
+        "privacy/safety boundary referenced",
+        "domain:account",
+        "domain:api_gateway",
+        "domain:build_fit"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "MVP 0.2.1",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/mvp/MVP_0_2_1_ACCOUNT_SYNC_API_PRODUCTIZATION.md",
+      "spec_id": "mvp_0_2_1_account_sync_api_productization",
+      "title": "MVP 0.2.1 Account Sync API Productization"
+    },
+    {
+      "category": "mvp",
+      "domains": [
+        "account",
+        "api_gateway",
+        "build_fit",
+        "guild",
+        "kb",
+        "support"
+      ],
+      "evidence": [
+        "12 related tests",
+        "privacy/safety boundary referenced",
+        "domain:account",
+        "domain:api_gateway",
+        "domain:build_fit"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "MVP 0.2.2",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/mvp/MVP_0_2_2_PUBLIC_STATIC_REFRESH_PLANNER.md",
+      "spec_id": "mvp_0_2_2_public_static_refresh_planner",
+      "title": "MVP 0.2.2 Public Static Refresh Planner"
+    },
+    {
+      "category": "mvp",
+      "domains": [
+        "account",
+        "api_gateway",
+        "build_fit",
+        "guild",
+        "legendary"
+      ],
+      "evidence": [
+        "12 related tests",
+        "privacy/safety boundary referenced",
+        "domain:account",
+        "domain:api_gateway",
+        "domain:build_fit"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "MVP 0.2.3",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/mvp/MVP_0_2_3_RELEASE_READINESS_HARDENING.md",
+      "spec_id": "mvp_0_2_3_release_readiness_hardening",
+      "title": "MVP 0.2.3 Release Readiness Hardening"
+    },
+    {
+      "category": "mvp",
+      "domains": [
+        "account",
+        "build_fit",
+        "kb"
+      ],
+      "evidence": [
+        "12 related tests",
+        "maturity/audit language present",
+        "privacy/safety boundary referenced",
+        "domain:account",
+        "domain:build_fit",
+        "domain:kb"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "MVP 0.2.4",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/mvp/MVP_0_2_4_PRODUCTION_SECURITY_UPGRADE.md",
+      "spec_id": "mvp_0_2_4_production_security_upgrade",
+      "title": "MVP 0.2.4 Production Security Upgrade"
+    },
+    {
+      "category": "mvp",
+      "domains": [
+        "account",
+        "api_gateway",
+        "build_fit",
+        "commercial",
+        "delivery",
+        "guild",
+        "legendary",
+        "market",
+        "support"
+      ],
+      "evidence": [
+        "12 related tests",
+        "maturity/audit language present",
+        "privacy/safety boundary referenced",
+        "domain:account",
+        "domain:api_gateway",
+        "domain:build_fit"
+      ],
+      "maturity": "partial",
+      "next_action": "Close remaining documented gaps with focused tests for linked domains.",
+      "phase": "MVP 0.3.0",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/mvp/MVP_0_3_0_PAID_REPORT_ENGINE.md",
+      "spec_id": "mvp_0_3_0_paid_report_engine",
+      "title": "MVP 0.3.0 Paid Report Engine"
+    },
+    {
+      "category": "mvp",
+      "domains": [
+        "account",
+        "build_fit",
+        "commercial",
+        "delivery",
+        "legendary",
+        "market"
+      ],
+      "evidence": [
+        "12 related tests",
+        "privacy/safety boundary referenced",
+        "domain:account",
+        "domain:build_fit",
+        "domain:commercial"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "MVP 0.3.1",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/mvp/MVP_0_3_1_LEGENDARY_PLANNER_PRO.md",
+      "spec_id": "mvp_0_3_1_legendary_planner_pro",
+      "title": "MVP 0.3.1 Legendary Planner Pro"
+    },
+    {
+      "category": "mvp",
+      "domains": [
+        "account",
+        "build_fit",
+        "commercial",
+        "kb",
+        "legendary",
+        "market"
+      ],
+      "evidence": [
+        "12 related tests",
+        "domain:account",
+        "domain:build_fit",
+        "domain:commercial"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "MVP 0.3.2",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/mvp/MVP_0_3_2_BUILD_FIT_ADVISOR.md",
+      "spec_id": "mvp_0_3_2_build_fit_advisor",
+      "title": "MVP 0.3.2 Build Fit & Gear Transition Advisor"
+    },
+    {
+      "category": "mvp",
+      "domains": [
+        "account",
+        "build_fit",
+        "commercial",
+        "legendary",
+        "market",
+        "support"
+      ],
+      "evidence": [
+        "12 related tests",
+        "domain:account",
+        "domain:build_fit",
+        "domain:commercial"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "MVP 0.3.3",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/mvp/MVP_0_3_3_MARKET_RADAR_PRO.md",
+      "spec_id": "mvp_0_3_3_market_radar_pro",
+      "title": "MVP 0.3.3 Market Radar Pro"
+    },
+    {
+      "category": "mvp",
+      "domains": [
+        "account",
+        "api_gateway",
+        "build_fit",
+        "commercial",
+        "guild",
+        "market",
+        "support"
+      ],
+      "evidence": [
+        "12 related tests",
+        "domain:account",
+        "domain:api_gateway",
+        "domain:build_fit"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "MVP 0.3.4",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/mvp/MVP_0_3_4_GROWTH_CMS_PAYMENT.md",
+      "spec_id": "mvp_0_3_4_growth_cms_payment",
+      "title": "MVP 0.3.4 Growth Website + CMS + Payment Abstraction"
+    },
+    {
+      "category": "mvp",
+      "domains": [
+        "account",
+        "build_fit",
+        "commercial",
+        "guild"
+      ],
+      "evidence": [
+        "12 related tests",
+        "privacy/safety boundary referenced",
+        "domain:account",
+        "domain:build_fit",
+        "domain:commercial"
+      ],
+      "maturity": "partial",
+      "next_action": "Close remaining documented gaps with focused tests for linked domains.",
+      "phase": "MVP 0.3.5",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/mvp/MVP_0_3_5_GUILD_READINESS_CONSOLE.md",
+      "spec_id": "mvp_0_3_5_guild_readiness_console",
+      "title": "MVP 0.3.5 Guild / Static Readiness Console"
+    },
+    {
+      "category": "mvp",
+      "domains": [
+        "commercial",
+        "delivery",
+        "guild",
+        "market"
+      ],
+      "evidence": [
+        "12 related tests",
+        "privacy/safety boundary referenced",
+        "domain:commercial",
+        "domain:delivery",
+        "domain:guild"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "MVP 0.3.6",
+      "related_tests": [
+        "tests/test_account_value_holding_index.py",
+        "tests/test_build_report.py",
+        "tests/test_creator_report.py",
+        "tests/test_delivery_lifecycle.py",
+        "tests/test_do_not_sell_multi_goal.py",
+        "tests/test_entitlement_after_payment.py",
+        "tests/test_export_package.py",
+        "tests/test_free_report_preview.py",
+        "tests/test_guild_api.py",
+        "tests/test_guild_report.py",
+        "tests/test_hold_candidate.py",
+        "tests/test_kb_backed_report.py"
+      ],
+      "source_path": "docs/mvp/MVP_0_3_6_CREATOR_INTELLIGENCE_CONSOLE.md",
+      "spec_id": "mvp_0_3_6_creator_intelligence_console",
+      "title": "MVP 0.3.6 Creator & Community Intelligence Console"
+    },
+    {
+      "category": "mvp",
+      "domains": [
+        "account",
+        "build_fit",
+        "kb"
+      ],
+      "evidence": [
+        "12 related tests",
+        "privacy/safety boundary referenced",
+        "domain:account",
+        "domain:build_fit",
+        "domain:kb"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "MVP 0.3.7",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/mvp/MVP_0_3_7_KB_CORE_SCHEMA_SOURCE_REGISTRY.md",
+      "spec_id": "mvp_0_3_7_kb_core_schema_source_registry",
+      "title": "MVP 0.3.7 KB Core Schema + Source Registry"
+    },
+    {
+      "category": "mvp",
+      "domains": [
+        "kb",
+        "legendary"
+      ],
+      "evidence": [
+        "12 related tests",
+        "manual review gate referenced",
+        "privacy/safety boundary referenced",
+        "domain:kb",
+        "domain:legendary"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "MVP 0.3.8",
+      "related_tests": [
+        "tests/test_build_source_attribution.py",
+        "tests/test_do_not_sell_multi_goal.py",
+        "tests/test_goal_conflicts.py",
+        "tests/test_goal_cost_index.py",
+        "tests/test_goal_gap.py",
+        "tests/test_goal_portfolio.py",
+        "tests/test_kb_api.py",
+        "tests/test_kb_article_model.py",
+        "tests/test_kb_backed_report.py",
+        "tests/test_kb_directory_loader.py",
+        "tests/test_kb_domain_rule_packs.py",
+        "tests/test_kb_domain_seed_loader.py"
+      ],
+      "source_path": "docs/mvp/MVP_0_3_8_KB_REPOSITORY_MARKDOWN_API.md",
+      "spec_id": "mvp_0_3_8_kb_repository_markdown_api",
+      "title": "MVP 0.3.8 KB Repository + Markdown Loader + API Surface"
+    },
+    {
+      "category": "mvp",
+      "domains": [
+        "account",
+        "guild",
+        "kb",
+        "legendary",
+        "market"
+      ],
+      "evidence": [
+        "12 related tests",
+        "privacy/safety boundary referenced",
+        "domain:account",
+        "domain:guild",
+        "domain:kb"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "MVP 0.3.9",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_source_attribution.py",
+        "tests/test_do_not_sell_multi_goal.py"
+      ],
+      "source_path": "docs/mvp/MVP_0_3_9_KB_SOURCE_REGISTRY_DOMAIN_SEEDS.md",
+      "spec_id": "mvp_0_3_9_kb_source_registry_domain_seeds",
+      "title": "MVP 0.3.9 KB Source Registry API + Domain Seed Loader"
+    },
+    {
+      "category": "mvp",
+      "domains": [
+        "kb",
+        "support"
+      ],
+      "evidence": [
+        "12 related tests",
+        "domain:kb",
+        "domain:support"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "MVP 0.4.0",
+      "related_tests": [
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_build_source_attribution.py",
+        "tests/test_gateway_incidents.py",
+        "tests/test_kb_api.py",
+        "tests/test_kb_article_model.py",
+        "tests/test_kb_backed_report.py",
+        "tests/test_kb_directory_loader.py",
+        "tests/test_kb_domain_rule_packs.py",
+        "tests/test_kb_domain_seed_loader.py",
+        "tests/test_kb_entity_linker.py",
+        "tests/test_kb_entity_linking.py"
+      ],
+      "source_path": "docs/mvp/MVP_0_4_0_KB_ENTITY_LINKER_RULE_DISTILLER.md",
+      "spec_id": "mvp_0_4_0_kb_entity_linker_rule_distiller",
+      "title": "MVP 0.4.0 KB Entity Linker + Rule Distiller"
+    },
+    {
+      "category": "mvp",
+      "domains": [
+        "kb",
+        "player_ui",
+        "support"
+      ],
+      "evidence": [
+        "12 related tests",
+        "domain:kb",
+        "domain:player_ui",
+        "domain:support"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "MVP 0.4.10",
+      "related_tests": [
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_build_source_attribution.py",
+        "tests/test_gateway_incidents.py",
+        "tests/test_kb_api.py",
+        "tests/test_kb_article_model.py",
+        "tests/test_kb_backed_report.py",
+        "tests/test_kb_directory_loader.py",
+        "tests/test_kb_domain_rule_packs.py",
+        "tests/test_kb_domain_seed_loader.py",
+        "tests/test_kb_entity_linker.py",
+        "tests/test_kb_entity_linking.py"
+      ],
+      "source_path": "docs/mvp/MVP_0_4_10_PATCH_DASHBOARD_EXPORT.md",
+      "spec_id": "mvp_0_4_10_patch_dashboard_export",
+      "title": "MVP 0.4.10 Patch Dashboard Export"
+    },
+    {
+      "category": "mvp",
+      "domains": [
+        "api_gateway",
+        "kb",
+        "player_ui",
+        "support"
+      ],
+      "evidence": [
+        "12 related tests",
+        "maturity/audit language present",
+        "domain:api_gateway",
+        "domain:kb",
+        "domain:player_ui"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "MVP 0.4.11",
+      "related_tests": [
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_build_source_attribution.py",
+        "tests/test_durable_refresh_queue.py",
+        "tests/test_gateway_contract.py",
+        "tests/test_gateway_incidents.py",
+        "tests/test_gw2_api_batching.py",
+        "tests/test_gw2_api_client.py",
+        "tests/test_gw2_api_client_official_contract.py",
+        "tests/test_gw2_api_evidence_sanitization.py",
+        "tests/test_gw2_api_key_safety.py",
+        "tests/test_gw2_api_permissions.py"
+      ],
+      "source_path": "docs/mvp/MVP_0_4_11_PATCH_ADMIN_WORKFLOW_BUNDLE.md",
+      "spec_id": "mvp_0_4_11_patch_admin_workflow_bundle",
+      "title": "MVP 0.4.11 Patch Admin Workflow Bundle"
+    },
+    {
+      "category": "mvp",
+      "domains": [
+        "build_fit",
+        "delivery",
+        "kb",
+        "support"
+      ],
+      "evidence": [
+        "12 related tests",
+        "manual review gate referenced",
+        "domain:build_fit",
+        "domain:delivery",
+        "domain:kb"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "MVP 0.4.18",
+      "related_tests": [
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py",
+        "tests/test_build_fit_score.py",
+        "tests/test_build_report.py",
+        "tests/test_build_requirement_schema.py",
+        "tests/test_build_source_attribution.py",
+        "tests/test_delivery_lifecycle.py",
+        "tests/test_export_package.py",
+        "tests/test_gateway_incidents.py"
+      ],
+      "source_path": "docs/mvp/MVP_0_4_18_REVIEWED_BUILD_UPGRADE_RULE_PACK.md",
+      "spec_id": "mvp_0_4_18_reviewed_build_upgrade_rule_pack",
+      "title": "MVP 0.4.18 Reviewed Build Upgrade Rule Pack"
+    },
+    {
+      "category": "mvp",
+      "domains": [
+        "commercial",
+        "delivery",
+        "kb",
+        "legendary"
+      ],
+      "evidence": [
+        "12 related tests",
+        "manual review gate referenced",
+        "domain:commercial",
+        "domain:delivery",
+        "domain:kb"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "MVP 0.4.1",
+      "related_tests": [
+        "tests/test_build_report.py",
+        "tests/test_build_source_attribution.py",
+        "tests/test_creator_report.py",
+        "tests/test_delivery_lifecycle.py",
+        "tests/test_do_not_sell_multi_goal.py",
+        "tests/test_entitlement_after_payment.py",
+        "tests/test_export_package.py",
+        "tests/test_free_report_preview.py",
+        "tests/test_goal_conflicts.py",
+        "tests/test_goal_cost_index.py",
+        "tests/test_goal_gap.py",
+        "tests/test_goal_portfolio.py"
+      ],
+      "source_path": "docs/mvp/MVP_0_4_1_KB_BACKED_RECOMMENDATION_EXPLANATIONS.md",
+      "spec_id": "mvp_0_4_1_kb_backed_recommendation_explanations",
+      "title": "MVP 0.4.1 KB-backed Recommendation Explanations"
+    },
+    {
+      "category": "mvp",
+      "domains": [
+        "commercial",
+        "delivery",
+        "kb"
+      ],
+      "evidence": [
+        "12 related tests",
+        "manual review gate referenced",
+        "privacy/safety boundary referenced",
+        "domain:commercial",
+        "domain:delivery",
+        "domain:kb"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "MVP 0.4.2",
+      "related_tests": [
+        "tests/test_build_report.py",
+        "tests/test_build_source_attribution.py",
+        "tests/test_creator_report.py",
+        "tests/test_delivery_lifecycle.py",
+        "tests/test_entitlement_after_payment.py",
+        "tests/test_export_package.py",
+        "tests/test_free_report_preview.py",
+        "tests/test_guild_report.py",
+        "tests/test_kb_api.py",
+        "tests/test_kb_article_model.py",
+        "tests/test_kb_backed_report.py",
+        "tests/test_kb_directory_loader.py"
+      ],
+      "source_path": "docs/mvp/MVP_0_4_2_KB_BACKED_PAID_REPORT_ARTIFACTS.md",
+      "spec_id": "mvp_0_4_2_kb_backed_paid_report_artifacts",
+      "title": "MVP 0.4.2 KB-backed Paid Report Artifacts"
+    },
+    {
+      "category": "mvp",
+      "domains": [
+        "account",
+        "commercial",
+        "delivery",
+        "kb",
+        "legendary"
+      ],
+      "evidence": [
+        "12 related tests",
+        "privacy/safety boundary referenced",
+        "domain:account",
+        "domain:commercial",
+        "domain:delivery"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "MVP 0.4.3",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_report.py",
+        "tests/test_build_source_attribution.py"
+      ],
+      "source_path": "docs/mvp/MVP_0_4_3_KB_REPORT_QUALITY_AND_SOURCE_GAPS.md",
+      "spec_id": "mvp_0_4_3_kb_report_quality_and_source_gaps",
+      "title": "MVP 0.4.3 KB Report Quality And Source Gaps"
+    },
+    {
+      "category": "mvp",
+      "domains": [
+        "kb",
+        "market"
+      ],
+      "evidence": [
+        "12 related tests",
+        "domain:kb",
+        "domain:market"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "MVP 0.4.4",
+      "related_tests": [
+        "tests/test_account_value_holding_index.py",
+        "tests/test_build_source_attribution.py",
+        "tests/test_do_not_sell_multi_goal.py",
+        "tests/test_hold_candidate.py",
+        "tests/test_kb_api.py",
+        "tests/test_kb_article_model.py",
+        "tests/test_kb_backed_report.py",
+        "tests/test_kb_directory_loader.py",
+        "tests/test_kb_domain_rule_packs.py",
+        "tests/test_kb_domain_seed_loader.py",
+        "tests/test_kb_entity_linker.py",
+        "tests/test_kb_entity_linking.py"
+      ],
+      "source_path": "docs/mvp/MVP_0_4_4_PATCH_NOTE_STRUCTURED_SUMMARIES.md",
+      "spec_id": "mvp_0_4_4_patch_note_structured_summaries",
+      "title": "MVP 0.4.4 Patch Note Structured Summaries"
+    },
+    {
+      "category": "mvp",
+      "domains": [
+        "delivery",
+        "guild",
+        "kb"
+      ],
+      "evidence": [
+        "12 related tests",
+        "domain:delivery",
+        "domain:guild",
+        "domain:kb"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "MVP 0.4.5",
+      "related_tests": [
+        "tests/test_build_source_attribution.py",
+        "tests/test_delivery_lifecycle.py",
+        "tests/test_export_package.py",
+        "tests/test_guild_api.py",
+        "tests/test_guild_report.py",
+        "tests/test_kb_api.py",
+        "tests/test_kb_article_model.py",
+        "tests/test_kb_backed_report.py",
+        "tests/test_kb_directory_loader.py",
+        "tests/test_kb_domain_rule_packs.py",
+        "tests/test_kb_domain_seed_loader.py",
+        "tests/test_kb_entity_linker.py"
+      ],
+      "source_path": "docs/mvp/MVP_0_4_5_OFFICIAL_NEWS_SOURCE_PROCESSING.md",
+      "spec_id": "mvp_0_4_5_official_news_source_processing",
+      "title": "MVP 0.4.5 Official News Source Processing"
+    },
+    {
+      "category": "mvp",
+      "domains": [
+        "delivery",
+        "kb",
+        "market"
+      ],
+      "evidence": [
+        "12 related tests",
+        "maturity/audit language present",
+        "domain:delivery",
+        "domain:kb",
+        "domain:market"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "MVP 0.4.6",
+      "related_tests": [
+        "tests/test_account_value_holding_index.py",
+        "tests/test_build_source_attribution.py",
+        "tests/test_delivery_lifecycle.py",
+        "tests/test_do_not_sell_multi_goal.py",
+        "tests/test_export_package.py",
+        "tests/test_hold_candidate.py",
+        "tests/test_kb_api.py",
+        "tests/test_kb_article_model.py",
+        "tests/test_kb_backed_report.py",
+        "tests/test_kb_directory_loader.py",
+        "tests/test_kb_domain_rule_packs.py",
+        "tests/test_kb_domain_seed_loader.py"
+      ],
+      "source_path": "docs/mvp/MVP_0_4_6_PATCH_IMPACT_REVIEW_ASSISTANT.md",
+      "spec_id": "mvp_0_4_6_patch_impact_review_assistant",
+      "title": "MVP 0.4.6 Patch Impact Review Assistant"
+    },
+    {
+      "category": "mvp",
+      "domains": [
+        "kb"
+      ],
+      "evidence": [
+        "12 related tests",
+        "manual review gate referenced",
+        "domain:kb"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "MVP 0.4.7",
+      "related_tests": [
+        "tests/test_build_source_attribution.py",
+        "tests/test_kb_api.py",
+        "tests/test_kb_article_model.py",
+        "tests/test_kb_backed_report.py",
+        "tests/test_kb_directory_loader.py",
+        "tests/test_kb_domain_rule_packs.py",
+        "tests/test_kb_domain_seed_loader.py",
+        "tests/test_kb_entity_linker.py",
+        "tests/test_kb_entity_linking.py",
+        "tests/test_kb_explanation.py",
+        "tests/test_kb_explanation_api.py",
+        "tests/test_kb_linker_distiller_api.py"
+      ],
+      "source_path": "docs/mvp/MVP_0_4_7_PATCH_RULE_CONFIRMATION_GATE.md",
+      "spec_id": "mvp_0_4_7_patch_rule_confirmation_gate",
+      "title": "MVP 0.4.7 Patch Rule Confirmation Gate"
+    },
+    {
+      "category": "mvp",
+      "domains": [
+        "delivery",
+        "kb"
+      ],
+      "evidence": [
+        "12 related tests",
+        "maturity/audit language present",
+        "domain:delivery",
+        "domain:kb"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "MVP 0.4.8",
+      "related_tests": [
+        "tests/test_build_source_attribution.py",
+        "tests/test_delivery_lifecycle.py",
+        "tests/test_export_package.py",
+        "tests/test_kb_api.py",
+        "tests/test_kb_article_model.py",
+        "tests/test_kb_backed_report.py",
+        "tests/test_kb_directory_loader.py",
+        "tests/test_kb_domain_rule_packs.py",
+        "tests/test_kb_domain_seed_loader.py",
+        "tests/test_kb_entity_linker.py",
+        "tests/test_kb_entity_linking.py",
+        "tests/test_kb_explanation.py"
+      ],
+      "source_path": "docs/mvp/MVP_0_4_8_PATCH_RULE_AUDIT_TRAIL.md",
+      "spec_id": "mvp_0_4_8_patch_rule_audit_trail",
+      "title": "MVP 0.4.8 Patch Rule Audit Trail"
+    },
+    {
+      "category": "mvp",
+      "domains": [
+        "kb",
+        "market",
+        "player_ui",
+        "support"
+      ],
+      "evidence": [
+        "12 related tests",
+        "maturity/audit language present",
+        "domain:kb",
+        "domain:market",
+        "domain:player_ui"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "MVP 0.4.9",
+      "related_tests": [
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_build_source_attribution.py",
+        "tests/test_do_not_sell_multi_goal.py",
+        "tests/test_gateway_incidents.py",
+        "tests/test_hold_candidate.py",
+        "tests/test_kb_api.py",
+        "tests/test_kb_article_model.py",
+        "tests/test_kb_backed_report.py",
+        "tests/test_kb_directory_loader.py",
+        "tests/test_kb_domain_rule_packs.py"
+      ],
+      "source_path": "docs/mvp/MVP_0_4_9_PATCH_REVIEW_DASHBOARD_API.md",
+      "spec_id": "mvp_0_4_9_patch_review_dashboard_api",
+      "title": "MVP 0.4.9 Patch Review Dashboard API"
+    }
+  ],
+  "schema_version": "gw2radar.spec_registry_backlog.v1",
+  "spec_count": 59
+}

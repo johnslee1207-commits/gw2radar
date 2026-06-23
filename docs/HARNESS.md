@@ -30,8 +30,8 @@ python harness/run_validation_profile.py full
 
 - `stage`: default stage gate for normal development; runs `fast` then `smoke`.
 - `release`: milestone / release gate; runs `fast`, `smoke`, then `full`.
-- `fast`: shared delivery lifecycle contract, productized report regression, and
-  player use-path semantic maturity audit.
+- `fast`: shared delivery lifecycle contract, productized report regression,
+  player use-path semantic maturity audit, and spec registry freshness.
 - `smoke`: MVP smoke, player UI E2E smoke, and account connection diagnostic.
 - `full`: complete `pytest` regression.
 
@@ -197,6 +197,19 @@ report artifact metadata. It writes
 `docs/ui/PLAYER_USE_PATH_COMPLETENESS_AUDIT.md` with an executable checklist,
 semantic graph summary, known limits, and next priority. The audit is
 summary-only and must not include raw API keys or private source payloads.
+
+## Spec Registry Backlog Command
+
+```bash
+python harness/run_spec_registry.py
+python harness/run_spec_registry.py --check
+```
+
+This harness scans tracked planning specs, MVP docs, tests, and the player
+use-path maturity audit to generate
+`docs/analysis/SPEC_REGISTRY_BACKLOG.md` and
+`docs/analysis/SPEC_REGISTRY_BACKLOG.json`. The `--check` mode verifies the
+registry is current and is part of the fast validation profile.
 
 ## Account Debug Bundle Review Command
 
