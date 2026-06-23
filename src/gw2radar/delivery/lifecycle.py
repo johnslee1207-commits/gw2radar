@@ -76,7 +76,10 @@ class DeliveryZipPolicy:
     allowed_file_names_for_item: Callable[[str], set[str]]
     required_file_names_for_item: Callable[[str], set[str]]
     validate_item_files: Callable[[str, set[str]], list[str]] | None = None
+    flat_root: bool = False
+    flat_item_id: str = "root"
     prohibited_markers: tuple[bytes, ...] = (b"secret-key", b"private_source_payload")
+    prohibited_marker_label: str = "private marker"
     max_size_bytes: int = 5_000_000
     boundary: str = (
         "Delivery packet zip verification reads bytes only and does not execute, publish, or store uploaded content."
@@ -158,11 +161,12 @@ def verify_delivery_packet_zip_bundle(
                 if path.is_absolute() or ".." in parts:
                     blockers.append(f"{policy.label} contains unsafe path: {name}")
                     continue
-                if len(parts) != 3 or parts[0] != policy.root_prefix:
+                expected_parts = 2 if policy.flat_root else 3
+                if len(parts) != expected_parts or parts[0] != policy.root_prefix:
                     blockers.append(f"{policy.label} contains non-whitelisted path: {name}")
                     continue
-                item_id = parts[1]
-                file_name = parts[2]
+                item_id = policy.flat_item_id if policy.flat_root else parts[1]
+                file_name = parts[1] if policy.flat_root else parts[2]
                 if file_name not in policy.allowed_file_names_for_item(item_id):
                     blockers.append(f"{policy.label} contains non-whitelisted file: {name}")
                 item_files.setdefault(item_id, set()).add(file_name)
@@ -178,7 +182,7 @@ def verify_delivery_packet_zip_bundle(
                 lowered = archive.read(name).lower()
                 for marker in policy.prohibited_markers:
                     if marker.lower() in lowered:
-                        blockers.append(f"{policy.label} file contains prohibited private marker: {name}")
+                        blockers.append(f"{policy.label} file contains prohibited {policy.prohibited_marker_label}: {name}")
                         break
     except Exception as exc:
         blockers.append(f"{policy.label} zip could not be read: {exc}")

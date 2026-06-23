@@ -101,3 +101,22 @@ def test_delivery_packet_zip_verification_blocks_unsafe_files_and_private_marker
     assert any("non-whitelisted file" in blocker for blocker in verification.blockers)
     assert any("non-whitelisted path" in blocker for blocker in verification.blockers)
     assert any("missing manifest.json" in blocker for blocker in verification.blockers)
+
+
+def test_delivery_packet_zip_verification_supports_flat_root_layout() -> None:
+    policy = DeliveryZipPolicy(
+        label="flat packet",
+        root_prefix="flat_packet",
+        allowed_file_names_for_item=lambda _item_id: {"manifest.json", "packet.md"},
+        required_file_names_for_item=lambda _item_id: {"manifest.json", "packet.md"},
+        flat_root=True,
+    )
+    buffer = BytesIO()
+    with ZipFile(buffer, mode="w") as archive:
+        archive.writestr("flat_packet/manifest.json", "{}")
+        archive.writestr("flat_packet/packet.md", "# Packet\n")
+
+    verification = verify_delivery_packet_zip_bundle(buffer.getvalue(), policy=policy)
+
+    assert verification.ready is True
+    assert verification.verified_files == ["flat_packet/manifest.json", "flat_packet/packet.md"]

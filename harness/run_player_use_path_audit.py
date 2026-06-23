@@ -2037,7 +2037,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Next Priority",
             "",
-            "Migrate support-case, player-support, and achievement-route operator lifecycle paths onto DeliveryLifecycleFramework.",
+            "Migrate support-case incident and achievement-route operator lifecycle paths onto DeliveryLifecycleFramework.",
             "",
         ]
     )
