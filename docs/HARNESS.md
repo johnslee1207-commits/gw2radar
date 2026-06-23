@@ -32,7 +32,7 @@ python harness/run_validation_profile.py full
 - `release`: milestone / release gate; runs `fast`, `smoke`, then `full`.
 - `fast`: shared delivery lifecycle contract, productized report regression,
   player use-path semantic maturity audit, spec registry freshness, and partial
-  spec reconciliation freshness.
+  spec reconciliation freshness, and MVP closure readiness.
 - `smoke`: MVP smoke, player UI E2E smoke, and account connection diagnostic.
 - `full`: complete `pytest` regression.
 
@@ -225,6 +225,20 @@ specs, and writes `docs/analysis/PARTIAL_SPEC_RECONCILIATION.md` plus
 status is legacy spec drift, broad roadmap scope, MVP-out-of-scope live/provider
 work, or a content-depth backlog. The `--check` mode is part of the fast
 validation profile.
+
+## MVP Closure Readiness Command
+
+```bash
+python harness/run_closure_readiness.py
+python harness/run_closure_readiness.py --check
+```
+
+This harness reads the spec registry, partial spec reconciliation, and player
+use-path audit outputs to determine whether any blocking MVP tasks remain. It
+writes `docs/analysis/MVP_CLOSURE_READINESS.md` and
+`docs/analysis/MVP_CLOSURE_READINESS.json`. The current closeout model treats
+reviewed content depth, optional live API smoke documentation, and UI visual
+polish as non-blocking post-MVP tracks.
 
 ## Account Debug Bundle Review Command
 

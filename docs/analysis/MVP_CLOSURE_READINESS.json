@@ -1,0 +1,44 @@
+{
+  "blocking_task_count": 0,
+  "evidence": {
+    "needs_review_count": 0,
+    "partial_count": 12,
+    "player_use_path_failed_checks": 0,
+    "reconciled_count": 12,
+    "registry_maturity_counts": {
+      "implemented": 47,
+      "partial": 12
+    },
+    "spec_count": 59
+  },
+  "next_priority": "Close the current MVP stage; treat the remaining three tracks as optional post-MVP work only when explicitly scheduled.",
+  "optional_post_mvp_tasks": [
+    {
+      "blocking_mvp": false,
+      "rationale": "Infrastructure for KB, patch, reports, and evidence is mature; future work should add more reviewed content only when a specific content pack is selected.",
+      "status": "optional_post_mvp",
+      "task_id": "reviewed_content_depth"
+    },
+    {
+      "blocking_mvp": false,
+      "rationale": "Official API behavior is covered by fake gateway and contract tests; live GW2 smoke checks depend on external credentials, network, and rate limits.",
+      "status": "operator_opt_in",
+      "task_id": "optional_live_api_smoke_documentation"
+    },
+    {
+      "blocking_mvp": false,
+      "rationale": "Player UI smoke and completion tests cover workflows; browser screenshot polish should run for future layout changes, not as a blocker for current closeout.",
+      "status": "only_when_layout_changes",
+      "task_id": "ui_visual_polish"
+    }
+  ],
+  "optional_task_count": 3,
+  "remaining_blocking_tasks": [],
+  "required_closeout_commands": [
+    "python harness/run_stage_gate.py stage",
+    "python harness/run_stage_gate.py release",
+    "npx gitnexus analyze"
+  ],
+  "schema_version": "gw2radar.mvp_closure_readiness.v1",
+  "status": "ready_to_close_mvp_stage"
+}
