@@ -432,6 +432,33 @@ class SupportCaseIncidentFinalHandoffPacketZipVerificationAuditList(BaseModel):
     )
 
 
+class SupportCaseIncidentClosureDashboard(BaseModel):
+    schema_version: str = "gw2radar.support_case_incident_closure_dashboard.v1"
+    generated_at: datetime
+    ready: bool
+    maturity_label: str
+    closure_status: str
+    readiness_score: float
+    status_cards: list[dict] = Field(default_factory=list)
+    latest_packet_id: str | None = None
+    latest_operator_artifact_id: str | None = None
+    latest_final_packet_id: str | None = None
+    final_zip_checksum_sha256: str | None = None
+    packet_audit_count: int = 0
+    operator_zip_audit_count: int = 0
+    final_zip_audit_count: int = 0
+    final_zip_verification_ready: bool = False
+    blockers: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    next_actions: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    boundary: str = (
+        "Support case incident closure dashboard is metadata-only; it aggregates artifact, zip, "
+        "verification, and audit state without storing zip bytes, raw API keys, raw debug bundles, "
+        "or private account payloads."
+    )
+
+
 def build_support_case_incident_dashboard(
     *,
     gateway_history: GatewayIncidentHistory,
@@ -2099,6 +2126,249 @@ def render_support_case_incident_final_handoff_packet_zip_verification_audit_csv
                 ]
             )
         )
+    return "\n".join(rows) + "\n"
+
+
+def build_support_case_incident_closure_dashboard(
+    *,
+    packet_root: Path | None = None,
+    operator_artifact_root: Path | None = None,
+    final_artifact_root: Path | None = None,
+    audit_root: Path | None = None,
+) -> SupportCaseIncidentClosureDashboard:
+    packets = list_support_case_incident_packets(packet_root=packet_root, limit=1)
+    latest_packet = packets[0] if packets else None
+    packet_audit = list_support_case_incident_packet_zip_verification_audits(
+        audit_root=audit_root,
+        limit=1,
+    )
+    latest_packet_audit = packet_audit.records[0] if packet_audit.records else None
+    operator_artifacts = list_support_case_incident_operator_packet_artifacts(
+        artifact_root=operator_artifact_root,
+        limit=1,
+    )
+    latest_operator_artifact = operator_artifacts[0] if operator_artifacts else None
+    operator_audit = list_support_case_incident_operator_packet_zip_verification_audits(
+        audit_root=audit_root,
+        limit=1,
+    )
+    latest_operator_audit = operator_audit.records[0] if operator_audit.records else None
+    final_packets = list_support_case_incident_final_handoff_packets(
+        artifact_root=final_artifact_root,
+        limit=1,
+    )
+    latest_final_packet = final_packets[0] if final_packets else None
+    final_audit = list_support_case_incident_final_handoff_packet_zip_verification_audits(
+        audit_root=audit_root,
+        limit=1,
+    )
+    latest_final_audit = final_audit.records[0] if final_audit.records else None
+
+    blockers: list[str] = []
+    warnings: list[str] = []
+    final_zip_manifest: SupportCaseIncidentFinalHandoffPacketZipManifest | None = None
+    final_zip_verification: SupportCaseIncidentFinalHandoffPacketZipVerification | None = None
+    if latest_packet is None:
+        blockers.append("support case incident packet is missing")
+    elif not latest_packet.ready:
+        blockers.append("support case incident packet is not ready")
+    if latest_packet_audit is None:
+        blockers.append("support case incident packet zip verification audit is missing")
+    elif not latest_packet_audit.ready:
+        blockers.extend(latest_packet_audit.blockers or ["support case incident packet zip audit is blocked"])
+
+    if latest_operator_artifact is None:
+        blockers.append("support case incident operator packet artifact is missing")
+    elif not latest_operator_artifact.ready:
+        blockers.append("support case incident operator packet artifact is not ready")
+    if latest_operator_audit is None:
+        blockers.append("support case incident operator packet zip verification audit is missing")
+    elif not latest_operator_audit.ready:
+        blockers.extend(latest_operator_audit.blockers or ["support case incident operator packet zip audit is blocked"])
+
+    if latest_final_packet is None:
+        blockers.append("support case incident final handoff packet is missing")
+    elif not latest_final_packet.ready:
+        blockers.append("support case incident final handoff packet is not ready")
+    if latest_final_packet is not None:
+        try:
+            final_zip_manifest, final_zip_bytes = build_support_case_incident_final_handoff_packet_zip_bundle(
+                artifact_root=final_artifact_root,
+            )
+            final_zip_verification = verify_support_case_incident_final_handoff_packet_zip_bundle(
+                final_zip_bytes,
+                expected_checksum_sha256=final_zip_manifest.checksum_sha256,
+            )
+        except ValueError as exc:
+            blockers.append(str(exc))
+    if final_zip_verification is None or not final_zip_verification.ready:
+        blockers.append("support case incident final handoff packet zip verification is not ready")
+    if latest_final_audit is None:
+        blockers.append("support case incident final handoff packet zip verification audit is missing")
+    elif not latest_final_audit.ready:
+        blockers.extend(latest_final_audit.blockers or ["support case incident final handoff packet zip audit is blocked"])
+
+    if latest_packet_audit:
+        warnings.extend(latest_packet_audit.warnings)
+    if latest_operator_audit:
+        warnings.extend(latest_operator_audit.warnings)
+    if final_zip_verification:
+        warnings.extend(final_zip_verification.warnings)
+    if latest_final_audit:
+        warnings.extend(latest_final_audit.warnings)
+
+    gate_states = [
+        bool(latest_packet and latest_packet.ready),
+        bool(latest_packet_audit and latest_packet_audit.ready),
+        bool(latest_operator_artifact and latest_operator_artifact.ready),
+        bool(latest_operator_audit and latest_operator_audit.ready),
+        bool(latest_final_packet and latest_final_packet.ready),
+        bool(final_zip_verification and final_zip_verification.ready),
+        bool(latest_final_audit and latest_final_audit.ready),
+    ]
+    readiness_score = round((sum(1 for item in gate_states if item) / len(gate_states)) * 100, 1)
+    ready = not blockers and all(gate_states)
+    closure_status = "go" if ready else "blocked"
+    maturity_label = "ready" if ready else "blocked" if blockers else "needs_review"
+    status_cards = [
+        {
+            "card_id": "incident_packet",
+            "label": "Incident packet",
+            "status": "ready" if latest_packet and latest_packet.ready else "blocked",
+            "summary": f"{latest_packet.file_count if latest_packet else 0} files; audit {'ready' if latest_packet_audit and latest_packet_audit.ready else 'missing_or_blocked'}.",
+        },
+        {
+            "card_id": "operator_packet",
+            "label": "Operator packet",
+            "status": "ready" if latest_operator_artifact and latest_operator_artifact.ready else "blocked",
+            "summary": f"{latest_operator_artifact.file_count if latest_operator_artifact else 0} files; audit {'ready' if latest_operator_audit and latest_operator_audit.ready else 'missing_or_blocked'}.",
+        },
+        {
+            "card_id": "final_handoff_packet",
+            "label": "Final handoff packet",
+            "status": "ready" if latest_final_packet and latest_final_packet.ready else "blocked",
+            "summary": f"{latest_final_packet.file_count if latest_final_packet else 0} files; zip {'ready' if final_zip_verification and final_zip_verification.ready else 'missing_or_blocked'}.",
+        },
+        {
+            "card_id": "closure_decision",
+            "label": "Closure decision",
+            "status": closure_status,
+            "summary": f"Readiness score {readiness_score}; blockers {len(_unique(blockers))}; warnings {len(_unique(warnings))}.",
+        },
+    ]
+    next_actions = (
+        [
+            "Attach final handoff packet zip, checksum, audit export, and closure dashboard to the support case.",
+            "Close the support case only after reviewer confirms no raw keys or private payloads were requested.",
+        ]
+        if ready
+        else [
+            "Resolve blocked closure dashboard gates before closing the support case.",
+            "Re-run final handoff packet zip verification and record a fresh metadata-only audit.",
+        ]
+    )
+    return SupportCaseIncidentClosureDashboard(
+        generated_at=datetime.now(timezone.utc),
+        ready=ready,
+        maturity_label=maturity_label,
+        closure_status=closure_status,
+        readiness_score=readiness_score,
+        status_cards=status_cards,
+        latest_packet_id=latest_packet.packet_id if latest_packet else None,
+        latest_operator_artifact_id=latest_operator_artifact.artifact_id if latest_operator_artifact else None,
+        latest_final_packet_id=latest_final_packet.packet_id if latest_final_packet else None,
+        final_zip_checksum_sha256=final_zip_manifest.checksum_sha256 if final_zip_manifest else None,
+        packet_audit_count=len(packet_audit.records),
+        operator_zip_audit_count=len(operator_audit.records),
+        final_zip_audit_count=len(final_audit.records),
+        final_zip_verification_ready=final_zip_verification.ready if final_zip_verification else False,
+        blockers=_unique(blockers),
+        warnings=_unique(warnings),
+        next_actions=next_actions,
+        evidence_refs=[
+            "/api/v1/player/support-case/incident-dashboard",
+            "/api/v1/player/support-case/incident-packet",
+            "/api/v1/player/support-case/incident-packet/bundle/verification-audit",
+            "/api/v1/player/support-case/incident-operator-packet/artifacts",
+            "/api/v1/player/support-case/incident-operator-packet/artifacts/bundle/verification-audit",
+            "/api/v1/player/support-case/incident-final-handoff-packet/artifacts",
+            "/api/v1/player/support-case/incident-final-handoff-packet/artifacts/bundle/verification-audit",
+        ],
+    )
+
+
+def render_support_case_incident_closure_dashboard_markdown(
+    dashboard: SupportCaseIncidentClosureDashboard,
+) -> str:
+    lines = [
+        "# Support Case Incident Closure Dashboard",
+        "",
+        f"- Ready: {dashboard.ready}",
+        f"- Maturity: {dashboard.maturity_label}",
+        f"- Closure status: {dashboard.closure_status}",
+        f"- Readiness score: {dashboard.readiness_score}",
+        f"- Latest packet: {dashboard.latest_packet_id or 'None'}",
+        f"- Latest operator artifact: {dashboard.latest_operator_artifact_id or 'None'}",
+        f"- Latest final packet: {dashboard.latest_final_packet_id or 'None'}",
+        f"- Final zip checksum: {dashboard.final_zip_checksum_sha256 or 'None'}",
+        f"- Packet audits: {dashboard.packet_audit_count}",
+        f"- Operator zip audits: {dashboard.operator_zip_audit_count}",
+        f"- Final zip audits: {dashboard.final_zip_audit_count}",
+        f"- Boundary: {dashboard.boundary}",
+        "",
+        "## Status Cards",
+    ]
+    for card in dashboard.status_cards:
+        lines.append(f"- {card.get('label')}: {card.get('status')} - {card.get('summary')}")
+    lines.extend(["", "## Blockers"])
+    lines.extend(f"- {item}" for item in dashboard.blockers) if dashboard.blockers else lines.append("- None")
+    lines.extend(["", "## Warnings"])
+    lines.extend(f"- {item}" for item in dashboard.warnings) if dashboard.warnings else lines.append("- None")
+    lines.extend(["", "## Next Actions"])
+    lines.extend(f"- {item}" for item in dashboard.next_actions)
+    lines.extend(["", "## Evidence Refs"])
+    lines.extend(f"- {item}" for item in dashboard.evidence_refs)
+    return "\n".join(lines) + "\n"
+
+
+def render_support_case_incident_closure_dashboard_csv(
+    dashboard: SupportCaseIncidentClosureDashboard,
+) -> str:
+    rows = [
+        "ready,maturity_label,closure_status,readiness_score,latest_packet_id,latest_operator_artifact_id,latest_final_packet_id,final_zip_verification_ready,packet_audit_count,operator_zip_audit_count,final_zip_audit_count,blocker_count,warning_count",
+        ",".join(
+            [
+                _csv(str(dashboard.ready)),
+                _csv(dashboard.maturity_label),
+                _csv(dashboard.closure_status),
+                _csv(str(dashboard.readiness_score)),
+                _csv(dashboard.latest_packet_id or ""),
+                _csv(dashboard.latest_operator_artifact_id or ""),
+                _csv(dashboard.latest_final_packet_id or ""),
+                _csv(str(dashboard.final_zip_verification_ready)),
+                _csv(str(dashboard.packet_audit_count)),
+                _csv(str(dashboard.operator_zip_audit_count)),
+                _csv(str(dashboard.final_zip_audit_count)),
+                _csv(str(len(dashboard.blockers))),
+                _csv(str(len(dashboard.warnings))),
+            ]
+        ),
+        "card_id,label,status,summary",
+    ]
+    for card in dashboard.status_cards:
+        rows.append(
+            ",".join(
+                [
+                    _csv(str(card.get("card_id") or "")),
+                    _csv(str(card.get("label") or "")),
+                    _csv(str(card.get("status") or "")),
+                    _csv(str(card.get("summary") or "")),
+                ]
+            )
+        )
+    rows.extend(f"blocker,{_csv(item)}" for item in dashboard.blockers)
+    rows.extend(f"warning,{_csv(item)}" for item in dashboard.warnings)
+    rows.extend(f"next_action,{_csv(item)}" for item in dashboard.next_actions)
     return "\n".join(rows) + "\n"
 
 

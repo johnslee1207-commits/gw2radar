@@ -825,6 +825,41 @@ def main() -> int:
             "mature_support_case_incident_final_handoff_packet_zip_verification_audit",
             f"final handoff zip checksum {support_case_incident_final_zip_verify.get('checksum_sha256', '')[:12]} verified with {support_case_incident_final_zip_verify.get('file_count', 0)} files.",
         )
+        support_case_incident_closure_response = _json(
+            client.get("/api/v1/player/support-case/incident-closure-dashboard?limit=20"),
+            "load support case incident closure dashboard",
+            checks,
+        )
+        support_case_incident_closure = _get(
+            support_case_incident_closure_response,
+            "data",
+            "support_case_incident_closure_dashboard",
+        ) or {}
+        support_case_incident_closure_markdown = client.get(
+            "/api/v1/player/support-case/incident-closure-dashboard?format=markdown&limit=20"
+        )
+        support_case_incident_closure_csv = client.get(
+            "/api/v1/player/support-case/incident-closure-dashboard?format=csv&limit=20"
+        )
+        _add(
+            checks,
+            "support_case_incident_closure_dashboard",
+            "Support case incident closure dashboard aggregates incident packet, operator packet, final packet, zip checks, audits, and final go/no-go state.",
+            support_case_incident_closure.get("schema_version")
+            == "gw2radar.support_case_incident_closure_dashboard.v1"
+            and support_case_incident_closure.get("ready") is True
+            and support_case_incident_closure.get("closure_status") == "go"
+            and support_case_incident_closure.get("readiness_score") == 100.0
+            and support_case_incident_closure.get("final_zip_verification_ready") is True
+            and support_case_incident_closure.get("final_zip_audit_count", 0) >= 1
+            and support_case_incident_closure_markdown.status_code == 200
+            and "# Support Case Incident Closure Dashboard" in support_case_incident_closure_markdown.text
+            and support_case_incident_closure_csv.status_code == 200
+            and "ready,maturity_label,closure_status,readiness_score" in support_case_incident_closure_csv.text
+            and "secret-key" not in json.dumps(support_case_incident_closure).lower(),
+            "mature_support_case_incident_closure_dashboard",
+            f"{support_case_incident_closure.get('closure_status', 'unknown')} at {support_case_incident_closure.get('readiness_score', 0)} with {support_case_incident_closure.get('final_zip_audit_count', 0)} final audits.",
+        )
         player_readiness = _json(client.get("/api/v1/player/readiness"), "load player readiness", checks)
         readiness = _get(player_readiness, "data", "readiness") or {}
         _add(
@@ -1646,6 +1681,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "- `SupportCaseIncidentFinalHandoffChecklist` combines operator artifact, zip, verification, and audit gates into a support closure view.",
             "- `SupportCaseIncidentFinalHandoffPacketArtifacts` write final closure checklist, manifest, operator artifact manifest, and audit export files with checksums.",
             "- `SupportCaseIncidentFinalHandoffPacketZipVerificationAudit` verifies final handoff packet zip archives and records metadata-only closure audit evidence.",
+            "- `SupportCaseIncidentClosureDashboard` aggregates incident packet, operator packet, final packet, zip audit, and final go/no-go state.",
             "- `ReportArtifactManifest` records bridge metadata without storing raw API keys or unredacted private payloads.",
             "",
             "## Known Limits",
@@ -1656,7 +1692,7 @@ def _write_audit(checks: list[AuditCheck]) -> None:
             "",
             "## Next Priority",
             "",
-            "Build Support Case Incident Closure Dashboard that aggregates packet artifacts, zip checks, audits, and final go/no-go state.",
+            "Build Support Case Incident Closure Packet export with dashboard, final audit, checksum manifest, and path-safe retrieval.",
             "",
         ]
     )

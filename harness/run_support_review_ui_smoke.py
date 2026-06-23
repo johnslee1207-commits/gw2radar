@@ -171,6 +171,13 @@ def main() -> int:
     incident_final_handoff_packet_zip_audit_csv = client.get(
         "/api/v1/player/support-case/incident-final-handoff-packet/artifacts/bundle/verification-audit?format=csv"
     )
+    incident_closure_dashboard = client.get("/api/v1/player/support-case/incident-closure-dashboard?limit=20")
+    incident_closure_dashboard_markdown = client.get(
+        "/api/v1/player/support-case/incident-closure-dashboard?format=markdown&limit=20"
+    )
+    incident_closure_dashboard_csv = client.get(
+        "/api/v1/player/support-case/incident-closure-dashboard?format=csv&limit=20"
+    )
 
     _add(checks, "support page is served", page.status_code == 200 and "Debug Bundle Support Review" in page.text, page.text)
     _add(checks, "support script is served", js.status_code == 200 and "/account/debug-bundle/review" in js.text, js.text)
@@ -245,6 +252,9 @@ def main() -> int:
     _add(checks, "support case incident final handoff packet zip audit lists records", incident_final_handoff_packet_zip_audit_list.status_code == 200 and incident_final_handoff_packet_zip_audit_list.json().get("data", {}).get("support_case_incident_final_handoff_packet_zip_verification_audit", {}).get("records"), incident_final_handoff_packet_zip_audit_list.text)
     _add(checks, "support case incident final handoff packet zip audit exports markdown", incident_final_handoff_packet_zip_audit_markdown.status_code == 200 and "# Support Case Incident Final Handoff Packet Zip Verification Audit" in incident_final_handoff_packet_zip_audit_markdown.text, incident_final_handoff_packet_zip_audit_markdown.text)
     _add(checks, "support case incident final handoff packet zip audit exports csv", incident_final_handoff_packet_zip_audit_csv.status_code == 200 and "audit_id,recorded_at,reviewer,ready,checksum_sha256" in incident_final_handoff_packet_zip_audit_csv.text, incident_final_handoff_packet_zip_audit_csv.text)
+    _add(checks, "support case incident closure dashboard aggregates final gates", incident_closure_dashboard.status_code == 200 and incident_closure_dashboard.json().get("data", {}).get("support_case_incident_closure_dashboard", {}).get("schema_version") == "gw2radar.support_case_incident_closure_dashboard.v1" and incident_closure_dashboard.json().get("data", {}).get("support_case_incident_closure_dashboard", {}).get("closure_status") == "go", incident_closure_dashboard.text)
+    _add(checks, "support case incident closure dashboard exports markdown", incident_closure_dashboard_markdown.status_code == 200 and "# Support Case Incident Closure Dashboard" in incident_closure_dashboard_markdown.text, incident_closure_dashboard_markdown.text)
+    _add(checks, "support case incident closure dashboard exports csv", incident_closure_dashboard_csv.status_code == 200 and "ready,maturity_label,closure_status,readiness_score" in incident_closure_dashboard_csv.text, incident_closure_dashboard_csv.text)
     _add(checks, "no-secret boundary is visible", "Do not ask for a raw GW2 API key" in page.text and "Please do not send your raw GW2 API key" in js.text, "boundary missing")
 
     failed = [check for check in checks if not check[1]]

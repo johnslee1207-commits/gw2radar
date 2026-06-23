@@ -294,6 +294,13 @@ def test_player_gateway_incident_timeline_correlates_refresh_events_without_secr
         final_handoff_packet_zip_audit_csv = client.get(
             "/api/v1/player/support-case/incident-final-handoff-packet/artifacts/bundle/verification-audit?format=csv"
         )
+        closure_dashboard = client.get("/api/v1/player/support-case/incident-closure-dashboard?limit=20")
+        closure_dashboard_markdown = client.get(
+            "/api/v1/player/support-case/incident-closure-dashboard?format=markdown&limit=20"
+        )
+        closure_dashboard_csv = client.get(
+            "/api/v1/player/support-case/incident-closure-dashboard?format=csv&limit=20"
+        )
         assert manifest.status_code == 200
         assert "gw2radar.support_case_incident_packet_manifest.v1" in manifest.text
         assert packet_md.status_code == 200
@@ -579,6 +586,26 @@ def test_player_gateway_incident_timeline_correlates_refresh_events_without_secr
         tampered_final_record = tampered_final_audit.json()["data"]["support_case_incident_final_handoff_packet_zip_verification_audit_record"]
         assert tampered_final_record["ready"] is False
         assert tampered_final_record["blocker_count"] >= 1
+        assert closure_dashboard.status_code == 200
+        closure_payload = closure_dashboard.json()["data"]["support_case_incident_closure_dashboard"]
+        assert closure_payload["schema_version"] == "gw2radar.support_case_incident_closure_dashboard.v1"
+        assert closure_payload["ready"] is True
+        assert closure_payload["closure_status"] == "go"
+        assert closure_payload["readiness_score"] == 100.0
+        assert closure_payload["final_zip_verification_ready"] is True
+        assert closure_payload["packet_audit_count"] >= 1
+        assert closure_payload["operator_zip_audit_count"] >= 1
+        assert closure_payload["final_zip_audit_count"] >= 1
+        assert {card["card_id"] for card in closure_payload["status_cards"]} == {
+            "incident_packet",
+            "operator_packet",
+            "final_handoff_packet",
+            "closure_decision",
+        }
+        assert closure_dashboard_markdown.status_code == 200
+        assert "# Support Case Incident Closure Dashboard" in closure_dashboard_markdown.text
+        assert closure_dashboard_csv.status_code == 200
+        assert "ready,maturity_label,closure_status,readiness_score" in closure_dashboard_csv.text
         assert tampered_operator_audit.status_code == 200
         tampered_operator_record = tampered_operator_audit.json()["data"]["support_case_incident_operator_packet_zip_verification_audit_record"]
         assert tampered_operator_record["ready"] is False
@@ -596,6 +623,9 @@ def test_player_gateway_incident_timeline_correlates_refresh_events_without_secr
             + str(final_zip_audit_list)
             + final_handoff_packet_zip_audit_markdown.text
             + final_handoff_packet_zip_audit_csv.text
+            + str(closure_payload)
+            + closure_dashboard_markdown.text
+            + closure_dashboard_csv.text
             + str(tampered_final_record)
             + str(tampered_operator_record)
         ).lower()

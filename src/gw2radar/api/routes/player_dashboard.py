@@ -78,6 +78,7 @@ from gw2radar.commercial.support_case_incidents import (
     SupportCaseIncidentOperatorPacketZipVerificationAuditRequest,
     SupportCaseIncidentPacketZipVerificationAuditRequest,
     build_support_case_incident_dashboard,
+    build_support_case_incident_closure_dashboard,
     build_support_case_incident_final_handoff_checklist,
     build_support_case_incident_final_handoff_packet_zip_bundle,
     build_support_case_incident_handoff_checklist,
@@ -98,6 +99,8 @@ from gw2radar.commercial.support_case_incidents import (
     resolve_support_case_incident_packet_path,
     render_support_case_incident_dashboard_csv,
     render_support_case_incident_dashboard_markdown,
+    render_support_case_incident_closure_dashboard_csv,
+    render_support_case_incident_closure_dashboard_markdown,
     render_support_case_incident_final_handoff_checklist_csv,
     render_support_case_incident_final_handoff_checklist_markdown,
     render_support_case_incident_final_handoff_packet_zip_verification_audit_csv,
@@ -1126,6 +1129,30 @@ def get_player_support_case_incident_final_handoff_packet_bundle_verification_au
     )
 
 
+@router.get("/support-case/incident-closure-dashboard", response_model=None)
+def get_player_support_case_incident_closure_dashboard(
+    format: str = "json",
+    limit: int = 20,
+) -> ApiDataEnvelope | Response:
+    _ensure_support_case_incident_closure_evidence(limit=limit)
+    dashboard = build_support_case_incident_closure_dashboard()
+    if format == "markdown":
+        return Response(
+            content=render_support_case_incident_closure_dashboard_markdown(dashboard),
+            media_type="text/markdown; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="support_case_incident_closure_dashboard.md"'},
+        )
+    if format == "csv":
+        return Response(
+            content=render_support_case_incident_closure_dashboard_csv(dashboard),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="support_case_incident_closure_dashboard.csv"'},
+        )
+    return ApiDataEnvelope(
+        data={"support_case_incident_closure_dashboard": dashboard.model_dump(mode="json")}
+    )
+
+
 @router.get("/support-case/incident-final-handoff-packet/artifacts/{packet_id}/{file_name}", response_model=None)
 def get_player_support_case_incident_final_handoff_packet_file(packet_id: str, file_name: str) -> Response:
     path = resolve_support_case_incident_final_handoff_packet_path(packet_id, file_name)
@@ -1179,6 +1206,19 @@ def _ensure_support_case_incident_final_handoff_checklist(limit: int = 20):
             )
         )
     return build_support_case_incident_final_handoff_checklist()
+
+
+def _ensure_support_case_incident_closure_evidence(limit: int = 20) -> None:
+    checklist = _ensure_support_case_incident_final_handoff_checklist(limit=limit)
+    if not list_support_case_incident_final_handoff_packets(limit=1):
+        write_support_case_incident_final_handoff_packet_artifacts(checklist)
+    if not list_support_case_incident_final_handoff_packet_zip_verification_audits(limit=1).records:
+        record_support_case_incident_final_handoff_packet_zip_verification_audit(
+            SupportCaseIncidentFinalHandoffPacketZipVerificationAuditRequest(
+                reviewer="system",
+                notes=["System recorded support case incident closure dashboard final zip verification audit."],
+            )
+        )
 
 
 def _build_support_case_incident_dashboard(limit: int = 20):

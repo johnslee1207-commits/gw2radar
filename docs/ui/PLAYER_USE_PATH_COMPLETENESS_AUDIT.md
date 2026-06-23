@@ -3,7 +3,7 @@
 - Schema: gw2radar.player_use_path_completeness_audit.v1
 - Maturity label: ready
 - Readiness score: 100.0
-- Passed checks: 40
+- Passed checks: 41
 - Failed checks: 0
 - Privacy boundary: raw API keys and private source payloads must not appear in this audit.
 
@@ -21,16 +21,17 @@
 | `gateway_incident_history` | PASS | mature_gateway_incident_history | 2 snapshots with comparison unchanged. | None for MVP depth. |
 | `gateway_incident_review_notes` | PASS | mature_gateway_incident_review_notes | 1 notes with assigned and closed lifecycle evidence. | None for MVP depth. |
 | `support_case_incident_dashboard` | PASS | mature_support_case_incident_dashboard | 4 cards with status ready. | None for MVP depth. |
-| `support_case_incident_packet` | PASS | mature_support_case_incident_packet | 4 files with checksum 6e87077fd94c. | None for MVP depth. |
-| `support_case_incident_packet_zip_verification` | PASS | mature_support_case_incident_packet_zip_verification | zip checksum 6c85905ec068 verified with 4 files. | None for MVP depth. |
-| `support_case_incident_packet_zip_verification_audit` | PASS | mature_support_case_incident_packet_zip_verification_audit | 8 metadata-only zip verification audit records available. | None for MVP depth. |
+| `support_case_incident_packet` | PASS | mature_support_case_incident_packet | 4 files with checksum f929750c4867. | None for MVP depth. |
+| `support_case_incident_packet_zip_verification` | PASS | mature_support_case_incident_packet_zip_verification | zip checksum 025a6399f398 verified with 4 files. | None for MVP depth. |
+| `support_case_incident_packet_zip_verification_audit` | PASS | mature_support_case_incident_packet_zip_verification_audit | 9 metadata-only zip verification audit records available. | None for MVP depth. |
 | `support_case_incident_handoff_checklist` | PASS | mature_support_case_incident_handoff_checklist | 5 gates summarized with 0 missing gates. | None for MVP depth. |
 | `support_case_incident_operator_packet_artifacts` | PASS | mature_support_case_incident_operator_packet_artifacts | 9 metadata files written for operator handoff. | None for MVP depth. |
-| `support_case_incident_operator_packet_zip_verification` | PASS | mature_support_case_incident_operator_packet_zip_verification | operator zip checksum ee8c4fb96582 verified with 9 files. | None for MVP depth. |
-| `support_case_incident_operator_packet_zip_verification_audit` | PASS | mature_support_case_incident_operator_packet_zip_verification_audit | 4 metadata-only operator zip audit records available. | None for MVP depth. |
+| `support_case_incident_operator_packet_zip_verification` | PASS | mature_support_case_incident_operator_packet_zip_verification | operator zip checksum 7506c50b3a20 verified with 9 files. | None for MVP depth. |
+| `support_case_incident_operator_packet_zip_verification_audit` | PASS | mature_support_case_incident_operator_packet_zip_verification_audit | 5 metadata-only operator zip audit records available. | None for MVP depth. |
 | `support_case_incident_final_handoff_checklist` | PASS | mature_support_case_incident_final_handoff_checklist | 9 operator files and 1 audit records gated. | None for MVP depth. |
-| `support_case_incident_final_handoff_packet_artifacts` | PASS | mature_support_case_incident_final_handoff_packet_artifacts | 6 final handoff files with checksum 68835222218a. | None for MVP depth. |
-| `support_case_incident_final_handoff_packet_zip_verification_audit` | PASS | mature_support_case_incident_final_handoff_packet_zip_verification_audit | final handoff zip checksum 1f23273d925d verified with 6 files. | None for MVP depth. |
+| `support_case_incident_final_handoff_packet_artifacts` | PASS | mature_support_case_incident_final_handoff_packet_artifacts | 6 final handoff files with checksum 10cad77076ee. | None for MVP depth. |
+| `support_case_incident_final_handoff_packet_zip_verification_audit` | PASS | mature_support_case_incident_final_handoff_packet_zip_verification_audit | final handoff zip checksum b95866d2d933 verified with 6 files. | None for MVP depth. |
+| `support_case_incident_closure_dashboard` | PASS | mature_support_case_incident_closure_dashboard | go at 100.0 with 1 final audits. | None for MVP depth. |
 | `player_readiness_action` | PASS | mature_dashboard_readiness | needs_review at 80.0/100 with 5 checks. | None for MVP depth. |
 | `player_readiness_exports` | PASS | mature_readiness_exports | GET /api/v1/player/readiness supports markdown and csv formats without raw secret fields. | None for MVP depth. |
 | `player_readiness_history` | PASS | mature_readiness_history | 2 snapshots with comparison unchanged. | None for MVP depth. |
@@ -38,15 +39,15 @@
 | `account_value_history` | PASS | mature_value_history | 2 snapshots with comparison unchanged. | None for MVP depth. |
 | `player_history_correlation` | PASS | mature_history_correlation | unchanged with readiness delta 0.0 and price coverage delta 0.0. | None for MVP depth. |
 | `player_session_packet` | PASS | mature_session_packet | 7 evidence rows and 3 support prompts. | None for MVP depth. |
-| `player_session_packet_artifacts` | PASS | mature_session_packet_artifacts | 4 files with checksum 6806f12fd16d. | None for MVP depth. |
+| `player_session_packet_artifacts` | PASS | mature_session_packet_artifacts | 4 files with checksum b571ceef4dd2. | None for MVP depth. |
 | `player_support_handoff` | PASS | mature_support_handoff | needs_review with 7 next actions. | None for MVP depth. |
-| `player_support_handoff_artifacts` | PASS | mature_support_handoff_artifacts | 4 files with checksum 034cd1da3fd1. | None for MVP depth. |
-| `player_support_handoff_zip_verification` | PASS | mature_support_handoff_zip_verification | zip checksum d4606aad71cc verified with 4 files. | None for MVP depth. |
+| `player_support_handoff_artifacts` | PASS | mature_support_handoff_artifacts | 4 files with checksum d2328ba2dd29. | None for MVP depth. |
+| `player_support_handoff_zip_verification` | PASS | mature_support_handoff_zip_verification | zip checksum d497c8e0ad8e verified with 4 files. | None for MVP depth. |
 | `player_support_handoff_zip_verification_audit` | PASS | mature_support_handoff_zip_audit | 1 audit records for support handoff zip verification. | None for MVP depth. |
 | `player_support_handoff_readiness` | PASS | mature_support_handoff_readiness | ready with 1 audit records. | None for MVP depth. |
 | `player_support_handoff_operator_packet` | PASS | mature_support_handoff_operator_packet | 5 runbook steps and 3 transfer files. | None for MVP depth. |
 | `player_support_handoff_dashboard` | PASS | mature_support_handoff_dashboard | 5 dashboard cards and 1 audit records. | None for MVP depth. |
-| `player_support_handoff_final_archive` | PASS | mature_support_handoff_final_archive | 6 files with zip checksum de949781241e. | None for MVP depth. |
+| `player_support_handoff_final_archive` | PASS | mature_support_handoff_final_archive | 6 files with zip checksum 69bfd9314b5b. | None for MVP depth. |
 | `build_fit_bridge` | PASS | mature_semantic_bridge | gw2radar.account_value_evidence_bridge.v1 with 3 source summaries and 2 remediation items. | None for MVP depth. |
 | `legendary_bridge` | PASS | mature_semantic_bridge | gw2radar.account_value_evidence_bridge.v1 with 3 source summaries and 2 remediation items. | None for MVP depth. |
 | `market_bridge` | PASS | mature_semantic_bridge | gw2radar.account_value_evidence_bridge.v1 with 3 source summaries and 2 remediation items. | None for MVP depth. |
@@ -92,6 +93,7 @@
 - `SupportCaseIncidentFinalHandoffChecklist` combines operator artifact, zip, verification, and audit gates into a support closure view.
 - `SupportCaseIncidentFinalHandoffPacketArtifacts` write final closure checklist, manifest, operator artifact manifest, and audit export files with checksums.
 - `SupportCaseIncidentFinalHandoffPacketZipVerificationAudit` verifies final handoff packet zip archives and records metadata-only closure audit evidence.
+- `SupportCaseIncidentClosureDashboard` aggregates incident packet, operator packet, final packet, zip audit, and final go/no-go state.
 - `ReportArtifactManifest` records bridge metadata without storing raw API keys or unredacted private payloads.
 
 ## Known Limits
@@ -102,4 +104,4 @@
 
 ## Next Priority
 
-Build Support Case Incident Closure Dashboard that aggregates packet artifacts, zip checks, audits, and final go/no-go state.
+Build Support Case Incident Closure Packet export with dashboard, final audit, checksum manifest, and path-safe retrieval.
