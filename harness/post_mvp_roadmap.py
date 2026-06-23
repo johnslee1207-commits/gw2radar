@@ -97,7 +97,7 @@ PHASES = [
         "phase_id": "phase_e_production_saas_foundation",
         "title": "Phase E Production SaaS Foundation",
         "priority": 5,
-        "status": "next_recommended_large_stage",
+        "status": "implemented_foundation",
         "scope": [
             "auth/session model",
             "workspace model",
@@ -112,12 +112,13 @@ PHASES = [
             "SaaS behavior is behind deployment mode",
             "private data isolation is tested",
         ],
+        "evidence_tests": ["tests/test_saas_foundation.py"],
     },
     {
         "phase_id": "phase_f_growth_retention",
         "title": "Phase F Growth / Retention",
         "priority": 6,
-        "status": "after_saas_foundation",
+        "status": "next_recommended",
         "scope": [
             "weekly report job",
             "report history",
@@ -174,9 +175,9 @@ def build_roadmap() -> dict[str, object]:
         ],
         "source_coverage": source_coverage,
         "phase_count": len(PHASES),
-        "next_phase": "phase_e_production_saas_foundation",
+        "next_phase": "phase_f_growth_retention",
         "phases": PHASES,
-        "decision": "Phase A Trust & Credential MVP, Phase B Report Product Close Loop, Phase C Progression Decision Engine v1, and Phase D 7-Day Planning / DAG are implemented. Start Phase E Production SaaS Foundation next as a separate large stage; keep real billing, team workspace credential sharing, and autonomous agents as later explicit stages.",
+        "decision": "Phase A Trust & Credential MVP, Phase B Report Product Close Loop, Phase C Progression Decision Engine v1, Phase D 7-Day Planning / DAG, and Phase E Production SaaS Foundation are implemented at MVP foundation level. Start Phase F Growth / Retention next; keep real billing, team workspace credential sharing, full SaaS launch, and autonomous agents as later explicit stages.",
     }
 
 

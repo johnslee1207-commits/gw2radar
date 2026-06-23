@@ -21,19 +21,19 @@
 | `gateway_incident_history` | PASS | mature_gateway_incident_history | 2 snapshots with comparison unchanged. | None for MVP depth. |
 | `gateway_incident_review_notes` | PASS | mature_gateway_incident_review_notes | 1 notes with assigned and closed lifecycle evidence. | None for MVP depth. |
 | `support_case_incident_dashboard` | PASS | mature_support_case_incident_dashboard | 4 cards with status ready. | None for MVP depth. |
-| `support_case_incident_packet` | PASS | mature_support_case_incident_packet | 4 files with checksum 50111e8485b3. | None for MVP depth. |
-| `support_case_incident_packet_zip_verification` | PASS | mature_support_case_incident_packet_zip_verification | zip checksum 9c83d390de15 verified with 4 files. | None for MVP depth. |
+| `support_case_incident_packet` | PASS | mature_support_case_incident_packet | 4 files with checksum 96d2c669511b. | None for MVP depth. |
+| `support_case_incident_packet_zip_verification` | PASS | mature_support_case_incident_packet_zip_verification | zip checksum 1a70d94f5529 verified with 4 files. | None for MVP depth. |
 | `support_case_incident_packet_zip_verification_audit` | PASS | mature_support_case_incident_packet_zip_verification_audit | 10 metadata-only zip verification audit records available. | None for MVP depth. |
 | `support_case_incident_handoff_checklist` | PASS | mature_support_case_incident_handoff_checklist | 5 gates summarized with 0 missing gates. | None for MVP depth. |
 | `support_case_incident_operator_packet_artifacts` | PASS | mature_support_case_incident_operator_packet_artifacts | 9 metadata files written for operator handoff. | None for MVP depth. |
-| `support_case_incident_operator_packet_zip_verification` | PASS | mature_support_case_incident_operator_packet_zip_verification | operator zip checksum dd4be2b5ac15 verified with 9 files. | None for MVP depth. |
+| `support_case_incident_operator_packet_zip_verification` | PASS | mature_support_case_incident_operator_packet_zip_verification | operator zip checksum c66c4a721d79 verified with 9 files. | None for MVP depth. |
 | `support_case_incident_operator_packet_zip_verification_audit` | PASS | mature_support_case_incident_operator_packet_zip_verification_audit | 10 metadata-only operator zip audit records available. | None for MVP depth. |
 | `support_case_incident_final_handoff_checklist` | PASS | mature_support_case_incident_final_handoff_checklist | 9 operator files and 1 audit records gated. | None for MVP depth. |
-| `support_case_incident_final_handoff_packet_artifacts` | PASS | mature_support_case_incident_final_handoff_packet_artifacts | 6 final handoff files with checksum 7d5bfc70ae2f. | None for MVP depth. |
-| `support_case_incident_final_handoff_packet_zip_verification_audit` | PASS | mature_support_case_incident_final_handoff_packet_zip_verification_audit | final handoff zip checksum bfc63ee94162 verified with 6 files. | None for MVP depth. |
+| `support_case_incident_final_handoff_packet_artifacts` | PASS | mature_support_case_incident_final_handoff_packet_artifacts | 6 final handoff files with checksum 6931fb8d3f0d. | None for MVP depth. |
+| `support_case_incident_final_handoff_packet_zip_verification_audit` | PASS | mature_support_case_incident_final_handoff_packet_zip_verification_audit | final handoff zip checksum 5a77de9e0b48 verified with 6 files. | None for MVP depth. |
 | `support_case_incident_closure_dashboard` | PASS | mature_support_case_incident_closure_dashboard | go at 100.0 with 1 final audits. | None for MVP depth. |
-| `support_case_incident_closure_packet_artifacts` | PASS | mature_support_case_incident_closure_packet_artifacts | 7 closure files with checksum 08e8aa443775. | None for MVP depth. |
-| `support_case_incident_closure_packet_zip_verification_audit` | PASS | mature_support_case_incident_closure_packet_zip_verification_audit | closure zip checksum 4a78d2613738 verified with 7 files. | None for MVP depth. |
+| `support_case_incident_closure_packet_artifacts` | PASS | mature_support_case_incident_closure_packet_artifacts | 7 closure files with checksum 1eacc2ccf784. | None for MVP depth. |
+| `support_case_incident_closure_packet_zip_verification_audit` | PASS | mature_support_case_incident_closure_packet_zip_verification_audit | closure zip checksum 7548c9d2bc87 verified with 7 files. | None for MVP depth. |
 | `player_readiness_action` | PASS | mature_dashboard_readiness | needs_review at 80.0/100 with 5 checks. | None for MVP depth. |
 | `player_readiness_exports` | PASS | mature_readiness_exports | GET /api/v1/player/readiness supports markdown and csv formats without raw secret fields. | None for MVP depth. |
 | `player_readiness_history` | PASS | mature_readiness_history | 2 snapshots with comparison unchanged. | None for MVP depth. |
@@ -41,21 +41,21 @@
 | `account_value_history` | PASS | mature_value_history | 2 snapshots with comparison unchanged. | None for MVP depth. |
 | `player_history_correlation` | PASS | mature_history_correlation | unchanged with readiness delta 0.0 and price coverage delta 0.0. | None for MVP depth. |
 | `player_session_packet` | PASS | mature_session_packet | 7 evidence rows and 3 support prompts. | None for MVP depth. |
-| `player_session_packet_artifacts` | PASS | mature_session_packet_artifacts | 4 files with checksum c547c3ead95a. | None for MVP depth. |
+| `player_session_packet_artifacts` | PASS | mature_session_packet_artifacts | 4 files with checksum 3f86e95bd3e8. | None for MVP depth. |
 | `player_support_handoff` | PASS | mature_support_handoff | needs_review with 7 next actions. | None for MVP depth. |
-| `player_support_handoff_artifacts` | PASS | mature_support_handoff_artifacts | 4 files with checksum 47f9bd89ce03. | None for MVP depth. |
-| `player_support_handoff_zip_verification` | PASS | mature_support_handoff_zip_verification | zip checksum 6d18fe96c0d9 verified with 4 files. | None for MVP depth. |
+| `player_support_handoff_artifacts` | PASS | mature_support_handoff_artifacts | 4 files with checksum e37292868088. | None for MVP depth. |
+| `player_support_handoff_zip_verification` | PASS | mature_support_handoff_zip_verification | zip checksum 930fe35c0212 verified with 4 files. | None for MVP depth. |
 | `player_support_handoff_zip_verification_audit` | PASS | mature_support_handoff_zip_audit | 1 audit records for support handoff zip verification. | None for MVP depth. |
 | `player_support_handoff_readiness` | PASS | mature_support_handoff_readiness | ready with 1 audit records. | None for MVP depth. |
 | `player_support_handoff_operator_packet` | PASS | mature_support_handoff_operator_packet | 5 runbook steps and 3 transfer files. | None for MVP depth. |
 | `player_support_handoff_dashboard` | PASS | mature_support_handoff_dashboard | 5 dashboard cards and 1 audit records. | None for MVP depth. |
-| `player_support_handoff_final_archive` | PASS | mature_support_handoff_final_archive | 6 files with zip checksum d9e0488222da. | None for MVP depth. |
+| `player_support_handoff_final_archive` | PASS | mature_support_handoff_final_archive | 6 files with zip checksum a05f1fd2c3e0. | None for MVP depth. |
 | `build_fit_bridge` | PASS | mature_semantic_bridge | gw2radar.account_value_evidence_bridge.v1 with 3 source summaries and 2 remediation items. | None for MVP depth. |
 | `legendary_bridge` | PASS | mature_semantic_bridge | gw2radar.account_value_evidence_bridge.v1 with 3 source summaries and 2 remediation items. | None for MVP depth. |
 | `market_bridge` | PASS | mature_semantic_bridge | gw2radar.account_value_evidence_bridge.v1 with 3 source summaries and 2 remediation items. | None for MVP depth. |
 | `report_export_bridge` | PASS | mature_export_metadata | POST /api/v1/builds/report writes report_manifest.json account_value_snapshot.evidence_bridge. | None for MVP depth. |
 | `productized_report_templates` | PASS | mature_productized_reports | Account Value markdown, Legendary Gap CSV, and Build Readiness HTML artifacts generated through one template API. | None for MVP depth. |
-| `productized_report_packet_zip_verification_audit` | PASS | mature_productized_report_packet_zip_audit | 3 productized report artifacts bundled with checksum 4129aefc3de4. | None for MVP depth. |
+| `productized_report_packet_zip_verification_audit` | PASS | mature_productized_report_packet_zip_audit | 3 productized report artifacts bundled with checksum 4fed7f3d22ab. | None for MVP depth. |
 | `productized_report_delivery_handoff` | PASS | mature_productized_report_delivery_handoff | 3 artifacts, 6 packet files, 5 handoff steps. | None for MVP depth. |
 
 ## Semantic Graph Summary

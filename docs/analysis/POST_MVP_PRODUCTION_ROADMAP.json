@@ -1,8 +1,8 @@
 {
   "blocking_current_mvp": false,
   "current_mvp_status": "ready_to_close_mvp_stage",
-  "decision": "Phase A Trust & Credential MVP, Phase B Report Product Close Loop, Phase C Progression Decision Engine v1, and Phase D 7-Day Planning / DAG are implemented. Start Phase E Production SaaS Foundation next as a separate large stage; keep real billing, team workspace credential sharing, and autonomous agents as later explicit stages.",
-  "next_phase": "phase_e_production_saas_foundation",
+  "decision": "Phase A Trust & Credential MVP, Phase B Report Product Close Loop, Phase C Progression Decision Engine v1, Phase D 7-Day Planning / DAG, and Phase E Production SaaS Foundation are implemented at MVP foundation level. Start Phase F Growth / Retention next; keep real billing, team workspace credential sharing, full SaaS launch, and autonomous agents as later explicit stages.",
+  "next_phase": "phase_f_growth_retention",
   "phase_count": 6,
   "phases": [
     {
@@ -112,6 +112,9 @@
         "full multi-tenant SaaS launch",
         "real payment integration"
       ],
+      "evidence_tests": [
+        "tests/test_saas_foundation.py"
+      ],
       "phase_id": "phase_e_production_saas_foundation",
       "priority": 5,
       "scope": [
@@ -122,7 +125,7 @@
         "object storage abstraction",
         "billing guard abstraction"
       ],
-      "status": "next_recommended_large_stage",
+      "status": "implemented_foundation",
       "title": "Phase E Production SaaS Foundation"
     },
     {
@@ -144,7 +147,7 @@
         "mock email delivery abstraction",
         "subscription retention UX"
       ],
-      "status": "after_saas_foundation",
+      "status": "next_recommended",
       "title": "Phase F Growth / Retention"
     }
   ],

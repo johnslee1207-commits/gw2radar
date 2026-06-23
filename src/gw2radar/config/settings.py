@@ -12,6 +12,9 @@ class Settings(BaseModel):
     deployment_mode: str = "local_only"
     account_snapshot_retention_days: int = 30
     delete_exports_on_user_delete: bool = True
+    redis_url: str | None = None
+    object_storage_backend: str = "local_filesystem"
+    billing_provider: str = "mock"
 
 
 @lru_cache
@@ -27,4 +30,7 @@ def get_settings() -> Settings:
         account_snapshot_retention_days=int(os.getenv("GW2RADAR_ACCOUNT_SNAPSHOT_RETENTION_DAYS", "30")),
         delete_exports_on_user_delete=os.getenv("GW2RADAR_DELETE_EXPORTS_ON_USER_DELETE", "true").lower()
         == "true",
+        redis_url=os.getenv("GW2RADAR_REDIS_URL"),
+        object_storage_backend=os.getenv("GW2RADAR_OBJECT_STORAGE_BACKEND", "local_filesystem"),
+        billing_provider=os.getenv("GW2RADAR_BILLING_PROVIDER", "mock"),
     )
