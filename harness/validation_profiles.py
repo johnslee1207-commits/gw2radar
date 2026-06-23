@@ -83,6 +83,11 @@ VALIDATION_PROFILES: dict[str, ValidationProfile] = {
                 "Final closeout dashboard freshness check.",
                 (PYTHON, "harness\\run_final_closeout_dashboard.py", "--check"),
             ),
+            ValidationStep(
+                "trial_defect_triage",
+                "Real user trial defect triage readiness freshness check.",
+                (PYTHON, "harness\\run_trial_defect_triage.py", "--check"),
+            ),
         ),
     ),
     "smoke": ValidationProfile(

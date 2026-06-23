@@ -92,6 +92,12 @@ RECONCILIATION_NOTES: dict[str, tuple[str, str, str, list[str]]] = {
         "Preserve privacy-safe team modeling and avoid expanding into full collaboration or subscription administration.",
         ["tests/test_guild_api.py", "tests/test_team_consent.py", "tests/test_member_privacy_summary.py"],
     ),
+    "trial_defect_triage_readiness": (
+        "trial_defect_operationalized",
+        "Real-user trial readiness is now represented by a deterministic checklist, defect classification API, dashboard exports, and freshness harness.",
+        "Use this track for real trial defect triage only; do not reopen broad phase expansion unless a concrete user defect requires it.",
+        ["tests/test_trial_defect_triage.py", "tests/test_final_closeout_dashboard.py", "tests/test_account_connection_diagnostic.py"],
+    ),
 }
 
 

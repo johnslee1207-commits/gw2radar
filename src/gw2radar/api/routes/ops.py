@@ -27,6 +27,15 @@ from gw2radar.ops.final_closeout import (
     render_stop_line_review_csv,
     render_stop_line_review_markdown,
 )
+from gw2radar.ops.trial_defect_triage import (
+    TrialDefectReport,
+    build_trial_defect_dashboard,
+    build_trial_readiness_checklist,
+    render_trial_defect_dashboard_csv,
+    render_trial_defect_dashboard_markdown,
+    render_trial_readiness_checklist_markdown,
+    triage_trial_defect,
+)
 
 router = APIRouter(prefix="/api/v1/ops", tags=["ops"])
 
@@ -168,3 +177,40 @@ def get_stop_line_review(
             media_type="text/csv; charset=utf-8",
         )
     return ApiDataEnvelope(data={"stop_line_review": review.model_dump(mode="json")})
+
+
+@router.get("/trial/checklist", response_model=None)
+def get_trial_readiness_checklist(
+    format: str = Query(default="json", pattern="^(json|markdown)$"),
+):
+    checklist = build_trial_readiness_checklist()
+    if format == "markdown":
+        return Response(
+            content=render_trial_readiness_checklist_markdown(checklist),
+            media_type="text/markdown; charset=utf-8",
+        )
+    return ApiDataEnvelope(data={"trial_readiness_checklist": checklist.model_dump(mode="json")})
+
+
+@router.post("/trial/defect-triage", response_model=ApiDataEnvelope)
+def post_trial_defect_triage(report: TrialDefectReport) -> ApiDataEnvelope:
+    triage = triage_trial_defect(report)
+    return ApiDataEnvelope(data={"trial_defect_triage": triage.model_dump(mode="json")})
+
+
+@router.get("/trial/defect-dashboard", response_model=None)
+def get_trial_defect_dashboard(
+    format: str = Query(default="json", pattern="^(json|markdown|csv)$"),
+):
+    dashboard = build_trial_defect_dashboard()
+    if format == "markdown":
+        return Response(
+            content=render_trial_defect_dashboard_markdown(dashboard),
+            media_type="text/markdown; charset=utf-8",
+        )
+    if format == "csv":
+        return Response(
+            content=render_trial_defect_dashboard_csv(dashboard),
+            media_type="text/csv; charset=utf-8",
+        )
+    return ApiDataEnvelope(data={"trial_defect_dashboard": dashboard.model_dump(mode="json")})

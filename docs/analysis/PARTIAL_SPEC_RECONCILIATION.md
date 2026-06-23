@@ -1,8 +1,8 @@
 # Partial Spec Reconciliation
 
 - Schema: gw2radar.partial_spec_reconciliation.v1
-- Partial specs: 13
-- Reconciled specs: 13
+- Partial specs: 14
+- Reconciled specs: 14
 - Needs review: 0
 
 ## Gap Type Counts
@@ -16,6 +16,7 @@
 - legacy_spec_drift: 2
 - post_mvp_master_plan: 1
 - superseded_by_delivery_lifecycle: 1
+- trial_defect_operationalized: 1
 - ui_guide_partially_operationalized: 1
 
 ## Reconciliation Table
@@ -29,6 +30,7 @@
 | [GW2Radar Official GW2 API Compatibility Layer — Codex Development Spec](docs/analysis/GW2Radar_Official_GW2_API_Compatibility_Layer_Codex_Spec.md) | implemented_with_live_gateway_limit | reconciled | tests/test_gw2_api_client_official_contract.py, tests/test_gw2_api_key_safety.py, tests/test_gw2_api_rate_limit_behavior.py | Do not expand scope into live certification. Keep fake gateway and contract tests strict, then add optional live smoke only behind explicit operator configuration. |
 | [GW2Radar Project Constitution & API Access Governance — Codex Development Spec](docs/analysis/GW2Radar_Project_Constitution_API_Governance_Codex_Spec.md) | governance_aligned | reconciled | tests/test_constitution_compliance_security.py, tests/test_no_auto_trading.py, tests/test_workspace_hygiene.py | Keep governance enforced through stage gate, no-secret tests, and workspace hygiene; avoid adding SaaS or automation scope. |
 | [GW2Radar Senior Player User Guide](docs/analysis/SENIOR_PLAYER_USER_GUIDE.md) | ui_guide_partially_operationalized | reconciled | tests/test_player_ui.py, tests/test_player_ui_e2e_smoke.py, tests/test_player_dashboard_completion.py | Use future UI slices for browser screenshots and senior-player copy refinement when layout changes are made. |
+| [Real User Trial Readiness](docs/analysis/TRIAL_DEFECT_TRIAGE_READINESS.md) | trial_defect_operationalized | reconciled | tests/test_trial_defect_triage.py, tests/test_final_closeout_dashboard.py, tests/test_account_connection_diagnostic.py | Use this track for real trial defect triage only; do not reopen broad phase expansion unless a concrete user defect requires it. |
 | [MVP 0.1.2 Report Export Package](docs/mvp/MVP_0_1_2_REPORT_EXPORT_PACKAGE.md) | superseded_by_delivery_lifecycle | reconciled | tests/test_report_productization.py, tests/test_delivery_lifecycle.py, tests/test_export_package.py | Treat this as superseded by delivery lifecycle regression unless a legacy export route is explicitly requested. |
 | [MVP 0.1.5 Evidence Freshness and Confidence Rules](docs/mvp/MVP_0_1_5_EVIDENCE_QUALITY_RULES.md) | implemented_with_content_depth_backlog | reconciled | tests/test_evidence_quality.py, tests/test_source_attribution.py, tests/test_kb_report_quality.py | Invest next in reviewed content depth and source freshness, not new evidence framework mechanics. |
 | [GW2Radar MVP 0.1 Codex Development Spec](docs/mvp/MVP_0_1_CODEX_DEVELOPMENT_SPEC.md) | legacy_spec_drift | reconciled | tests/test_markdown_report.py, tests/test_graph_builder.py, tests/test_report_no_secret_leakage.py | Keep for audit traceability; rely on current registry and maturity audits for execution priority. |

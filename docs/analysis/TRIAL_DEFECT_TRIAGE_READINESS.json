@@ -1,0 +1,98 @@
+{
+  "checklist": {
+    "checklist": [
+      {
+        "endpoint": "/account/api-key/status",
+        "expected_result": "masked configured key status or clear missing-key action",
+        "item_id": "connect_key",
+        "label": "Connect GW2 API key",
+        "operator_note": "Never ask the player to send the raw key."
+      },
+      {
+        "endpoint": "/account/api-key/permissions",
+        "expected_result": "required permission readiness or missing permission list",
+        "item_id": "inspect_permissions",
+        "label": "Inspect permissions",
+        "operator_note": "Missing permissions should produce limited mode, not silent empty results."
+      },
+      {
+        "endpoint": "/account/diagnostic",
+        "expected_result": "step-level status for key, permission, sync, private layer, and Build Fit bridge",
+        "item_id": "run_diagnostic",
+        "label": "Run connection diagnostic",
+        "operator_note": "Use diagnostic next_actions before asking for a support bundle."
+      },
+      {
+        "endpoint": "/account/debug-bundle",
+        "expected_result": "metadata-only bundle with no raw key or private payload",
+        "item_id": "generate_debug_bundle",
+        "label": "Generate privacy-safe debug bundle",
+        "operator_note": "Bundle can be reviewed and audited through the support workflow."
+      },
+      {
+        "endpoint": "/api/v1/ops/trial/defect-triage",
+        "expected_result": "classification, severity, operator actions, and evidence needed",
+        "item_id": "triage_empty_result",
+        "label": "Triage empty or invisible result",
+        "operator_note": "Use when users report no visible output after connecting a valid key."
+      }
+    ],
+    "defect_intake_channels": [
+      "privacy-safe account debug bundle review",
+      "support review UI audit",
+      "operator release packet verification",
+      "GitHub issue or commit-linked defect note"
+    ],
+    "next_priority": "Run real user trial on account connection and capture only privacy-safe defect metadata.",
+    "safety_boundaries": [
+      "local-first mode remains the default",
+      "no raw secret or private payload export",
+      "no automated gameplay action",
+      "no automated trading instruction",
+      "no guaranteed outcome claim"
+    ],
+    "schema_version": "gw2radar.trial_readiness_checklist.v1",
+    "status": "ready_for_user_trial"
+  },
+  "dashboard": {
+    "defect_intake_channels": [
+      "privacy-safe account debug bundle review",
+      "support review UI audit",
+      "operator release packet verification",
+      "GitHub issue or commit-linked defect note"
+    ],
+    "next_priority": "Use real trial reports to prioritize API key diagnostics, empty-state UX, and support bundle clarity.",
+    "primary_trial_entrypoints": [
+      "/account/api-key/status",
+      "/account/api-key/permissions",
+      "/account/diagnostic",
+      "/account/debug-bundle",
+      "/api/v1/ops/trial/defect-triage"
+    ],
+    "safety_boundaries": [
+      "local-first mode remains the default",
+      "no raw secret or private payload export",
+      "no automated gameplay action",
+      "no automated trading instruction",
+      "no guaranteed outcome claim"
+    ],
+    "schema_version": "gw2radar.trial_defect_dashboard.v1",
+    "status": "ready_for_user_trial",
+    "stop_line_policy": "Do not add broad new phases during trial; fix reproducible defects and diagnostics gaps.",
+    "supported_classifications": [
+      "raw_key_shared",
+      "api_key_not_saved",
+      "missing_permissions",
+      "sync_not_started",
+      "sync_pending_or_failed",
+      "private_layer_empty",
+      "character_snapshot_empty",
+      "result_generation_empty",
+      "ui_flow_incomplete",
+      "no_defect_detected"
+    ]
+  },
+  "next_priority": "Use real trial reports to prioritize API key diagnostics, empty-state UX, and support bundle clarity.",
+  "schema_version": "gw2radar.trial_defect_triage_readiness.v1",
+  "status": "ready_for_user_trial"
+}

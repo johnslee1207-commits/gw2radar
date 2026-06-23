@@ -34,7 +34,8 @@ python harness/run_validation_profile.py full
   player use-path semantic maturity audit, spec registry freshness, and partial
   spec reconciliation freshness, MVP closure readiness, post-MVP roadmap
   freshness, operational hardening readiness freshness, and operator release
-  packet readiness freshness, and final closeout dashboard freshness.
+  packet readiness freshness, final closeout dashboard freshness, and real user
+  trial defect triage readiness freshness.
 - `smoke`: MVP smoke, player UI E2E smoke, and account connection diagnostic.
 - `full`: complete `pytest` regression.
 
@@ -301,6 +302,20 @@ post-MVP phase completion, operational readiness, operator release packet
 readiness, trial entrypoints, defect intake channels, deferred tracks, and a
 stop-line review that shifts future work away from broad phase expansion and
 toward real user trial plus targeted defect fixes.
+
+## Trial Defect Triage Command
+
+```bash
+python harness/run_trial_defect_triage.py
+python harness/run_trial_defect_triage.py --check
+```
+
+This harness writes `docs/analysis/TRIAL_DEFECT_TRIAGE_READINESS.md` and
+`docs/analysis/TRIAL_DEFECT_TRIAGE_READINESS.json`. It verifies the real-user
+trial checklist and privacy-safe defect triage classifications for missing key,
+missing permissions, sync not started, pending sync, empty private layer, empty
+character snapshot, empty generated result, hidden UI result, and unsafe raw key
+reports.
 
 ## Account Debug Bundle Review Command
 

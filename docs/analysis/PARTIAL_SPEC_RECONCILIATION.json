@@ -9,12 +9,13 @@
     "legacy_spec_drift": 2,
     "post_mvp_master_plan": 1,
     "superseded_by_delivery_lifecycle": 1,
+    "trial_defect_operationalized": 1,
     "ui_guide_partially_operationalized": 1
   },
   "needs_review_count": 0,
   "next_priority": "Promote reconciled partial specs into a smaller backlog: reviewed content depth, optional live API smoke documentation, and UI visual polish only when explicitly scheduled.",
-  "partial_count": 13,
-  "reconciled_count": 13,
+  "partial_count": 14,
+  "reconciled_count": 14,
   "records": [
     {
       "evidence_tests": [
@@ -113,6 +114,20 @@
       "spec_id": "senior_player_user_guide",
       "status_after_reconciliation": "reconciled",
       "title": "GW2Radar Senior Player User Guide"
+    },
+    {
+      "evidence_tests": [
+        "tests/test_trial_defect_triage.py",
+        "tests/test_final_closeout_dashboard.py",
+        "tests/test_account_connection_diagnostic.py"
+      ],
+      "gap_type": "trial_defect_operationalized",
+      "rationale": "Real-user trial readiness is now represented by a deterministic checklist, defect classification API, dashboard exports, and freshness harness.",
+      "recommended_action": "Use this track for real trial defect triage only; do not reopen broad phase expansion unless a concrete user defect requires it.",
+      "source_path": "docs/analysis/TRIAL_DEFECT_TRIAGE_READINESS.md",
+      "spec_id": "trial_defect_triage_readiness",
+      "status_after_reconciliation": "reconciled",
+      "title": "Real User Trial Readiness"
     },
     {
       "evidence_tests": [

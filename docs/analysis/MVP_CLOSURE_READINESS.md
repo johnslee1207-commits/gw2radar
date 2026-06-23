@@ -7,10 +7,10 @@
 
 ## Evidence
 
-- Spec count: 65
-- Registry maturity counts: {'implemented': 52, 'partial': 13}
-- Partial specs: 13
-- Reconciled partial specs: 13
+- Spec count: 66
+- Registry maturity counts: {'implemented': 52, 'partial': 14}
+- Partial specs: 14
+- Reconciled partial specs: 14
 - Needs review: 0
 - Player use-path failed checks: 0
 

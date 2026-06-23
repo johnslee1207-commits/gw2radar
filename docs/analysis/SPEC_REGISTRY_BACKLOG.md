@@ -1,14 +1,14 @@
 # Spec Registry And Backlog Index
 
 - Schema: gw2radar.spec_registry_backlog.v1
-- Spec count: 65
+- Spec count: 66
 - Player use-path checks: 46
 - Failed player use-path checks: 0
 
 ## Maturity Counts
 
 - implemented: 52
-- partial: 13
+- partial: 14
 
 ## Next Stage Tranche
 
@@ -21,9 +21,9 @@
 | GW2Radar Official GW2 API Compatibility Layer — Codex Development Spec | partial | MVP 0.1 | account, api_gateway, build_fit, guild, kb, legendary, market, support | Close remaining documented gaps with focused tests for linked domains. |
 | GW2Radar Project Constitution & API Access Governance — Codex Development Spec | partial | MVP 0.1 | account, api_gateway, build_fit, commercial, guild, kb, legendary, market, support | Close remaining documented gaps with focused tests for linked domains. |
 | GW2Radar Senior Player User Guide | partial | cross-cutting | account, build_fit, commercial, delivery, guild, kb, legendary, market, player_ui, support | Close remaining documented gaps with focused tests for linked domains. |
+| Real User Trial Readiness | partial | cross-cutting | account, build_fit, delivery, player_ui, support | Close remaining documented gaps with focused tests for linked domains. |
 | MVP 0.1.2 Report Export Package | partial | MVP 0.1.2 | delivery, legendary | Close remaining documented gaps with focused tests for linked domains. |
 | MVP 0.1.5 Evidence Freshness and Confidence Rules | partial | MVP 0.1.5 | kb | Close remaining documented gaps with focused tests for linked domains. |
-| GW2Radar MVP 0.1 Codex Development Spec | partial | MVP 0.1 | account, commercial, legendary, support | Close remaining documented gaps with focused tests for linked domains. |
 
 ## Registry
 
@@ -56,6 +56,7 @@
 | [Post-MVP Graph Maturity And Roadmap](docs/analysis/POST_MVP_GRAPH_MATURITY_AND_ROADMAP.md) | analysis | implemented | 12 related tests, maturity/audit language present, manual review gate referenced, privacy/safety boundary referenced, domain:account, domain:api_gateway | 12 |
 | [GW2Radar Senior Player User Guide](docs/analysis/SENIOR_PLAYER_USER_GUIDE.md) | analysis | partial | 12 related tests, maturity/audit language present, manual review gate referenced, domain:account, domain:build_fit, domain:commercial | 12 |
 | [GW2Radar Three Commercial Opportunities User Guide](docs/analysis/THREE_COMMERCIAL_OPPORTUNITIES_USER_GUIDE.md) | analysis | implemented | 12 related tests, maturity/audit language present, privacy/safety boundary referenced, domain:account, domain:api_gateway, domain:build_fit | 12 |
+| [Real User Trial Readiness](docs/analysis/TRIAL_DEFECT_TRIAGE_READINESS.md) | analysis | partial | 12 related tests, maturity/audit language present, privacy/safety boundary referenced, domain:account, domain:build_fit, domain:delivery | 12 |
 | [MVP 0.1.2 Report Export Package](docs/mvp/MVP_0_1_2_REPORT_EXPORT_PACKAGE.md) | mvp | partial | 12 related tests, domain:delivery, domain:legendary | 12 |
 | [MVP 0.1.3 Graph Layer Separation](docs/mvp/MVP_0_1_3_GRAPH_LAYER_SEPARATION.md) | mvp | implemented | 12 related tests, privacy/safety boundary referenced, domain:account, domain:build_fit, domain:legendary | 12 |
 | [MVP 0.1.4 Gateway Contract Hardening](docs/mvp/MVP_0_1_4_GATEWAY_CONTRACT_HARDENING.md) | mvp | implemented | 12 related tests, domain:api_gateway, domain:market, domain:support | 12 |

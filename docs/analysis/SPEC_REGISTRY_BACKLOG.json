@@ -1,7 +1,7 @@
 {
   "maturity_counts": {
     "implemented": 52,
-    "partial": 13
+    "partial": 14
   },
   "next_tranche": [
     {
@@ -294,6 +294,44 @@
       "title": "GW2Radar Senior Player User Guide"
     },
     {
+      "category": "analysis",
+      "domains": [
+        "account",
+        "build_fit",
+        "delivery",
+        "player_ui",
+        "support"
+      ],
+      "evidence": [
+        "12 related tests",
+        "maturity/audit language present",
+        "privacy/safety boundary referenced",
+        "domain:account",
+        "domain:build_fit",
+        "domain:delivery"
+      ],
+      "maturity": "partial",
+      "next_action": "Close remaining documented gaps with focused tests for linked domains.",
+      "phase": "cross-cutting",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/analysis/TRIAL_DEFECT_TRIAGE_READINESS.md",
+      "spec_id": "trial_defect_triage_readiness",
+      "title": "Real User Trial Readiness"
+    },
+    {
       "category": "mvp",
       "domains": [
         "delivery",
@@ -354,42 +392,6 @@
       "source_path": "docs/mvp/MVP_0_1_5_EVIDENCE_QUALITY_RULES.md",
       "spec_id": "mvp_0_1_5_evidence_quality_rules",
       "title": "MVP 0.1.5 Evidence Freshness and Confidence Rules"
-    },
-    {
-      "category": "mvp",
-      "domains": [
-        "account",
-        "commercial",
-        "legendary",
-        "support"
-      ],
-      "evidence": [
-        "12 related tests",
-        "privacy/safety boundary referenced",
-        "domain:account",
-        "domain:commercial",
-        "domain:legendary"
-      ],
-      "maturity": "partial",
-      "next_action": "Close remaining documented gaps with focused tests for linked domains.",
-      "phase": "MVP 0.1",
-      "related_tests": [
-        "tests/test_account_connection_diagnostic.py",
-        "tests/test_account_connection_diagnostic_api.py",
-        "tests/test_account_debug_bundle_audit.py",
-        "tests/test_account_debug_bundle_review.py",
-        "tests/test_account_gear_matcher.py",
-        "tests/test_account_lifecycle.py",
-        "tests/test_account_sync_api.py",
-        "tests/test_account_value_holding_index.py",
-        "tests/test_api_key_fingerprint.py",
-        "tests/test_api_key_permission_inspection.py",
-        "tests/test_build_report.py",
-        "tests/test_creator_report.py"
-      ],
-      "source_path": "docs/mvp/MVP_0_1_CODEX_DEVELOPMENT_SPEC.md",
-      "spec_id": "mvp_0_1_codex_development_spec",
-      "title": "GW2Radar MVP 0.1 Codex Development Spec"
     }
   ],
   "player_use_path": {
@@ -1493,6 +1495,44 @@
       "source_path": "docs/analysis/THREE_COMMERCIAL_OPPORTUNITIES_USER_GUIDE.md",
       "spec_id": "three_commercial_opportunities_user_guide",
       "title": "GW2Radar Three Commercial Opportunities User Guide"
+    },
+    {
+      "category": "analysis",
+      "domains": [
+        "account",
+        "build_fit",
+        "delivery",
+        "player_ui",
+        "support"
+      ],
+      "evidence": [
+        "12 related tests",
+        "maturity/audit language present",
+        "privacy/safety boundary referenced",
+        "domain:account",
+        "domain:build_fit",
+        "domain:delivery"
+      ],
+      "maturity": "partial",
+      "next_action": "Close remaining documented gaps with focused tests for linked domains.",
+      "phase": "cross-cutting",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/analysis/TRIAL_DEFECT_TRIAGE_READINESS.md",
+      "spec_id": "trial_defect_triage_readiness",
+      "title": "Real User Trial Readiness"
     },
     {
       "category": "mvp",
@@ -2841,5 +2881,5 @@
     }
   ],
   "schema_version": "gw2radar.spec_registry_backlog.v1",
-  "spec_count": 65
+  "spec_count": 66
 }
