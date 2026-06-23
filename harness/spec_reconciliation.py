@@ -26,6 +26,12 @@ RECONCILIATION_NOTES: dict[str, tuple[str, str, str, list[str]]] = {
         "Prioritize reviewed rule pack content and source-evidence quality, not new lifecycle plumbing.",
         ["tests/test_kb_backed_report.py", "tests/test_kb_release_readiness.py", "tests/test_patch_admin_workflow_api.py"],
     ),
+    "gw2radar_master_planning_summary": (
+        "post_mvp_master_plan",
+        "The master plan intentionally describes progression engines, planning agents, SaaS, growth, and subscription evolution beyond the closed local-first MVP.",
+        "Use the post-MVP production roadmap gate to schedule Phase A first and keep SaaS, autonomous agents, and real billing as later explicit stages.",
+        ["tests/test_post_mvp_roadmap.py", "tests/test_closure_readiness.py", "tests/test_no_auto_trading.py"],
+    ),
     "gw2radar_mvp_0_1_codex_development_spec": (
         "legacy_spec_drift",
         "This early planning spec predates later API, UI, commercial, KB, and delivery lifecycle work; partial status mostly reflects historical wording.",

@@ -1,0 +1,165 @@
+{
+  "blocking_current_mvp": false,
+  "current_mvp_status": "ready_to_close_mvp_stage",
+  "decision": "Start Phase A only; keep production SaaS, real billing, team workspace, and autonomous agents as later explicit stages.",
+  "next_phase": "phase_a_trust_credential_mvp",
+  "phase_count": 6,
+  "phases": [
+    {
+      "acceptance": [
+        "raw keys never appear in logs, URLs, reports, or front-end storage",
+        "session-only mode requires no persisted secret",
+        "encrypted persistent mode remains local-first unless production mode is explicit"
+      ],
+      "defer": [
+        "team workspace credential sharing",
+        "KMS production vault"
+      ],
+      "phase_id": "phase_a_trust_credential_mvp",
+      "priority": 1,
+      "scope": [
+        "session-only BYOK mode",
+        "credential mode model",
+        "permission explanation UI/API",
+        "credential usage audit summary",
+        "revoke/delete/rotate UX"
+      ],
+      "status": "next_recommended",
+      "title": "Phase A Trust & Credential MVP"
+    },
+    {
+      "acceptance": [
+        "mock payment only",
+        "deterministic report artifacts",
+        "no unsupported claims or guaranteed outcomes"
+      ],
+      "defer": [
+        "real payment provider",
+        "email delivery provider"
+      ],
+      "phase_id": "phase_b_report_product_close_loop",
+      "priority": 2,
+      "scope": [
+        "clear report product contracts",
+        "preview vs full report boundary",
+        "mock license and entitlement lifecycle",
+        "delivery artifacts through shared lifecycle"
+      ],
+      "status": "recommended_after_phase_a",
+      "title": "Phase B Report Product Close Loop"
+    },
+    {
+      "acceptance": [
+        "all sell/buy actions are review candidates only",
+        "every action includes evidence, risk, and assumptions",
+        "manual review boundary is visible in outputs"
+      ],
+      "defer": [
+        "automatic trading",
+        "automatic gameplay execution",
+        "profit guarantees"
+      ],
+      "phase_id": "phase_c_progression_decision_engine_v1",
+      "priority": 3,
+      "scope": [
+        "manual action model",
+        "scoring model",
+        "Top-K recommendation API",
+        "KB-backed recommendation explanation"
+      ],
+      "status": "recommended_after_phase_b",
+      "title": "Phase C Progression Decision Engine v1"
+    },
+    {
+      "acceptance": [
+        "plan is explainable and deterministic for fixture inputs",
+        "missing facts become assumptions",
+        "no guaranteed completion claim"
+      ],
+      "defer": [
+        "real-time autonomous replanning"
+      ],
+      "phase_id": "phase_d_7_day_planning_dag",
+      "priority": 4,
+      "scope": [
+        "goal interpreter",
+        "action dependency graph",
+        "7-day plan generator",
+        "plan export Markdown/CSV/JSON"
+      ],
+      "status": "post_phase_c",
+      "title": "Phase D 7-Day Planning / DAG"
+    },
+    {
+      "acceptance": [
+        "local-first mode still works",
+        "SaaS behavior is behind deployment mode",
+        "private data isolation is tested"
+      ],
+      "defer": [
+        "full multi-tenant SaaS launch",
+        "real payment integration"
+      ],
+      "phase_id": "phase_e_production_saas_foundation",
+      "priority": 5,
+      "scope": [
+        "auth/session model",
+        "workspace model",
+        "PostgreSQL migration plan",
+        "Redis/cache/queue plan",
+        "object storage abstraction",
+        "billing guard abstraction"
+      ],
+      "status": "large_separate_stage",
+      "title": "Phase E Production SaaS Foundation"
+    },
+    {
+      "acceptance": [
+        "share previews contain no private payloads",
+        "delete/unsubscribe path is documented",
+        "weekly outputs preserve no-guarantee language"
+      ],
+      "defer": [
+        "public sharing of private account payloads",
+        "real email provider lock-in"
+      ],
+      "phase_id": "phase_f_growth_retention",
+      "priority": 6,
+      "scope": [
+        "weekly report job",
+        "report history",
+        "safe share preview",
+        "mock email delivery abstraction",
+        "subscription retention UX"
+      ],
+      "status": "after_saas_foundation",
+      "title": "Phase F Growth / Retention"
+    }
+  ],
+  "schema_version": "gw2radar.post_mvp_production_roadmap.v1",
+  "source_coverage": {
+    "master": {
+      "7-Day Plan": true,
+      "Decision System": true,
+      "Progression Engine": true,
+      "SaaS": true
+    },
+    "saas": {
+      "Credential Center": true,
+      "PostgreSQL": true,
+      "Production SaaS": true,
+      "Subscription": true
+    },
+    "trust": {
+      "Encrypted Persistent": true,
+      "Permission Explain": true,
+      "Session-only": true,
+      "Team Workspace": true
+    }
+  },
+  "source_docs": [
+    "docs/analysis/GW2Radar_Trust_Credential_Architecture.md",
+    "docs/analysis/GW2Radar_Production_SaaS_Architecture.md",
+    "docs/analysis/GW2Radar_Master_Planning_Summary.md"
+  ]
+}

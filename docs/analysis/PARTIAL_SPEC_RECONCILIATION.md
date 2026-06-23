@@ -1,8 +1,8 @@
 # Partial Spec Reconciliation
 
 - Schema: gw2radar.partial_spec_reconciliation.v1
-- Partial specs: 12
-- Reconciled specs: 12
+- Partial specs: 13
+- Reconciled specs: 13
 - Needs review: 0
 
 ## Gap Type Counts
@@ -14,6 +14,7 @@
 - implemented_with_content_depth_backlog: 1
 - implemented_with_live_gateway_limit: 2
 - legacy_spec_drift: 2
+- post_mvp_master_plan: 1
 - superseded_by_delivery_lifecycle: 1
 - ui_guide_partially_operationalized: 1
 
@@ -23,6 +24,7 @@
 | --- | --- | --- | --- | --- |
 | [GW2Radar Commercial Opportunity Full Implementation Roadmap — Codex Spec](docs/analysis/GW2Radar_Commercial_Opportunity_Full_Implementation_Roadmap_Codex_Spec.md) | broad_roadmap | reconciled | tests/test_report_productization.py, tests/test_market_api.py, tests/test_build_fit_api.py | Keep implemented commercial slices covered by report, entitlement, guild, creator, market, build, and player UI tests; schedule only explicitly selected roadmap gaps. |
 | [GW2Radar Knowledge Base, Knowledge Graph & Commercial Intelligence Implementation Plan](docs/analysis/GW2Radar_KB_Graph_Commercial_Intelligence_Implementation_Plan.md) | broad_roadmap | reconciled | tests/test_kb_backed_report.py, tests/test_kb_release_readiness.py, tests/test_patch_admin_workflow_api.py | Prioritize reviewed rule pack content and source-evidence quality, not new lifecycle plumbing. |
+| [GW2Radar / GW2 Progression 全部规划与系统设计汇总（统一主文档）](docs/analysis/GW2Radar_Master_Planning_Summary.md) | post_mvp_master_plan | reconciled | tests/test_post_mvp_roadmap.py, tests/test_closure_readiness.py, tests/test_no_auto_trading.py | Use the post-MVP production roadmap gate to schedule Phase A first and keep SaaS, autonomous agents, and real billing as later explicit stages. |
 | [GW2Radar MVP 0.1 研制规范](docs/analysis/GW2Radar_MVP_0_1_Codex_Development_Spec.md) | legacy_spec_drift | reconciled | tests/test_goal_gap.py, tests/test_graph_layers.py, tests/test_account_connection_diagnostic.py | Use current PRD/SDD, MVP docs, and stage gate as source of truth; keep this spec as historical input. |
 | [GW2Radar Official GW2 API Compatibility Layer — Codex Development Spec](docs/analysis/GW2Radar_Official_GW2_API_Compatibility_Layer_Codex_Spec.md) | implemented_with_live_gateway_limit | reconciled | tests/test_gw2_api_client_official_contract.py, tests/test_gw2_api_key_safety.py, tests/test_gw2_api_rate_limit_behavior.py | Do not expand scope into live certification. Keep fake gateway and contract tests strict, then add optional live smoke only behind explicit operator configuration. |
 | [GW2Radar Project Constitution & API Access Governance — Codex Development Spec](docs/analysis/GW2Radar_Project_Constitution_API_Governance_Codex_Spec.md) | governance_aligned | reconciled | tests/test_constitution_compliance_security.py, tests/test_no_auto_trading.py, tests/test_workspace_hygiene.py | Keep governance enforced through stage gate, no-secret tests, and workspace hygiene; avoid adding SaaS or automation scope. |

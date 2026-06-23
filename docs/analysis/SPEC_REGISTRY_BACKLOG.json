@@ -1,7 +1,7 @@
 {
   "maturity_counts": {
-    "implemented": 47,
-    "partial": 12
+    "implemented": 49,
+    "partial": 13
   },
   "next_tranche": [
     {
@@ -91,6 +91,44 @@
       "source_path": "docs/analysis/GW2Radar_KB_Graph_Commercial_Intelligence_Implementation_Plan.md",
       "spec_id": "gw2radar_kb_graph_commercial_intelligence_implementation_plan",
       "title": "GW2Radar Knowledge Base, Knowledge Graph & Commercial Intelligence Implementation Plan"
+    },
+    {
+      "category": "analysis",
+      "domains": [
+        "account",
+        "build_fit",
+        "guild",
+        "legendary",
+        "market",
+        "player_ui"
+      ],
+      "evidence": [
+        "12 related tests",
+        "maturity/audit language present",
+        "domain:account",
+        "domain:build_fit",
+        "domain:guild"
+      ],
+      "maturity": "partial",
+      "next_action": "Close remaining documented gaps with focused tests for linked domains.",
+      "phase": "cross-cutting",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/analysis/GW2Radar_Master_Planning_Summary.md",
+      "spec_id": "gw2radar_master_planning_summary",
+      "title": "GW2Radar / GW2 Progression \u5168\u90e8\u89c4\u5212\u4e0e\u7cfb\u7edf\u8bbe\u8ba1\u6c47\u603b\uff08\u7edf\u4e00\u4e3b\u6587\u6863\uff09"
     },
     {
       "category": "analysis",
@@ -352,42 +390,6 @@
       "source_path": "docs/mvp/MVP_0_1_CODEX_DEVELOPMENT_SPEC.md",
       "spec_id": "mvp_0_1_codex_development_spec",
       "title": "GW2Radar MVP 0.1 Codex Development Spec"
-    },
-    {
-      "category": "mvp",
-      "domains": [
-        "account",
-        "api_gateway",
-        "build_fit",
-        "guild"
-      ],
-      "evidence": [
-        "12 related tests",
-        "privacy/safety boundary referenced",
-        "domain:account",
-        "domain:api_gateway",
-        "domain:build_fit"
-      ],
-      "maturity": "partial",
-      "next_action": "Close remaining documented gaps with focused tests for linked domains.",
-      "phase": "MVP 0.2.0",
-      "related_tests": [
-        "tests/test_account_connection_diagnostic.py",
-        "tests/test_account_connection_diagnostic_api.py",
-        "tests/test_account_debug_bundle_audit.py",
-        "tests/test_account_debug_bundle_review.py",
-        "tests/test_account_gear_matcher.py",
-        "tests/test_account_lifecycle.py",
-        "tests/test_account_sync_api.py",
-        "tests/test_account_value_holding_index.py",
-        "tests/test_api_key_fingerprint.py",
-        "tests/test_api_key_permission_inspection.py",
-        "tests/test_build_character_snapshots.py",
-        "tests/test_build_fit_api.py"
-      ],
-      "source_path": "docs/mvp/MVP_0_2_0_OFFICIAL_API_COMPATIBILITY_HARDENING.md",
-      "spec_id": "mvp_0_2_0_official_api_compatibility_hardening",
-      "title": "MVP 0.2.0 Official API Compatibility Hardening"
     }
   ],
   "player_use_path": {
@@ -831,6 +833,44 @@
         "account",
         "build_fit",
         "guild",
+        "legendary",
+        "market",
+        "player_ui"
+      ],
+      "evidence": [
+        "12 related tests",
+        "maturity/audit language present",
+        "domain:account",
+        "domain:build_fit",
+        "domain:guild"
+      ],
+      "maturity": "partial",
+      "next_action": "Close remaining documented gaps with focused tests for linked domains.",
+      "phase": "cross-cutting",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/analysis/GW2Radar_Master_Planning_Summary.md",
+      "spec_id": "gw2radar_master_planning_summary",
+      "title": "GW2Radar / GW2 Progression \u5168\u90e8\u89c4\u5212\u4e0e\u7cfb\u7edf\u8bbe\u8ba1\u6c47\u603b\uff08\u7edf\u4e00\u4e3b\u6587\u6863\uff09"
+    },
+    {
+      "category": "analysis",
+      "domains": [
+        "account",
+        "build_fit",
+        "guild",
         "kb",
         "legendary",
         "market"
@@ -1074,6 +1114,48 @@
         "api_gateway",
         "build_fit",
         "commercial",
+        "delivery",
+        "guild",
+        "legendary",
+        "market",
+        "player_ui",
+        "support"
+      ],
+      "evidence": [
+        "12 related tests",
+        "maturity/audit language present",
+        "domain:account",
+        "domain:api_gateway",
+        "domain:build_fit"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "cross-cutting",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/analysis/GW2Radar_Production_SaaS_Architecture.md",
+      "spec_id": "gw2radar_production_saas_architecture",
+      "title": "GW2Radar / AegisRadar \u53ef\u4e0a\u7ebf\u7cfb\u7edf\u67b6\u6784\u8bbe\u8ba1\uff08Production MVP\uff09"
+    },
+    {
+      "category": "analysis",
+      "domains": [
+        "account",
+        "api_gateway",
+        "build_fit",
+        "commercial",
         "guild",
         "kb",
         "legendary",
@@ -1108,6 +1190,39 @@
       "source_path": "docs/analysis/GW2Radar_Project_Constitution_API_Governance_Codex_Spec.md",
       "spec_id": "gw2radar_project_constitution_api_governance_codex_spec",
       "title": "GW2Radar Project Constitution & API Access Governance \u2014 Codex Development Spec"
+    },
+    {
+      "category": "analysis",
+      "domains": [
+        "account",
+        "guild"
+      ],
+      "evidence": [
+        "12 related tests",
+        "maturity/audit language present",
+        "domain:account",
+        "domain:guild"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "cross-cutting",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_encrypted_api_key_store.py",
+        "tests/test_guild_api.py"
+      ],
+      "source_path": "docs/analysis/GW2Radar_Trust_Credential_Architecture.md",
+      "spec_id": "gw2radar_trust_credential_architecture",
+      "title": "GW2Radar / AegisRadar \u4fe1\u4efb\u4f53\u7cfb\u4e0e API Key \u5b89\u5168\u67b6\u6784\u8bbe\u8ba1"
     },
     {
       "category": "analysis",
@@ -2627,5 +2742,5 @@
     }
   ],
   "schema_version": "gw2radar.spec_registry_backlog.v1",
-  "spec_count": 59
+  "spec_count": 62
 }

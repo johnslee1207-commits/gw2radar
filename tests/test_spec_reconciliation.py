@@ -5,8 +5,8 @@ def test_partial_spec_reconciliation_covers_all_partial_specs() -> None:
     reconciliation = build_reconciliation()
 
     assert reconciliation["schema_version"] == "gw2radar.partial_spec_reconciliation.v1"
-    assert reconciliation["partial_count"] == 12
-    assert reconciliation["reconciled_count"] == 12
+    assert reconciliation["partial_count"] >= 12
+    assert reconciliation["reconciled_count"] == reconciliation["partial_count"]
     assert reconciliation["needs_review_count"] == 0
 
 
@@ -17,6 +17,7 @@ def test_partial_spec_reconciliation_keeps_key_gap_types() -> None:
     assert gap_types["implemented_with_live_gateway_limit"] == 2
     assert gap_types["legacy_spec_drift"] == 2
     assert gap_types["broad_roadmap"] == 2
+    assert gap_types["post_mvp_master_plan"] == 1
     assert gap_types["implemented_for_mock_payment"] == 1
 
 

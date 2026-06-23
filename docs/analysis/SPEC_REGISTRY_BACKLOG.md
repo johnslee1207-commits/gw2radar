@@ -1,14 +1,14 @@
 # Spec Registry And Backlog Index
 
 - Schema: gw2radar.spec_registry_backlog.v1
-- Spec count: 59
+- Spec count: 62
 - Player use-path checks: 46
 - Failed player use-path checks: 0
 
 ## Maturity Counts
 
-- implemented: 47
-- partial: 12
+- implemented: 49
+- partial: 13
 
 ## Next Stage Tranche
 
@@ -16,6 +16,7 @@
 | --- | --- | --- | --- | --- |
 | GW2Radar Commercial Opportunity Full Implementation Roadmap — Codex Spec | partial | MVP 0.1 | account, api_gateway, build_fit, commercial, delivery, guild, kb, legendary, market, player_ui, support | Close remaining documented gaps with focused tests for linked domains. |
 | GW2Radar Knowledge Base, Knowledge Graph & Commercial Intelligence Implementation Plan | partial | cross-cutting | account, api_gateway, build_fit, commercial, delivery, guild, kb, legendary, market, player_ui, support | Close remaining documented gaps with focused tests for linked domains. |
+| GW2Radar / GW2 Progression 全部规划与系统设计汇总（统一主文档） | partial | cross-cutting | account, build_fit, guild, legendary, market, player_ui | Close remaining documented gaps with focused tests for linked domains. |
 | GW2Radar MVP 0.1 研制规范 | partial | MVP 0.1 | account, build_fit, guild, kb, legendary, market | Close remaining documented gaps with focused tests for linked domains. |
 | GW2Radar Official GW2 API Compatibility Layer — Codex Development Spec | partial | MVP 0.1 | account, api_gateway, build_fit, guild, kb, legendary, market, support | Close remaining documented gaps with focused tests for linked domains. |
 | GW2Radar Project Constitution & API Access Governance — Codex Development Spec | partial | MVP 0.1 | account, api_gateway, build_fit, commercial, guild, kb, legendary, market, support | Close remaining documented gaps with focused tests for linked domains. |
@@ -23,7 +24,6 @@
 | MVP 0.1.2 Report Export Package | partial | MVP 0.1.2 | delivery, legendary | Close remaining documented gaps with focused tests for linked domains. |
 | MVP 0.1.5 Evidence Freshness and Confidence Rules | partial | MVP 0.1.5 | kb | Close remaining documented gaps with focused tests for linked domains. |
 | GW2Radar MVP 0.1 Codex Development Spec | partial | MVP 0.1 | account, commercial, legendary, support | Close remaining documented gaps with focused tests for linked domains. |
-| MVP 0.2.0 Official API Compatibility Hardening | partial | MVP 0.2.0 | account, api_gateway, build_fit, guild | Close remaining documented gaps with focused tests for linked domains. |
 
 ## Registry
 
@@ -39,13 +39,16 @@
 | [GW2Radar Downloaded PDF Knowledge Source Processing Plan](docs/analysis/GW2Radar_Downloaded_PDF_Knowledge_Source_Processing_Plan.md) | analysis | implemented | 12 related tests, manual review gate referenced, privacy/safety boundary referenced, domain:account, domain:api_gateway, domain:build_fit | 12 |
 | [GW2Radar Knowledge Base, Knowledge Graph & Commercial Intelligence Implementation Plan](docs/analysis/GW2Radar_KB_Graph_Commercial_Intelligence_Implementation_Plan.md) | analysis | partial | 12 related tests, maturity/audit language present, privacy/safety boundary referenced, domain:account, domain:api_gateway, domain:build_fit | 12 |
 | [GW2Radar Knowledge Source Registry — Official & Authoritative Links](docs/analysis/GW2Radar_Knowledge_Source_Registry_Official_Authoritative_Links.md) | analysis | implemented | 12 related tests, manual review gate referenced, privacy/safety boundary referenced, domain:account, domain:api_gateway, domain:build_fit | 12 |
+| [GW2Radar / GW2 Progression 全部规划与系统设计汇总（统一主文档）](docs/analysis/GW2Radar_Master_Planning_Summary.md) | analysis | partial | 12 related tests, maturity/audit language present, domain:account, domain:build_fit, domain:guild | 12 |
 | [GW2Radar MVP 0.1 研制规范](docs/analysis/GW2Radar_MVP_0_1_Codex_Development_Spec.md) | analysis | partial | 12 related tests, domain:account, domain:build_fit, domain:guild | 12 |
 | [GW2Radar MVP 0.2 Returner Account Diagnosis — Codex Development Spec](docs/analysis/GW2Radar_MVP_0_2_Returner_Diagnosis_Codex_Spec.md) | analysis | implemented | 12 related tests, privacy/safety boundary referenced, domain:account, domain:api_gateway, domain:build_fit | 12 |
 | [GW2Radar Official GW2 API Compatibility Layer — Codex Development Spec](docs/analysis/GW2Radar_Official_GW2_API_Compatibility_Layer_Codex_Spec.md) | analysis | partial | 12 related tests, manual review gate referenced, privacy/safety boundary referenced, domain:account, domain:api_gateway, domain:build_fit | 12 |
 | [GW2Radar P4 & P5 Detailed Design — Codex Development Spec](docs/analysis/GW2Radar_P4_P5_Detailed_Design_Codex_Spec.md) | analysis | implemented | 12 related tests, maturity/audit language present, manual review gate referenced, privacy/safety boundary referenced, domain:account, domain:api_gateway | 12 |
 | [GW2Radar Post-MVP Development Tasks & Detailed Design — Codex Spec](docs/analysis/GW2Radar_Post_MVP_Development_Tasks_Detailed_Design_Codex_Spec.md) | analysis | implemented | 12 related tests, maturity/audit language present, manual review gate referenced, privacy/safety boundary referenced, domain:account, domain:api_gateway | 12 |
 | [GW2Radar Product Roadmap v0.1 to v1.0](docs/analysis/GW2Radar_Product_Roadmap_v0_1_to_v1_0.md) | analysis | implemented | 12 related tests, manual review gate referenced, privacy/safety boundary referenced, domain:account, domain:api_gateway, domain:build_fit | 12 |
+| [GW2Radar / AegisRadar 可上线系统架构设计（Production MVP）](docs/analysis/GW2Radar_Production_SaaS_Architecture.md) | analysis | implemented | 12 related tests, maturity/audit language present, domain:account, domain:api_gateway, domain:build_fit | 12 |
 | [GW2Radar Project Constitution & API Access Governance — Codex Development Spec](docs/analysis/GW2Radar_Project_Constitution_API_Governance_Codex_Spec.md) | analysis | partial | 12 related tests, manual review gate referenced, privacy/safety boundary referenced, domain:account, domain:api_gateway, domain:build_fit | 12 |
+| [GW2Radar / AegisRadar 信任体系与 API Key 安全架构设计](docs/analysis/GW2Radar_Trust_Credential_Architecture.md) | analysis | implemented | 12 related tests, maturity/audit language present, domain:account, domain:guild | 12 |
 | [KB Semantic Maturity And Priorities](docs/analysis/KB_SEMANTIC_MATURITY_AND_PRIORITIES.md) | analysis | implemented | 12 related tests, maturity/audit language present, manual review gate referenced, domain:account, domain:api_gateway, domain:build_fit | 12 |
 | [Post-MVP Graph Maturity And Roadmap](docs/analysis/POST_MVP_GRAPH_MATURITY_AND_ROADMAP.md) | analysis | implemented | 12 related tests, maturity/audit language present, manual review gate referenced, privacy/safety boundary referenced, domain:account, domain:api_gateway | 12 |
 | [GW2Radar Senior Player User Guide](docs/analysis/SENIOR_PLAYER_USER_GUIDE.md) | analysis | partial | 12 related tests, maturity/audit language present, manual review gate referenced, domain:account, domain:build_fit, domain:commercial | 12 |

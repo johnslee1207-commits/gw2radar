@@ -2,14 +2,14 @@
   "blocking_task_count": 0,
   "evidence": {
     "needs_review_count": 0,
-    "partial_count": 12,
+    "partial_count": 13,
     "player_use_path_failed_checks": 0,
-    "reconciled_count": 12,
+    "reconciled_count": 13,
     "registry_maturity_counts": {
-      "implemented": 47,
-      "partial": 12
+      "implemented": 49,
+      "partial": 13
     },
-    "spec_count": 59
+    "spec_count": 62
   },
   "next_priority": "Close the current MVP stage; treat the remaining three tracks as optional post-MVP work only when explicitly scheduled.",
   "optional_post_mvp_tasks": [

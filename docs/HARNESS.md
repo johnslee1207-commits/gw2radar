@@ -32,7 +32,8 @@ python harness/run_validation_profile.py full
 - `release`: milestone / release gate; runs `fast`, `smoke`, then `full`.
 - `fast`: shared delivery lifecycle contract, productized report regression,
   player use-path semantic maturity audit, spec registry freshness, and partial
-  spec reconciliation freshness, and MVP closure readiness.
+  spec reconciliation freshness, MVP closure readiness, and post-MVP roadmap
+  freshness.
 - `smoke`: MVP smoke, player UI E2E smoke, and account connection diagnostic.
 - `full`: complete `pytest` regression.
 
@@ -239,6 +240,21 @@ writes `docs/analysis/MVP_CLOSURE_READINESS.md` and
 `docs/analysis/MVP_CLOSURE_READINESS.json`. The current closeout model treats
 reviewed content depth, optional live API smoke documentation, and UI visual
 polish as non-blocking post-MVP tracks.
+
+## Post-MVP Production Roadmap Command
+
+```bash
+python harness/run_post_mvp_roadmap.py
+python harness/run_post_mvp_roadmap.py --check
+```
+
+This harness reads the Trust/Credential, Production SaaS, and Master Planning
+documents from `docs/analysis`, then writes
+`docs/analysis/POST_MVP_PRODUCTION_ROADMAP.md` and
+`docs/analysis/POST_MVP_PRODUCTION_ROADMAP.json`. It confirms the current MVP
+remains closed and that Phase A Trust & Credential MVP is the next recommended
+stage while SaaS, real billing, team workspace, and autonomous agents remain
+later explicit stages.
 
 ## Account Debug Bundle Review Command
 

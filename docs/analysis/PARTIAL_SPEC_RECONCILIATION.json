@@ -7,13 +7,14 @@
     "implemented_with_content_depth_backlog": 1,
     "implemented_with_live_gateway_limit": 2,
     "legacy_spec_drift": 2,
+    "post_mvp_master_plan": 1,
     "superseded_by_delivery_lifecycle": 1,
     "ui_guide_partially_operationalized": 1
   },
   "needs_review_count": 0,
   "next_priority": "Promote reconciled partial specs into a smaller backlog: reviewed content depth, optional live API smoke documentation, and UI visual polish only when explicitly scheduled.",
-  "partial_count": 12,
-  "reconciled_count": 12,
+  "partial_count": 13,
+  "reconciled_count": 13,
   "records": [
     {
       "evidence_tests": [
@@ -42,6 +43,20 @@
       "spec_id": "gw2radar_kb_graph_commercial_intelligence_implementation_plan",
       "status_after_reconciliation": "reconciled",
       "title": "GW2Radar Knowledge Base, Knowledge Graph & Commercial Intelligence Implementation Plan"
+    },
+    {
+      "evidence_tests": [
+        "tests/test_post_mvp_roadmap.py",
+        "tests/test_closure_readiness.py",
+        "tests/test_no_auto_trading.py"
+      ],
+      "gap_type": "post_mvp_master_plan",
+      "rationale": "The master plan intentionally describes progression engines, planning agents, SaaS, growth, and subscription evolution beyond the closed local-first MVP.",
+      "recommended_action": "Use the post-MVP production roadmap gate to schedule Phase A first and keep SaaS, autonomous agents, and real billing as later explicit stages.",
+      "source_path": "docs/analysis/GW2Radar_Master_Planning_Summary.md",
+      "spec_id": "gw2radar_master_planning_summary",
+      "status_after_reconciliation": "reconciled",
+      "title": "GW2Radar / GW2 Progression \u5168\u90e8\u89c4\u5212\u4e0e\u7cfb\u7edf\u8bbe\u8ba1\u6c47\u603b\uff08\u7edf\u4e00\u4e3b\u6587\u6863\uff09"
     },
     {
       "evidence_tests": [
