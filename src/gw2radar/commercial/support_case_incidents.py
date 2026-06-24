@@ -494,6 +494,15 @@ class SupportCaseIncidentClosureProjection(BaseModel):
     next_actions: list[str] = Field(default_factory=list)
 
 
+class SupportCaseIncidentZipProfile(BaseModel):
+    kind: str
+    label: str
+    root_prefix: str
+    allowed_files: set[str]
+    bundle_id_prefix: str
+    boundary: str
+
+
 class SupportCaseIncidentClosurePacketManifest(BaseModel):
     schema_version: str = "gw2radar.support_case_incident_closure_packet_manifest.v1"
     packet_id: str
@@ -859,16 +868,11 @@ def build_support_case_incident_packet_zip_bundle(
         )
         if path is not None:
             source_files.append((file.file_name, path, file.media_type))
+    profile = _support_case_zip_profile("incident_packet")
     delivery_manifest, bundle_bytes = _build_flat_delivery_zip(
         source_files,
-        root_prefix="support_case_incident_packet",
-        allowed_files=SUPPORT_CASE_INCIDENT_PACKET_FILES,
-        bundle_id_prefix="support-case-incident-packet-zip",
+        profile=profile,
         filename_prefix=packet.packet_id,
-        boundary=(
-            "Support case incident packet zip bundles are read-only transfer files; they exclude raw API keys, "
-            "raw debug bundles, private account payloads, zip bytes in manifests, and executable content."
-        ),
     )
     return (
         SupportCaseIncidentPacketZipManifest(
@@ -895,9 +899,7 @@ def verify_support_case_incident_packet_zip_bundle(
 ) -> SupportCaseIncidentPacketZipVerification:
     delivery_verification = _verify_flat_delivery_zip(
         bundle_bytes,
-        label="support case incident packet",
-        root_prefix="support_case_incident_packet",
-        allowed_files=SUPPORT_CASE_INCIDENT_PACKET_FILES,
+        profile=_support_case_zip_profile("incident_packet"),
         expected_checksum_sha256=expected_checksum_sha256,
     )
     blockers = list(delivery_verification.blockers)
@@ -1480,16 +1482,11 @@ def build_support_case_incident_operator_packet_zip_bundle(
         )
         if path is not None:
             source_files.append((file.file_name, path, file.media_type))
+    profile = _support_case_zip_profile("operator_packet")
     delivery_manifest, bundle_bytes = _build_flat_delivery_zip(
         source_files,
-        root_prefix="support_case_incident_operator_packet",
-        allowed_files=SUPPORT_CASE_INCIDENT_OPERATOR_PACKET_FILES,
-        bundle_id_prefix="support-case-incident-operator-packet-zip",
+        profile=profile,
         filename_prefix=artifact.artifact_id,
-        boundary=(
-            "Support case incident operator packet zip bundles are read-only metadata transfer files; "
-            "they exclude raw API keys, raw debug bundles, private account payloads, zip bytes, and executable content."
-        ),
     )
     return (
         SupportCaseIncidentOperatorPacketZipManifest(
@@ -1516,9 +1513,7 @@ def verify_support_case_incident_operator_packet_zip_bundle(
 ) -> SupportCaseIncidentOperatorPacketZipVerification:
     delivery_verification = _verify_flat_delivery_zip(
         bundle_bytes,
-        label="support case incident operator packet",
-        root_prefix="support_case_incident_operator_packet",
-        allowed_files=SUPPORT_CASE_INCIDENT_OPERATOR_PACKET_FILES,
+        profile=_support_case_zip_profile("operator_packet"),
         expected_checksum_sha256=expected_checksum_sha256,
     )
     blockers = list(delivery_verification.blockers)
@@ -1972,16 +1967,11 @@ def build_support_case_incident_final_handoff_packet_zip_bundle(
         )
         if path is not None:
             source_files.append((file.file_name, path, file.media_type))
+    profile = _support_case_zip_profile("final_handoff_packet")
     delivery_manifest, bundle_bytes = _build_flat_delivery_zip(
         source_files,
-        root_prefix="support_case_incident_final_handoff_packet",
-        allowed_files=SUPPORT_CASE_INCIDENT_FINAL_HANDOFF_PACKET_FILES,
-        bundle_id_prefix="support-case-incident-final-handoff-packet-zip",
+        profile=profile,
         filename_prefix=packet.packet_id,
-        boundary=(
-            "Support case incident final handoff packet zip bundles are read-only metadata transfer files; "
-            "they exclude raw API keys, raw debug bundles, private account payloads, zip bytes, and executable content."
-        ),
     )
     return (
         SupportCaseIncidentFinalHandoffPacketZipManifest(
@@ -2008,9 +1998,7 @@ def verify_support_case_incident_final_handoff_packet_zip_bundle(
 ) -> SupportCaseIncidentFinalHandoffPacketZipVerification:
     delivery_verification = _verify_flat_delivery_zip(
         bundle_bytes,
-        label="support case incident final handoff packet",
-        root_prefix="support_case_incident_final_handoff_packet",
-        allowed_files=SUPPORT_CASE_INCIDENT_FINAL_HANDOFF_PACKET_FILES,
+        profile=_support_case_zip_profile("final_handoff_packet"),
         expected_checksum_sha256=expected_checksum_sha256,
     )
     return SupportCaseIncidentFinalHandoffPacketZipVerification(
@@ -2620,16 +2608,11 @@ def build_support_case_incident_closure_packet_zip_bundle(
         )
         if path is not None:
             source_files.append((file.file_name, path, file.media_type))
+    profile = _support_case_zip_profile("closure_packet")
     delivery_manifest, bundle_bytes = _build_flat_delivery_zip(
         source_files,
-        root_prefix="support_case_incident_closure_packet",
-        allowed_files=SUPPORT_CASE_INCIDENT_CLOSURE_PACKET_FILES,
-        bundle_id_prefix="support-case-incident-closure-packet-zip",
+        profile=profile,
         filename_prefix=packet.packet_id,
-        boundary=(
-            "Support case incident closure packet zip bundles are read-only metadata transfer files; "
-            "they exclude raw API keys, raw debug bundles, private account payloads, zip bytes, and executable content."
-        ),
     )
     return (
         SupportCaseIncidentClosurePacketZipManifest(
@@ -2656,9 +2639,7 @@ def verify_support_case_incident_closure_packet_zip_bundle(
 ) -> SupportCaseIncidentClosurePacketZipVerification:
     delivery_verification = _verify_flat_delivery_zip(
         bundle_bytes,
-        label="support case incident closure packet",
-        root_prefix="support_case_incident_closure_packet",
-        allowed_files=SUPPORT_CASE_INCIDENT_CLOSURE_PACKET_FILES,
+        profile=_support_case_zip_profile("closure_packet"),
         expected_checksum_sha256=expected_checksum_sha256,
     )
     return SupportCaseIncidentClosurePacketZipVerification(
@@ -2939,53 +2920,101 @@ def _media_type(file_name: str) -> str:
     return "text/plain"
 
 
+def _support_case_zip_profile(kind: str) -> SupportCaseIncidentZipProfile:
+    profiles = {
+        "incident_packet": SupportCaseIncidentZipProfile(
+            kind="incident_packet",
+            label="support case incident packet",
+            root_prefix="support_case_incident_packet",
+            allowed_files=SUPPORT_CASE_INCIDENT_PACKET_FILES,
+            bundle_id_prefix="support-case-incident-packet-zip",
+            boundary=(
+                "Support case incident packet zip bundles are read-only transfer files; they exclude raw API keys, "
+                "raw debug bundles, private account payloads, zip bytes in manifests, and executable content."
+            ),
+        ),
+        "operator_packet": SupportCaseIncidentZipProfile(
+            kind="operator_packet",
+            label="support case incident operator packet",
+            root_prefix="support_case_incident_operator_packet",
+            allowed_files=SUPPORT_CASE_INCIDENT_OPERATOR_PACKET_FILES,
+            bundle_id_prefix="support-case-incident-operator-packet-zip",
+            boundary=(
+                "Support case incident operator packet zip bundles are read-only metadata transfer files; "
+                "they exclude raw API keys, raw debug bundles, private account payloads, zip bytes, and executable content."
+            ),
+        ),
+        "final_handoff_packet": SupportCaseIncidentZipProfile(
+            kind="final_handoff_packet",
+            label="support case incident final handoff packet",
+            root_prefix="support_case_incident_final_handoff_packet",
+            allowed_files=SUPPORT_CASE_INCIDENT_FINAL_HANDOFF_PACKET_FILES,
+            bundle_id_prefix="support-case-incident-final-handoff-packet-zip",
+            boundary=(
+                "Support case incident final handoff packet zip bundles are read-only metadata transfer files; "
+                "they exclude raw API keys, raw debug bundles, private account payloads, zip bytes, and executable content."
+            ),
+        ),
+        "closure_packet": SupportCaseIncidentZipProfile(
+            kind="closure_packet",
+            label="support case incident closure packet",
+            root_prefix="support_case_incident_closure_packet",
+            allowed_files=SUPPORT_CASE_INCIDENT_CLOSURE_PACKET_FILES,
+            bundle_id_prefix="support-case-incident-closure-packet-zip",
+            boundary=(
+                "Support case incident closure packet zip bundles are read-only metadata transfer files; "
+                "they exclude raw API keys, raw debug bundles, private account payloads, zip bytes, and executable content."
+            ),
+        ),
+    }
+    return profiles[kind]
+
+
 def _build_flat_delivery_zip(
     source_files: list[tuple[str, Path, str]],
     *,
-    root_prefix: str,
-    allowed_files: set[str],
-    bundle_id_prefix: str,
+    profile: SupportCaseIncidentZipProfile,
     filename_prefix: str,
-    boundary: str,
 ):
     return build_delivery_packet_zip_bundle(
         [
             DeliverySourceFile(
                 item_id=filename_prefix,
                 path=path,
-                archive_path=f"{root_prefix}/{file_name}",
+                archive_path=f"{profile.root_prefix}/{file_name}",
                 media_type=media_type,
             )
             for file_name, path, media_type in source_files
-            if file_name in allowed_files
+            if file_name in profile.allowed_files
         ],
         item_count=1,
-        bundle_id_prefix=bundle_id_prefix,
+        bundle_id_prefix=profile.bundle_id_prefix,
         filename_prefix=filename_prefix,
-        boundary=boundary,
+        boundary=profile.boundary,
     )
 
 
 def _verify_flat_delivery_zip(
     bundle_bytes: bytes,
     *,
-    label: str,
-    root_prefix: str,
-    allowed_files: set[str],
+    profile: SupportCaseIncidentZipProfile,
     expected_checksum_sha256: str | None,
 ):
     return verify_delivery_packet_zip_bundle(
         bundle_bytes,
         expected_checksum_sha256=expected_checksum_sha256,
         policy=DeliveryZipPolicy(
-            label=label,
-            root_prefix=root_prefix,
-            allowed_file_names_for_item=lambda _item_id: set(allowed_files),
-            required_file_names_for_item=lambda _item_id: set(allowed_files),
+            label=profile.label,
+            root_prefix=profile.root_prefix,
+            allowed_file_names_for_item=lambda _item_id: set(profile.allowed_files),
+            required_file_names_for_item=lambda _item_id: set(profile.allowed_files),
             flat_root=True,
             prohibited_markers=(b"secret-key",),
             prohibited_marker_label="secret marker",
-            boundary=f"{label.title()} zip verification reads bytes only; it does not execute files, publish content, or store secrets.",
+            boundary=(
+                f"{profile.label.title()} zip verification reads bytes only; "
+                "it does not execute files, publish content, or store secrets."
+            ),
         ),
     )
 
