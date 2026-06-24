@@ -397,10 +397,21 @@ def test_player_gateway_incident_timeline_correlates_refresh_events_without_secr
         assert checklist["zip_verification_ready"] is True
         assert checklist["verification_audit_count"] >= 1
         assert checklist["missing_gates"] == []
+        assert checklist["operational_lifecycle"]["current_stage"] == "handoff_ready"
+        assert checklist["operational_lifecycle"]["ready"] is True
+        assert checklist["operational_lifecycle"]["completed_stages"] == [
+            "draft",
+            "exported",
+            "packaged",
+            "verified",
+            "audited",
+            "handoff_ready",
+        ]
         assert handoff_checklist_markdown.status_code == 200
         assert "# Support Case Incident Handoff Checklist" in handoff_checklist_markdown.text
         assert handoff_checklist_csv.status_code == 200
         assert "ready,maturity_label,dashboard_ready,latest_packet_id" in handoff_checklist_csv.text
+        assert "operational_stage,operational_progress_percent" in handoff_checklist_csv.text
         assert "secret-key" not in (str(checklist) + handoff_checklist_markdown.text + handoff_checklist_csv.text).lower()
         assert operator_packet.status_code == 200
         operator_payload = operator_packet.json()["data"]["support_case_incident_operator_packet"]
@@ -512,10 +523,21 @@ def test_player_gateway_incident_timeline_correlates_refresh_events_without_secr
         assert final_checklist["operator_zip_verification_ready"] is True
         assert final_checklist["operator_zip_audit_count"] >= 1
         assert final_checklist["missing_gates"] == []
+        assert final_checklist["operational_lifecycle"]["current_stage"] == "handoff_ready"
+        assert final_checklist["operational_lifecycle"]["ready"] is True
+        assert final_checklist["operational_lifecycle"]["completed_stages"] == [
+            "draft",
+            "exported",
+            "packaged",
+            "verified",
+            "audited",
+            "handoff_ready",
+        ]
         assert final_handoff_checklist_markdown.status_code == 200
         assert "# Support Case Incident Final Handoff Checklist" in final_handoff_checklist_markdown.text
         assert final_handoff_checklist_csv.status_code == 200
         assert "ready,maturity_label,latest_operator_artifact_id" in final_handoff_checklist_csv.text
+        assert "operational_stage,operational_progress_percent" in final_handoff_checklist_csv.text
         assert final_handoff_packet.status_code == 200
         final_packet_payload = final_handoff_packet.json()["data"]["support_case_incident_final_handoff_packet"]
         assert final_packet_payload["schema_version"] == "gw2radar.support_case_incident_final_handoff_packet_manifest.v1"

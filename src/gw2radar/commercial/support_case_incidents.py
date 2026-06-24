@@ -16,6 +16,7 @@ from gw2radar.delivery.lifecycle import (
     build_delivery_packet_zip_bundle,
     verify_delivery_packet_zip_bundle,
 )
+from gw2radar.ops.lifecycle import OperationalLifecycleSummary, build_delivery_operational_lifecycle_summary
 from gw2radar.support.account_debug_bundle_audit import SupportReviewAuditRecord, SupportReviewMetricsSummary
 
 SUPPORT_CASE_INCIDENT_PACKET_ROOT = Path("src/gw2radar/reports/artifacts/support_case_incident_packets")
@@ -203,6 +204,7 @@ class SupportCaseIncidentHandoffChecklist(BaseModel):
     warnings: list[str] = Field(default_factory=list)
     next_actions: list[str] = Field(default_factory=list)
     evidence_refs: list[str] = Field(default_factory=list)
+    operational_lifecycle: OperationalLifecycleSummary
     boundary: str = (
         "Support case incident handoff checklist is metadata-only; it summarizes dashboard, packet, "
         "zip, verification, and audit gates without storing zip bytes, raw API keys, raw debug bundles, "
@@ -347,6 +349,7 @@ class SupportCaseIncidentFinalHandoffChecklist(BaseModel):
     warnings: list[str] = Field(default_factory=list)
     next_actions: list[str] = Field(default_factory=list)
     evidence_refs: list[str] = Field(default_factory=list)
+    operational_lifecycle: OperationalLifecycleSummary
     boundary: str = (
         "Support case incident final handoff checklist is metadata-only; it summarizes operator "
         "artifact, zip, verification, and audit gates without storing zip bytes, raw API keys, "
@@ -1113,6 +1116,33 @@ def build_support_case_incident_handoff_checklist(
             "Continue support triage without requesting raw API keys or private account payloads.",
         ]
     )
+    evidence_refs = [
+        "/api/v1/player/support-case/incident-dashboard",
+        "/api/v1/player/support-case/incident-packet",
+        "/api/v1/player/support-case/incident-packet/bundle",
+        "/api/v1/player/support-case/incident-packet/bundle/verify",
+        "/api/v1/player/support-case/incident-packet/bundle/verification-audit",
+    ]
+    operational_lifecycle = build_delivery_operational_lifecycle_summary(
+        object_id=latest_audit.audit_id if latest_audit else (latest_packet.packet_id if latest_packet else "support-case-incident-handoff"),
+        object_type="support_case_incident_handoff",
+        draft_ready=dashboard_ready,
+        exported_ready=bool(latest_packet and latest_packet.ready),
+        packaged_ready=zip_manifest is not None and zip_manifest.file_count >= len(SUPPORT_CASE_INCIDENT_PACKET_FILES),
+        verified_ready=bool(zip_verification and zip_verification.ready),
+        audited_ready=bool(latest_audit and latest_audit.ready),
+        handoff_ready=ready,
+        actor=latest_audit.reviewer if latest_audit else "support",
+        occurred_at=latest_audit.recorded_at if latest_audit else datetime.now(timezone.utc),
+        evidence_refs=evidence_refs,
+        details={
+            "dashboard_ready": dashboard_ready,
+            "packet_file_count": latest_packet.file_count if latest_packet else 0,
+            "zip_file_count": zip_manifest.file_count if zip_manifest else 0,
+            "zip_verification_ready": bool(zip_verification and zip_verification.ready),
+            "audit_count": len(audit.records),
+        },
+    )
     return SupportCaseIncidentHandoffChecklist(
         generated_at=datetime.now(timezone.utc),
         ready=ready,
@@ -1136,13 +1166,8 @@ def build_support_case_incident_handoff_checklist(
         blockers=_unique(blockers),
         warnings=_unique(warnings),
         next_actions=next_actions,
-        evidence_refs=[
-            "/api/v1/player/support-case/incident-dashboard",
-            "/api/v1/player/support-case/incident-packet",
-            "/api/v1/player/support-case/incident-packet/bundle",
-            "/api/v1/player/support-case/incident-packet/bundle/verify",
-            "/api/v1/player/support-case/incident-packet/bundle/verification-audit",
-        ],
+        evidence_refs=evidence_refs,
+        operational_lifecycle=operational_lifecycle,
     )
 
 
@@ -1161,6 +1186,8 @@ def render_support_case_incident_handoff_checklist_markdown(
         f"- Zip checksum: {checklist.zip_checksum_sha256 or 'None'}",
         f"- Zip verification ready: {checklist.zip_verification_ready}",
         f"- Verification audit records: {checklist.verification_audit_count}",
+        f"- Operational lifecycle: {checklist.operational_lifecycle.current_stage}",
+        f"- Operational progress: {checklist.operational_lifecycle.progress_percent}%",
         f"- Boundary: {checklist.boundary}",
         "",
         "## Checklist",
@@ -1181,7 +1208,7 @@ def render_support_case_incident_handoff_checklist_csv(
     checklist: SupportCaseIncidentHandoffChecklist,
 ) -> str:
     rows = [
-        "ready,maturity_label,dashboard_ready,latest_packet_id,packet_file_count,zip_file_count,zip_verification_ready,verification_audit_count,missing_gate_count,blocker_count,warning_count",
+        "ready,maturity_label,dashboard_ready,latest_packet_id,packet_file_count,zip_file_count,zip_verification_ready,verification_audit_count,missing_gate_count,blocker_count,warning_count,operational_stage,operational_progress_percent",
         ",".join(
             [
                 _csv(str(checklist.ready)),
@@ -1195,6 +1222,8 @@ def render_support_case_incident_handoff_checklist_csv(
                 _csv(str(len(checklist.missing_gates))),
                 _csv(str(len(checklist.blockers))),
                 _csv(str(len(checklist.warnings))),
+                _csv(checklist.operational_lifecycle.current_stage),
+                _csv(str(checklist.operational_lifecycle.progress_percent)),
             ]
         ),
     ]
@@ -1733,6 +1762,34 @@ def build_support_case_incident_final_handoff_checklist(
             "Close the incident only after a reviewer confirms no raw keys or private payloads were requested.",
         ]
     )
+    evidence_refs = [
+        "/api/v1/player/support-case/incident-operator-packet/artifacts",
+        "/api/v1/player/support-case/incident-operator-packet/artifacts/bundle",
+        "/api/v1/player/support-case/incident-operator-packet/artifacts/bundle/verify",
+        "/api/v1/player/support-case/incident-operator-packet/artifacts/bundle/verification-audit",
+    ]
+    operational_lifecycle = build_delivery_operational_lifecycle_summary(
+        object_id=latest_audit.audit_id if latest_audit else (
+            latest_artifact.artifact_id if latest_artifact else "support-case-incident-final-handoff"
+        ),
+        object_type="support_case_incident_final_handoff",
+        draft_ready=latest_artifact is not None,
+        exported_ready=bool(latest_artifact and latest_artifact.ready),
+        packaged_ready=zip_manifest is not None
+        and zip_manifest.file_count >= len(SUPPORT_CASE_INCIDENT_OPERATOR_PACKET_FILES),
+        verified_ready=bool(zip_verification and zip_verification.ready),
+        audited_ready=bool(latest_audit and latest_audit.ready),
+        handoff_ready=ready,
+        actor=latest_audit.reviewer if latest_audit else "support",
+        occurred_at=latest_audit.recorded_at if latest_audit else datetime.now(timezone.utc),
+        evidence_refs=evidence_refs,
+        details={
+            "operator_artifact_file_count": latest_artifact.file_count if latest_artifact else 0,
+            "operator_zip_file_count": zip_manifest.file_count if zip_manifest else 0,
+            "operator_zip_verification_ready": bool(zip_verification and zip_verification.ready),
+            "operator_zip_audit_count": len(audit.records),
+        },
+    )
     return SupportCaseIncidentFinalHandoffChecklist(
         generated_at=datetime.now(timezone.utc),
         ready=ready,
@@ -1755,12 +1812,8 @@ def build_support_case_incident_final_handoff_checklist(
         blockers=_unique(blockers),
         warnings=_unique(warnings),
         next_actions=next_actions,
-        evidence_refs=[
-            "/api/v1/player/support-case/incident-operator-packet/artifacts",
-            "/api/v1/player/support-case/incident-operator-packet/artifacts/bundle",
-            "/api/v1/player/support-case/incident-operator-packet/artifacts/bundle/verify",
-            "/api/v1/player/support-case/incident-operator-packet/artifacts/bundle/verification-audit",
-        ],
+        evidence_refs=evidence_refs,
+        operational_lifecycle=operational_lifecycle,
     )
 
 
@@ -1778,6 +1831,8 @@ def render_support_case_incident_final_handoff_checklist_markdown(
         f"- Operator zip checksum: {checklist.operator_zip_checksum_sha256 or 'None'}",
         f"- Operator zip verification ready: {checklist.operator_zip_verification_ready}",
         f"- Operator zip audit records: {checklist.operator_zip_audit_count}",
+        f"- Operational lifecycle: {checklist.operational_lifecycle.current_stage}",
+        f"- Operational progress: {checklist.operational_lifecycle.progress_percent}%",
         f"- Boundary: {checklist.boundary}",
         "",
         "## Checklist",
@@ -1798,7 +1853,7 @@ def render_support_case_incident_final_handoff_checklist_csv(
     checklist: SupportCaseIncidentFinalHandoffChecklist,
 ) -> str:
     rows = [
-        "ready,maturity_label,latest_operator_artifact_id,operator_artifact_file_count,operator_zip_file_count,operator_zip_verification_ready,operator_zip_audit_count,missing_gate_count,blocker_count,warning_count",
+        "ready,maturity_label,latest_operator_artifact_id,operator_artifact_file_count,operator_zip_file_count,operator_zip_verification_ready,operator_zip_audit_count,missing_gate_count,blocker_count,warning_count,operational_stage,operational_progress_percent",
         ",".join(
             [
                 _csv(str(checklist.ready)),
@@ -1811,6 +1866,8 @@ def render_support_case_incident_final_handoff_checklist_csv(
                 _csv(str(len(checklist.missing_gates))),
                 _csv(str(len(checklist.blockers))),
                 _csv(str(len(checklist.warnings))),
+                _csv(checklist.operational_lifecycle.current_stage),
+                _csv(str(checklist.operational_lifecycle.progress_percent)),
             ]
         ),
     ]
