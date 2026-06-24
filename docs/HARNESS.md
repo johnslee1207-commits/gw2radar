@@ -34,8 +34,9 @@ python harness/run_validation_profile.py full
   player use-path semantic maturity audit, spec registry freshness, and partial
   spec reconciliation freshness, MVP closure readiness, post-MVP roadmap
   freshness, operational hardening readiness freshness, and operator release
-  packet readiness freshness, final closeout dashboard freshness, and real user
-  trial defect triage readiness freshness.
+  packet readiness freshness, final closeout dashboard freshness, real user
+  trial defect triage readiness freshness, and AegisRadar reference borrowing
+  assessment freshness.
 - `smoke`: MVP smoke, player UI E2E smoke, and account connection diagnostic.
 - `full`: complete `pytest` regression.
 
@@ -53,6 +54,21 @@ loads, the demo graph is available, a sample Build Fit build can be imported,
 the reviewed `build_upgrade_effects` rule pack can be imported disabled and
 enabled through the review gate, Build Fit uses reviewed KB evidence, and a paid
 Build Fit report artifact can be generated and retrieved.
+
+## AegisRadar Borrowing Assessment Command
+
+```bash
+python harness/run_aegisradar_borrowing_assessment.py
+python harness/run_aegisradar_borrowing_assessment.py --check
+```
+
+This harness records the read-only reference review of
+`D:\Projects\AegisRadar` and maps its process flow, ontology layer, and
+final-user UX patterns into GW2Radar-specific adoption priorities. It writes
+`docs/analysis/AEGISRADAR_BORROWING_ASSESSMENT.md` and
+`docs/analysis/AEGISRADAR_BORROWING_ASSESSMENT.json`. The assessment is a
+planning and validation artifact only; GW2Radar must not depend on the
+reference repository at runtime.
 
 ## Achievement Route Smoke Command
 

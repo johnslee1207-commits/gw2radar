@@ -14,7 +14,7 @@
 | post_mvp_phases_a_f_implemented | pass | false | implemented_phase_count=6/6 |
 | player_use_path_maturity | pass | false | failed_checks=0 |
 | spec_reconciliation_current | pass | false | needs_review_count=0 |
-| spec_registry_depth | pass | false | spec_count=66 |
+| spec_registry_depth | pass | false | spec_count=67 |
 | release_command_declared | pass | false | release gate command is listed in closure readiness |
 | gitnexus_command_declared | pass | false | GitNexus analysis command is listed in closure readiness |
 

@@ -88,6 +88,11 @@ VALIDATION_PROFILES: dict[str, ValidationProfile] = {
                 "Real user trial defect triage readiness freshness check.",
                 (PYTHON, "harness\\run_trial_defect_triage.py", "--check"),
             ),
+            ValidationStep(
+                "aegisradar_borrowing_assessment",
+                "AegisRadar reference borrowing assessment freshness check.",
+                (PYTHON, "harness\\run_aegisradar_borrowing_assessment.py", "--check"),
+            ),
         ),
     ),
     "smoke": ValidationProfile(

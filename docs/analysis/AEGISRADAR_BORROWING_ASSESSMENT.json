@@ -1,0 +1,159 @@
+{
+  "adopt_now": [
+    {
+      "acceptance_checks": [
+        "Real-key flow never asks for or displays raw API keys.",
+        "Every blocked account-aware panel shows a visible next action.",
+        "Diagnostic metadata can classify empty output without private payloads."
+      ],
+      "deliverables": [
+        "Player-facing prerequisite status for key saved, scopes, sync job, snapshots, and selected workflow.",
+        "No-output empty states that name the missing lifecycle step.",
+        "Support bundle evidence names aligned with the trial defect triage classifications."
+      ],
+      "maturity_impact": "Raises UX and support maturity from trial-ready to trial-observable.",
+      "priority_id": "p0_trial_key_flow_visibility",
+      "reason": "Recent user feedback says valid keys can connect without visible outputs. Aegis solves similar confusion with readiness cards and provider requirements.",
+      "title": "Aegis-style credential readiness for real GW2 API key flow"
+    },
+    {
+      "acceptance_checks": [
+        "No behavior regression in existing KB patch and achievement route gates.",
+        "New lifecycle helper is covered by unit tests and one smoke harness.",
+        "Generated artifacts remain deterministic and metadata-only."
+      ],
+      "deliverables": [
+        "Shared status model for draft, reviewed, persisted, enabled, exported, archived, signed_off.",
+        "Common audit event renderer for KB, patch, route source, and release evidence objects.",
+        "One harness that validates lifecycle transitions for at least two existing domains."
+      ],
+      "maturity_impact": "Improves delivery speed and reduces duplicate phase code.",
+      "priority_id": "p1_shared_lifecycle_primitives",
+      "reason": "The current efficiency bottleneck is repeated horizontal implementation of the same operating lifecycle. Aegis uses shared pipeline and control-plane patterns.",
+      "title": "Replace repeated review/persist/enable/export phase chains with lifecycle primitives"
+    },
+    {
+      "acceptance_checks": [
+        "Invalid rule candidates default to disabled and cannot affect recommendations.",
+        "Findings cite source ids and evidence refs, not raw private payloads.",
+        "Validated rules expose dry-run impact counts before enable."
+      ],
+      "deliverables": [
+        "Rule candidate validation against entity/action/relation schemas before promotion.",
+        "Conflict findings for unsupported relation, missing evidence, private/public mismatch, and stale patch source.",
+        "Markdown/CSV queue export for operator review."
+      ],
+      "maturity_impact": "Raises KB-backed recommendation maturity from reviewed-rule MVP to auditable ontology operations.",
+      "priority_id": "p2_ontology_validation_queue",
+      "reason": "GW2Radar has strong schemas and layers, but Aegis has a clearer pattern for turning invalid semantic edges into reviewable work.",
+      "title": "Aegis-style ontology conflict and missing evidence queue for GW2 rules"
+    }
+  ],
+  "defer": [
+    {
+      "acceptance_checks": [
+        "Must not replace current simple reviewed source files during trial."
+      ],
+      "deliverables": [
+        "Post-trial operator workbench only if real reviewer throughput requires it."
+      ],
+      "maturity_impact": "Useful later for content operations, not needed for immediate player validation.",
+      "priority_id": "d1_full_domain_pack_admin",
+      "reason": "GW2Radar is in player-trial closeout; a full admin CMS would expand scope.",
+      "title": "Full Aegis-style domain pack CMS/admin"
+    },
+    {
+      "acceptance_checks": [
+        "No dependency on external vector services for MVP player flows."
+      ],
+      "deliverables": [
+        "Production data layer design after trial evidence confirms demand."
+      ],
+      "maturity_impact": "Production scalability improvement, not a current blocker.",
+      "priority_id": "d2_pgvector_graph_rag_stack",
+      "reason": "Aegis uses deeper data platform pieces, but GW2Radar can validate product value locally first.",
+      "title": "Postgres pgvector GraphRAG parity"
+    }
+  ],
+  "explicit_non_goals": [
+    "Do not copy AegisRadar CO2 or market-entry business logic into GW2Radar.",
+    "Do not add automated trading, guaranteed profit claims, or gameplay automation.",
+    "Do not make GW2Radar depend on D:\\Projects\\AegisRadar at runtime.",
+    "Do not expose private account payloads, raw API keys, or unreviewed rule content in public artifacts."
+  ],
+  "next_priority": "Implement p0_trial_key_flow_visibility first, then refactor repeated lifecycle code only where it directly shortens current KB, route, and release gate maintenance.",
+  "ontology_signals": [
+    {
+      "adoption_decision": "adopt_validation_depth",
+      "aegis_anchor": "D:\\Projects\\AegisRadar\\docs\\graph_ontology.md",
+      "gw2radar_mapping": "GW2Radar already separates public_game, private_player_state, and personal_intelligence. The missing Aegis-style depth is explicit ontology validation and conflict surfacing for promoted rule packs.",
+      "pattern": "Evidence facts, intelligence graph, and ontology graph are separate layers.",
+      "signal_id": "three_layer_graph"
+    },
+    {
+      "adoption_decision": "adopt_for_kb_and_patch_rules",
+      "aegis_anchor": "D:\\Projects\\AegisRadar\\core\\graph\\validator.py",
+      "gw2radar_mapping": "Route invalid GW2 rule links, unsupported patch claims, and private/public layer mismatches into review queues instead of silently excluding them.",
+      "pattern": "Invalid ontology relations and missing evidence become audit tasks.",
+      "signal_id": "ontology_conflict_audit"
+    },
+    {
+      "adoption_decision": "adopt_after_trial_defects",
+      "aegis_anchor": "D:\\Projects\\AegisRadar\\apps\\api\\app\\routes\\graph.py",
+      "gw2radar_mapping": "Extend existing reviewed KnowledgeRule enable gates with dry-run impact counts before enabling rules that affect player recommendations.",
+      "pattern": "Ontology rules can be dry-run, compared, viewed in history, and toggled.",
+      "signal_id": "rule_dry_run_toggle"
+    }
+  ],
+  "process_flow_signals": [
+    {
+      "adoption_decision": "adopt_as_pack_lifecycle",
+      "aegis_anchor": "D:\\Projects\\AegisRadar\\README.md",
+      "gw2radar_mapping": "Use reviewed GW2 KB/source packs and route source manifests as the equivalent configuration surface for planners, reports, and patch impact rules.",
+      "pattern": "Domain Pack YAML drives extraction, scoring, audit rules, graph build, and exports.",
+      "signal_id": "domain_pack_pipeline"
+    },
+    {
+      "adoption_decision": "adopt_as_refactor_direction",
+      "aegis_anchor": "D:\\Projects\\AegisRadar\\apps\\api\\app\\jobs\\run_pipeline.py",
+      "gw2radar_mapping": "Consolidate repeated GW2 review, promotion, export, archive, and sign-off flows behind shared lifecycle helpers instead of adding another bespoke phase chain.",
+      "pattern": "A regular pipeline records reusable steps and can run offline demo paths.",
+      "signal_id": "shared_pipeline_steps"
+    },
+    {
+      "adoption_decision": "adopt_as_ux_boundary",
+      "aegis_anchor": "D:\\Projects\\AegisRadar\\docs\\admin_console.md",
+      "gw2radar_mapping": "Keep GW2 operator views separate from player views: support triage and release gates are operator surfaces, while account guidance remains player-facing.",
+      "pattern": "Admin is an intelligence OS control plane with operable and read-only classes.",
+      "signal_id": "control_plane_boundaries"
+    }
+  ],
+  "reference_repo": "D:\\Projects\\AegisRadar",
+  "reference_repo_state": "Read-only reference. The AegisRadar worktree has local changes, so GW2Radar must not copy files or depend on that repo at runtime.",
+  "schema_version": "gw2radar.aegisradar_borrowing_assessment.v1",
+  "status": "ready_for_targeted_adaptation",
+  "summary": "AegisRadar is most useful as a lifecycle and ontology operating model: domain-pack driven ingestion, separated fact/graph/ontology layers, audit-backed rule promotion, credential readiness, and a front-door UX organized around connect, choose, receive. GW2Radar should borrow those structures while keeping the GW2 player domain, privacy boundaries, and current trial stop-line.",
+  "ux_signals": [
+    {
+      "adoption_decision": "adopt_for_player_cockpit_information_architecture",
+      "aegis_anchor": "D:\\Projects\\AegisRadar\\docs\\user_journey_guide.md",
+      "gw2radar_mapping": "Translate to GW2 player language: connect API key, choose intent (legendary, build, market, returner), receive next actions and report.",
+      "pattern": "User journey is connect data sources, choose product, receive deliverable.",
+      "signal_id": "three_step_user_journey"
+    },
+    {
+      "adoption_decision": "adopt_for_real_api_key_feedback",
+      "aegis_anchor": "D:\\Projects\\AegisRadar\\core\\credentials\\readiness.py",
+      "gw2radar_mapping": "Use account permission readiness and sync health as visible prerequisites for account value, Build Fit, Legendary Planner, and Market Radar outputs.",
+      "pattern": "Report readiness explains missing providers and disabled outputs.",
+      "signal_id": "credential_readiness_cards"
+    },
+    {
+      "adoption_decision": "adopt_as_report_center_polish",
+      "aegis_anchor": "D:\\Projects\\AegisRadar\\apps\\web\\pages\\deliverables",
+      "gw2radar_mapping": "Keep GW2 reports downloadable, but expose evidence lineage inline so senior players can verify why a recommendation was made.",
+      "pattern": "Deliverables and lineage are separate destinations in the user journey.",
+      "signal_id": "lineage_and_deliverables"
+    }
+  ]
+}

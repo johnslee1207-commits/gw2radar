@@ -1,13 +1,13 @@
 # Spec Registry And Backlog Index
 
 - Schema: gw2radar.spec_registry_backlog.v1
-- Spec count: 66
+- Spec count: 67
 - Player use-path checks: 46
 - Failed player use-path checks: 0
 
 ## Maturity Counts
 
-- implemented: 52
+- implemented: 53
 - partial: 14
 
 ## Next Stage Tranche
@@ -30,6 +30,7 @@
 | Spec | Category | Maturity | Evidence | Tests |
 | --- | --- | --- | --- | --- |
 | [Account Value, Build Fit, And Market Semantic Maturity Audit](docs/analysis/ACCOUNT_VALUE_BUILD_MARKET_SEMANTIC_MATURITY_AUDIT.md) | analysis | implemented | 12 related tests, maturity/audit language present, privacy/safety boundary referenced, domain:account, domain:api_gateway, domain:build_fit | 12 |
+| [AegisRadar Borrowing Assessment](docs/analysis/AEGISRADAR_BORROWING_ASSESSMENT.md) | analysis | implemented | 12 related tests, maturity/audit language present, manual review gate referenced, privacy/safety boundary referenced, domain:account, domain:build_fit | 12 |
 | [All-Stage Code Graph, Semantic Graph, and Maturity Audit](docs/analysis/ALL_STAGE_CODE_SEMANTIC_MATURITY_AUDIT.md) | analysis | implemented | 12 related tests, maturity/audit language present, manual review gate referenced, privacy/safety boundary referenced, domain:account, domain:api_gateway | 12 |
 | [GW2Radar Code Spectrum and Semantic Graph Analysis](docs/analysis/CODE_SPECTRUM_AND_SEMANTIC_GRAPH.md) | analysis | implemented | 12 related tests, maturity/audit language present, manual review gate referenced, privacy/safety boundary referenced, domain:account, domain:api_gateway | 12 |
 | [Final Closeout Dashboard](docs/analysis/FINAL_CLOSEOUT_DASHBOARD.md) | analysis | implemented | 12 related tests, manual review gate referenced, privacy/safety boundary referenced, domain:account, domain:delivery, domain:guild | 12 |

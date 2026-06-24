@@ -1,6 +1,6 @@
 {
   "maturity_counts": {
-    "implemented": 52,
+    "implemented": 53,
     "partial": 14
   },
   "next_tranche": [
@@ -440,6 +440,47 @@
       "source_path": "docs/analysis/ACCOUNT_VALUE_BUILD_MARKET_SEMANTIC_MATURITY_AUDIT.md",
       "spec_id": "account_value_build_market_semantic_maturity_audit",
       "title": "Account Value, Build Fit, And Market Semantic Maturity Audit"
+    },
+    {
+      "category": "analysis",
+      "domains": [
+        "account",
+        "build_fit",
+        "delivery",
+        "kb",
+        "legendary",
+        "market",
+        "player_ui",
+        "support"
+      ],
+      "evidence": [
+        "12 related tests",
+        "maturity/audit language present",
+        "manual review gate referenced",
+        "privacy/safety boundary referenced",
+        "domain:account",
+        "domain:build_fit"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "cross-cutting",
+      "related_tests": [
+        "tests/test_account_connection_diagnostic.py",
+        "tests/test_account_connection_diagnostic_api.py",
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_account_gear_matcher.py",
+        "tests/test_account_lifecycle.py",
+        "tests/test_account_sync_api.py",
+        "tests/test_account_value_holding_index.py",
+        "tests/test_api_key_fingerprint.py",
+        "tests/test_api_key_permission_inspection.py",
+        "tests/test_build_character_snapshots.py",
+        "tests/test_build_fit_api.py"
+      ],
+      "source_path": "docs/analysis/AEGISRADAR_BORROWING_ASSESSMENT.md",
+      "spec_id": "aegisradar_borrowing_assessment",
+      "title": "AegisRadar Borrowing Assessment"
     },
     {
       "category": "analysis",
@@ -2881,5 +2922,5 @@
     }
   ],
   "schema_version": "gw2radar.spec_registry_backlog.v1",
-  "spec_count": 66
+  "spec_count": 67
 }

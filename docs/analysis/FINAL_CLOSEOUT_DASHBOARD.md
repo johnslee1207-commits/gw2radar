@@ -13,7 +13,7 @@
 | post_mvp_phases | ready | false | implemented_phase_count=6/6 |
 | operational_hardening | ready | false | readiness_score=100.0; blockers=0 |
 | operator_release_packet | ready | false | readiness_score=100.0; blockers=0 |
-| spec_and_semantic_registry | ready | false | spec_count=66 |
+| spec_and_semantic_registry | ready | false | spec_count=67 |
 | work_mode_stop_line | ready | false | stop_new_phase_expansion |
 
 ## Stop-Line Review
