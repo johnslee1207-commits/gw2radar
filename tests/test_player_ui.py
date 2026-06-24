@@ -416,6 +416,9 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "payload?.is_configured" in js.text
     assert "Sync now queues one account snapshot job" in js.text
     assert "/api/v1/account/sync/drain-one" in js.text
+    assert 'const permissions = await fetchJson("/account/api-key/permissions")' in js.text
+    assert 'const firstRun = await fetchJson("/account/first-run-summary")' in js.text
+    assert "renderFirstRunSummary(firstRun)" in js.text
     assert "/api/v1/achievement-routes/official-fetch-preview" in js.text
     assert "/api/v1/achievement-routes/official-fetch-preview/promote-reviewed" in js.text
     assert "fetchOfficialAchievementRoutePreview" in js.text

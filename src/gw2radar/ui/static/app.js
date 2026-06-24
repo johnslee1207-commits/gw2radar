@@ -3634,7 +3634,16 @@ document.querySelector('[data-form="apiKey"]').addEventListener("submit", (event
     });
     input.value = "";
     updateStatusFromKey(payload);
-    return payload;
+    const permissions = await fetchJson("/account/api-key/permissions");
+    renderPermissionReport(permissions);
+    const firstRun = await fetchJson("/account/first-run-summary");
+    renderFirstRunSummary(firstRun);
+    markStep(
+      "connect",
+      firstRun.summary_status === "ready" ? "Connection ready" : firstRun.primary_action?.label || "Review next connection step",
+      firstRun.summary_status === "ready"
+    );
+    return { key: payload, permissions, first_run: firstRun };
   });
 });
 
