@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from gw2radar.ops.lifecycle import (
     DEFAULT_RELEASE_LIFECYCLE,
     OperationalLifecycleStage,
+    build_delivery_operational_lifecycle_summary,
     build_operational_lifecycle_summary_from_gates,
     build_operational_lifecycle_summary,
     lifecycle_gate,
@@ -81,3 +82,24 @@ def test_operational_lifecycle_summary_projects_boolean_gates() -> None:
     assert summary.progress_percent == 50.0
     assert summary.evidence_refs == ["archive:1"]
     assert summary.next_action == "Review archive diff evidence and resolve regressions before sign-off."
+
+
+def test_delivery_operational_lifecycle_summary_tracks_packet_handoff_chain() -> None:
+    summary = build_delivery_operational_lifecycle_summary(
+        object_id="delivery:packet",
+        object_type="productized_report_delivery",
+        draft_ready=True,
+        exported_ready=True,
+        packaged_ready=True,
+        verified_ready=True,
+        audited_ready=False,
+        handoff_ready=False,
+        evidence_refs=["artifact:1", "packet:checksum"],
+    )
+
+    assert summary.current_stage == OperationalLifecycleStage.VERIFIED
+    assert summary.completed_stages == ["draft", "exported", "packaged", "verified"]
+    assert summary.missing_stages == ["audited", "handoff_ready"]
+    assert summary.ready is False
+    assert summary.progress_percent == 66.7
+    assert summary.next_action == "Record a metadata-only verification audit before handoff."

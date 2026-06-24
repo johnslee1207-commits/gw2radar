@@ -41,6 +41,7 @@ from gw2radar.delivery.lifecycle import (
 )
 from gw2radar.graph.graph_query import GraphData
 from gw2radar.kb.kb_repository import list_rules
+from gw2radar.ops.lifecycle import OperationalLifecycleSummary, build_delivery_operational_lifecycle_summary
 from gw2radar.security.log_sanitizer import sanitize_log_payload
 
 
@@ -178,6 +179,7 @@ class ProductizedReportDeliveryChecklist(BaseModel):
     warnings: list[str] = Field(default_factory=list)
     next_actions: list[str] = Field(default_factory=list)
     evidence_refs: list[str] = Field(default_factory=list)
+    operational_lifecycle: OperationalLifecycleSummary
     boundary: str = (
         "Delivery checklist is operational metadata only; it excludes raw API keys, private source payloads, "
         "automatic publishing, automatic trading, and guaranteed-return claims."
@@ -602,6 +604,26 @@ def build_productized_report_delivery_checklist(
         ],
         evidence_refs=evidence_refs,
     )
+    operational_lifecycle = build_delivery_operational_lifecycle_summary(
+        object_id=latest_audit.audit_id if latest_audit else "productized-report-delivery",
+        object_type="productized_report_delivery",
+        draft_ready=len(templates) >= 3,
+        exported_ready=len(artifacts) >= 3,
+        packaged_ready=packet_manifest is not None and packet_manifest.file_count >= max(1, len(artifacts) * 2),
+        verified_ready=bool(verification and verification.ready),
+        audited_ready=bool(latest_audit and latest_audit.ready),
+        handoff_ready=readiness.ready,
+        actor=latest_audit.reviewer if latest_audit else "report-ops",
+        occurred_at=latest_audit.recorded_at if latest_audit else readiness.generated_at,
+        evidence_refs=evidence_refs,
+        details={
+            "template_count": len(templates),
+            "artifact_count": len(artifacts),
+            "packet_file_count": packet_manifest.file_count if packet_manifest else 0,
+            "verification_ready": bool(verification and verification.ready),
+            "audit_count": len(audits.records),
+        },
+    )
     return ProductizedReportDeliveryChecklist(
         generated_at=readiness.generated_at,
         ready=readiness.ready,
@@ -619,6 +641,7 @@ def build_productized_report_delivery_checklist(
         warnings=readiness.warnings,
         next_actions=readiness.next_actions,
         evidence_refs=readiness.evidence_refs,
+        operational_lifecycle=operational_lifecycle,
     )
 
 
@@ -716,6 +739,8 @@ def render_productized_report_delivery_checklist_markdown(
         f"- Packet files: {checklist.packet_file_count}",
         f"- Packet checksum: {checklist.packet_checksum_sha256 or 'not available'}",
         f"- Verification audits: {checklist.verification_audit_count}",
+        f"- Operational lifecycle: {checklist.operational_lifecycle.current_stage}",
+        f"- Operational progress: {checklist.operational_lifecycle.progress_percent}%",
         "",
         "## Checklist",
     ]
@@ -732,7 +757,7 @@ def render_productized_report_delivery_checklist_csv(
     checklist: ProductizedReportDeliveryChecklist,
 ) -> str:
     rows = [
-        "ready,maturity_label,template_count,artifact_count,packet_file_count,packet_verification_ready,verification_audit_count,packet_checksum_sha256,latest_verification_audit_id",
+        "ready,maturity_label,template_count,artifact_count,packet_file_count,packet_verification_ready,verification_audit_count,packet_checksum_sha256,latest_verification_audit_id,operational_stage,operational_progress_percent",
         ",".join(
             [
                 _csv(str(checklist.ready)),
@@ -744,6 +769,8 @@ def render_productized_report_delivery_checklist_csv(
                 _csv(str(checklist.verification_audit_count)),
                 _csv(checklist.packet_checksum_sha256 or ""),
                 _csv(checklist.latest_verification_audit_id or ""),
+                _csv(checklist.operational_lifecycle.current_stage),
+                _csv(str(checklist.operational_lifecycle.progress_percent)),
             ]
         ),
     ]

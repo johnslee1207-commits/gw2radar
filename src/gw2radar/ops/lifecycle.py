@@ -12,9 +12,13 @@ class OperationalLifecycleStage(StrEnum):
     PERSISTED = "persisted"
     ENABLED = "enabled"
     EXPORTED = "exported"
+    PACKAGED = "packaged"
+    VERIFIED = "verified"
+    AUDITED = "audited"
     ARCHIVED = "archived"
     DIFF_REVIEWED = "diff_reviewed"
     SIGNED_OFF = "signed_off"
+    HANDOFF_READY = "handoff_ready"
 
 
 DEFAULT_REVIEW_LIFECYCLE = [
@@ -30,6 +34,15 @@ DEFAULT_RELEASE_LIFECYCLE = [
     OperationalLifecycleStage.EXPORTED,
     OperationalLifecycleStage.ARCHIVED,
     OperationalLifecycleStage.SIGNED_OFF,
+]
+
+DEFAULT_DELIVERY_LIFECYCLE = [
+    OperationalLifecycleStage.DRAFT,
+    OperationalLifecycleStage.EXPORTED,
+    OperationalLifecycleStage.PACKAGED,
+    OperationalLifecycleStage.VERIFIED,
+    OperationalLifecycleStage.AUDITED,
+    OperationalLifecycleStage.HANDOFF_READY,
 ]
 
 
@@ -125,6 +138,81 @@ def build_operational_lifecycle_summary_from_gates(
     )
 
 
+def build_delivery_operational_lifecycle_summary(
+    *,
+    object_id: str,
+    object_type: str,
+    draft_ready: bool,
+    exported_ready: bool,
+    packaged_ready: bool,
+    verified_ready: bool,
+    audited_ready: bool,
+    handoff_ready: bool,
+    actor: str = "delivery_lifecycle",
+    occurred_at: datetime | None = None,
+    evidence_refs: list[str] | None = None,
+    details: dict[str, str | int | bool] | None = None,
+) -> OperationalLifecycleSummary:
+    when = occurred_at or datetime.now(UTC)
+    refs = evidence_refs or []
+    base_details = details or {}
+    return build_operational_lifecycle_summary_from_gates(
+        object_id=object_id,
+        object_type=object_type,
+        stage_order=DEFAULT_DELIVERY_LIFECYCLE,
+        gates=[
+            lifecycle_gate(
+                OperationalLifecycleStage.DRAFT,
+                complete=draft_ready,
+                actor=actor,
+                occurred_at=when,
+                evidence_refs=refs,
+                details=base_details,
+            ),
+            lifecycle_gate(
+                OperationalLifecycleStage.EXPORTED,
+                complete=exported_ready,
+                actor=actor,
+                occurred_at=when,
+                evidence_refs=refs,
+                details=base_details,
+            ),
+            lifecycle_gate(
+                OperationalLifecycleStage.PACKAGED,
+                complete=packaged_ready,
+                actor=actor,
+                occurred_at=when,
+                evidence_refs=refs,
+                details=base_details,
+            ),
+            lifecycle_gate(
+                OperationalLifecycleStage.VERIFIED,
+                complete=verified_ready,
+                actor=actor,
+                occurred_at=when,
+                evidence_refs=refs,
+                details=base_details,
+            ),
+            lifecycle_gate(
+                OperationalLifecycleStage.AUDITED,
+                complete=audited_ready,
+                actor=actor,
+                occurred_at=when,
+                evidence_refs=refs,
+                details=base_details,
+            ),
+            lifecycle_gate(
+                OperationalLifecycleStage.HANDOFF_READY,
+                complete=handoff_ready,
+                actor=actor,
+                occurred_at=when,
+                evidence_refs=refs,
+                details=base_details,
+            ),
+        ],
+    )
+
+
 def lifecycle_event(
     stage: OperationalLifecycleStage | str,
     *,
@@ -196,10 +284,18 @@ def _next_action(missing: list[OperationalLifecycleStage]) -> str:
         return "Enable reviewed persisted rules only after separate confirmation."
     if stage == OperationalLifecycleStage.EXPORTED:
         return "Export a metadata-only operator packet for review."
+    if stage == OperationalLifecycleStage.PACKAGED:
+        return "Package the reviewed delivery files into a checksumed zip bundle."
+    if stage == OperationalLifecycleStage.VERIFIED:
+        return "Verify the delivery zip checksum, whitelist, schema, and no-secret boundaries."
+    if stage == OperationalLifecycleStage.AUDITED:
+        return "Record a metadata-only verification audit before handoff."
     if stage == OperationalLifecycleStage.ARCHIVED:
         return "Archive the reviewed evidence bundle before sign-off."
     if stage == OperationalLifecycleStage.DIFF_REVIEWED:
         return "Review archive diff evidence and resolve regressions before sign-off."
     if stage == OperationalLifecycleStage.SIGNED_OFF:
         return "Record explicit release sign-off after archive diff review."
+    if stage == OperationalLifecycleStage.HANDOFF_READY:
+        return "Complete the operator handoff checklist after package verification and audit."
     return "Create the draft metadata record."

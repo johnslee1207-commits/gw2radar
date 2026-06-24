@@ -200,10 +200,21 @@ def test_productized_report_templates_generate_artifacts_and_preserve_boundaries
         assert checklist["packet_verification_ready"] is True
         assert checklist["verification_audit_count"] >= 1
         assert checklist["missing_gates"] == []
+        assert checklist["operational_lifecycle"]["current_stage"] == "handoff_ready"
+        assert checklist["operational_lifecycle"]["ready"] is True
+        assert checklist["operational_lifecycle"]["completed_stages"] == [
+            "draft",
+            "exported",
+            "packaged",
+            "verified",
+            "audited",
+            "handoff_ready",
+        ]
         assert delivery_checklist_markdown.status_code == 200
         assert "# Productized Report Delivery Checklist" in delivery_checklist_markdown.text
         assert delivery_checklist_csv.status_code == 200
         assert "ready,maturity_label,template_count,artifact_count" in delivery_checklist_csv.text
+        assert "operational_stage,operational_progress_percent" in delivery_checklist_csv.text
 
         assert operator_handoff.status_code == 200
         handoff = operator_handoff.json()["data"]["productized_report_operator_handoff_packet"]
