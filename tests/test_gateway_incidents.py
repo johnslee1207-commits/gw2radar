@@ -640,6 +640,16 @@ def test_player_gateway_incident_timeline_correlates_refresh_events_without_secr
         assert closure_payload["packet_audit_count"] >= 1
         assert closure_payload["operator_zip_audit_count"] >= 1
         assert closure_payload["final_zip_audit_count"] >= 1
+        assert closure_payload["operational_lifecycle"]["current_stage"] == "handoff_ready"
+        assert closure_payload["operational_lifecycle"]["ready"] is True
+        assert closure_payload["operational_lifecycle"]["completed_stages"] == [
+            "draft",
+            "exported",
+            "packaged",
+            "verified",
+            "audited",
+            "handoff_ready",
+        ]
         assert {card["card_id"] for card in closure_payload["status_cards"]} == {
             "incident_packet",
             "operator_packet",
@@ -650,6 +660,7 @@ def test_player_gateway_incident_timeline_correlates_refresh_events_without_secr
         assert "# Support Case Incident Closure Dashboard" in closure_dashboard_markdown.text
         assert closure_dashboard_csv.status_code == 200
         assert "ready,maturity_label,closure_status,readiness_score" in closure_dashboard_csv.text
+        assert "operational_stage,operational_progress_percent" in closure_dashboard_csv.text
         assert closure_packet.status_code == 200
         closure_packet_payload = closure_packet.json()["data"]["support_case_incident_closure_packet"]
         assert closure_packet_payload["schema_version"] == "gw2radar.support_case_incident_closure_packet_manifest.v1"

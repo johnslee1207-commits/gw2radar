@@ -473,6 +473,7 @@ class SupportCaseIncidentClosureDashboard(BaseModel):
     warnings: list[str] = Field(default_factory=list)
     next_actions: list[str] = Field(default_factory=list)
     evidence_refs: list[str] = Field(default_factory=list)
+    operational_lifecycle: OperationalLifecycleSummary
     boundary: str = (
         "Support case incident closure dashboard is metadata-only; it aggregates artifact, zip, "
         "verification, and audit state without storing zip bytes, raw API keys, raw debug bundles, "
@@ -2339,6 +2340,44 @@ def build_support_case_incident_closure_dashboard(
             "Re-run final handoff packet zip verification and record a fresh metadata-only audit.",
         ]
     )
+    evidence_refs = [
+        "/api/v1/player/support-case/incident-dashboard",
+        "/api/v1/player/support-case/incident-packet",
+        "/api/v1/player/support-case/incident-packet/bundle/verification-audit",
+        "/api/v1/player/support-case/incident-operator-packet/artifacts",
+        "/api/v1/player/support-case/incident-operator-packet/artifacts/bundle/verification-audit",
+        "/api/v1/player/support-case/incident-final-handoff-packet/artifacts",
+        "/api/v1/player/support-case/incident-final-handoff-packet/artifacts/bundle/verification-audit",
+    ]
+    operational_lifecycle = build_delivery_operational_lifecycle_summary(
+        object_id=latest_final_audit.audit_id if latest_final_audit else (
+            latest_final_packet.packet_id if latest_final_packet else "support-case-incident-closure"
+        ),
+        object_type="support_case_incident_closure",
+        draft_ready=bool(latest_packet and latest_packet.ready),
+        exported_ready=bool(latest_operator_artifact and latest_operator_artifact.ready),
+        packaged_ready=bool(latest_final_packet and latest_final_packet.ready),
+        verified_ready=bool(final_zip_verification and final_zip_verification.ready),
+        audited_ready=bool(
+            latest_packet_audit
+            and latest_packet_audit.ready
+            and latest_operator_audit
+            and latest_operator_audit.ready
+            and latest_final_audit
+            and latest_final_audit.ready
+        ),
+        handoff_ready=ready,
+        actor=latest_final_audit.reviewer if latest_final_audit else "support",
+        occurred_at=latest_final_audit.recorded_at if latest_final_audit else datetime.now(timezone.utc),
+        evidence_refs=evidence_refs,
+        details={
+            "packet_audit_count": len(packet_audit.records),
+            "operator_zip_audit_count": len(operator_audit.records),
+            "final_zip_audit_count": len(final_audit.records),
+            "final_zip_verification_ready": bool(final_zip_verification and final_zip_verification.ready),
+            "readiness_score": int(readiness_score),
+        },
+    )
     return SupportCaseIncidentClosureDashboard(
         generated_at=datetime.now(timezone.utc),
         ready=ready,
@@ -2357,15 +2396,8 @@ def build_support_case_incident_closure_dashboard(
         blockers=_unique(blockers),
         warnings=_unique(warnings),
         next_actions=next_actions,
-        evidence_refs=[
-            "/api/v1/player/support-case/incident-dashboard",
-            "/api/v1/player/support-case/incident-packet",
-            "/api/v1/player/support-case/incident-packet/bundle/verification-audit",
-            "/api/v1/player/support-case/incident-operator-packet/artifacts",
-            "/api/v1/player/support-case/incident-operator-packet/artifacts/bundle/verification-audit",
-            "/api/v1/player/support-case/incident-final-handoff-packet/artifacts",
-            "/api/v1/player/support-case/incident-final-handoff-packet/artifacts/bundle/verification-audit",
-        ],
+        evidence_refs=evidence_refs,
+        operational_lifecycle=operational_lifecycle,
     )
 
 
@@ -2386,6 +2418,8 @@ def render_support_case_incident_closure_dashboard_markdown(
         f"- Packet audits: {dashboard.packet_audit_count}",
         f"- Operator zip audits: {dashboard.operator_zip_audit_count}",
         f"- Final zip audits: {dashboard.final_zip_audit_count}",
+        f"- Operational lifecycle: {dashboard.operational_lifecycle.current_stage}",
+        f"- Operational progress: {dashboard.operational_lifecycle.progress_percent}%",
         f"- Boundary: {dashboard.boundary}",
         "",
         "## Status Cards",
@@ -2407,7 +2441,7 @@ def render_support_case_incident_closure_dashboard_csv(
     dashboard: SupportCaseIncidentClosureDashboard,
 ) -> str:
     rows = [
-        "ready,maturity_label,closure_status,readiness_score,latest_packet_id,latest_operator_artifact_id,latest_final_packet_id,final_zip_verification_ready,packet_audit_count,operator_zip_audit_count,final_zip_audit_count,blocker_count,warning_count",
+        "ready,maturity_label,closure_status,readiness_score,latest_packet_id,latest_operator_artifact_id,latest_final_packet_id,final_zip_verification_ready,packet_audit_count,operator_zip_audit_count,final_zip_audit_count,blocker_count,warning_count,operational_stage,operational_progress_percent",
         ",".join(
             [
                 _csv(str(dashboard.ready)),
@@ -2423,6 +2457,8 @@ def render_support_case_incident_closure_dashboard_csv(
                 _csv(str(dashboard.final_zip_audit_count)),
                 _csv(str(len(dashboard.blockers))),
                 _csv(str(len(dashboard.warnings))),
+                _csv(dashboard.operational_lifecycle.current_stage),
+                _csv(str(dashboard.operational_lifecycle.progress_percent)),
             ]
         ),
         "card_id,label,status,summary",
