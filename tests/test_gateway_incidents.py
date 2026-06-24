@@ -656,6 +656,12 @@ def test_player_gateway_incident_timeline_correlates_refresh_events_without_secr
             "final_handoff_packet",
             "closure_decision",
         }
+        closure_cards = {card["card_id"]: card for card in closure_payload["status_cards"]}
+        assert closure_cards["incident_packet"]["summary"].endswith("audit ready.")
+        assert closure_cards["operator_packet"]["summary"].endswith("audit ready.")
+        assert closure_cards["final_handoff_packet"]["summary"].endswith("zip ready.")
+        assert closure_cards["closure_decision"]["status"] == "go"
+        assert "Readiness score 100.0" in closure_cards["closure_decision"]["summary"]
         assert closure_dashboard_markdown.status_code == 200
         assert "# Support Case Incident Closure Dashboard" in closure_dashboard_markdown.text
         assert closure_dashboard_csv.status_code == 200

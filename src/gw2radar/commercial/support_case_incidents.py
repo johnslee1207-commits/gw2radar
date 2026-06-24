@@ -485,6 +485,15 @@ class SupportCaseIncidentClosureDashboard(BaseModel):
     )
 
 
+class SupportCaseIncidentClosureProjection(BaseModel):
+    readiness_score: float
+    ready: bool
+    maturity_label: str
+    closure_status: str
+    status_cards: list[dict] = Field(default_factory=list)
+    next_actions: list[str] = Field(default_factory=list)
+
+
 class SupportCaseIncidentClosurePacketManifest(BaseModel):
     schema_version: str = "gw2radar.support_case_incident_closure_packet_manifest.v1"
     packet_id: str
@@ -2202,6 +2211,90 @@ def render_support_case_incident_final_handoff_packet_zip_verification_audit_csv
     return "\n".join(rows) + "\n"
 
 
+def _build_support_case_incident_closure_projection(
+    *,
+    packet_ready: bool,
+    packet_file_count: int,
+    packet_audit_ready: bool,
+    operator_artifact_ready: bool,
+    operator_artifact_file_count: int,
+    operator_audit_ready: bool,
+    final_packet_ready: bool,
+    final_packet_file_count: int,
+    final_zip_verification_ready: bool,
+    final_audit_ready: bool,
+    blockers: list[str],
+    warnings: list[str],
+) -> SupportCaseIncidentClosureProjection:
+    gate_states = [
+        packet_ready,
+        packet_audit_ready,
+        operator_artifact_ready,
+        operator_audit_ready,
+        final_packet_ready,
+        final_zip_verification_ready,
+        final_audit_ready,
+    ]
+    readiness_score = round((sum(1 for item in gate_states if item) / len(gate_states)) * 100, 1)
+    unique_blockers = _unique(blockers)
+    unique_warnings = _unique(warnings)
+    ready = not unique_blockers and all(gate_states)
+    closure_status = "go" if ready else "blocked"
+    maturity_label = "ready" if ready else "blocked" if unique_blockers else "needs_review"
+    return SupportCaseIncidentClosureProjection(
+        readiness_score=readiness_score,
+        ready=ready,
+        maturity_label=maturity_label,
+        closure_status=closure_status,
+        status_cards=[
+            {
+                "card_id": "incident_packet",
+                "label": "Incident packet",
+                "status": "ready" if packet_ready else "blocked",
+                "summary": f"{packet_file_count} files; audit {'ready' if packet_audit_ready else 'missing_or_blocked'}.",
+            },
+            {
+                "card_id": "operator_packet",
+                "label": "Operator packet",
+                "status": "ready" if operator_artifact_ready else "blocked",
+                "summary": (
+                    f"{operator_artifact_file_count} files; audit "
+                    f"{'ready' if operator_audit_ready else 'missing_or_blocked'}."
+                ),
+            },
+            {
+                "card_id": "final_handoff_packet",
+                "label": "Final handoff packet",
+                "status": "ready" if final_packet_ready else "blocked",
+                "summary": (
+                    f"{final_packet_file_count} files; zip "
+                    f"{'ready' if final_zip_verification_ready else 'missing_or_blocked'}."
+                ),
+            },
+            {
+                "card_id": "closure_decision",
+                "label": "Closure decision",
+                "status": closure_status,
+                "summary": (
+                    f"Readiness score {readiness_score}; blockers {len(unique_blockers)}; "
+                    f"warnings {len(unique_warnings)}."
+                ),
+            },
+        ],
+        next_actions=(
+            [
+                "Attach final handoff packet zip, checksum, audit export, and closure dashboard to the support case.",
+                "Close the support case only after reviewer confirms no raw keys or private payloads were requested.",
+            ]
+            if ready
+            else [
+                "Resolve blocked closure dashboard gates before closing the support case.",
+                "Re-run final handoff packet zip verification and record a fresh metadata-only audit.",
+            ]
+        ),
+    )
+
+
 def build_support_case_incident_closure_dashboard(
     *,
     packet_root: Path | None = None,
@@ -2290,55 +2383,19 @@ def build_support_case_incident_closure_dashboard(
     if latest_final_audit:
         warnings.extend(latest_final_audit.warnings)
 
-    gate_states = [
-        bool(latest_packet and latest_packet.ready),
-        bool(latest_packet_audit and latest_packet_audit.ready),
-        bool(latest_operator_artifact and latest_operator_artifact.ready),
-        bool(latest_operator_audit and latest_operator_audit.ready),
-        bool(latest_final_packet and latest_final_packet.ready),
-        bool(final_zip_verification and final_zip_verification.ready),
-        bool(latest_final_audit and latest_final_audit.ready),
-    ]
-    readiness_score = round((sum(1 for item in gate_states if item) / len(gate_states)) * 100, 1)
-    ready = not blockers and all(gate_states)
-    closure_status = "go" if ready else "blocked"
-    maturity_label = "ready" if ready else "blocked" if blockers else "needs_review"
-    status_cards = [
-        {
-            "card_id": "incident_packet",
-            "label": "Incident packet",
-            "status": "ready" if latest_packet and latest_packet.ready else "blocked",
-            "summary": f"{latest_packet.file_count if latest_packet else 0} files; audit {'ready' if latest_packet_audit and latest_packet_audit.ready else 'missing_or_blocked'}.",
-        },
-        {
-            "card_id": "operator_packet",
-            "label": "Operator packet",
-            "status": "ready" if latest_operator_artifact and latest_operator_artifact.ready else "blocked",
-            "summary": f"{latest_operator_artifact.file_count if latest_operator_artifact else 0} files; audit {'ready' if latest_operator_audit and latest_operator_audit.ready else 'missing_or_blocked'}.",
-        },
-        {
-            "card_id": "final_handoff_packet",
-            "label": "Final handoff packet",
-            "status": "ready" if latest_final_packet and latest_final_packet.ready else "blocked",
-            "summary": f"{latest_final_packet.file_count if latest_final_packet else 0} files; zip {'ready' if final_zip_verification and final_zip_verification.ready else 'missing_or_blocked'}.",
-        },
-        {
-            "card_id": "closure_decision",
-            "label": "Closure decision",
-            "status": closure_status,
-            "summary": f"Readiness score {readiness_score}; blockers {len(_unique(blockers))}; warnings {len(_unique(warnings))}.",
-        },
-    ]
-    next_actions = (
-        [
-            "Attach final handoff packet zip, checksum, audit export, and closure dashboard to the support case.",
-            "Close the support case only after reviewer confirms no raw keys or private payloads were requested.",
-        ]
-        if ready
-        else [
-            "Resolve blocked closure dashboard gates before closing the support case.",
-            "Re-run final handoff packet zip verification and record a fresh metadata-only audit.",
-        ]
+    projection = _build_support_case_incident_closure_projection(
+        packet_ready=bool(latest_packet and latest_packet.ready),
+        packet_file_count=latest_packet.file_count if latest_packet else 0,
+        packet_audit_ready=bool(latest_packet_audit and latest_packet_audit.ready),
+        operator_artifact_ready=bool(latest_operator_artifact and latest_operator_artifact.ready),
+        operator_artifact_file_count=latest_operator_artifact.file_count if latest_operator_artifact else 0,
+        operator_audit_ready=bool(latest_operator_audit and latest_operator_audit.ready),
+        final_packet_ready=bool(latest_final_packet and latest_final_packet.ready),
+        final_packet_file_count=latest_final_packet.file_count if latest_final_packet else 0,
+        final_zip_verification_ready=bool(final_zip_verification and final_zip_verification.ready),
+        final_audit_ready=bool(latest_final_audit and latest_final_audit.ready),
+        blockers=blockers,
+        warnings=warnings,
     )
     evidence_refs = [
         "/api/v1/player/support-case/incident-dashboard",
@@ -2367,7 +2424,7 @@ def build_support_case_incident_closure_dashboard(
             and latest_final_audit
             and latest_final_audit.ready
         ),
-        handoff_ready=ready,
+        handoff_ready=projection.ready,
         actor=latest_final_audit.reviewer if latest_final_audit else None,
         fallback_actor="support",
         occurred_at=latest_final_audit.recorded_at if latest_final_audit else None,
@@ -2377,16 +2434,16 @@ def build_support_case_incident_closure_dashboard(
             "operator_zip_audit_count": len(operator_audit.records),
             "final_zip_audit_count": len(final_audit.records),
             "final_zip_verification_ready": bool(final_zip_verification and final_zip_verification.ready),
-            "readiness_score": int(readiness_score),
+            "readiness_score": int(projection.readiness_score),
         },
     )
     return SupportCaseIncidentClosureDashboard(
         generated_at=datetime.now(timezone.utc),
-        ready=ready,
-        maturity_label=maturity_label,
-        closure_status=closure_status,
-        readiness_score=readiness_score,
-        status_cards=status_cards,
+        ready=projection.ready,
+        maturity_label=projection.maturity_label,
+        closure_status=projection.closure_status,
+        readiness_score=projection.readiness_score,
+        status_cards=projection.status_cards,
         latest_packet_id=latest_packet.packet_id if latest_packet else None,
         latest_operator_artifact_id=latest_operator_artifact.artifact_id if latest_operator_artifact else None,
         latest_final_packet_id=latest_final_packet.packet_id if latest_final_packet else None,
@@ -2397,7 +2454,7 @@ def build_support_case_incident_closure_dashboard(
         final_zip_verification_ready=final_zip_verification.ready if final_zip_verification else False,
         blockers=_unique(blockers),
         warnings=_unique(warnings),
-        next_actions=next_actions,
+        next_actions=projection.next_actions,
         evidence_refs=evidence_refs,
         operational_lifecycle=operational_lifecycle,
     )
