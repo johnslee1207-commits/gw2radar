@@ -458,11 +458,15 @@ def test_player_gateway_incident_timeline_correlates_refresh_events_without_secr
         operator_blocked = client.get(
             f"/api/v1/player/support-case/incident-operator-packet/artifacts/{artifact_payload['artifact_id']}/../manifest.json"
         )
+        operator_secret = client.get(
+            f"/api/v1/player/support-case/incident-operator-packet/artifacts/{artifact_payload['artifact_id']}/secret.txt"
+        )
         assert operator_manifest.status_code == 200
         assert "gw2radar.support_case_incident_operator_packet_manifest.v1" in operator_manifest.text
         assert operator_md.status_code == 200
         assert "# Support Case Incident Operator Packet" in operator_md.text
         assert operator_blocked.status_code == 404
+        assert operator_secret.status_code == 404
         combined_operator_text = str(operator_payload) + str(artifact_payload) + operator_manifest.text + operator_md.text
         assert "secret-key" not in combined_operator_text.lower()
         assert "raw API key" in operator_payload["boundary"]

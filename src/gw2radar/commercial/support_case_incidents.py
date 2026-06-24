@@ -834,19 +834,12 @@ def resolve_support_case_incident_packet_path(
     *,
     packet_root: Path | None = None,
 ) -> Path | None:
-    if "/" in packet_id or "\\" in packet_id or ".." in packet_id:
-        return None
-    if file_name not in SUPPORT_CASE_INCIDENT_PACKET_FILES:
-        return None
-    root = (packet_root or SUPPORT_CASE_INCIDENT_PACKET_ROOT).resolve()
-    candidate = (root / packet_id / file_name).resolve()
-    try:
-        candidate.relative_to(root)
-    except ValueError:
-        return None
-    if not candidate.exists() or not candidate.is_file():
-        return None
-    return candidate
+    return _resolve_support_case_artifact_path(
+        artifact_id=packet_id,
+        file_name=file_name,
+        root=packet_root or SUPPORT_CASE_INCIDENT_PACKET_ROOT,
+        allowed_files=SUPPORT_CASE_INCIDENT_PACKET_FILES,
+    )
 
 
 def build_support_case_incident_packet_zip_bundle(
@@ -1462,19 +1455,12 @@ def resolve_support_case_incident_operator_packet_artifact_path(
     *,
     artifact_root: Path | None = None,
 ) -> Path | None:
-    if "/" in artifact_id or "\\" in artifact_id or ".." in artifact_id:
-        return None
-    if file_name not in SUPPORT_CASE_INCIDENT_OPERATOR_PACKET_FILES:
-        return None
-    root = (artifact_root or SUPPORT_CASE_INCIDENT_OPERATOR_PACKET_ROOT).resolve()
-    candidate = (root / artifact_id / file_name).resolve()
-    try:
-        candidate.relative_to(root)
-    except ValueError:
-        return None
-    if not candidate.exists() or not candidate.is_file():
-        return None
-    return candidate
+    return _resolve_support_case_artifact_path(
+        artifact_id=artifact_id,
+        file_name=file_name,
+        root=artifact_root or SUPPORT_CASE_INCIDENT_OPERATOR_PACKET_ROOT,
+        allowed_files=SUPPORT_CASE_INCIDENT_OPERATOR_PACKET_FILES,
+    )
 
 
 def build_support_case_incident_operator_packet_zip_bundle(
@@ -1961,19 +1947,12 @@ def resolve_support_case_incident_final_handoff_packet_path(
     *,
     artifact_root: Path | None = None,
 ) -> Path | None:
-    if "/" in packet_id or "\\" in packet_id or ".." in packet_id:
-        return None
-    if file_name not in SUPPORT_CASE_INCIDENT_FINAL_HANDOFF_PACKET_FILES:
-        return None
-    root = artifact_root or SUPPORT_CASE_INCIDENT_FINAL_HANDOFF_PACKET_ROOT
-    candidate = root / packet_id / file_name
-    try:
-        candidate.resolve().relative_to(root.resolve())
-    except ValueError:
-        return None
-    if not candidate.exists() or not candidate.is_file():
-        return None
-    return candidate
+    return _resolve_support_case_artifact_path(
+        artifact_id=packet_id,
+        file_name=file_name,
+        root=artifact_root or SUPPORT_CASE_INCIDENT_FINAL_HANDOFF_PACKET_ROOT,
+        allowed_files=SUPPORT_CASE_INCIDENT_FINAL_HANDOFF_PACKET_FILES,
+    )
 
 
 def build_support_case_incident_final_handoff_packet_zip_bundle(
@@ -2616,19 +2595,12 @@ def resolve_support_case_incident_closure_packet_path(
     *,
     artifact_root: Path | None = None,
 ) -> Path | None:
-    if "/" in packet_id or "\\" in packet_id or ".." in packet_id:
-        return None
-    if file_name not in SUPPORT_CASE_INCIDENT_CLOSURE_PACKET_FILES:
-        return None
-    root = artifact_root or SUPPORT_CASE_INCIDENT_CLOSURE_PACKET_ROOT
-    candidate = root / packet_id / file_name
-    try:
-        candidate.resolve().relative_to(root.resolve())
-    except ValueError:
-        return None
-    if not candidate.exists() or not candidate.is_file():
-        return None
-    return candidate
+    return _resolve_support_case_artifact_path(
+        artifact_id=packet_id,
+        file_name=file_name,
+        root=artifact_root or SUPPORT_CASE_INCIDENT_CLOSURE_PACKET_ROOT,
+        allowed_files=SUPPORT_CASE_INCIDENT_CLOSURE_PACKET_FILES,
+    )
 
 
 def build_support_case_incident_closure_packet_zip_bundle(
@@ -2933,6 +2905,28 @@ def _iter_support_case_manifest_entries(
             files.append(manifest_file)
         entries.append((artifact_dir, manifest, files, manifest_file))
     return entries
+
+
+def _resolve_support_case_artifact_path(
+    *,
+    artifact_id: str,
+    file_name: str,
+    root: Path,
+    allowed_files: set[str],
+) -> Path | None:
+    if "/" in artifact_id or "\\" in artifact_id or ".." in artifact_id:
+        return None
+    if file_name not in allowed_files:
+        return None
+    safe_root = root.resolve()
+    candidate = (safe_root / artifact_id / file_name).resolve()
+    try:
+        candidate.relative_to(safe_root)
+    except ValueError:
+        return None
+    if not candidate.exists() or not candidate.is_file():
+        return None
+    return candidate
 
 
 def _media_type(file_name: str) -> str:
