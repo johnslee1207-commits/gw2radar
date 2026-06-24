@@ -3,7 +3,9 @@ from datetime import UTC, datetime
 from gw2radar.ops.lifecycle import (
     DEFAULT_RELEASE_LIFECYCLE,
     OperationalLifecycleStage,
+    build_operational_lifecycle_summary_from_gates,
     build_operational_lifecycle_summary,
+    lifecycle_gate,
     lifecycle_event,
 )
 
@@ -52,3 +54,30 @@ def test_operational_lifecycle_summary_supports_release_signoff_chain() -> None:
     assert summary.progress_percent == 100.0
     assert summary.latest_actor == "release_lead"
     assert summary.next_action == "Lifecycle is complete for the configured gate."
+
+
+def test_operational_lifecycle_summary_projects_boolean_gates() -> None:
+    summary = build_operational_lifecycle_summary_from_gates(
+        object_id="release:gate",
+        object_type="achievement_route_release",
+        stage_order=[
+            OperationalLifecycleStage.DRAFT,
+            OperationalLifecycleStage.ARCHIVED,
+            OperationalLifecycleStage.DIFF_REVIEWED,
+            OperationalLifecycleStage.SIGNED_OFF,
+        ],
+        gates=[
+            lifecycle_gate("draft", complete=True, actor="builder"),
+            lifecycle_gate("archived", complete=True, actor="archiver", evidence_refs=["archive:1"]),
+            lifecycle_gate("diff_reviewed", complete=False, actor="diff"),
+            lifecycle_gate("signed_off", complete=False, actor="lead"),
+        ],
+    )
+
+    assert summary.current_stage == OperationalLifecycleStage.ARCHIVED
+    assert summary.completed_stages == ["draft", "archived"]
+    assert summary.missing_stages == ["diff_reviewed", "signed_off"]
+    assert summary.ready is False
+    assert summary.progress_percent == 50.0
+    assert summary.evidence_refs == ["archive:1"]
+    assert summary.next_action == "Review archive diff evidence and resolve regressions before sign-off."

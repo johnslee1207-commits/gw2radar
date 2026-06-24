@@ -803,6 +803,14 @@ def test_achievement_route_operator_action_bundle_aggregates_and_records_review(
         assert release_dashboard.latest_archive_id == archive_record_second.archive_id
         assert release_dashboard.diff_regression_count == 0
         assert release_dashboard.latest_signoff_id == signoff_record.signoff_id
+        assert "diff_reviewed" in release_dashboard.operational_lifecycle.completed_stages
+        if release_dashboard.latest_signoff_status == "signed_off":
+            assert release_dashboard.operational_lifecycle.current_stage == "signed_off"
+            assert "signed_off" in release_dashboard.operational_lifecycle.completed_stages
+        else:
+            assert release_dashboard.operational_lifecycle.current_stage == "diff_reviewed"
+            assert "signed_off" not in release_dashboard.operational_lifecycle.completed_stages
+        assert release_dashboard.operational_lifecycle.progress_percent >= 50.0
         assert "Achievement Route Operator Release Dashboard" in release_dashboard_markdown
         assert "ready,maturity_label,bundle_id" in release_dashboard_csv
         assert release_export_packet.schema_version == "gw2radar.achievement_route_release_export_packet.v1"
@@ -1433,6 +1441,15 @@ def test_official_achievement_fetch_preview_promote_reviewed_api() -> None:
         assert release_dashboard.json()["data"]["operator_release_dashboard"]["archive_count"] == 2
         assert release_dashboard.json()["data"]["operator_release_dashboard"]["diff_regression_count"] == 0
         assert release_dashboard.json()["data"]["operator_release_dashboard"]["latest_signoff_reviewer"] == "api_review_operator"
+        release_status = release_dashboard.json()["data"]["operator_release_dashboard"]["latest_signoff_status"]
+        release_lifecycle = release_dashboard.json()["data"]["operator_release_dashboard"]["operational_lifecycle"]
+        assert release_lifecycle["current_stage"] in {"diff_reviewed", "signed_off"}
+        if release_status == "signed_off":
+            assert release_lifecycle["current_stage"] == "signed_off"
+            assert "signed_off" in release_lifecycle["completed_stages"]
+        else:
+            assert "signed_off" not in release_lifecycle["completed_stages"]
+        assert release_lifecycle["progress_percent"] >= 50.0
         assert "# Achievement Route Operator Release Dashboard" in release_dashboard_markdown.text
         assert "ready,maturity_label,bundle_id" in release_dashboard_csv.text
         assert release_export_packet.status_code == 200

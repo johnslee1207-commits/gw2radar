@@ -13,6 +13,7 @@ class OperationalLifecycleStage(StrEnum):
     ENABLED = "enabled"
     EXPORTED = "exported"
     ARCHIVED = "archived"
+    DIFF_REVIEWED = "diff_reviewed"
     SIGNED_OFF = "signed_off"
 
 
@@ -34,6 +35,15 @@ DEFAULT_RELEASE_LIFECYCLE = [
 
 class OperationalLifecycleEvent(BaseModel):
     stage: OperationalLifecycleStage
+    actor: str | None = None
+    occurred_at: datetime | None = None
+    evidence_refs: list[str] = Field(default_factory=list)
+    details: dict[str, str | int | bool] = Field(default_factory=dict)
+
+
+class OperationalLifecycleGate(BaseModel):
+    stage: OperationalLifecycleStage
+    complete: bool
     actor: str | None = None
     occurred_at: datetime | None = None
     evidence_refs: list[str] = Field(default_factory=list)
@@ -88,6 +98,33 @@ def build_operational_lifecycle_summary(
     )
 
 
+def build_operational_lifecycle_summary_from_gates(
+    *,
+    object_id: str,
+    object_type: str,
+    gates: list[OperationalLifecycleGate],
+    stage_order: list[OperationalLifecycleStage] | None = None,
+) -> OperationalLifecycleSummary:
+    order = stage_order or [gate.stage for gate in gates]
+    events = [
+        lifecycle_event(
+            gate.stage,
+            actor=gate.actor,
+            occurred_at=gate.occurred_at,
+            evidence_refs=gate.evidence_refs,
+            details=gate.details,
+        )
+        for gate in gates
+        if gate.complete
+    ]
+    return build_operational_lifecycle_summary(
+        object_id=object_id,
+        object_type=object_type,
+        events=events,
+        stage_order=order,
+    )
+
+
 def lifecycle_event(
     stage: OperationalLifecycleStage | str,
     *,
@@ -100,6 +137,25 @@ def lifecycle_event(
         stage=OperationalLifecycleStage(stage),
         actor=actor,
         occurred_at=occurred_at or datetime.now(UTC),
+        evidence_refs=evidence_refs or [],
+        details=details or {},
+    )
+
+
+def lifecycle_gate(
+    stage: OperationalLifecycleStage | str,
+    *,
+    complete: bool,
+    actor: str | None = None,
+    occurred_at: datetime | None = None,
+    evidence_refs: list[str] | None = None,
+    details: dict[str, str | int | bool] | None = None,
+) -> OperationalLifecycleGate:
+    return OperationalLifecycleGate(
+        stage=OperationalLifecycleStage(stage),
+        complete=complete,
+        actor=actor,
+        occurred_at=occurred_at,
         evidence_refs=evidence_refs or [],
         details=details or {},
     )
@@ -142,6 +198,8 @@ def _next_action(missing: list[OperationalLifecycleStage]) -> str:
         return "Export a metadata-only operator packet for review."
     if stage == OperationalLifecycleStage.ARCHIVED:
         return "Archive the reviewed evidence bundle before sign-off."
+    if stage == OperationalLifecycleStage.DIFF_REVIEWED:
+        return "Review archive diff evidence and resolve regressions before sign-off."
     if stage == OperationalLifecycleStage.SIGNED_OFF:
         return "Record explicit release sign-off after archive diff review."
     return "Create the draft metadata record."

@@ -17,6 +17,12 @@ from gw2radar.delivery.lifecycle import (
     build_delivery_packet_zip_bundle,
     verify_delivery_packet_zip_bundle,
 )
+from gw2radar.ops.lifecycle import (
+    OperationalLifecycleStage,
+    OperationalLifecycleSummary,
+    build_operational_lifecycle_summary_from_gates,
+    lifecycle_gate,
+)
 
 
 RouteStepType = Literal["achievement", "collection"]
@@ -743,6 +749,7 @@ class AchievementRouteOperatorReleaseDashboard(BaseModel):
     warnings: list[str] = Field(default_factory=list)
     next_actions: list[str] = Field(default_factory=list)
     evidence_refs: list[str] = Field(default_factory=list)
+    operational_lifecycle: OperationalLifecycleSummary
     release_evidence_bundle: AchievementRouteUnifiedReleaseEvidenceBundle
     release_evidence_archive_index: AchievementRouteReleaseEvidenceArchiveIndex
     release_evidence_archive_diff: AchievementRouteReleaseEvidenceArchiveDiff
@@ -3257,6 +3264,13 @@ def build_achievement_route_operator_release_dashboard(
     if ready:
         next_actions.append("Release dashboard is ready; keep bundle, archive, diff, and sign-off exports with the manual release packet.")
 
+    operational_lifecycle = _achievement_route_release_operational_lifecycle(
+        bundle=bundle,
+        archive_index=archive_index,
+        diff=diff,
+        latest_signoff=latest_signoff,
+    )
+
     return AchievementRouteOperatorReleaseDashboard(
         generated_at=datetime.now(UTC),
         ready=ready,
@@ -3280,10 +3294,93 @@ def build_achievement_route_operator_release_dashboard(
             "/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/archive/diff",
             "/api/v1/achievement-routes/source-quality/remediation-queue/release-evidence-bundle/signoff-audit",
         ],
+        operational_lifecycle=operational_lifecycle,
         release_evidence_bundle=bundle,
         release_evidence_archive_index=archive_index,
         release_evidence_archive_diff=diff,
         release_signoff_audit=signoff_audit,
+    )
+
+
+def _achievement_route_release_operational_lifecycle(
+    *,
+    bundle: AchievementRouteUnifiedReleaseEvidenceBundle,
+    archive_index: AchievementRouteReleaseEvidenceArchiveIndex,
+    diff: AchievementRouteReleaseEvidenceArchiveDiff,
+    latest_signoff: AchievementRouteReleaseSignoffRecord | None,
+) -> OperationalLifecycleSummary:
+    latest_archive = archive_index.records[0] if archive_index.records else None
+    diff_ready = (
+        diff.baseline_archive_id is not None
+        and diff.candidate_archive_id is not None
+        and diff.regression_count == 0
+        and diff.maturity_label != "blocked"
+    )
+    return build_operational_lifecycle_summary_from_gates(
+        object_id=bundle.bundle_id,
+        object_type="achievement_route_release",
+        stage_order=[
+            OperationalLifecycleStage.DRAFT,
+            OperationalLifecycleStage.REVIEWED,
+            OperationalLifecycleStage.EXPORTED,
+            OperationalLifecycleStage.ARCHIVED,
+            OperationalLifecycleStage.DIFF_REVIEWED,
+            OperationalLifecycleStage.SIGNED_OFF,
+        ],
+        gates=[
+            lifecycle_gate(
+                OperationalLifecycleStage.DRAFT,
+                complete=True,
+                actor="release_bundle_builder",
+                occurred_at=bundle.generated_at,
+                evidence_refs=bundle.evidence_chain,
+                details={"bundle_ready": bundle.ready, "maturity": bundle.maturity_label},
+            ),
+            lifecycle_gate(
+                OperationalLifecycleStage.REVIEWED,
+                complete=bundle.maturity_label != "blocked",
+                actor="release_readiness",
+                occurred_at=bundle.generated_at,
+                evidence_refs=bundle.release_readiness.evidence_chain,
+                details={"readiness_score": int(bundle.release_readiness.readiness_score)},
+            ),
+            lifecycle_gate(
+                OperationalLifecycleStage.EXPORTED,
+                complete=bundle.maturity_label != "blocked",
+                actor="release_bundle_builder",
+                occurred_at=bundle.generated_at,
+                evidence_refs=bundle.artifacts,
+                details={"artifact_count": len(bundle.artifacts)},
+            ),
+            lifecycle_gate(
+                OperationalLifecycleStage.ARCHIVED,
+                complete=latest_archive is not None,
+                actor=latest_archive.archived_by if latest_archive else None,
+                occurred_at=latest_archive.archived_at if latest_archive else None,
+                evidence_refs=[latest_archive.archive_id] if latest_archive else [],
+                details={"archive_count": archive_index.total_records},
+            ),
+            lifecycle_gate(
+                OperationalLifecycleStage.DIFF_REVIEWED,
+                complete=diff_ready,
+                actor="release_archive_diff",
+                occurred_at=diff.generated_at,
+                evidence_refs=[
+                    ref
+                    for ref in [diff.baseline_archive_id, diff.candidate_archive_id]
+                    if ref
+                ],
+                details={"regression_count": diff.regression_count},
+            ),
+            lifecycle_gate(
+                OperationalLifecycleStage.SIGNED_OFF,
+                complete=bool(latest_signoff and latest_signoff.status == "signed_off"),
+                actor=latest_signoff.reviewer if latest_signoff else None,
+                occurred_at=latest_signoff.signed_off_at if latest_signoff else None,
+                evidence_refs=latest_signoff.evidence_refs if latest_signoff else [],
+                details={"signoff_status": latest_signoff.status if latest_signoff else "missing"},
+            ),
+        ],
     )
 
 
@@ -3302,6 +3399,8 @@ def render_achievement_route_operator_release_dashboard_markdown(
         f"- Diff maturity: {dashboard.diff_maturity}",
         f"- Diff regressions: {dashboard.diff_regression_count}",
         f"- Latest sign-off: {dashboard.latest_signoff_status or 'None'}",
+        f"- Operational lifecycle: {dashboard.operational_lifecycle.current_stage}",
+        f"- Operational progress: {dashboard.operational_lifecycle.progress_percent}%",
         f"- Boundary: {dashboard.boundary}",
         "",
         "## Missing Gates",
@@ -3336,6 +3435,8 @@ def render_achievement_route_operator_release_dashboard_csv(
             "missing_gate_count",
             "blocker_count",
             "warning_count",
+            "operational_stage",
+            "operational_progress_percent",
         ]
     )
     writer.writerow(
@@ -3353,6 +3454,8 @@ def render_achievement_route_operator_release_dashboard_csv(
             len(dashboard.missing_gates),
             len(dashboard.blockers),
             len(dashboard.warnings),
+            dashboard.operational_lifecycle.current_stage,
+            dashboard.operational_lifecycle.progress_percent,
         ]
     )
     return buffer.getvalue()
