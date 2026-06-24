@@ -213,6 +213,41 @@ def build_delivery_operational_lifecycle_summary(
     )
 
 
+def build_delivery_operational_lifecycle_projection(
+    *,
+    object_type: str,
+    primary_object_id: str | None,
+    fallback_object_id: str,
+    draft_ready: bool,
+    exported_ready: bool,
+    packaged_ready: bool,
+    verified_ready: bool,
+    audited_ready: bool,
+    handoff_ready: bool,
+    actor: str | None = None,
+    fallback_actor: str = "delivery_lifecycle",
+    occurred_at: datetime | None = None,
+    fallback_occurred_at: datetime | None = None,
+    evidence_refs: list[str] | None = None,
+    details: dict[str, str | int | bool] | None = None,
+) -> OperationalLifecycleSummary:
+    """Project domain delivery state into the shared metadata-only lifecycle."""
+    return build_delivery_operational_lifecycle_summary(
+        object_id=primary_object_id or fallback_object_id,
+        object_type=object_type,
+        draft_ready=draft_ready,
+        exported_ready=exported_ready,
+        packaged_ready=packaged_ready,
+        verified_ready=verified_ready,
+        audited_ready=audited_ready,
+        handoff_ready=handoff_ready,
+        actor=actor or fallback_actor,
+        occurred_at=occurred_at or fallback_occurred_at,
+        evidence_refs=evidence_refs,
+        details=details,
+    )
+
+
 def lifecycle_event(
     stage: OperationalLifecycleStage | str,
     *,

@@ -41,7 +41,7 @@ from gw2radar.delivery.lifecycle import (
 )
 from gw2radar.graph.graph_query import GraphData
 from gw2radar.kb.kb_repository import list_rules
-from gw2radar.ops.lifecycle import OperationalLifecycleSummary, build_delivery_operational_lifecycle_summary
+from gw2radar.ops.lifecycle import OperationalLifecycleSummary, build_delivery_operational_lifecycle_projection
 from gw2radar.security.log_sanitizer import sanitize_log_payload
 
 
@@ -604,9 +604,10 @@ def build_productized_report_delivery_checklist(
         ],
         evidence_refs=evidence_refs,
     )
-    operational_lifecycle = build_delivery_operational_lifecycle_summary(
-        object_id=latest_audit.audit_id if latest_audit else "productized-report-delivery",
+    operational_lifecycle = build_delivery_operational_lifecycle_projection(
         object_type="productized_report_delivery",
+        primary_object_id=latest_audit.audit_id if latest_audit else None,
+        fallback_object_id="productized-report-delivery",
         draft_ready=len(templates) >= 3,
         exported_ready=len(artifacts) >= 3,
         packaged_ready=packet_manifest is not None and packet_manifest.file_count >= max(1, len(artifacts) * 2),
@@ -614,7 +615,9 @@ def build_productized_report_delivery_checklist(
         audited_ready=bool(latest_audit and latest_audit.ready),
         handoff_ready=readiness.ready,
         actor=latest_audit.reviewer if latest_audit else "report-ops",
-        occurred_at=latest_audit.recorded_at if latest_audit else readiness.generated_at,
+        fallback_actor="report-ops",
+        occurred_at=latest_audit.recorded_at if latest_audit else None,
+        fallback_occurred_at=readiness.generated_at,
         evidence_refs=evidence_refs,
         details={
             "template_count": len(templates),

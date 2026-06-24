@@ -16,7 +16,7 @@ from gw2radar.delivery.lifecycle import (
     build_delivery_packet_zip_bundle,
     verify_delivery_packet_zip_bundle,
 )
-from gw2radar.ops.lifecycle import OperationalLifecycleSummary, build_delivery_operational_lifecycle_summary
+from gw2radar.ops.lifecycle import OperationalLifecycleSummary, build_delivery_operational_lifecycle_projection
 from gw2radar.support.account_debug_bundle_audit import SupportReviewAuditRecord, SupportReviewMetricsSummary
 
 SUPPORT_CASE_INCIDENT_PACKET_ROOT = Path("src/gw2radar/reports/artifacts/support_case_incident_packets")
@@ -1124,17 +1124,19 @@ def build_support_case_incident_handoff_checklist(
         "/api/v1/player/support-case/incident-packet/bundle/verify",
         "/api/v1/player/support-case/incident-packet/bundle/verification-audit",
     ]
-    operational_lifecycle = build_delivery_operational_lifecycle_summary(
-        object_id=latest_audit.audit_id if latest_audit else (latest_packet.packet_id if latest_packet else "support-case-incident-handoff"),
+    operational_lifecycle = build_delivery_operational_lifecycle_projection(
         object_type="support_case_incident_handoff",
+        primary_object_id=latest_audit.audit_id if latest_audit else (latest_packet.packet_id if latest_packet else None),
+        fallback_object_id="support-case-incident-handoff",
         draft_ready=dashboard_ready,
         exported_ready=bool(latest_packet and latest_packet.ready),
         packaged_ready=zip_manifest is not None and zip_manifest.file_count >= len(SUPPORT_CASE_INCIDENT_PACKET_FILES),
         verified_ready=bool(zip_verification and zip_verification.ready),
         audited_ready=bool(latest_audit and latest_audit.ready),
         handoff_ready=ready,
-        actor=latest_audit.reviewer if latest_audit else "support",
-        occurred_at=latest_audit.recorded_at if latest_audit else datetime.now(timezone.utc),
+        actor=latest_audit.reviewer if latest_audit else None,
+        fallback_actor="support",
+        occurred_at=latest_audit.recorded_at if latest_audit else None,
         evidence_refs=evidence_refs,
         details={
             "dashboard_ready": dashboard_ready,
@@ -1769,11 +1771,12 @@ def build_support_case_incident_final_handoff_checklist(
         "/api/v1/player/support-case/incident-operator-packet/artifacts/bundle/verify",
         "/api/v1/player/support-case/incident-operator-packet/artifacts/bundle/verification-audit",
     ]
-    operational_lifecycle = build_delivery_operational_lifecycle_summary(
-        object_id=latest_audit.audit_id if latest_audit else (
-            latest_artifact.artifact_id if latest_artifact else "support-case-incident-final-handoff"
-        ),
+    operational_lifecycle = build_delivery_operational_lifecycle_projection(
         object_type="support_case_incident_final_handoff",
+        primary_object_id=latest_audit.audit_id if latest_audit else (
+            latest_artifact.artifact_id if latest_artifact else None
+        ),
+        fallback_object_id="support-case-incident-final-handoff",
         draft_ready=latest_artifact is not None,
         exported_ready=bool(latest_artifact and latest_artifact.ready),
         packaged_ready=zip_manifest is not None
@@ -1781,8 +1784,9 @@ def build_support_case_incident_final_handoff_checklist(
         verified_ready=bool(zip_verification and zip_verification.ready),
         audited_ready=bool(latest_audit and latest_audit.ready),
         handoff_ready=ready,
-        actor=latest_audit.reviewer if latest_audit else "support",
-        occurred_at=latest_audit.recorded_at if latest_audit else datetime.now(timezone.utc),
+        actor=latest_audit.reviewer if latest_audit else None,
+        fallback_actor="support",
+        occurred_at=latest_audit.recorded_at if latest_audit else None,
         evidence_refs=evidence_refs,
         details={
             "operator_artifact_file_count": latest_artifact.file_count if latest_artifact else 0,
@@ -2349,11 +2353,12 @@ def build_support_case_incident_closure_dashboard(
         "/api/v1/player/support-case/incident-final-handoff-packet/artifacts",
         "/api/v1/player/support-case/incident-final-handoff-packet/artifacts/bundle/verification-audit",
     ]
-    operational_lifecycle = build_delivery_operational_lifecycle_summary(
-        object_id=latest_final_audit.audit_id if latest_final_audit else (
-            latest_final_packet.packet_id if latest_final_packet else "support-case-incident-closure"
-        ),
+    operational_lifecycle = build_delivery_operational_lifecycle_projection(
         object_type="support_case_incident_closure",
+        primary_object_id=latest_final_audit.audit_id if latest_final_audit else (
+            latest_final_packet.packet_id if latest_final_packet else None
+        ),
+        fallback_object_id="support-case-incident-closure",
         draft_ready=bool(latest_packet and latest_packet.ready),
         exported_ready=bool(latest_operator_artifact and latest_operator_artifact.ready),
         packaged_ready=bool(latest_final_packet and latest_final_packet.ready),
@@ -2367,8 +2372,9 @@ def build_support_case_incident_closure_dashboard(
             and latest_final_audit.ready
         ),
         handoff_ready=ready,
-        actor=latest_final_audit.reviewer if latest_final_audit else "support",
-        occurred_at=latest_final_audit.recorded_at if latest_final_audit else datetime.now(timezone.utc),
+        actor=latest_final_audit.reviewer if latest_final_audit else None,
+        fallback_actor="support",
+        occurred_at=latest_final_audit.recorded_at if latest_final_audit else None,
         evidence_refs=evidence_refs,
         details={
             "packet_audit_count": len(packet_audit.records),

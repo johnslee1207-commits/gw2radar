@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from gw2radar.ops.lifecycle import (
     DEFAULT_RELEASE_LIFECYCLE,
     OperationalLifecycleStage,
+    build_delivery_operational_lifecycle_projection,
     build_delivery_operational_lifecycle_summary,
     build_operational_lifecycle_summary_from_gates,
     build_operational_lifecycle_summary,
@@ -103,3 +104,34 @@ def test_delivery_operational_lifecycle_summary_tracks_packet_handoff_chain() ->
     assert summary.ready is False
     assert summary.progress_percent == 66.7
     assert summary.next_action == "Record a metadata-only verification audit before handoff."
+
+
+def test_delivery_operational_lifecycle_projection_normalizes_domain_metadata() -> None:
+    occurred_at = datetime(2026, 6, 24, tzinfo=UTC)
+
+    summary = build_delivery_operational_lifecycle_projection(
+        object_type="support_case_incident_closure",
+        primary_object_id=None,
+        fallback_object_id="support-case-incident-closure",
+        draft_ready=True,
+        exported_ready=True,
+        packaged_ready=True,
+        verified_ready=True,
+        audited_ready=True,
+        handoff_ready=True,
+        actor=None,
+        fallback_actor="support",
+        occurred_at=None,
+        fallback_occurred_at=occurred_at,
+        evidence_refs=["dashboard", "audit"],
+        details={"audit_count": 1, "verification_ready": True},
+    )
+
+    assert summary.object_id == "support-case-incident-closure"
+    assert summary.object_type == "support_case_incident_closure"
+    assert summary.current_stage == OperationalLifecycleStage.HANDOFF_READY
+    assert summary.ready is True
+    assert summary.latest_actor == "support"
+    assert summary.latest_at == occurred_at
+    assert summary.evidence_refs == ["dashboard", "audit"]
+    assert summary.progress_percent == 100.0
