@@ -953,10 +953,11 @@ def record_support_case_incident_packet_zip_verification_audit(
         notes=[_safe_text(note, max_length=240) for note in (request.notes or [])]
         or ["Support case incident packet zip verification audit recorded."],
     )
-    root = audit_root or SUPPORT_CASE_INCIDENT_PACKET_AUDIT_ROOT
-    root.mkdir(parents=True, exist_ok=True)
-    with (root / "verification_audit.jsonl").open("a", encoding="utf-8") as handle:
-        handle.write(record.model_dump_json() + "\n")
+    _append_support_case_audit_record(
+        audit_root=audit_root,
+        file_name="verification_audit.jsonl",
+        record=record,
+    )
     return record
 
 
@@ -966,24 +967,14 @@ def list_support_case_incident_packet_zip_verification_audits(
     reviewer: str | None = None,
     limit: int = 20,
 ) -> SupportCaseIncidentPacketZipVerificationAuditList:
-    root = audit_root or SUPPORT_CASE_INCIDENT_PACKET_AUDIT_ROOT
-    path = root / "verification_audit.jsonl"
-    if not path.exists():
-        return SupportCaseIncidentPacketZipVerificationAuditList(records=[])
-    safe_reviewer = _safe_text(reviewer, max_length=80) if reviewer else None
-    records: list[SupportCaseIncidentPacketZipVerificationAuditRecord] = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if not line.strip():
-            continue
-        try:
-            record = SupportCaseIncidentPacketZipVerificationAuditRecord.model_validate_json(line)
-        except ValueError:
-            continue
-        if safe_reviewer and record.reviewer != safe_reviewer:
-            continue
-        records.append(record)
-    records.sort(key=lambda item: item.recorded_at, reverse=True)
-    return SupportCaseIncidentPacketZipVerificationAuditList(records=records[: max(1, min(limit, 100))])
+    records = _list_support_case_audit_records(
+        audit_root=audit_root,
+        file_name="verification_audit.jsonl",
+        record_model=SupportCaseIncidentPacketZipVerificationAuditRecord,
+        reviewer=reviewer,
+        limit=limit,
+    )
+    return SupportCaseIncidentPacketZipVerificationAuditList(records=records)
 
 
 def render_support_case_incident_packet_zip_verification_audit_markdown(
@@ -1567,10 +1558,11 @@ def record_support_case_incident_operator_packet_zip_verification_audit(
         notes=[_safe_text(note, max_length=240) for note in (request.notes or [])]
         or ["Support case incident operator packet zip verification audit recorded."],
     )
-    root = audit_root or SUPPORT_CASE_INCIDENT_PACKET_AUDIT_ROOT
-    root.mkdir(parents=True, exist_ok=True)
-    with (root / "operator_packet_zip_verification_audit.jsonl").open("a", encoding="utf-8") as handle:
-        handle.write(record.model_dump_json() + "\n")
+    _append_support_case_audit_record(
+        audit_root=audit_root,
+        file_name="operator_packet_zip_verification_audit.jsonl",
+        record=record,
+    )
     return record
 
 
@@ -1580,24 +1572,14 @@ def list_support_case_incident_operator_packet_zip_verification_audits(
     reviewer: str | None = None,
     limit: int = 20,
 ) -> SupportCaseIncidentOperatorPacketZipVerificationAuditList:
-    root = audit_root or SUPPORT_CASE_INCIDENT_PACKET_AUDIT_ROOT
-    path = root / "operator_packet_zip_verification_audit.jsonl"
-    if not path.exists():
-        return SupportCaseIncidentOperatorPacketZipVerificationAuditList(records=[])
-    safe_reviewer = _safe_text(reviewer, max_length=80) if reviewer else None
-    records: list[SupportCaseIncidentOperatorPacketZipVerificationAuditRecord] = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if not line.strip():
-            continue
-        try:
-            record = SupportCaseIncidentOperatorPacketZipVerificationAuditRecord.model_validate_json(line)
-        except ValueError:
-            continue
-        if safe_reviewer and record.reviewer != safe_reviewer:
-            continue
-        records.append(record)
-    records.sort(key=lambda item: item.recorded_at, reverse=True)
-    return SupportCaseIncidentOperatorPacketZipVerificationAuditList(records=records[: max(1, min(limit, 100))])
+    records = _list_support_case_audit_records(
+        audit_root=audit_root,
+        file_name="operator_packet_zip_verification_audit.jsonl",
+        record_model=SupportCaseIncidentOperatorPacketZipVerificationAuditRecord,
+        reviewer=reviewer,
+        limit=limit,
+    )
+    return SupportCaseIncidentOperatorPacketZipVerificationAuditList(records=records)
 
 
 def render_support_case_incident_operator_packet_zip_verification_audit_markdown(
@@ -2047,10 +2029,11 @@ def record_support_case_incident_final_handoff_packet_zip_verification_audit(
         notes=[_safe_text(note, max_length=240) for note in (request.notes or [])]
         or ["Support case incident final handoff packet zip verification audit recorded."],
     )
-    root = audit_root or SUPPORT_CASE_INCIDENT_PACKET_AUDIT_ROOT
-    root.mkdir(parents=True, exist_ok=True)
-    with (root / "final_handoff_packet_zip_verification_audit.jsonl").open("a", encoding="utf-8") as handle:
-        handle.write(record.model_dump_json() + "\n")
+    _append_support_case_audit_record(
+        audit_root=audit_root,
+        file_name="final_handoff_packet_zip_verification_audit.jsonl",
+        record=record,
+    )
     return record
 
 
@@ -2060,26 +2043,14 @@ def list_support_case_incident_final_handoff_packet_zip_verification_audits(
     reviewer: str | None = None,
     limit: int = 20,
 ) -> SupportCaseIncidentFinalHandoffPacketZipVerificationAuditList:
-    root = audit_root or SUPPORT_CASE_INCIDENT_PACKET_AUDIT_ROOT
-    path = root / "final_handoff_packet_zip_verification_audit.jsonl"
-    if not path.exists():
-        return SupportCaseIncidentFinalHandoffPacketZipVerificationAuditList(records=[])
-    safe_reviewer = _safe_text(reviewer, max_length=80) if reviewer else None
-    records: list[SupportCaseIncidentFinalHandoffPacketZipVerificationAuditRecord] = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if not line.strip():
-            continue
-        try:
-            record = SupportCaseIncidentFinalHandoffPacketZipVerificationAuditRecord.model_validate_json(line)
-        except ValueError:
-            continue
-        if safe_reviewer and record.reviewer != safe_reviewer:
-            continue
-        records.append(record)
-    records.sort(key=lambda item: item.recorded_at, reverse=True)
-    return SupportCaseIncidentFinalHandoffPacketZipVerificationAuditList(
-        records=records[: max(1, min(limit, 100))]
+    records = _list_support_case_audit_records(
+        audit_root=audit_root,
+        file_name="final_handoff_packet_zip_verification_audit.jsonl",
+        record_model=SupportCaseIncidentFinalHandoffPacketZipVerificationAuditRecord,
+        reviewer=reviewer,
+        limit=limit,
     )
+    return SupportCaseIncidentFinalHandoffPacketZipVerificationAuditList(records=records)
 
 
 def render_support_case_incident_final_handoff_packet_zip_verification_audit_markdown(
@@ -2688,10 +2659,11 @@ def record_support_case_incident_closure_packet_zip_verification_audit(
         notes=[_safe_text(note, max_length=240) for note in (request.notes or [])]
         or ["Support case incident closure packet zip verification audit recorded."],
     )
-    root = audit_root or SUPPORT_CASE_INCIDENT_PACKET_AUDIT_ROOT
-    root.mkdir(parents=True, exist_ok=True)
-    with (root / "closure_packet_zip_verification_audit.jsonl").open("a", encoding="utf-8") as handle:
-        handle.write(record.model_dump_json() + "\n")
+    _append_support_case_audit_record(
+        audit_root=audit_root,
+        file_name="closure_packet_zip_verification_audit.jsonl",
+        record=record,
+    )
     return record
 
 
@@ -2701,26 +2673,14 @@ def list_support_case_incident_closure_packet_zip_verification_audits(
     reviewer: str | None = None,
     limit: int = 20,
 ) -> SupportCaseIncidentClosurePacketZipVerificationAuditList:
-    root = audit_root or SUPPORT_CASE_INCIDENT_PACKET_AUDIT_ROOT
-    path = root / "closure_packet_zip_verification_audit.jsonl"
-    if not path.exists():
-        return SupportCaseIncidentClosurePacketZipVerificationAuditList(records=[])
-    safe_reviewer = _safe_text(reviewer, max_length=80) if reviewer else None
-    records: list[SupportCaseIncidentClosurePacketZipVerificationAuditRecord] = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if not line.strip():
-            continue
-        try:
-            record = SupportCaseIncidentClosurePacketZipVerificationAuditRecord.model_validate_json(line)
-        except ValueError:
-            continue
-        if safe_reviewer and record.reviewer != safe_reviewer:
-            continue
-        records.append(record)
-    records.sort(key=lambda item: item.recorded_at, reverse=True)
-    return SupportCaseIncidentClosurePacketZipVerificationAuditList(
-        records=records[: max(1, min(limit, 100))]
+    records = _list_support_case_audit_records(
+        audit_root=audit_root,
+        file_name="closure_packet_zip_verification_audit.jsonl",
+        record_model=SupportCaseIncidentClosurePacketZipVerificationAuditRecord,
+        reviewer=reviewer,
+        limit=limit,
     )
+    return SupportCaseIncidentClosurePacketZipVerificationAuditList(records=records)
 
 
 def render_support_case_incident_closure_packet_zip_verification_audit_markdown(
@@ -2968,6 +2928,46 @@ def _support_case_zip_profile(kind: str) -> SupportCaseIncidentZipProfile:
         ),
     }
     return profiles[kind]
+
+
+def _append_support_case_audit_record(
+    *,
+    audit_root: Path | None,
+    file_name: str,
+    record: BaseModel,
+) -> None:
+    root = audit_root or SUPPORT_CASE_INCIDENT_PACKET_AUDIT_ROOT
+    root.mkdir(parents=True, exist_ok=True)
+    with (root / file_name).open("a", encoding="utf-8") as handle:
+        handle.write(record.model_dump_json() + "\n")
+
+
+def _list_support_case_audit_records(
+    *,
+    audit_root: Path | None,
+    file_name: str,
+    record_model: type[BaseModel],
+    reviewer: str | None,
+    limit: int,
+) -> list[BaseModel]:
+    root = audit_root or SUPPORT_CASE_INCIDENT_PACKET_AUDIT_ROOT
+    path = root / file_name
+    if not path.exists():
+        return []
+    safe_reviewer = _safe_text(reviewer, max_length=80) if reviewer else None
+    records: list[BaseModel] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        try:
+            record = record_model.model_validate_json(line)
+        except ValueError:
+            continue
+        if safe_reviewer and getattr(record, "reviewer", None) != safe_reviewer:
+            continue
+        records.append(record)
+    records.sort(key=lambda item: getattr(item, "recorded_at"), reverse=True)
+    return records[: max(1, min(limit, 100))]
 
 
 def _build_flat_delivery_zip(
