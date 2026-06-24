@@ -62,6 +62,9 @@ def test_patch_admin_workflow_reviews_persists_enables_and_returns_dashboard_exp
         enabled_data = enabled.json()["data"]
         item = next(item for item in enabled_data["dashboard"]["items"] if item["patch_id"] == patch_id)
         assert item["lifecycle_status"] == "enabled"
+        assert item["operational_lifecycle"]["schema_version"] == "gw2radar.operational_lifecycle_summary.v1"
+        assert item["operational_lifecycle"]["ready"] is True
+        assert item["operational_lifecycle"]["current_stage"] == "enabled"
         assert item["enabled_rule_count"] == 1
         assert enabled_data["audit"]["events"][-1]["action"] == "enable"
         assert enabled_data["audit"]["events"][-1]["reviewer"] == "workflow-enabler"

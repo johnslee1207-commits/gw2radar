@@ -181,12 +181,21 @@ def test_patch_review_dashboard_aggregates_lifecycle_status(monkeypatch) -> None
             enabled_dashboard = build_patch_review_dashboard(list_rules(session), summary_root, review_store)
 
         assert draft_dashboard[0].lifecycle_status == "draft"
+        assert draft_dashboard[0].operational_lifecycle is not None
+        assert draft_dashboard[0].operational_lifecycle.current_stage == "draft"
+        assert draft_dashboard[0].operational_lifecycle.missing_stages == ["reviewed", "persisted", "enabled"]
         assert reviewed_dashboard[0].lifecycle_status == "reviewed"
+        assert reviewed_dashboard[0].operational_lifecycle.current_stage == "reviewed"
+        assert reviewed_dashboard[0].operational_lifecycle.progress_percent == 50.0
         assert reviewed_dashboard[0].candidate_rule_count == 2
         assert persisted_dashboard[0].lifecycle_status == "persisted"
+        assert persisted_dashboard[0].operational_lifecycle.current_stage == "persisted"
+        assert persisted_dashboard[0].operational_lifecycle.next_action == "Enable reviewed persisted rules only after separate confirmation."
         assert persisted_dashboard[0].persisted_rule_count == 2
         assert persisted_dashboard[0].audit_action_counts == {"review": 1, "persist": 2}
         assert enabled_dashboard[0].lifecycle_status == "enabled"
+        assert enabled_dashboard[0].operational_lifecycle.ready is True
+        assert enabled_dashboard[0].operational_lifecycle.current_stage == "enabled"
         assert enabled_dashboard[0].enabled_rule_count == 1
         assert enabled_dashboard[0].latest_reviewer == "dashboard-reviewer"
     finally:

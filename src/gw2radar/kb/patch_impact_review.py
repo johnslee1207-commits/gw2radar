@@ -15,6 +15,13 @@ from gw2radar.kb.patch_rule_audit import (
     record_patch_rule_audit_event,
 )
 from gw2radar.ontology.action_types import ActionType
+from gw2radar.ops.lifecycle import (
+    DEFAULT_REVIEW_LIFECYCLE,
+    OperationalLifecycleStage,
+    OperationalLifecycleSummary,
+    build_operational_lifecycle_summary,
+    lifecycle_event,
+)
 
 
 DEFAULT_PATCH_SUMMARY_ROOT = Path("docs") / "knowledge_base" / "patch_notes"
@@ -113,6 +120,7 @@ class PatchReviewDashboardItem(BaseModel):
     latest_reviewer: str | None = None
     latest_audit_at: datetime | None = None
     rule_ids: list[str] = Field(default_factory=list)
+    operational_lifecycle: OperationalLifecycleSummary | None = None
 
 
 def list_patch_impact_drafts(
@@ -294,6 +302,7 @@ def build_patch_review_dashboard(
         action_counts = _audit_action_counts(patch_events)
         candidate_count = _candidate_count_for_review(draft)
         latest_event = patch_events[-1] if patch_events else None
+        lifecycle_summary = _patch_operational_lifecycle_summary(draft, patch_rules, patch_events)
         items.append(
             PatchReviewDashboardItem(
                 patch_id=draft.patch_id,
@@ -315,6 +324,7 @@ def build_patch_review_dashboard(
                 latest_reviewer=latest_event.reviewer if latest_event else None,
                 latest_audit_at=latest_event.occurred_at if latest_event else None,
                 rule_ids=[rule.rule_id for rule in patch_rules],
+                operational_lifecycle=lifecycle_summary,
             )
         )
     return sorted(items, key=lambda item: item.date, reverse=True)
@@ -416,11 +426,91 @@ def _dashboard_lifecycle_status(draft: PatchImpactDraft, rules: list[KnowledgeRu
     return "draft"
 
 
+def _patch_operational_lifecycle_summary(
+    draft: PatchImpactDraft,
+    rules: list[KnowledgeRule],
+    events: list[PatchRuleAuditEvent],
+) -> OperationalLifecycleSummary:
+    lifecycle_events = [
+        lifecycle_event(
+            OperationalLifecycleStage.DRAFT,
+            actor="source_registry",
+            occurred_at=datetime(1980, 1, 1, tzinfo=UTC),
+            evidence_refs=[draft.evidence_id, draft.source_pdf],
+            details={"review_status": draft.review_status.value},
+        )
+    ]
+    if draft.review_status == KnowledgeReviewStatus.REVIEWED:
+        review_event = _last_patch_audit_event(events, PatchRuleAuditAction.REVIEW)
+        lifecycle_events.append(
+            lifecycle_event(
+                OperationalLifecycleStage.REVIEWED,
+                actor=review_event.reviewer if review_event else None,
+                occurred_at=review_event.occurred_at if review_event else None,
+                evidence_refs=review_event.evidence_refs if review_event else [draft.evidence_id, draft.source_pdf],
+                details={"candidate_rule_count": _candidate_count_for_review(draft)},
+            )
+        )
+    if rules:
+        persist_events = [event for event in events if event.action == PatchRuleAuditAction.PERSIST]
+        latest_persist = persist_events[-1] if persist_events else None
+        lifecycle_events.append(
+            lifecycle_event(
+                OperationalLifecycleStage.PERSISTED,
+                actor=latest_persist.reviewer if latest_persist else None,
+                occurred_at=latest_persist.occurred_at if latest_persist else None,
+                evidence_refs=_unique_refs(
+                    [ref for event in persist_events for ref in event.evidence_refs]
+                    or [ref for rule in rules for ref in rule.evidence_refs]
+                ),
+                details={"persisted_rule_count": len(rules)},
+            )
+        )
+    enabled_rules = [rule for rule in rules if rule.enabled]
+    if enabled_rules:
+        enable_events = [event for event in events if event.action == PatchRuleAuditAction.ENABLE]
+        latest_enable = enable_events[-1] if enable_events else None
+        lifecycle_events.append(
+            lifecycle_event(
+                OperationalLifecycleStage.ENABLED,
+                actor=latest_enable.reviewer if latest_enable else None,
+                occurred_at=latest_enable.occurred_at if latest_enable else None,
+                evidence_refs=_unique_refs(
+                    [ref for event in enable_events for ref in event.evidence_refs]
+                    or [ref for rule in enabled_rules for ref in rule.evidence_refs]
+                ),
+                details={"enabled_rule_count": len(enabled_rules)},
+            )
+        )
+    return build_operational_lifecycle_summary(
+        object_id=draft.patch_id,
+        object_type="kb_patch_rule_candidate",
+        events=lifecycle_events,
+        stage_order=DEFAULT_REVIEW_LIFECYCLE,
+    )
+
+
 def _audit_action_counts(events: list[PatchRuleAuditEvent]) -> dict[str, int]:
     counts: dict[str, int] = {}
     for event in events:
         counts[event.action.value] = counts.get(event.action.value, 0) + 1
     return counts
+
+
+def _last_patch_audit_event(
+    events: list[PatchRuleAuditEvent],
+    action: PatchRuleAuditAction,
+) -> PatchRuleAuditEvent | None:
+    matches = [event for event in events if event.action == action]
+    return matches[-1] if matches else None
+
+
+def _unique_refs(refs: list[str]) -> list[str]:
+    unique: list[str] = []
+    for ref in refs:
+        if ref and ref not in unique:
+            unique.append(ref)
+    return unique
 
 
 def _patch_id_from_rule_condition(condition: str) -> str | None:
