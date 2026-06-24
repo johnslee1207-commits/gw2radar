@@ -804,27 +804,12 @@ def list_support_case_incident_packets(
     limit: int = 20,
 ) -> list[SupportCaseIncidentPacketManifest]:
     root = packet_root or SUPPORT_CASE_INCIDENT_PACKET_ROOT
-    if not root.exists():
-        return []
     packets: list[SupportCaseIncidentPacketManifest] = []
-    safe_limit = max(1, min(limit, 100))
-    for packet_dir in sorted([path for path in root.iterdir() if path.is_dir()], key=lambda item: item.name, reverse=True)[:safe_limit]:
-        manifest_path = packet_dir / "manifest.json"
-        if not manifest_path.exists():
-            continue
-        try:
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            continue
-        files = [
-            SupportCaseIncidentPacketFile(**file)
-            for file in manifest.get("files", [])
-            if file.get("file_name") in SUPPORT_CASE_INCIDENT_PACKET_FILES
-        ]
-        manifest_text = manifest_path.read_text(encoding="utf-8")
-        manifest_file = _packet_file_entry(root, manifest_path, "manifest.json", "application/json", manifest_text)
-        if not any(file.file_name == "manifest.json" for file in files):
-            files.append(manifest_file)
+    for packet_dir, manifest, files, manifest_file in _iter_support_case_manifest_entries(
+        root=root,
+        allowed_files=SUPPORT_CASE_INCIDENT_PACKET_FILES,
+        limit=limit,
+    ):
         packets.append(
             SupportCaseIncidentPacketManifest(
                 packet_id=packet_dir.name,
@@ -1448,26 +1433,12 @@ def list_support_case_incident_operator_packet_artifacts(
     limit: int = 20,
 ) -> list[SupportCaseIncidentOperatorPacketManifest]:
     root = artifact_root or SUPPORT_CASE_INCIDENT_OPERATOR_PACKET_ROOT
-    if not root.exists():
-        return []
     artifacts: list[SupportCaseIncidentOperatorPacketManifest] = []
-    for artifact_dir in sorted([path for path in root.iterdir() if path.is_dir()], key=lambda item: item.name, reverse=True)[: max(1, min(limit, 100))]:
-        manifest_path = artifact_dir / "manifest.json"
-        if not manifest_path.exists():
-            continue
-        try:
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            continue
-        files = [
-            SupportCaseIncidentPacketFile(**file)
-            for file in manifest.get("files", [])
-            if file.get("file_name") in SUPPORT_CASE_INCIDENT_OPERATOR_PACKET_FILES
-        ]
-        manifest_text = manifest_path.read_text(encoding="utf-8")
-        manifest_file = _packet_file_entry(root, manifest_path, "manifest.json", "application/json", manifest_text)
-        if not any(file.file_name == "manifest.json" for file in files):
-            files.append(manifest_file)
+    for artifact_dir, manifest, files, manifest_file in _iter_support_case_manifest_entries(
+        root=root,
+        allowed_files=SUPPORT_CASE_INCIDENT_OPERATOR_PACKET_FILES,
+        limit=limit,
+    ):
         artifacts.append(
             SupportCaseIncidentOperatorPacketManifest(
                 artifact_id=artifact_dir.name,
@@ -1959,26 +1930,12 @@ def list_support_case_incident_final_handoff_packets(
     limit: int = 20,
 ) -> list[SupportCaseIncidentFinalHandoffPacketManifest]:
     root = artifact_root or SUPPORT_CASE_INCIDENT_FINAL_HANDOFF_PACKET_ROOT
-    if not root.exists():
-        return []
     packets: list[SupportCaseIncidentFinalHandoffPacketManifest] = []
-    for packet_dir in sorted([path for path in root.iterdir() if path.is_dir()], key=lambda item: item.name, reverse=True)[: max(1, min(limit, 100))]:
-        manifest_path = packet_dir / "manifest.json"
-        if not manifest_path.exists():
-            continue
-        try:
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            continue
-        files = [
-            SupportCaseIncidentPacketFile(**file)
-            for file in manifest.get("files", [])
-            if file.get("file_name") in SUPPORT_CASE_INCIDENT_FINAL_HANDOFF_PACKET_FILES
-        ]
-        manifest_text = manifest_path.read_text(encoding="utf-8")
-        manifest_file = _packet_file_entry(root, manifest_path, "manifest.json", "application/json", manifest_text)
-        if not any(file.file_name == "manifest.json" for file in files):
-            files.append(manifest_file)
+    for packet_dir, manifest, files, manifest_file in _iter_support_case_manifest_entries(
+        root=root,
+        allowed_files=SUPPORT_CASE_INCIDENT_FINAL_HANDOFF_PACKET_FILES,
+        limit=limit,
+    ):
         packets.append(
             SupportCaseIncidentFinalHandoffPacketManifest(
                 packet_id=packet_dir.name,
@@ -2628,26 +2585,12 @@ def list_support_case_incident_closure_packets(
     limit: int = 20,
 ) -> list[SupportCaseIncidentClosurePacketManifest]:
     root = artifact_root or SUPPORT_CASE_INCIDENT_CLOSURE_PACKET_ROOT
-    if not root.exists():
-        return []
     packets: list[SupportCaseIncidentClosurePacketManifest] = []
-    for packet_dir in sorted([path for path in root.iterdir() if path.is_dir()], key=lambda item: item.name, reverse=True)[: max(1, min(limit, 100))]:
-        manifest_path = packet_dir / "manifest.json"
-        if not manifest_path.exists():
-            continue
-        try:
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            continue
-        files = [
-            SupportCaseIncidentPacketFile(**file)
-            for file in manifest.get("files", [])
-            if file.get("file_name") in SUPPORT_CASE_INCIDENT_CLOSURE_PACKET_FILES
-        ]
-        manifest_text = manifest_path.read_text(encoding="utf-8")
-        manifest_file = _packet_file_entry(root, manifest_path, "manifest.json", "application/json", manifest_text)
-        if not any(file.file_name == "manifest.json" for file in files):
-            files.append(manifest_file)
+    for packet_dir, manifest, files, manifest_file in _iter_support_case_manifest_entries(
+        root=root,
+        allowed_files=SUPPORT_CASE_INCIDENT_CLOSURE_PACKET_FILES,
+        limit=limit,
+    ):
         packets.append(
             SupportCaseIncidentClosurePacketManifest(
                 packet_id=packet_dir.name,
@@ -2958,6 +2901,38 @@ def _packet_file_entry(
 def _packet_checksum(files: list[SupportCaseIncidentPacketFile]) -> str:
     payload = "\n".join(f"{file.relative_path}:{file.checksum_sha256}" for file in sorted(files, key=lambda item: item.relative_path))
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _iter_support_case_manifest_entries(
+    *,
+    root: Path,
+    allowed_files: set[str],
+    limit: int,
+) -> list[tuple[Path, dict, list[SupportCaseIncidentPacketFile], SupportCaseIncidentPacketFile]]:
+    if not root.exists():
+        return []
+    entries: list[tuple[Path, dict, list[SupportCaseIncidentPacketFile], SupportCaseIncidentPacketFile]] = []
+    safe_limit = max(1, min(limit, 100))
+    artifact_dirs = sorted([path for path in root.iterdir() if path.is_dir()], key=lambda item: item.name, reverse=True)
+    for artifact_dir in artifact_dirs[:safe_limit]:
+        manifest_path = artifact_dir / "manifest.json"
+        if not manifest_path.exists():
+            continue
+        try:
+            manifest_text = manifest_path.read_text(encoding="utf-8")
+            manifest = json.loads(manifest_text)
+        except json.JSONDecodeError:
+            continue
+        files = [
+            SupportCaseIncidentPacketFile(**file)
+            for file in manifest.get("files", [])
+            if file.get("file_name") in allowed_files
+        ]
+        manifest_file = _packet_file_entry(root, manifest_path, "manifest.json", "application/json", manifest_text)
+        if not any(file.file_name == "manifest.json" for file in files):
+            files.append(manifest_file)
+        entries.append((artifact_dir, manifest, files, manifest_file))
+    return entries
 
 
 def _media_type(file_name: str) -> str:

@@ -220,7 +220,14 @@ def test_player_gateway_incident_timeline_correlates_refresh_events_without_secr
             "manifest.json",
         }
         assert incident_packets.status_code == 200
-        assert incident_packets.json()["data"]["support_case_incident_packets"][0]["packet_id"] == packet_payload["packet_id"]
+        listed_packet = incident_packets.json()["data"]["support_case_incident_packets"][0]
+        assert listed_packet["packet_id"] == packet_payload["packet_id"]
+        assert {file["file_name"] for file in listed_packet["files"]} == {
+            "dashboard.json",
+            "dashboard.md",
+            "dashboard.csv",
+            "manifest.json",
+        }
         manifest = client.get(f"/api/v1/player/support-case/incident-packet/{packet_payload['packet_id']}/manifest.json")
         packet_md = client.get(f"/api/v1/player/support-case/incident-packet/{packet_payload['packet_id']}/dashboard.md")
         blocked_path = client.get(f"/api/v1/player/support-case/incident-packet/{packet_payload['packet_id']}/../manifest.json")
@@ -439,7 +446,9 @@ def test_player_gateway_incident_timeline_correlates_refresh_events_without_secr
             "manifest.json",
         }
         assert operator_artifacts.status_code == 200
-        assert operator_artifacts.json()["data"]["support_case_incident_operator_packet_artifacts"][0]["artifact_id"] == artifact_payload["artifact_id"]
+        listed_operator_artifact = operator_artifacts.json()["data"]["support_case_incident_operator_packet_artifacts"][0]
+        assert listed_operator_artifact["artifact_id"] == artifact_payload["artifact_id"]
+        assert "manifest.json" in {file["file_name"] for file in listed_operator_artifact["files"]}
         operator_manifest = client.get(
             f"/api/v1/player/support-case/incident-operator-packet/artifacts/{artifact_payload['artifact_id']}/manifest.json"
         )
@@ -553,7 +562,9 @@ def test_player_gateway_incident_timeline_correlates_refresh_events_without_secr
             "manifest.json",
         }
         assert final_handoff_packets.status_code == 200
-        assert final_handoff_packets.json()["data"]["support_case_incident_final_handoff_packets"][0]["packet_id"] == final_packet_payload["packet_id"]
+        listed_final_packet = final_handoff_packets.json()["data"]["support_case_incident_final_handoff_packets"][0]
+        assert listed_final_packet["packet_id"] == final_packet_payload["packet_id"]
+        assert "manifest.json" in {file["file_name"] for file in listed_final_packet["files"]}
         final_packet_manifest = client.get(
             f"/api/v1/player/support-case/incident-final-handoff-packet/artifacts/{final_packet_payload['packet_id']}/manifest.json"
         )
@@ -684,7 +695,9 @@ def test_player_gateway_incident_timeline_correlates_refresh_events_without_secr
             "manifest.json",
         }
         assert closure_packets.status_code == 200
-        assert closure_packets.json()["data"]["support_case_incident_closure_packets"][0]["packet_id"] == closure_packet_payload["packet_id"]
+        listed_closure_packet = closure_packets.json()["data"]["support_case_incident_closure_packets"][0]
+        assert listed_closure_packet["packet_id"] == closure_packet_payload["packet_id"]
+        assert "manifest.json" in {file["file_name"] for file in listed_closure_packet["files"]}
         closure_packet_manifest = client.get(
             f"/api/v1/player/support-case/incident-closure-packet/artifacts/{closure_packet_payload['packet_id']}/manifest.json"
         )
