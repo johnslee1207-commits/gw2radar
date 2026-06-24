@@ -1,0 +1,167 @@
+{
+  "code_checks": [
+    {
+      "axis": "code",
+      "check_id": "shared_delivery_lifecycle_contract",
+      "evidence": "Shared lifecycle zip construction remains centralized.",
+      "required": true,
+      "status": "ready"
+    },
+    {
+      "axis": "code",
+      "check_id": "shared_delivery_readiness_contract",
+      "evidence": "Productized reports can use one readiness contract instead of bespoke gates.",
+      "required": true,
+      "status": "ready"
+    },
+    {
+      "axis": "code",
+      "check_id": "shared_operational_lifecycle_projection",
+      "evidence": "Delivery objects can share operational lifecycle summaries.",
+      "required": true,
+      "status": "ready"
+    },
+    {
+      "axis": "code",
+      "check_id": "shared_delivery_readiness_projection",
+      "evidence": "Delivery readiness projection can be reused by support and productized report flows.",
+      "required": true,
+      "status": "ready"
+    },
+    {
+      "axis": "code",
+      "check_id": "support_closure_projection",
+      "evidence": "Support closure state is represented as a typed projection.",
+      "required": true,
+      "status": "ready"
+    },
+    {
+      "axis": "code",
+      "check_id": "support_manifest_listing_helper",
+      "evidence": "Support packet artifact listing uses one manifest iterator.",
+      "required": true,
+      "status": "ready"
+    },
+    {
+      "axis": "code",
+      "check_id": "support_path_safe_resolver",
+      "evidence": "Support artifact download paths route through one path-safe resolver.",
+      "required": true,
+      "status": "ready"
+    },
+    {
+      "axis": "code",
+      "check_id": "support_zip_profile_helper",
+      "evidence": "Support zip construction uses shared profile metadata per packet kind.",
+      "required": true,
+      "status": "ready"
+    },
+    {
+      "axis": "code",
+      "check_id": "support_metadata_audit_storage_helper",
+      "evidence": "Support zip verification audits write through one metadata-only storage helper.",
+      "required": true,
+      "status": "ready"
+    },
+    {
+      "axis": "code",
+      "check_id": "productized_report_delivery_readiness_reuse",
+      "evidence": "Productized commercial reports reuse delivery readiness rather than local readiness copies.",
+      "required": true,
+      "status": "ready"
+    },
+    {
+      "axis": "code",
+      "check_id": "productized_report_operational_projection_reuse",
+      "evidence": "Productized commercial reports expose the same operational lifecycle projection.",
+      "required": true,
+      "status": "ready"
+    },
+    {
+      "axis": "harness",
+      "check_id": "stage_gate_declares_fast_maturity_checks",
+      "evidence": "Harness guide declares the delivery maturity audit as a fast freshness check.",
+      "required": true,
+      "status": "ready"
+    }
+  ],
+  "evidence_files": [
+    "src\\gw2radar\\commercial\\support_case_incidents.py",
+    "src\\gw2radar\\commercial\\report_productization.py",
+    "src\\gw2radar\\delivery\\lifecycle.py",
+    "src\\gw2radar\\ops\\lifecycle.py",
+    "tests/test_gateway_incidents.py",
+    "tests/test_report_productization.py",
+    "tests/test_delivery_lifecycle.py",
+    "docs/HARNESS.md"
+  ],
+  "limitations": [
+    "The audit is static and local-first; it does not run live GW2 API calls or provider credentials.",
+    "Release closure still requires python harness/run_stage_gate.py release before a milestone handoff.",
+    "Future domains should reuse the lifecycle helpers instead of adding another horizontal review/export/archive chain."
+  ],
+  "maturity_label": "mature_for_stage",
+  "next_priority": "Run release gate for milestone closure, then move only to targeted trial defects, live-key diagnostics, or lifecycle primitive refactors that remove measured duplication.",
+  "residual_duplication_metrics": [
+    {
+      "evidence": "One helper definition plus artifact listing call sites across packet kinds.",
+      "metric_id": "support_manifest_iterator_references",
+      "status": "ready",
+      "value": 5
+    },
+    {
+      "evidence": "One helper definition plus path-safe artifact retrieval call sites.",
+      "metric_id": "support_path_resolver_references",
+      "status": "ready",
+      "value": 5
+    },
+    {
+      "evidence": "One helper definition plus metadata-only audit record call sites.",
+      "metric_id": "support_audit_storage_references",
+      "status": "ready",
+      "value": 5
+    },
+    {
+      "evidence": "All four support packet kinds are represented in the zip profile table.",
+      "metric_id": "support_zip_profile_packet_kinds",
+      "status": "ready",
+      "value": 4
+    }
+  ],
+  "schema_version": "gw2radar.delivery_maturity_audit.v1",
+  "scope": "P2.8 support and productized delivery horizontal lifecycle closeout",
+  "score": 100.0,
+  "semantic_edges": [
+    {
+      "evidence": "Support packets build deterministic zip bundles through shared lifecycle contracts.",
+      "relation": "uses",
+      "source": "support_case_incident_packet",
+      "target": "delivery_lifecycle_zip_policy"
+    },
+    {
+      "evidence": "Verification records exclude raw keys, raw debug bundles, private payloads, and zip bytes.",
+      "relation": "records",
+      "source": "support_case_incident_packet",
+      "target": "metadata_only_verification_audit"
+    },
+    {
+      "evidence": "Closure readiness is exposed through shared operational lifecycle projections.",
+      "relation": "projects",
+      "source": "support_case_incident_closure",
+      "target": "operational_lifecycle_summary"
+    },
+    {
+      "evidence": "Commercial report packets share readiness and lifecycle semantics with support packets.",
+      "relation": "reuses",
+      "source": "productized_commercial_report",
+      "target": "delivery_lifecycle_readiness"
+    },
+    {
+      "evidence": "Fast validation can detect drift in the P2.8 closeout maturity contract.",
+      "relation": "checks",
+      "source": "stage_gate",
+      "target": "delivery_maturity_audit"
+    }
+  ],
+  "status": "ready"
+}

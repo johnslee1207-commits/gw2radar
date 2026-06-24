@@ -1,6 +1,6 @@
 {
   "maturity_counts": {
-    "implemented": 53,
+    "implemented": 54,
     "partial": 14
   },
   "next_tranche": [
@@ -347,6 +347,7 @@
       "phase": "MVP 0.1.2",
       "related_tests": [
         "tests/test_delivery_lifecycle.py",
+        "tests/test_delivery_maturity_audit.py",
         "tests/test_do_not_sell_multi_goal.py",
         "tests/test_export_package.py",
         "tests/test_goal_conflicts.py",
@@ -356,8 +357,7 @@
         "tests/test_legendary_pro_api.py",
         "tests/test_legendary_pro_report.py",
         "tests/test_patch_dashboard_export.py",
-        "tests/test_report_export_job.py",
-        "tests/test_report_productization.py"
+        "tests/test_report_export_job.py"
       ],
       "source_path": "docs/mvp/MVP_0_1_2_REPORT_EXPORT_PACKAGE.md",
       "spec_id": "mvp_0_1_2_report_export_package",
@@ -568,6 +568,44 @@
       "source_path": "docs/analysis/CODE_SPECTRUM_AND_SEMANTIC_GRAPH.md",
       "spec_id": "code_spectrum_and_semantic_graph",
       "title": "GW2Radar Code Spectrum and Semantic Graph Analysis"
+    },
+    {
+      "category": "analysis",
+      "domains": [
+        "api_gateway",
+        "commercial",
+        "delivery",
+        "guild",
+        "support"
+      ],
+      "evidence": [
+        "12 related tests",
+        "maturity/audit language present",
+        "privacy/safety boundary referenced",
+        "domain:api_gateway",
+        "domain:commercial",
+        "domain:delivery"
+      ],
+      "maturity": "implemented",
+      "next_action": "Keep covered by stage gate and use as regression evidence.",
+      "phase": "cross-cutting",
+      "related_tests": [
+        "tests/test_account_debug_bundle_audit.py",
+        "tests/test_account_debug_bundle_review.py",
+        "tests/test_build_report.py",
+        "tests/test_creator_report.py",
+        "tests/test_delivery_lifecycle.py",
+        "tests/test_delivery_maturity_audit.py",
+        "tests/test_durable_refresh_queue.py",
+        "tests/test_entitlement_after_payment.py",
+        "tests/test_export_package.py",
+        "tests/test_free_report_preview.py",
+        "tests/test_gateway_contract.py",
+        "tests/test_gateway_incidents.py"
+      ],
+      "source_path": "docs/analysis/DELIVERY_MATURITY_AUDIT.md",
+      "spec_id": "delivery_maturity_audit",
+      "title": "Delivery Maturity Audit"
     },
     {
       "category": "analysis",
@@ -1382,7 +1420,7 @@
         "guild"
       ],
       "evidence": [
-        "11 related tests",
+        "12 related tests",
         "maturity/audit language present",
         "privacy/safety boundary referenced",
         "domain:delivery",
@@ -1393,6 +1431,7 @@
       "phase": "cross-cutting",
       "related_tests": [
         "tests/test_delivery_lifecycle.py",
+        "tests/test_delivery_maturity_audit.py",
         "tests/test_export_package.py",
         "tests/test_guild_api.py",
         "tests/test_guild_report.py",
@@ -1591,6 +1630,7 @@
       "phase": "MVP 0.1.2",
       "related_tests": [
         "tests/test_delivery_lifecycle.py",
+        "tests/test_delivery_maturity_audit.py",
         "tests/test_do_not_sell_multi_goal.py",
         "tests/test_export_package.py",
         "tests/test_goal_conflicts.py",
@@ -1600,8 +1640,7 @@
         "tests/test_legendary_pro_api.py",
         "tests/test_legendary_pro_report.py",
         "tests/test_patch_dashboard_export.py",
-        "tests/test_report_export_job.py",
-        "tests/test_report_productization.py"
+        "tests/test_report_export_job.py"
       ],
       "source_path": "docs/mvp/MVP_0_1_2_REPORT_EXPORT_PACKAGE.md",
       "spec_id": "mvp_0_1_2_report_export_package",
@@ -1913,7 +1952,7 @@
         "tests/test_api_key_fingerprint.py",
         "tests/test_api_key_permission_inspection.py",
         "tests/test_delivery_lifecycle.py",
-        "tests/test_do_not_sell_multi_goal.py"
+        "tests/test_delivery_maturity_audit.py"
       ],
       "source_path": "docs/mvp/MVP_0_1_LEGENDARY_GOAL.md",
       "spec_id": "mvp_0_1_legendary_goal",
@@ -2353,14 +2392,14 @@
         "tests/test_build_report.py",
         "tests/test_creator_report.py",
         "tests/test_delivery_lifecycle.py",
+        "tests/test_delivery_maturity_audit.py",
         "tests/test_do_not_sell_multi_goal.py",
         "tests/test_entitlement_after_payment.py",
         "tests/test_export_package.py",
         "tests/test_free_report_preview.py",
         "tests/test_guild_api.py",
         "tests/test_guild_report.py",
-        "tests/test_hold_candidate.py",
-        "tests/test_kb_backed_report.py"
+        "tests/test_hold_candidate.py"
       ],
       "source_path": "docs/mvp/MVP_0_3_6_CREATOR_INTELLIGENCE_CONSOLE.md",
       "spec_id": "mvp_0_3_6_creator_intelligence_console",
@@ -2603,8 +2642,8 @@
         "tests/test_build_requirement_schema.py",
         "tests/test_build_source_attribution.py",
         "tests/test_delivery_lifecycle.py",
-        "tests/test_export_package.py",
-        "tests/test_gateway_incidents.py"
+        "tests/test_delivery_maturity_audit.py",
+        "tests/test_export_package.py"
       ],
       "source_path": "docs/mvp/MVP_0_4_18_REVIEWED_BUILD_UPGRADE_RULE_PACK.md",
       "spec_id": "mvp_0_4_18_reviewed_build_upgrade_rule_pack",
@@ -2633,14 +2672,14 @@
         "tests/test_build_source_attribution.py",
         "tests/test_creator_report.py",
         "tests/test_delivery_lifecycle.py",
+        "tests/test_delivery_maturity_audit.py",
         "tests/test_do_not_sell_multi_goal.py",
         "tests/test_entitlement_after_payment.py",
         "tests/test_export_package.py",
         "tests/test_free_report_preview.py",
         "tests/test_goal_conflicts.py",
         "tests/test_goal_cost_index.py",
-        "tests/test_goal_gap.py",
-        "tests/test_goal_portfolio.py"
+        "tests/test_goal_gap.py"
       ],
       "source_path": "docs/mvp/MVP_0_4_1_KB_BACKED_RECOMMENDATION_EXPLANATIONS.md",
       "spec_id": "mvp_0_4_1_kb_backed_recommendation_explanations",
@@ -2669,14 +2708,14 @@
         "tests/test_build_source_attribution.py",
         "tests/test_creator_report.py",
         "tests/test_delivery_lifecycle.py",
+        "tests/test_delivery_maturity_audit.py",
         "tests/test_entitlement_after_payment.py",
         "tests/test_export_package.py",
         "tests/test_free_report_preview.py",
         "tests/test_guild_report.py",
         "tests/test_kb_api.py",
         "tests/test_kb_article_model.py",
-        "tests/test_kb_backed_report.py",
-        "tests/test_kb_directory_loader.py"
+        "tests/test_kb_backed_report.py"
       ],
       "source_path": "docs/mvp/MVP_0_4_2_KB_BACKED_PAID_REPORT_ARTIFACTS.md",
       "spec_id": "mvp_0_4_2_kb_backed_paid_report_artifacts",
@@ -2770,6 +2809,7 @@
       "related_tests": [
         "tests/test_build_source_attribution.py",
         "tests/test_delivery_lifecycle.py",
+        "tests/test_delivery_maturity_audit.py",
         "tests/test_export_package.py",
         "tests/test_guild_api.py",
         "tests/test_guild_report.py",
@@ -2778,8 +2818,7 @@
         "tests/test_kb_backed_report.py",
         "tests/test_kb_directory_loader.py",
         "tests/test_kb_domain_rule_packs.py",
-        "tests/test_kb_domain_seed_loader.py",
-        "tests/test_kb_entity_linker.py"
+        "tests/test_kb_domain_seed_loader.py"
       ],
       "source_path": "docs/mvp/MVP_0_4_5_OFFICIAL_NEWS_SOURCE_PROCESSING.md",
       "spec_id": "mvp_0_4_5_official_news_source_processing",
@@ -2806,6 +2845,7 @@
         "tests/test_account_value_holding_index.py",
         "tests/test_build_source_attribution.py",
         "tests/test_delivery_lifecycle.py",
+        "tests/test_delivery_maturity_audit.py",
         "tests/test_do_not_sell_multi_goal.py",
         "tests/test_export_package.py",
         "tests/test_hold_candidate.py",
@@ -2813,8 +2853,7 @@
         "tests/test_kb_article_model.py",
         "tests/test_kb_backed_report.py",
         "tests/test_kb_directory_loader.py",
-        "tests/test_kb_domain_rule_packs.py",
-        "tests/test_kb_domain_seed_loader.py"
+        "tests/test_kb_domain_rule_packs.py"
       ],
       "source_path": "docs/mvp/MVP_0_4_6_PATCH_IMPACT_REVIEW_ASSISTANT.md",
       "spec_id": "mvp_0_4_6_patch_impact_review_assistant",
@@ -2869,6 +2908,7 @@
       "related_tests": [
         "tests/test_build_source_attribution.py",
         "tests/test_delivery_lifecycle.py",
+        "tests/test_delivery_maturity_audit.py",
         "tests/test_export_package.py",
         "tests/test_kb_api.py",
         "tests/test_kb_article_model.py",
@@ -2877,8 +2917,7 @@
         "tests/test_kb_domain_rule_packs.py",
         "tests/test_kb_domain_seed_loader.py",
         "tests/test_kb_entity_linker.py",
-        "tests/test_kb_entity_linking.py",
-        "tests/test_kb_explanation.py"
+        "tests/test_kb_entity_linking.py"
       ],
       "source_path": "docs/mvp/MVP_0_4_8_PATCH_RULE_AUDIT_TRAIL.md",
       "spec_id": "mvp_0_4_8_patch_rule_audit_trail",
@@ -2922,5 +2961,5 @@
     }
   ],
   "schema_version": "gw2radar.spec_registry_backlog.v1",
-  "spec_count": 67
+  "spec_count": 68
 }

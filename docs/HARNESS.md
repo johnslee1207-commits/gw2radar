@@ -35,8 +35,8 @@ python harness/run_validation_profile.py full
   spec reconciliation freshness, MVP closure readiness, post-MVP roadmap
   freshness, operational hardening readiness freshness, and operator release
   packet readiness freshness, final closeout dashboard freshness, real user
-  trial defect triage readiness freshness, and AegisRadar reference borrowing
-  assessment freshness.
+  trial defect triage readiness freshness, AegisRadar reference borrowing
+  assessment freshness, and delivery maturity audit freshness.
 - `smoke`: MVP smoke, player UI E2E smoke, and account connection diagnostic.
 - `full`: complete `pytest` regression.
 

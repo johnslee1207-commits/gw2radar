@@ -1,13 +1,13 @@
 # Spec Registry And Backlog Index
 
 - Schema: gw2radar.spec_registry_backlog.v1
-- Spec count: 67
+- Spec count: 68
 - Player use-path checks: 46
 - Failed player use-path checks: 0
 
 ## Maturity Counts
 
-- implemented: 53
+- implemented: 54
 - partial: 14
 
 ## Next Stage Tranche
@@ -33,6 +33,7 @@
 | [AegisRadar Borrowing Assessment](docs/analysis/AEGISRADAR_BORROWING_ASSESSMENT.md) | analysis | implemented | 12 related tests, maturity/audit language present, manual review gate referenced, privacy/safety boundary referenced, domain:account, domain:build_fit | 12 |
 | [All-Stage Code Graph, Semantic Graph, and Maturity Audit](docs/analysis/ALL_STAGE_CODE_SEMANTIC_MATURITY_AUDIT.md) | analysis | implemented | 12 related tests, maturity/audit language present, manual review gate referenced, privacy/safety boundary referenced, domain:account, domain:api_gateway | 12 |
 | [GW2Radar Code Spectrum and Semantic Graph Analysis](docs/analysis/CODE_SPECTRUM_AND_SEMANTIC_GRAPH.md) | analysis | implemented | 12 related tests, maturity/audit language present, manual review gate referenced, privacy/safety boundary referenced, domain:account, domain:api_gateway | 12 |
+| [Delivery Maturity Audit](docs/analysis/DELIVERY_MATURITY_AUDIT.md) | analysis | implemented | 12 related tests, maturity/audit language present, privacy/safety boundary referenced, domain:api_gateway, domain:commercial, domain:delivery | 12 |
 | [Final Closeout Dashboard](docs/analysis/FINAL_CLOSEOUT_DASHBOARD.md) | analysis | implemented | 12 related tests, manual review gate referenced, privacy/safety boundary referenced, domain:account, domain:delivery, domain:guild | 12 |
 | [GW2Radar Final Project Acceptance And Graph Audit](docs/analysis/FINAL_PROJECT_ACCEPTANCE_AND_GRAPH_AUDIT.md) | analysis | implemented | 12 related tests, maturity/audit language present, manual review gate referenced, domain:account, domain:api_gateway, domain:commercial | 12 |
 | [GitNexus MVP Maturity Analysis](docs/analysis/GITNEXUS_MVP_MATURITY_ANALYSIS.md) | analysis | implemented | 12 related tests, maturity/audit language present, privacy/safety boundary referenced, domain:account, domain:api_gateway, domain:build_fit | 12 |
@@ -53,7 +54,7 @@
 | [GW2Radar / AegisRadar 信任体系与 API Key 安全架构设计](docs/analysis/GW2Radar_Trust_Credential_Architecture.md) | analysis | implemented | 12 related tests, maturity/audit language present, domain:account, domain:guild | 12 |
 | [KB Semantic Maturity And Priorities](docs/analysis/KB_SEMANTIC_MATURITY_AND_PRIORITIES.md) | analysis | implemented | 12 related tests, maturity/audit language present, manual review gate referenced, domain:account, domain:api_gateway, domain:build_fit | 12 |
 | [Operational Hardening Readiness](docs/analysis/OPERATIONAL_HARDENING_READINESS.md) | analysis | implemented | 6 related tests, maturity/audit language present, manual review gate referenced, privacy/safety boundary referenced, domain:guild | 6 |
-| [Operator Release Packet](docs/analysis/OPERATOR_RELEASE_PACKET_READINESS.md) | analysis | implemented | 11 related tests, maturity/audit language present, privacy/safety boundary referenced, domain:delivery, domain:guild | 11 |
+| [Operator Release Packet](docs/analysis/OPERATOR_RELEASE_PACKET_READINESS.md) | analysis | implemented | 12 related tests, maturity/audit language present, privacy/safety boundary referenced, domain:delivery, domain:guild | 12 |
 | [Post-MVP Graph Maturity And Roadmap](docs/analysis/POST_MVP_GRAPH_MATURITY_AND_ROADMAP.md) | analysis | implemented | 12 related tests, maturity/audit language present, manual review gate referenced, privacy/safety boundary referenced, domain:account, domain:api_gateway | 12 |
 | [GW2Radar Senior Player User Guide](docs/analysis/SENIOR_PLAYER_USER_GUIDE.md) | analysis | partial | 12 related tests, maturity/audit language present, manual review gate referenced, domain:account, domain:build_fit, domain:commercial | 12 |
 | [GW2Radar Three Commercial Opportunities User Guide](docs/analysis/THREE_COMMERCIAL_OPPORTUNITIES_USER_GUIDE.md) | analysis | implemented | 12 related tests, maturity/audit language present, privacy/safety boundary referenced, domain:account, domain:api_gateway, domain:build_fit | 12 |

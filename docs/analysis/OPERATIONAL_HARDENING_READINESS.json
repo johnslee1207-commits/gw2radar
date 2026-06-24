@@ -41,7 +41,7 @@
     },
     {
       "blocker": false,
-      "evidence": "spec_count=67",
+      "evidence": "spec_count=68",
       "gate_id": "spec_registry_depth",
       "status": "pass"
     },

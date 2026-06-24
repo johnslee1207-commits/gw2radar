@@ -22,6 +22,8 @@ def test_validation_profiles_are_staged_and_stable() -> None:
         "operator_release_packet",
         "final_closeout_dashboard",
         "trial_defect_triage",
+        "aegisradar_borrowing_assessment",
+        "delivery_maturity_audit",
     ]
     assert [step.step_id for step in get_validation_profile("smoke").steps] == [
         "mvp_smoke",
@@ -46,6 +48,8 @@ def test_validation_profile_commands_use_project_entrypoints() -> None:
     assert any("harness\\run_operator_release_packet.py --check" in command for command in fast_commands)
     assert any("harness\\run_final_closeout_dashboard.py --check" in command for command in fast_commands)
     assert any("harness\\run_trial_defect_triage.py --check" in command for command in fast_commands)
+    assert any("harness\\run_aegisradar_borrowing_assessment.py --check" in command for command in fast_commands)
+    assert any("harness\\run_delivery_maturity_audit.py --check" in command for command in fast_commands)
     assert any("harness\\run_smoke.py" in command for command in smoke_commands)
     assert any("harness\\run_player_ui_e2e_smoke.py" in command for command in smoke_commands)
     assert any("harness\\run_account_connection_diagnostic.py" in command for command in smoke_commands)
