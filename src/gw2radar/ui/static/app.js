@@ -1531,8 +1531,25 @@ function renderFirstRunSummary(summary) {
     }
     list.appendChild(row);
   }
-  for (const target of (summary.result_targets || []).slice(0, 3)) {
-    appendCompactBridgeRow(list, target.label || "Result", `${target.status || "unknown"} · ${target.evidence || ""}`, target.status === "ready" ? "info" : "warn");
+  const visibility = summary.result_visibility || {};
+  if (visibility.schema_version === "gw2radar.account_result_visibility.v1") {
+    appendCompactBridgeRow(
+      list,
+      "Result visibility",
+      `${visibility.ready_target_count || 0} ready · ${visibility.blocked_target_count || 0} blocked or waiting`,
+      visibility.blocked_target_count ? "warn" : "info"
+    );
+  }
+  for (const target of summary.result_targets || []) {
+    const detail = [
+      target.status || "unknown",
+      target.lifecycle_step ? `step ${target.lifecycle_step}` : "",
+      target.blocker || target.evidence || "",
+      target.next_action ? `Next: ${target.next_action}` : "",
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    appendCompactBridgeRow(list, target.label || "Result", detail, target.status === "ready" ? "info" : "warn");
   }
 }
 

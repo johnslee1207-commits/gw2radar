@@ -45,6 +45,15 @@ def test_account_connection_diagnostic_reports_sync_and_build_fit_bridge_without
         assert first_run_before_payload["summary_status"] == "sync_not_started"
         assert first_run_before_payload["primary_action"]["action_id"] == "enqueueSync"
         assert any(card["card_id"] == "sync_queue" and card["status"] == "empty" for card in first_run_before_payload["cards"])
+        before_targets = {target["target_id"]: target for target in first_run_before_payload["result_targets"]}
+        assert first_run_before_payload["result_visibility"]["schema_version"] == "gw2radar.account_result_visibility.v1"
+        assert first_run_before_payload["result_visibility"]["ready_target_count"] == 0
+        assert first_run_before_payload["result_visibility"]["blocked_target_count"] == 6
+        assert before_targets["account_value"]["status"] == "waiting_for_sync"
+        assert before_targets["account_value"]["lifecycle_step"] == "sync_queue"
+        assert before_targets["account_value"]["next_action"] == "Run Sync now to queue private account summaries."
+        assert before_targets["build_fit"]["status"] == "waiting_for_sync"
+        assert before_targets["market_radar"]["blocker"] == "No account sync job is visible yet."
         assert before_payload["snapshot_summary"]["synced_character_snapshot_count"] == 0
         queue_check = next(check for check in before_payload["checks"] if check["check_id"] == "sync_job_visible")
         assert queue_check["status"] == "warn"
@@ -63,8 +72,17 @@ def test_account_connection_diagnostic_reports_sync_and_build_fit_bridge_without
         assert after_payload["summary_status"] == "ready"
         assert first_run_after_sync.status_code == 200
         assert first_run_after_payload["summary_status"] == "ready"
-        assert first_run_after_payload["result_targets"][0]["status"] == "ready"
-        assert first_run_after_payload["result_targets"][1]["status"] == "ready"
+        assert first_run_after_payload["result_visibility"]["ready_target_count"] == 6
+        assert first_run_after_payload["result_visibility"]["blocked_target_count"] == 0
+        assert {target["status"] for target in first_run_after_payload["result_targets"]} == {"ready"}
+        assert {target["target_id"] for target in first_run_after_payload["result_targets"]} == {
+            "account_value",
+            "legendary_planner",
+            "market_radar",
+            "returner_diagnosis",
+            "build_fit",
+            "reports_support",
+        }
         assert {check["status"] for check in after_payload["checks"]} == {"pass"}
         assert after_payload["snapshot_summary"]["private_player_state_count"] >= 5
         assert after_payload["snapshot_summary"]["synced_character_snapshot_count"] == 1
@@ -180,7 +198,10 @@ def test_account_first_run_summary_guides_missing_key_without_private_payloads()
         assert payload["diagnostic_status"] == "blocked"
         assert payload["primary_action"] == {"action_id": "focus_api_key_input", "label": "Paste key"}
         assert any(card["card_id"] == "api_key" and card["status"] == "blocked" for card in payload["cards"])
-        assert payload["result_targets"][0]["status"] == "waiting_for_private_layer"
+        assert payload["result_visibility"]["ready_target_count"] == 0
+        assert payload["result_visibility"]["blocked_target_count"] == 6
+        assert payload["result_targets"][0]["status"] == "blocked_missing_key"
+        assert payload["result_targets"][0]["lifecycle_step"] == "api_key"
         assert "Raw" not in str(payload.get("cards", []))
         assert "private source payloads" in payload["boundary"]
     finally:

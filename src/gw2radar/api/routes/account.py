@@ -743,6 +743,17 @@ def _build_account_first_run_summary(store: EncryptedApiKeyStore) -> dict:
         player_message = "Account connection is ready; account value, Build Fit, Legendary, and Market evidence can use private summaries."
         primary_action = {"action_id": "refreshDashboard", "label": "Refresh dashboard"}
 
+    result_targets = _first_run_result_targets(
+        key_configured=key_configured,
+        limited_permissions=limited_permissions,
+        summary_status=summary_status,
+        diagnostic_status=diagnostic["summary_status"],
+        private_count=private_count,
+        synced_snapshot_count=synced_snapshot_count,
+        synced_gear_count=synced_gear_count,
+        has_queue_history=has_queue_history,
+        queued_or_pending=bool(queued_count or syncing_count or delayed_count),
+    )
     cards = [
         _first_run_card(
             "api_key",
@@ -792,26 +803,12 @@ def _build_account_first_run_summary(store: EncryptedApiKeyStore) -> dict:
         "player_message": player_message,
         "primary_action": primary_action,
         "cards": cards,
-        "result_targets": [
-            {
-                "target_id": "account_value",
-                "label": "Account Value",
-                "status": "ready" if key_configured and not limited_permissions and private_count > 0 else "waiting_for_private_layer",
-                "evidence": f"{private_count} private summary records available.",
-            },
-            {
-                "target_id": "build_fit",
-                "label": "Build Fit",
-                "status": "ready" if key_configured and not limited_permissions and synced_gear_count > 0 else "waiting_for_synced_gear",
-                "evidence": f"{synced_gear_count} synced gear entries available.",
-            },
-            {
-                "target_id": "support_handoff",
-                "label": "Support Handoff",
-                "status": "ready" if diagnostic["summary_status"] == "ready" else "diagnostic_needed",
-                "evidence": f"Diagnostic status {diagnostic['summary_status']}.",
-            },
-        ],
+        "result_visibility": {
+            "schema_version": "gw2radar.account_result_visibility.v1",
+            "ready_target_count": sum(1 for target in result_targets if target["status"] == "ready"),
+            "blocked_target_count": sum(1 for target in result_targets if target["status"] != "ready"),
+        },
+        "result_targets": result_targets,
         "next_actions": _diagnostic_next_actions(diagnostic["checks"]) if summary_status != "ready" else [
             "Refresh the dashboard and then open the opportunity you want to evaluate.",
             "Generate a support handoff only if account-aware output still looks empty.",
@@ -823,6 +820,174 @@ def _build_account_first_run_summary(store: EncryptedApiKeyStore) -> dict:
             "/account/diagnostic",
         ],
         "boundary": "First-run summary is read-only and excludes raw API keys, private source payloads, and full account item lists.",
+    }
+
+
+def _first_run_result_targets(
+    *,
+    key_configured: bool,
+    limited_permissions: bool,
+    summary_status: str,
+    diagnostic_status: str,
+    private_count: int,
+    synced_snapshot_count: int,
+    synced_gear_count: int,
+    has_queue_history: bool,
+    queued_or_pending: bool,
+) -> list[dict]:
+    private_ready = key_configured and not limited_permissions and has_queue_history and not queued_or_pending and private_count > 0
+    gear_ready = private_ready and synced_snapshot_count > 0 and synced_gear_count > 0
+    base_blocker = _result_blocker(
+        key_configured=key_configured,
+        limited_permissions=limited_permissions,
+        has_queue_history=has_queue_history,
+        queued_or_pending=queued_or_pending,
+        private_count=private_count,
+    )
+    return [
+        _result_target(
+            "account_value",
+            "Account Value",
+            ready=private_ready,
+            waiting_status=base_blocker["status"],
+            lifecycle_step=base_blocker["lifecycle_step"],
+            blocker=base_blocker["blocker"],
+            next_action=base_blocker["next_action"],
+            evidence=f"{private_count} private summary records available.",
+        ),
+        _result_target(
+            "legendary_planner",
+            "Legendary Planner",
+            ready=private_ready,
+            waiting_status=base_blocker["status"],
+            lifecycle_step=base_blocker["lifecycle_step"],
+            blocker=base_blocker["blocker"],
+            next_action=base_blocker["next_action"],
+            evidence="Uses private material, wallet, and goal-gap summaries after sync.",
+        ),
+        _result_target(
+            "market_radar",
+            "Market Radar",
+            ready=private_ready,
+            waiting_status=base_blocker["status"],
+            lifecycle_step=base_blocker["lifecycle_step"],
+            blocker=base_blocker["blocker"],
+            next_action=base_blocker["next_action"],
+            evidence="Uses private holdings plus reviewed/manual price snapshots; never trades automatically.",
+        ),
+        _result_target(
+            "returner_diagnosis",
+            "Returner Diagnosis",
+            ready=private_ready,
+            waiting_status=base_blocker["status"],
+            lifecycle_step=base_blocker["lifecycle_step"],
+            blocker=base_blocker["blocker"],
+            next_action=base_blocker["next_action"],
+            evidence="Uses private account readiness summaries after sync.",
+        ),
+        _result_target(
+            "build_fit",
+            "Build Fit",
+            ready=gear_ready,
+            waiting_status="waiting_for_synced_gear" if private_ready else base_blocker["status"],
+            lifecycle_step="character_snapshot" if private_ready else base_blocker["lifecycle_step"],
+            blocker=(
+                "No synced official character gear is available for Build Fit."
+                if private_ready
+                else base_blocker["blocker"]
+            ),
+            next_action="Load character snapshots or resync with character and inventories permissions."
+            if private_ready
+            else base_blocker["next_action"],
+            evidence=f"{synced_snapshot_count} synced snapshots and {synced_gear_count} synced gear entries available.",
+        ),
+        _result_target(
+            "reports_support",
+            "Reports & Support",
+            ready=diagnostic_status == "ready",
+            waiting_status="diagnostic_needed" if summary_status != "ready" else "ready",
+            lifecycle_step="diagnostic",
+            blocker="Connection diagnostic still has blocked or warning checks." if diagnostic_status != "ready" else "",
+            next_action=(
+                "Run connection diagnostic and export a privacy-safe support bundle if output is still empty."
+                if diagnostic_status != "ready"
+                else "Generate reports or support handoff only when you need an export."
+            ),
+            evidence=f"Diagnostic status {diagnostic_status}.",
+        ),
+    ]
+
+
+def _result_blocker(
+    *,
+    key_configured: bool,
+    limited_permissions: bool,
+    has_queue_history: bool,
+    queued_or_pending: bool,
+    private_count: int,
+) -> dict:
+    if not key_configured:
+        return {
+            "status": "blocked_missing_key",
+            "lifecycle_step": "api_key",
+            "blocker": "No GW2 API key is saved.",
+            "next_action": "Paste and save a GW2 API key with account-aware permissions.",
+        }
+    if limited_permissions:
+        return {
+            "status": "blocked_permissions",
+            "lifecycle_step": "permissions",
+            "blocker": "Required GW2 API permissions are missing or could not be confirmed.",
+            "next_action": "Update the key permissions, then re-run the diagnostic.",
+        }
+    if not has_queue_history:
+        return {
+            "status": "waiting_for_sync",
+            "lifecycle_step": "sync_queue",
+            "blocker": "No account sync job is visible yet.",
+            "next_action": "Run Sync now to queue private account summaries.",
+        }
+    if queued_or_pending:
+        return {
+            "status": "waiting_for_sync_completion",
+            "lifecycle_step": "sync_worker",
+            "blocker": "Account sync is queued, syncing, or delayed.",
+            "next_action": "Drain one sync job locally or wait for the worker to complete.",
+        }
+    if private_count <= 0:
+        return {
+            "status": "waiting_for_private_layer",
+            "lifecycle_step": "private_layer",
+            "blocker": "No private player-state summaries have been written.",
+            "next_action": "Drain or retry sync, then refresh the first-run summary.",
+        }
+    return {
+        "status": "ready",
+        "lifecycle_step": "ready",
+        "blocker": "",
+        "next_action": "Open the workflow you want to evaluate.",
+    }
+
+
+def _result_target(
+    target_id: str,
+    label: str,
+    *,
+    ready: bool,
+    waiting_status: str,
+    lifecycle_step: str,
+    blocker: str,
+    next_action: str,
+    evidence: str,
+) -> dict:
+    return {
+        "target_id": target_id,
+        "label": label,
+        "status": "ready" if ready else waiting_status,
+        "lifecycle_step": "ready" if ready else lifecycle_step,
+        "blocker": "" if ready else blocker,
+        "next_action": next_action,
+        "evidence": evidence,
     }
 
 

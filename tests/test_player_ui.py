@@ -399,6 +399,9 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "renderFreshnessAnnotations" in js.text
     assert "gw2radar.api_key_permissions.v1" in js.text
     assert "gw2radar.account_connection_diagnostic.v1" in js.text
+    assert "gw2radar.account_result_visibility.v1" in js.text
+    assert "Result visibility" in js.text
+    assert "blocked or waiting" in js.text
     assert "gw2radar.player.activeView" in js.text
     assert "summarizeResult" in js.text
     assert "artifactPath.split" in js.text
