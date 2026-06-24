@@ -16,7 +16,11 @@ from gw2radar.delivery.lifecycle import (
     build_delivery_packet_zip_bundle,
     verify_delivery_packet_zip_bundle,
 )
-from gw2radar.ops.lifecycle import OperationalLifecycleSummary, build_delivery_operational_lifecycle_projection
+from gw2radar.ops.lifecycle import (
+    OperationalLifecycleSummary,
+    build_delivery_operational_lifecycle_projection,
+    build_delivery_readiness_projection,
+)
 from gw2radar.support.account_debug_bundle_audit import SupportReviewAuditRecord, SupportReviewMetricsSummary
 
 SUPPORT_CASE_INCIDENT_PACKET_ROOT = Path("src/gw2radar/reports/artifacts/support_case_incident_packets")
@@ -1099,24 +1103,6 @@ def build_support_case_incident_handoff_checklist(
     if latest_audit:
         blockers.extend(latest_audit.blockers)
         warnings.extend(latest_audit.warnings)
-    ready = not missing_gates and not blockers
-    if blockers:
-        maturity_label = "blocked"
-    elif missing_gates or warnings:
-        maturity_label = "review_needed"
-    else:
-        maturity_label = "ready"
-    next_actions = (
-        [
-            "Resolve missing support case incident handoff gates before attaching the incident packet.",
-            "Re-run zip verification and record a fresh metadata-only audit after blockers are fixed.",
-        ]
-        if not ready
-        else [
-            "Attach the incident packet zip, verification audit export, and handoff checklist to the support case.",
-            "Continue support triage without requesting raw API keys or private account payloads.",
-        ]
-    )
     evidence_refs = [
         "/api/v1/player/support-case/incident-dashboard",
         "/api/v1/player/support-case/incident-packet",
@@ -1124,6 +1110,20 @@ def build_support_case_incident_handoff_checklist(
         "/api/v1/player/support-case/incident-packet/bundle/verify",
         "/api/v1/player/support-case/incident-packet/bundle/verification-audit",
     ]
+    readiness = build_delivery_readiness_projection(
+        missing_gates=missing_gates,
+        blockers=blockers,
+        warnings=warnings,
+        ready_next_actions=[
+            "Attach the incident packet zip, verification audit export, and handoff checklist to the support case.",
+            "Continue support triage without requesting raw API keys or private account payloads.",
+        ],
+        blocked_next_actions=[
+            "Resolve missing support case incident handoff gates before attaching the incident packet.",
+            "Re-run zip verification and record a fresh metadata-only audit after blockers are fixed.",
+        ],
+        evidence_refs=evidence_refs,
+    )
     operational_lifecycle = build_delivery_operational_lifecycle_projection(
         object_type="support_case_incident_handoff",
         primary_object_id=latest_audit.audit_id if latest_audit else (latest_packet.packet_id if latest_packet else None),
@@ -1133,7 +1133,7 @@ def build_support_case_incident_handoff_checklist(
         packaged_ready=zip_manifest is not None and zip_manifest.file_count >= len(SUPPORT_CASE_INCIDENT_PACKET_FILES),
         verified_ready=bool(zip_verification and zip_verification.ready),
         audited_ready=bool(latest_audit and latest_audit.ready),
-        handoff_ready=ready,
+        handoff_ready=readiness.ready,
         actor=latest_audit.reviewer if latest_audit else None,
         fallback_actor="support",
         occurred_at=latest_audit.recorded_at if latest_audit else None,
@@ -1148,8 +1148,8 @@ def build_support_case_incident_handoff_checklist(
     )
     return SupportCaseIncidentHandoffChecklist(
         generated_at=datetime.now(timezone.utc),
-        ready=ready,
-        maturity_label=maturity_label,
+        ready=readiness.ready,
+        maturity_label=readiness.maturity_label,
         dashboard_ready=dashboard_ready,
         latest_packet_id=latest_packet.packet_id if latest_packet else None,
         packet_file_count=latest_packet.file_count if latest_packet else 0,
@@ -1165,11 +1165,11 @@ def build_support_case_incident_handoff_checklist(
             "Support case incident packet zip verified without executing content.",
             "Support case incident packet zip verification audit recorded as metadata only.",
         ],
-        missing_gates=_unique(missing_gates),
-        blockers=_unique(blockers),
-        warnings=_unique(warnings),
-        next_actions=next_actions,
-        evidence_refs=evidence_refs,
+        missing_gates=readiness.missing_gates,
+        blockers=readiness.blockers,
+        warnings=readiness.warnings,
+        next_actions=readiness.next_actions,
+        evidence_refs=readiness.evidence_refs,
         operational_lifecycle=operational_lifecycle,
     )
 
@@ -1747,30 +1747,26 @@ def build_support_case_incident_final_handoff_checklist(
         blockers.extend(latest_audit.blockers)
         warnings.extend(latest_audit.warnings)
 
-    ready = not missing_gates and not blockers
-    if blockers:
-        maturity_label = "blocked"
-    elif missing_gates or warnings:
-        maturity_label = "review_needed"
-    else:
-        maturity_label = "ready"
-    next_actions = (
-        [
-            "Resolve missing final handoff gates before closing the support case incident.",
-            "Re-run operator packet zip verification and record a fresh metadata-only audit.",
-        ]
-        if not ready
-        else [
-            "Attach final checklist, operator packet artifact manifest, zip checksum, and audit export to the support case.",
-            "Close the incident only after a reviewer confirms no raw keys or private payloads were requested.",
-        ]
-    )
     evidence_refs = [
         "/api/v1/player/support-case/incident-operator-packet/artifacts",
         "/api/v1/player/support-case/incident-operator-packet/artifacts/bundle",
         "/api/v1/player/support-case/incident-operator-packet/artifacts/bundle/verify",
         "/api/v1/player/support-case/incident-operator-packet/artifacts/bundle/verification-audit",
     ]
+    readiness = build_delivery_readiness_projection(
+        missing_gates=missing_gates,
+        blockers=blockers,
+        warnings=warnings,
+        ready_next_actions=[
+            "Attach final checklist, operator packet artifact manifest, zip checksum, and audit export to the support case.",
+            "Close the incident only after a reviewer confirms no raw keys or private payloads were requested.",
+        ],
+        blocked_next_actions=[
+            "Resolve missing final handoff gates before closing the support case incident.",
+            "Re-run operator packet zip verification and record a fresh metadata-only audit.",
+        ],
+        evidence_refs=evidence_refs,
+    )
     operational_lifecycle = build_delivery_operational_lifecycle_projection(
         object_type="support_case_incident_final_handoff",
         primary_object_id=latest_audit.audit_id if latest_audit else (
@@ -1783,7 +1779,7 @@ def build_support_case_incident_final_handoff_checklist(
         and zip_manifest.file_count >= len(SUPPORT_CASE_INCIDENT_OPERATOR_PACKET_FILES),
         verified_ready=bool(zip_verification and zip_verification.ready),
         audited_ready=bool(latest_audit and latest_audit.ready),
-        handoff_ready=ready,
+        handoff_ready=readiness.ready,
         actor=latest_audit.reviewer if latest_audit else None,
         fallback_actor="support",
         occurred_at=latest_audit.recorded_at if latest_audit else None,
@@ -1797,8 +1793,8 @@ def build_support_case_incident_final_handoff_checklist(
     )
     return SupportCaseIncidentFinalHandoffChecklist(
         generated_at=datetime.now(timezone.utc),
-        ready=ready,
-        maturity_label=maturity_label,
+        ready=readiness.ready,
+        maturity_label=readiness.maturity_label,
         latest_operator_artifact_id=latest_artifact.artifact_id if latest_artifact else None,
         operator_artifact_file_count=latest_artifact.file_count if latest_artifact else 0,
         operator_zip_checksum_sha256=zip_manifest.checksum_sha256 if zip_manifest else None,
@@ -1813,11 +1809,11 @@ def build_support_case_incident_final_handoff_checklist(
             "Support case incident operator packet zip verification audit is recorded as metadata only.",
             "Final support closure evidence is ready for handoff.",
         ],
-        missing_gates=_unique(missing_gates),
-        blockers=_unique(blockers),
-        warnings=_unique(warnings),
-        next_actions=next_actions,
-        evidence_refs=evidence_refs,
+        missing_gates=readiness.missing_gates,
+        blockers=readiness.blockers,
+        warnings=readiness.warnings,
+        next_actions=readiness.next_actions,
+        evidence_refs=readiness.evidence_refs,
         operational_lifecycle=operational_lifecycle,
     )
 

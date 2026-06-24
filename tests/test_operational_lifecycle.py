@@ -5,6 +5,7 @@ from gw2radar.ops.lifecycle import (
     OperationalLifecycleStage,
     build_delivery_operational_lifecycle_projection,
     build_delivery_operational_lifecycle_summary,
+    build_delivery_readiness_projection,
     build_operational_lifecycle_summary_from_gates,
     build_operational_lifecycle_summary,
     lifecycle_gate,
@@ -135,3 +136,42 @@ def test_delivery_operational_lifecycle_projection_normalizes_domain_metadata() 
     assert summary.latest_at == occurred_at
     assert summary.evidence_refs == ["dashboard", "audit"]
     assert summary.progress_percent == 100.0
+
+
+def test_delivery_readiness_projection_normalizes_gates_and_actions() -> None:
+    blocked = build_delivery_readiness_projection(
+        missing_gates=["zip verification", "zip verification"],
+        blockers=["checksum mismatch"],
+        warnings=["stale audit", "stale audit"],
+        ready_next_actions=["Attach packet."],
+        blocked_next_actions=["Re-run verification."],
+        evidence_refs=["bundle", "bundle", "audit"],
+    )
+
+    assert blocked.ready is False
+    assert blocked.maturity_label == "blocked"
+    assert blocked.missing_gates == ["zip verification"]
+    assert blocked.blockers == ["checksum mismatch"]
+    assert blocked.warnings == ["stale audit"]
+    assert blocked.next_actions == ["Re-run verification."]
+    assert blocked.evidence_refs == ["bundle", "audit"]
+
+    review_needed = build_delivery_readiness_projection(
+        missing_gates=["audit"],
+        blockers=[],
+        warnings=["manual reviewer note"],
+        ready_next_actions=["Attach packet."],
+        blocked_next_actions=["Resolve gates."],
+    )
+
+    assert review_needed.ready is False
+    assert review_needed.maturity_label == "review_needed"
+
+    ready = build_delivery_readiness_projection(
+        ready_next_actions=["Attach packet."],
+        blocked_next_actions=["Resolve gates."],
+    )
+
+    assert ready.ready is True
+    assert ready.maturity_label == "ready"
+    assert ready.next_actions == ["Attach packet."]

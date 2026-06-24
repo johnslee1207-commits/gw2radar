@@ -83,6 +83,51 @@ class OperationalLifecycleSummary(BaseModel):
     )
 
 
+class DeliveryReadinessProjection(BaseModel):
+    schema_version: str = "gw2radar.delivery_readiness_projection.v1"
+    ready: bool
+    maturity_label: str
+    missing_gates: list[str] = Field(default_factory=list)
+    blockers: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    next_actions: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    boundary: str = (
+        "Delivery readiness projections are metadata-only; they do not execute files, publish content, "
+        "automate gameplay, trade items, or store raw private payloads."
+    )
+
+
+def build_delivery_readiness_projection(
+    *,
+    missing_gates: list[str] | None = None,
+    blockers: list[str] | None = None,
+    warnings: list[str] | None = None,
+    ready_next_actions: list[str],
+    blocked_next_actions: list[str],
+    evidence_refs: list[str] | None = None,
+) -> DeliveryReadinessProjection:
+    gate_list = _unique_refs(missing_gates or [])
+    blocker_list = _unique_refs(blockers or [])
+    warning_list = _unique_refs(warnings or [])
+    ready = not gate_list and not blocker_list
+    if blocker_list:
+        maturity_label = "blocked"
+    elif gate_list or warning_list:
+        maturity_label = "review_needed"
+    else:
+        maturity_label = "ready"
+    return DeliveryReadinessProjection(
+        ready=ready,
+        maturity_label=maturity_label,
+        missing_gates=gate_list,
+        blockers=blocker_list,
+        warnings=warning_list,
+        next_actions=ready_next_actions if ready else blocked_next_actions,
+        evidence_refs=_unique_refs(evidence_refs or []),
+    )
+
+
 def build_operational_lifecycle_summary(
     *,
     object_id: str,
