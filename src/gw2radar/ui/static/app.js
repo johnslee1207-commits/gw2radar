@@ -619,6 +619,7 @@ function renderPlayerOsPlan(payload) {
     governance_status: status,
     report_id: report.report_id || "",
   });
+  renderPlayerOsTrialChecklist();
 }
 
 function renderPlayerOsReport(report) {
@@ -650,6 +651,7 @@ function renderPlayerOsReport(report) {
     plan: state.lastPlayerOsPlan,
     report_id: report.report_id || state.playerOsReportId || "",
   });
+  renderPlayerOsTrialChecklist();
 }
 
 function safePlayerOsPlan(plan) {
@@ -707,6 +709,82 @@ function restorePlayerOsContext() {
   setFieldValue("#player-os-report-id", state.playerOsReportId);
   const savedAt = saved.saved_at ? ` Saved ${saved.saved_at}.` : "";
   renderSummary("dashboard", `Restored Player OS plan: ${saved.plan.title}.${savedAt}`);
+  renderPlayerOsTrialChecklist();
+}
+
+function playerOsTrialChecklist() {
+  const context = readJsonStorage(storageKeys.playerOsContext, {}) || {};
+  const plan = context.plan || state.lastPlayerOsPlan || {};
+  const hasPlan = Boolean(plan.plan_id);
+  const hasActions = (plan.top_actions?.length || 0) + (plan.this_week?.length || 0) > 0;
+  const hasBridge = Boolean(context.last_bridge?.target_view);
+  const hasReport = Boolean(context.report_id || state.playerOsReportId);
+  const rows = [
+    {
+      id: "intent",
+      label: "Intent captured",
+      ready: Boolean(plan.intent_type || context.intent_type),
+      evidence: plan.intent_type || context.intent_type || "missing",
+      next: "Enter a goal or choose What should I do now.",
+    },
+    {
+      id: "plan",
+      label: "Plan generated",
+      ready: hasPlan && hasActions,
+      evidence: plan.plan_id || "missing",
+      next: "Build a Player OS plan from the cockpit.",
+    },
+    {
+      id: "deep_link",
+      label: "Deep-link opened",
+      ready: hasBridge,
+      evidence: context.last_bridge?.target_view || "missing",
+      next: "Open one Player OS action into Legendary, Build, Market, or readiness.",
+    },
+    {
+      id: "report_preview",
+      label: "Report preview opened",
+      ready: hasReport,
+      evidence: context.report_id || state.playerOsReportId || "missing",
+      next: "Open Player OS report from the plan panel.",
+    },
+    {
+      id: "feedback_packet",
+      label: "Feedback metadata ready",
+      ready: hasPlan && hasBridge && hasReport,
+      evidence: hasPlan && hasBridge && hasReport ? "metadata_only_ready" : "incomplete",
+      next: "Export trial feedback JSON after plan, deep-link, and report preview are ready.",
+    },
+  ];
+  return {
+    schema_version: "gw2radar.player_os_trial_checklist.v1",
+    status: rows.every((row) => row.ready) ? "ready" : "in_progress",
+    ready_count: rows.filter((row) => row.ready).length,
+    total_count: rows.length,
+    plan_id: plan.plan_id || "",
+    report_id: context.report_id || state.playerOsReportId || "",
+    last_bridge: context.last_bridge || null,
+    rows,
+    safety_boundary: "Metadata-only trial feedback; no raw API keys, private payloads, or automated actions.",
+  };
+}
+
+function renderPlayerOsTrialChecklist() {
+  const checklist = playerOsTrialChecklist();
+  const list = document.querySelector("#player-os-trial-checklist");
+  const status = document.querySelector("#player-os-trial-status");
+  if (list) {
+    list.innerHTML = "";
+    checklist.rows.forEach((row) => {
+      const item = document.createElement("li");
+      item.textContent = `${row.ready ? "PASS" : "WAIT"} - ${row.label}: ${row.evidence}. Next: ${row.ready ? "Continue." : row.next}`;
+      list.appendChild(item);
+    });
+  }
+  if (status) {
+    status.textContent = `${checklist.status}: ${checklist.ready_count}/${checklist.total_count} trial gates ready. ${checklist.safety_boundary}`;
+  }
+  return checklist;
 }
 
 function playerOsBridgeForAction(action, plan) {
@@ -2347,6 +2425,7 @@ const actions = {
         selected_at: new Date().toISOString(),
       },
     });
+    renderPlayerOsTrialChecklist();
     if (bridge.href) {
       window.location.href = bridge.href;
       return;
@@ -2358,6 +2437,28 @@ const actions = {
     );
     markStep("plan", `Player OS -> ${bridge.targetView}`);
   },
+  loadPlayerOsTrialChecklist: () =>
+    run("dashboard", async () => ({
+      player_os_trial_checklist: renderPlayerOsTrialChecklist(),
+      note: "Checklist uses local metadata only and does not include raw account payloads.",
+    })),
+  exportPlayerOsTrialFeedback: () =>
+    run("dashboard", async () => {
+      const checklist = renderPlayerOsTrialChecklist();
+      const payload = {
+        schema_version: "gw2radar.player_os_trial_feedback.v1",
+        exported_at: new Date().toISOString(),
+        checklist,
+        player_os_context: {
+          plan_id: checklist.plan_id,
+          report_id: checklist.report_id,
+          last_bridge: checklist.last_bridge,
+        },
+        safety_boundary: checklist.safety_boundary,
+      };
+      downloadJson(`gw2radar-player-os-trial-feedback-${new Date().toISOString().replace(/[:.]/g, "-")}.json`, payload);
+      return payload;
+    }),
   refreshDashboard: () =>
     run("dashboard", async () => {
       const key = await fetchJson("/account/api-key/status");
@@ -4033,6 +4134,7 @@ function restoreLocalState() {
     showView(savedView);
   }
   restorePlayerOsContext();
+  renderPlayerOsTrialChecklist();
 }
 
 restoreLocalState();

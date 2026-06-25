@@ -26,6 +26,9 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert "Open full Player OS" in response.text
     assert "Player OS report handoff" in response.text
     assert "Player OS report id" in response.text
+    assert "Player OS Trial Checklist" in response.text
+    assert "Refresh trial checklist" in response.text
+    assert "Export trial feedback JSON" in response.text
     assert "Returner Diagnosis" in response.text
     assert "Readiness score" in response.text
     assert "Legendary Planner Pro" in response.text
@@ -264,6 +267,13 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "player_os_preview" in js.text
     assert "Player OS report preview ready" in js.text
     assert "Prepare a concise player handoff version" in js.text
+    assert "playerOsTrialChecklist" in js.text
+    assert "renderPlayerOsTrialChecklist" in js.text
+    assert "loadPlayerOsTrialChecklist" in js.text
+    assert "exportPlayerOsTrialFeedback" in js.text
+    assert "gw2radar.player_os_trial_checklist.v1" in js.text
+    assert "gw2radar.player_os_trial_feedback.v1" in js.text
+    assert "Metadata-only trial feedback" in js.text
     assert "#legendary-goal" in js.text
     assert "#build-profession" in js.text
     assert "Review the prefilled fields" in js.text
