@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from gw2radar.api.envelope import ApiDataEnvelope
@@ -8,6 +9,12 @@ from gw2radar.db import session as db_session
 from gw2radar.db.init_db import init_db
 from gw2radar.player_os.intent.intent_templates import get_intent_template, list_intent_templates
 from gw2radar.player_os.orchestration import player_os_orchestrator as os
+from gw2radar.player_os.trial_refactor_queue import (
+    build_trial_feedback_action_bundle,
+    build_trial_refactor_queue,
+    render_trial_refactor_queue_csv,
+    render_trial_refactor_queue_markdown,
+)
 from gw2radar.player_os.trial_feedback_review import create_player_os_trial_feedback_audit, review_player_os_trial_feedback
 from gw2radar.support.account_debug_bundle_audit import (
     build_support_review_metrics,
@@ -310,10 +317,7 @@ def get_player_os_trial_feedback_review_audit_backlog(
     limit: int = 100,
     reviewer: str | None = None,
 ) -> ApiDataEnvelope:
-    records = _player_os_trial_feedback_audit_records(limit=limit, reviewer=reviewer)
-    metrics = build_support_review_metrics(records)
-    playbook = build_support_review_playbook(metrics)
-    backlog = build_support_review_product_backlog(metrics, playbook)
+    _, playbook, backlog = _player_os_trial_feedback_backlog(limit=limit, reviewer=reviewer)
     return ApiDataEnvelope(
         data={
             "trial_feedback_backlog": {
@@ -326,6 +330,48 @@ def get_player_os_trial_feedback_review_audit_backlog(
     )
 
 
+@router.get("/player-os/trial-feedback/refactor-queue", response_model=None)
+def get_player_os_trial_feedback_refactor_queue(
+    limit: int = 100,
+    reviewer: str | None = None,
+    format: str = "json",
+):
+    metrics, _, backlog = _player_os_trial_feedback_backlog(limit=limit, reviewer=reviewer)
+    queue = build_trial_refactor_queue(backlog)
+    if format == "markdown":
+        return Response(
+            content=render_trial_refactor_queue_markdown(queue),
+            media_type="text/markdown; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="player_os_trial_refactor_queue.md"'},
+        )
+    if format == "csv":
+        return Response(
+            content=render_trial_refactor_queue_csv(queue),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="player_os_trial_refactor_queue.csv"'},
+        )
+    return ApiDataEnvelope(
+        data={
+            "trial_refactor_queue": queue.model_dump(mode="json"),
+            "metrics_summary": {
+                "total_records": metrics.total_records,
+                "top_blockers": [item.model_dump(mode="json") for item in metrics.top_blockers],
+            },
+        }
+    )
+
+
+@router.get("/player-os/trial-feedback/action-bundle", response_model=ApiDataEnvelope)
+def get_player_os_trial_feedback_action_bundle(
+    limit: int = 100,
+    reviewer: str | None = None,
+) -> ApiDataEnvelope:
+    metrics, _, backlog = _player_os_trial_feedback_backlog(limit=limit, reviewer=reviewer)
+    queue = build_trial_refactor_queue(backlog)
+    bundle = build_trial_feedback_action_bundle(metrics=metrics, backlog=backlog, queue=queue)
+    return ApiDataEnvelope(data={"trial_feedback_action_bundle": bundle.model_dump(mode="json")})
+
+
 def _player_os_trial_feedback_audit_records(limit: int = 100, reviewer: str | None = None):
     init_db()
     with db_session.SessionLocal() as session:
@@ -335,3 +381,11 @@ def _player_os_trial_feedback_audit_records(limit: int = 100, reviewer: str | No
             reviewer=reviewer,
             source="player_os_trial_feedback",
         )
+
+
+def _player_os_trial_feedback_backlog(limit: int = 100, reviewer: str | None = None):
+    records = _player_os_trial_feedback_audit_records(limit=limit, reviewer=reviewer)
+    metrics = build_support_review_metrics(records)
+    playbook = build_support_review_playbook(metrics)
+    backlog = build_support_review_product_backlog(metrics, playbook)
+    return metrics, playbook, backlog

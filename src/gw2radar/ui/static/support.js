@@ -9,6 +9,10 @@ const reviewPlayerOsFeedbackButton = document.querySelector("#review-player-os-f
 const savePlayerOsFeedbackAuditButton = document.querySelector("#save-player-os-feedback-audit-button");
 const refreshPlayerOsFeedbackMetricsButton = document.querySelector("#refresh-player-os-feedback-metrics-button");
 const refreshPlayerOsFeedbackBacklogButton = document.querySelector("#refresh-player-os-feedback-backlog-button");
+const loadPlayerOsRefactorQueueButton = document.querySelector("#load-player-os-refactor-queue-button");
+const exportPlayerOsRefactorQueueMdButton = document.querySelector("#export-player-os-refactor-queue-md-button");
+const exportPlayerOsRefactorQueueCsvButton = document.querySelector("#export-player-os-refactor-queue-csv-button");
+const loadPlayerOsActionBundleButton = document.querySelector("#load-player-os-action-bundle-button");
 const loadPlayerOsFeedbackSampleButton = document.querySelector("#load-player-os-feedback-sample-button");
 const refreshAuditButton = document.querySelector("#refresh-audit-button");
 const exportAuditButton = document.querySelector("#export-audit-button");
@@ -81,6 +85,8 @@ const playerOsFeedbackFindings = document.querySelector("#player-os-feedback-fin
 const playerOsFeedbackReply = document.querySelector("#player-os-feedback-reply");
 const playerOsFeedbackMetrics = document.querySelector("#player-os-feedback-metrics");
 const playerOsFeedbackBacklog = document.querySelector("#player-os-feedback-backlog");
+const playerOsRefactorQueue = document.querySelector("#player-os-refactor-queue");
+const playerOsActionBundle = document.querySelector("#player-os-action-bundle");
 const auditList = document.querySelector("#audit-list");
 const auditStatusFilter = document.querySelector("#audit-status-filter");
 const auditSeverityFilter = document.querySelector("#audit-severity-filter");
@@ -382,6 +388,33 @@ async function refreshPlayerOsFeedbackBacklog() {
   renderPlayerOsFeedbackBacklog(payload?.data?.trial_feedback_backlog || {});
 }
 
+async function loadPlayerOsRefactorQueue() {
+  const reviewer = reviewerName?.value ? `?reviewer=${encodeURIComponent(reviewerName.value)}` : "";
+  const response = await fetch(`/api/v1/player-os/trial-feedback/refactor-queue${reviewer}`);
+  const payload = await response.json();
+  renderPlayerOsRefactorQueue(payload?.data?.trial_refactor_queue || {});
+}
+
+function exportPlayerOsRefactorQueue(format) {
+  const params = new URLSearchParams();
+  if (reviewerName?.value) {
+    params.set("reviewer", reviewerName.value);
+  }
+  params.set("format", format);
+  window.location.href = `/api/v1/player-os/trial-feedback/refactor-queue?${params.toString()}`;
+}
+
+async function loadPlayerOsActionBundle() {
+  const reviewer = reviewerName?.value ? `?reviewer=${encodeURIComponent(reviewerName.value)}` : "";
+  const response = await fetch(`/api/v1/player-os/trial-feedback/action-bundle${reviewer}`);
+  const payload = await response.json();
+  const bundle = payload?.data?.trial_feedback_action_bundle || {};
+  const queue = bundle.refactor_queue || {};
+  const actions = Array.isArray(bundle.next_operator_actions) ? bundle.next_operator_actions.join(" ") : "No next actions.";
+  playerOsActionBundle.textContent = `${bundle.readiness_label || "unknown"} · ${queue.task_count || 0} refactor tasks. ${actions} ${bundle.boundary || ""}`;
+  output.textContent = JSON.stringify(bundle, null, 2);
+}
+
 function renderPlayerOsFeedbackBacklog(backlog) {
   playerOsFeedbackBacklog.innerHTML = "";
   const items = Array.isArray(backlog.backlog_items) ? backlog.backlog_items : [];
@@ -402,6 +435,30 @@ function renderPlayerOsFeedbackBacklog(backlog) {
     playerOsFeedbackBacklog.appendChild(row);
   }
   output.textContent = JSON.stringify(backlog, null, 2);
+}
+
+function renderPlayerOsRefactorQueue(queue) {
+  playerOsRefactorQueue.innerHTML = "";
+  const tasks = Array.isArray(queue.tasks) ? queue.tasks : [];
+  if (!tasks.length) {
+    playerOsRefactorQueue.textContent = "No Player OS targeted refactor tasks generated yet.";
+    return;
+  }
+  for (const task of tasks) {
+    const row = document.createElement("article");
+    row.className = "support-backlog-item";
+    const title = document.createElement("strong");
+    title.textContent = `${task.priority} · ${task.title}`;
+    const meta = document.createElement("span");
+    meta.textContent = `${task.task_id} · ${task.refactor_scope} · ${task.affected_cases} cases`;
+    const files = document.createElement("p");
+    files.textContent = `Files: ${(task.target_files || []).join(", ") || "none"}`;
+    const verify = document.createElement("code");
+    verify.textContent = (task.verification_commands || []).join(" | ") || "no verification command";
+    row.append(title, meta, files, verify);
+    playerOsRefactorQueue.appendChild(row);
+  }
+  output.textContent = JSON.stringify(queue, null, 2);
 }
 
 async function refreshAuditRecords() {
@@ -1290,6 +1347,14 @@ savePlayerOsFeedbackAuditButton?.addEventListener("click", savePlayerOsFeedbackA
 refreshPlayerOsFeedbackMetricsButton?.addEventListener("click", refreshPlayerOsFeedbackMetrics);
 
 refreshPlayerOsFeedbackBacklogButton?.addEventListener("click", refreshPlayerOsFeedbackBacklog);
+
+loadPlayerOsRefactorQueueButton?.addEventListener("click", loadPlayerOsRefactorQueue);
+
+exportPlayerOsRefactorQueueMdButton?.addEventListener("click", () => exportPlayerOsRefactorQueue("markdown"));
+
+exportPlayerOsRefactorQueueCsvButton?.addEventListener("click", () => exportPlayerOsRefactorQueue("csv"));
+
+loadPlayerOsActionBundleButton?.addEventListener("click", loadPlayerOsActionBundle);
 
 loadPlayerOsFeedbackSampleButton?.addEventListener("click", () => {
   playerOsFeedbackInput.value = JSON.stringify(samplePlayerOsFeedback, null, 2);

@@ -98,6 +98,10 @@ def test_support_review_page_serves_operator_workbench() -> None:
     assert "Save trial audit" in response.text
     assert "Refresh trial metrics" in response.text
     assert "Refresh trial backlog" in response.text
+    assert "Load refactor queue" in response.text
+    assert "Export queue MD" in response.text
+    assert "Export queue CSV" in response.text
+    assert "Load action bundle" in response.text
     assert "player-os-feedback-json" in response.text
     assert "/player-ui/support.js" in response.text
 
@@ -115,10 +119,15 @@ def test_support_review_static_assets_include_review_workflow() -> None:
     assert "/api/v1/player-os/trial-feedback/review/audit" in js.text
     assert "/api/v1/player-os/trial-feedback/review/audit/metrics" in js.text
     assert "/api/v1/player-os/trial-feedback/review/audit/backlog" in js.text
+    assert "/api/v1/player-os/trial-feedback/refactor-queue" in js.text
+    assert "/api/v1/player-os/trial-feedback/action-bundle" in js.text
     assert "reviewPlayerOsTrialFeedback" in js.text
     assert "savePlayerOsFeedbackAuditRecord" in js.text
     assert "refreshPlayerOsFeedbackMetrics" in js.text
     assert "refreshPlayerOsFeedbackBacklog" in js.text
+    assert "loadPlayerOsRefactorQueue" in js.text
+    assert "exportPlayerOsRefactorQueue" in js.text
+    assert "loadPlayerOsActionBundle" in js.text
     assert "renderPlayerOsFeedbackReview" in js.text
     assert "gw2radar.player_os_trial_feedback.v1" in js.text
     assert "renderAuditRecords" in js.text

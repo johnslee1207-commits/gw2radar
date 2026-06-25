@@ -143,6 +143,28 @@ def test_player_os_trial_feedback_audit_feeds_metrics_and_backlog() -> None:
         assert backlog_payload["schema_version"] == "gw2radar.player_os_trial_feedback_backlog.v1"
         assert backlog_payload["backlog_items"][0]["blocker_id"] == "deep_link_not_opened"
         assert backlog_payload["unmapped_blockers"] == []
+
+        queue = local_client.get("/api/v1/player-os/trial-feedback/refactor-queue?reviewer=trial-support")
+        queue_md = local_client.get("/api/v1/player-os/trial-feedback/refactor-queue?reviewer=trial-support&format=markdown")
+        queue_csv = local_client.get("/api/v1/player-os/trial-feedback/refactor-queue?reviewer=trial-support&format=csv")
+        bundle = local_client.get("/api/v1/player-os/trial-feedback/action-bundle?reviewer=trial-support")
+        assert queue.status_code == 200
+        queue_payload = queue.json()["data"]["trial_refactor_queue"]
+        assert queue_payload["schema_version"] == "gw2radar.player_os_trial_refactor_queue.v1"
+        assert queue_payload["tasks"][0]["task_id"] == "trial-refactor-deep_link_not_opened"
+        assert "src/gw2radar/ui/static/app.js" in queue_payload["tasks"][0]["target_files"]
+        assert "python harness/run_stage_gate.py stage" in queue_payload["tasks"][0]["verification_commands"]
+        assert queue_md.status_code == 200
+        assert "Player OS Trial Targeted Refactor Queue" in queue_md.text
+        assert "trial-refactor-deep_link_not_opened" in queue_md.text
+        assert queue_csv.status_code == 200
+        assert "task_id,priority,blocker_id" in queue_csv.text
+        assert "trial-refactor-deep_link_not_opened" in queue_csv.text
+        assert bundle.status_code == 200
+        bundle_payload = bundle.json()["data"]["trial_feedback_action_bundle"]
+        assert bundle_payload["schema_version"] == "gw2radar.player_os_trial_feedback_action_bundle.v1"
+        assert bundle_payload["readiness_label"] == "targeted_refactor_ready"
+        assert bundle_payload["refactor_queue"]["task_count"] == 1
     finally:
         close_database()
         shutil.rmtree(temp_dir, ignore_errors=True)

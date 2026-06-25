@@ -114,6 +114,21 @@ payloads, local build ids, or report contents. The review also rejects bundles
 that appear to contain sensitive fields outside the privacy-safe support
 boundary.
 
+For Player OS trial feedback, use the Dashboard `Export trial feedback` action
+after intent, plan, deep-link, report preview, and feedback metadata gates are
+ready. Open `/support`, paste that JSON into `Trial Feedback Review`, and use
+`Review feedback` to classify Player OS-specific failures such as missing
+deep-link confirmation, missing report preview, incomplete feedback packet, or
+ready gates with an empty target-module result. `Save trial audit` stores only
+the review metadata and gate counts. `Refresh trial metrics` and `Refresh trial
+backlog` aggregate repeated cases into support signals. `Load refactor queue`
+then converts the highest-signal trial blockers into targeted refactor tasks
+with impacted files, API routes, implementation steps, acceptance criteria, and
+stage-gate verification commands. `Load action bundle` combines metrics,
+backlog, and the refactor queue into one operator-ready view so the next code
+change is chosen from real player friction rather than another broad milestone
+chain.
+
 ## First Use
 
 1. Open `Welcome`.
