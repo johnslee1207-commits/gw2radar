@@ -6,6 +6,9 @@ const clearButton = document.querySelector("#clear-button");
 const copyTemplateButton = document.querySelector("#copy-template-button");
 const saveAuditButton = document.querySelector("#save-audit-button");
 const reviewPlayerOsFeedbackButton = document.querySelector("#review-player-os-feedback-button");
+const savePlayerOsFeedbackAuditButton = document.querySelector("#save-player-os-feedback-audit-button");
+const refreshPlayerOsFeedbackMetricsButton = document.querySelector("#refresh-player-os-feedback-metrics-button");
+const refreshPlayerOsFeedbackBacklogButton = document.querySelector("#refresh-player-os-feedback-backlog-button");
 const loadPlayerOsFeedbackSampleButton = document.querySelector("#load-player-os-feedback-sample-button");
 const refreshAuditButton = document.querySelector("#refresh-audit-button");
 const exportAuditButton = document.querySelector("#export-audit-button");
@@ -76,6 +79,8 @@ const playerOsFeedbackInput = document.querySelector("#player-os-feedback-json")
 const playerOsFeedbackSummary = document.querySelector("#player-os-feedback-summary");
 const playerOsFeedbackFindings = document.querySelector("#player-os-feedback-findings");
 const playerOsFeedbackReply = document.querySelector("#player-os-feedback-reply");
+const playerOsFeedbackMetrics = document.querySelector("#player-os-feedback-metrics");
+const playerOsFeedbackBacklog = document.querySelector("#player-os-feedback-backlog");
 const auditList = document.querySelector("#audit-list");
 const auditStatusFilter = document.querySelector("#audit-status-filter");
 const auditSeverityFilter = document.querySelector("#audit-severity-filter");
@@ -125,6 +130,8 @@ const incidentClosurePacketList = document.querySelector("#incident-closure-pack
 const output = document.querySelector("#support-output");
 let lastBundle = null;
 let lastReview = null;
+let lastPlayerOsFeedback = null;
+let lastPlayerOsFeedbackReview = null;
 
 const sampleBundle = {
   schema_version: "gw2radar.account_debug_bundle.v1",
@@ -296,6 +303,7 @@ async function reviewPlayerOsTrialFeedback() {
     playerOsFeedbackReply.value = "The Player OS trial feedback is not valid JSON. Please export a fresh feedback file.";
     return;
   }
+  lastPlayerOsFeedback = feedback;
   const response = await fetch("/api/v1/player-os/trial-feedback/review", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -306,6 +314,7 @@ async function reviewPlayerOsTrialFeedback() {
 }
 
 function renderPlayerOsFeedbackReview(review) {
+  lastPlayerOsFeedbackReview = review;
   const status = review.overall_status || "manual_review";
   playerOsFeedbackSummary.textContent = `${status}: ${review.summary || "Manual review required."} Gates ${review.ready_gate_count || 0}/${review.total_gate_count || 0}.`;
   playerOsFeedbackFindings.innerHTML = "";
@@ -333,6 +342,66 @@ function renderPlayerOsFeedbackReview(review) {
   playerOsFeedbackReply.value =
     review.player_reply_template || "Review the Player OS metadata-only feedback and keep the no-secret boundary.";
   output.textContent = JSON.stringify(review, null, 2);
+}
+
+async function savePlayerOsFeedbackAuditRecord() {
+  if (!lastPlayerOsFeedback || !lastPlayerOsFeedbackReview) {
+    playerOsFeedbackSummary.textContent = "Review Player OS trial feedback before saving an audit record.";
+    return;
+  }
+  const response = await fetch("/api/v1/player-os/trial-feedback/review/audit", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      feedback: lastPlayerOsFeedback,
+      reviewer: reviewerName?.value || "support",
+    }),
+  });
+  const payload = await response.json();
+  const record = payload?.data?.trial_feedback_audit_record || {};
+  playerOsFeedbackSummary.textContent = `Trial audit saved: ${record.case_id || "unknown case"}. Raw feedback was not stored.`;
+  output.textContent = JSON.stringify(payload, null, 2);
+  await refreshPlayerOsFeedbackMetrics();
+  await refreshPlayerOsFeedbackBacklog();
+}
+
+async function refreshPlayerOsFeedbackMetrics() {
+  const reviewer = reviewerName?.value ? `?reviewer=${encodeURIComponent(reviewerName.value)}` : "";
+  const response = await fetch(`/api/v1/player-os/trial-feedback/review/audit/metrics${reviewer}`);
+  const payload = await response.json();
+  const metrics = payload?.data?.trial_feedback_metrics || {};
+  const blockers = (metrics.top_blockers || []).map((item) => `${item.key} (${item.count})`).join(", ") || "none";
+  playerOsFeedbackMetrics.textContent = `${metrics.total_records || 0} trial audit records. Top blockers: ${blockers}. ${metrics.boundary || ""}`;
+  output.textContent = JSON.stringify(metrics, null, 2);
+}
+
+async function refreshPlayerOsFeedbackBacklog() {
+  const reviewer = reviewerName?.value ? `?reviewer=${encodeURIComponent(reviewerName.value)}` : "";
+  const response = await fetch(`/api/v1/player-os/trial-feedback/review/audit/backlog${reviewer}`);
+  const payload = await response.json();
+  renderPlayerOsFeedbackBacklog(payload?.data?.trial_feedback_backlog || {});
+}
+
+function renderPlayerOsFeedbackBacklog(backlog) {
+  playerOsFeedbackBacklog.innerHTML = "";
+  const items = Array.isArray(backlog.backlog_items) ? backlog.backlog_items : [];
+  if (!items.length) {
+    playerOsFeedbackBacklog.textContent = "No Player OS trial feedback backlog items generated yet.";
+    return;
+  }
+  for (const item of items) {
+    const row = document.createElement("article");
+    row.className = "support-backlog-item";
+    const title = document.createElement("strong");
+    title.textContent = `${item.priority} · ${item.title}`;
+    const meta = document.createElement("span");
+    meta.textContent = `${item.backlog_id} · affected cases: ${item.affected_cases}`;
+    const fix = document.createElement("p");
+    fix.textContent = item.product_fix_suggestion || "No product fix suggestion.";
+    row.append(title, meta, fix);
+    playerOsFeedbackBacklog.appendChild(row);
+  }
+  output.textContent = JSON.stringify(backlog, null, 2);
 }
 
 async function refreshAuditRecords() {
@@ -1215,6 +1284,12 @@ clearButton?.addEventListener("click", () => {
 saveAuditButton?.addEventListener("click", saveAuditRecord);
 
 reviewPlayerOsFeedbackButton?.addEventListener("click", reviewPlayerOsTrialFeedback);
+
+savePlayerOsFeedbackAuditButton?.addEventListener("click", savePlayerOsFeedbackAuditRecord);
+
+refreshPlayerOsFeedbackMetricsButton?.addEventListener("click", refreshPlayerOsFeedbackMetrics);
+
+refreshPlayerOsFeedbackBacklogButton?.addEventListener("click", refreshPlayerOsFeedbackBacklog);
 
 loadPlayerOsFeedbackSampleButton?.addEventListener("click", () => {
   playerOsFeedbackInput.value = JSON.stringify(samplePlayerOsFeedback, null, 2);

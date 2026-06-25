@@ -4,9 +4,17 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from gw2radar.api.envelope import ApiDataEnvelope
+from gw2radar.db import session as db_session
+from gw2radar.db.init_db import init_db
 from gw2radar.player_os.intent.intent_templates import get_intent_template, list_intent_templates
 from gw2radar.player_os.orchestration import player_os_orchestrator as os
-from gw2radar.player_os.trial_feedback_review import review_player_os_trial_feedback
+from gw2radar.player_os.trial_feedback_review import create_player_os_trial_feedback_audit, review_player_os_trial_feedback
+from gw2radar.support.account_debug_bundle_audit import (
+    build_support_review_metrics,
+    build_support_review_playbook,
+    build_support_review_product_backlog,
+    list_support_review_audits,
+)
 
 
 router = APIRouter(prefix="/api/v1", tags=["player-os"])
@@ -51,6 +59,10 @@ class ReportReviseRequest(BaseModel):
 
 class TrialFeedbackReviewRequest(BaseModel):
     feedback: dict = Field(default_factory=dict)
+
+
+class TrialFeedbackAuditRequest(TrialFeedbackReviewRequest):
+    reviewer: str | None = None
 
 
 @router.post("/intents/parse", response_model=ApiDataEnvelope)
@@ -230,3 +242,96 @@ def post_now_recompute() -> ApiDataEnvelope:
 def post_player_os_trial_feedback_review(request: TrialFeedbackReviewRequest) -> ApiDataEnvelope:
     review = review_player_os_trial_feedback(request.feedback)
     return ApiDataEnvelope(data={"trial_feedback_review": review.model_dump(mode="json")})
+
+
+@router.post("/player-os/trial-feedback/review/audit", response_model=ApiDataEnvelope)
+def post_player_os_trial_feedback_review_audit(request: TrialFeedbackAuditRequest) -> ApiDataEnvelope:
+    init_db()
+    review = review_player_os_trial_feedback(request.feedback)
+    with db_session.SessionLocal() as session:
+        record = create_player_os_trial_feedback_audit(session, review=review, reviewer=request.reviewer)
+    return ApiDataEnvelope(
+        data={
+            "trial_feedback_review": review.model_dump(mode="json"),
+            "trial_feedback_audit_record": record,
+            "boundary": "Audit stores Player OS trial feedback review metadata only; raw feedback, raw API keys, and private account payloads are not stored.",
+        }
+    )
+
+
+@router.get("/player-os/trial-feedback/review/audit", response_model=ApiDataEnvelope)
+def get_player_os_trial_feedback_review_audit(
+    limit: int = 20,
+    status: str | None = None,
+    severity: str | None = None,
+    reviewer: str | None = None,
+) -> ApiDataEnvelope:
+    init_db()
+    with db_session.SessionLocal() as session:
+        records = list_support_review_audits(
+            session,
+            limit=limit,
+            status=status,
+            severity=severity,
+            reviewer=reviewer,
+            source="player_os_trial_feedback",
+        )
+    return ApiDataEnvelope(
+        data={
+            "trial_feedback_audit": {
+                "schema_version": "gw2radar.player_os_trial_feedback_audit_list.v1",
+                "records": [record.model_dump(mode="json") for record in records],
+                "boundary": "Player OS trial feedback audit list is metadata-only and excludes raw feedback, raw API keys, and private account payloads.",
+            }
+        }
+    )
+
+
+@router.get("/player-os/trial-feedback/review/audit/metrics", response_model=ApiDataEnvelope)
+def get_player_os_trial_feedback_review_audit_metrics(
+    limit: int = 100,
+    reviewer: str | None = None,
+) -> ApiDataEnvelope:
+    records = _player_os_trial_feedback_audit_records(limit=limit, reviewer=reviewer)
+    metrics = build_support_review_metrics(records)
+    return ApiDataEnvelope(
+        data={
+            "trial_feedback_metrics": {
+                **metrics.model_dump(mode="json"),
+                "schema_version": "gw2radar.player_os_trial_feedback_metrics.v1",
+                "boundary": "Metrics aggregate Player OS trial feedback review metadata only.",
+            }
+        }
+    )
+
+
+@router.get("/player-os/trial-feedback/review/audit/backlog", response_model=ApiDataEnvelope)
+def get_player_os_trial_feedback_review_audit_backlog(
+    limit: int = 100,
+    reviewer: str | None = None,
+) -> ApiDataEnvelope:
+    records = _player_os_trial_feedback_audit_records(limit=limit, reviewer=reviewer)
+    metrics = build_support_review_metrics(records)
+    playbook = build_support_review_playbook(metrics)
+    backlog = build_support_review_product_backlog(metrics, playbook)
+    return ApiDataEnvelope(
+        data={
+            "trial_feedback_backlog": {
+                **backlog.model_dump(mode="json"),
+                "schema_version": "gw2radar.player_os_trial_feedback_backlog.v1",
+                "unmapped_blockers": list(playbook.unmapped_blockers),
+                "boundary": "Backlog is generated from aggregated Player OS trial feedback metadata only.",
+            }
+        }
+    )
+
+
+def _player_os_trial_feedback_audit_records(limit: int = 100, reviewer: str | None = None):
+    init_db()
+    with db_session.SessionLocal() as session:
+        return list_support_review_audits(
+            session,
+            limit=limit,
+            reviewer=reviewer,
+            source="player_os_trial_feedback",
+        )

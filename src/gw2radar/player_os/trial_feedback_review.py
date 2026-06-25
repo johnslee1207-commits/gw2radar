@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 from typing import Any
+from uuid import uuid4
 
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
+
+from gw2radar.db.models import SupportReviewAuditModel
 
 
 EXPECTED_FEEDBACK_SCHEMA = "gw2radar.player_os_trial_feedback.v1"
@@ -54,6 +58,63 @@ class PlayerOsTrialFeedbackReview(BaseModel):
             "Use Player OS checklist gates, plan/report ids, bridge target, and UI state metadata only.",
         ]
     )
+
+
+def create_player_os_trial_feedback_audit(
+    session: Session,
+    *,
+    review: PlayerOsTrialFeedbackReview,
+    reviewer: str | None = None,
+    source: str = "player_os_trial_feedback",
+) -> dict[str, Any]:
+    finding_ids = [finding.finding_id for finding in review.findings]
+    severities = [finding.severity for finding in review.findings]
+    record = SupportReviewAuditModel(
+        case_id=f"player-os-trial-feedback-{uuid4().hex}",
+        bundle_schema_version=review.feedback_schema_version,
+        review_schema_version=review.schema_version,
+        overall_status=review.overall_status,
+        summary=review.summary,
+        highest_severity=_highest_severity(severities),
+        finding_count=len(review.findings),
+        finding_ids_json=finding_ids,
+        reviewer=_safe_text(reviewer or "support", max_length=80),
+        source=_safe_text(source, max_length=80),
+        reply_template_summary=_safe_text(review.player_reply_template, max_length=360),
+        properties_json={
+            "checklist_schema_version": review.checklist_schema_version,
+            "support_classification": review.support_classification,
+            "ready_gate_count": review.ready_gate_count,
+            "total_gate_count": review.total_gate_count,
+            "plan_id": review.plan_id,
+            "report_id": review.report_id,
+            "last_bridge_target": review.last_bridge_target,
+            "evidence_refs": [ref for finding in review.findings for ref in finding.evidence_refs],
+            "redaction_boundary": list(review.redaction_boundary),
+            "stores_raw_feedback": False,
+            "stores_raw_bundle": False,
+            "stores_raw_api_key": False,
+            "stores_private_account_payload": False,
+        },
+    )
+    session.add(record)
+    session.commit()
+    session.refresh(record)
+    return {
+        "case_id": record.case_id,
+        "bundle_schema_version": record.bundle_schema_version,
+        "review_schema_version": record.review_schema_version,
+        "overall_status": record.overall_status,
+        "summary": record.summary,
+        "highest_severity": record.highest_severity,
+        "finding_count": record.finding_count,
+        "finding_ids": list(record.finding_ids_json or []),
+        "reviewer": record.reviewer,
+        "source": record.source,
+        "reply_template_summary": record.reply_template_summary,
+        "properties": dict(record.properties_json or {}),
+        "created_at": record.created_at.isoformat(),
+    }
 
 
 def review_player_os_trial_feedback(feedback: dict[str, Any]) -> PlayerOsTrialFeedbackReview:
@@ -340,6 +401,13 @@ def _find_sensitive_paths(value: Any, prefix: str = "$") -> list[str]:
     return paths
 
 
+def _highest_severity(severities: list[str]) -> str:
+    rank = {"critical": 3, "warning": 2, "info": 1}
+    if not severities:
+        return "info"
+    return max(severities, key=lambda value: rank.get(value, 0))
+
+
 def _as_dict(value: Any) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
@@ -353,3 +421,8 @@ def _int_value(value: Any) -> int:
 
 def _string_or_none(value: Any) -> str | None:
     return value if isinstance(value, str) and value else None
+
+
+def _safe_text(value: Any, *, max_length: int) -> str:
+    text = str(value or "").replace("\x00", "").strip()
+    return text[:max_length]

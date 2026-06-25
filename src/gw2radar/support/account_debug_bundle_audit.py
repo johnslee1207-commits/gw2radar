@@ -258,6 +258,84 @@ PLAYBOOKS: dict[str, SupportReviewPlaybookItem] = {
         priority="P2",
         evidence_needed=["diagnostic_summary.summary_status", "client_state.active_view", "client_state.active_build_id_present"],
     ),
+    "intent_not_captured": SupportReviewPlaybookItem(
+        blocker_id="intent_not_captured",
+        title="Player OS intent was not captured",
+        support_steps=[
+            "Ask the player to start from the Player OS intent box or a template.",
+            "Confirm the trial checklist shows Intent captured before exporting feedback.",
+            "Review the intent parser only if repeated cases include clear player text.",
+        ],
+        player_reply_template="Player OS has not captured your goal yet. Please enter your goal in the Player OS box or choose a template, then export trial feedback again. Do not send your raw GW2 API key.",
+        product_fix_suggestion="Make Player OS intent capture state and empty-intent recovery visible in the Dashboard checklist.",
+        priority="P1",
+        evidence_needed=["checklist.rows.intent"],
+    ),
+    "plan_not_generated": SupportReviewPlaybookItem(
+        blocker_id="plan_not_generated",
+        title="Player OS plan was not generated",
+        support_steps=[
+            "Confirm intent capture succeeded.",
+            "Ask the player to build the Player OS plan again.",
+            "Check `/api/v1/intents/start` if plan generation remains empty.",
+        ],
+        player_reply_template="Player OS did not generate a plan yet. Please start the intent again and confirm the plan panel shows next actions before continuing. Do not send private account payloads.",
+        product_fix_suggestion="Add a clear empty-plan diagnostic and retry affordance to the Player OS plan panel.",
+        priority="P1",
+        evidence_needed=["checklist.rows.plan"],
+    ),
+    "deep_link_not_opened": SupportReviewPlaybookItem(
+        blocker_id="deep_link_not_opened",
+        title="Player OS action was not opened into a target module",
+        support_steps=[
+            "Ask which Player OS action button the player clicked.",
+            "Have the player open one action into Legendary, Build Fit, Market, or readiness.",
+            "Verify the trial checklist records the last bridge target.",
+        ],
+        player_reply_template="Your Player OS plan exists, but no action has been opened into a target module yet. Please click one Player OS action button, confirm the module opens, then continue. Do not send raw keys or private payloads.",
+        product_fix_suggestion="Make Player OS action buttons show a post-click confirmation and target-module next action.",
+        priority="P1",
+        evidence_needed=["checklist.rows.deep_link", "player_os_context.last_bridge.target_view"],
+    ),
+    "report_preview_not_opened": SupportReviewPlaybookItem(
+        blocker_id="report_preview_not_opened",
+        title="Player OS report preview was not opened",
+        support_steps=[
+            "Ask the player to open the Player OS report from the plan panel.",
+            "Confirm the Reports view renders a preview.",
+            "Use the report id from trial feedback for follow-up if present.",
+        ],
+        player_reply_template="The Player OS report preview has not been opened yet. Please open the Player OS report from the plan panel and confirm the Reports view renders the preview. Do not send private payloads.",
+        product_fix_suggestion="Keep the Player OS report preview button visible until the Reports handoff is confirmed.",
+        priority="P2",
+        evidence_needed=["checklist.rows.report_preview", "player_os_context.report_id"],
+    ),
+    "feedback_packet_incomplete": SupportReviewPlaybookItem(
+        blocker_id="feedback_packet_incomplete",
+        title="Player OS trial feedback was exported before all gates were ready",
+        support_steps=[
+            "Ask the player to refresh the trial checklist.",
+            "Have them complete intent, plan, deep-link, and report-preview gates.",
+            "Ask for a fresh metadata-only feedback export.",
+        ],
+        player_reply_template="The trial feedback was exported before all Player OS gates were ready. Please refresh the checklist, complete the missing gates, then export feedback again. Do not send raw API keys.",
+        product_fix_suggestion="Disable or warn on trial feedback export until all required gates are complete.",
+        priority="P2",
+        evidence_needed=["checklist.rows.feedback_packet"],
+    ),
+    "result_generation_empty": SupportReviewPlaybookItem(
+        blocker_id="result_generation_empty",
+        title="Player OS gates are ready but target result is empty",
+        support_steps=[
+            "Identify the last Player OS bridge target.",
+            "Ask the player to run the target module result action such as recompute, evaluate, or report preview.",
+            "Collect an account debug bundle only if the target module still returns no visible result.",
+        ],
+        player_reply_template="Your Player OS gates are complete, so the next issue is likely inside the target module result step. Please open the bridged module and run its result action. Do not send your raw GW2 API key.",
+        product_fix_suggestion="Add target-module result completion checks after Player OS deep-link actions.",
+        priority="P1",
+        evidence_needed=["checklist.status", "player_os_context.last_bridge.target_view", "player_os_context.report_id"],
+    ),
     "privacy_boundary_violation": SupportReviewPlaybookItem(
         blocker_id="privacy_boundary_violation",
         title="Bundle violates support privacy boundary",
@@ -316,6 +394,7 @@ def list_support_review_audits(
     status: str | None = None,
     severity: str | None = None,
     reviewer: str | None = None,
+    source: str | None = None,
     created_from: datetime | None = None,
     created_to: datetime | None = None,
 ) -> list[SupportReviewAuditRecord]:
@@ -327,6 +406,8 @@ def list_support_review_audits(
         statement = statement.where(SupportReviewAuditModel.highest_severity == _safe_text(severity, max_length=20))
     if reviewer:
         statement = statement.where(SupportReviewAuditModel.reviewer == _safe_text(reviewer, max_length=80))
+    if source:
+        statement = statement.where(SupportReviewAuditModel.source == _safe_text(source, max_length=80))
     if created_from:
         statement = statement.where(SupportReviewAuditModel.created_at >= created_from)
     if created_to:

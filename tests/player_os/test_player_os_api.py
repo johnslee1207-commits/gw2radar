@@ -1,6 +1,12 @@
+import shutil
+from pathlib import Path
+from uuid import uuid4
+
 from fastapi.testclient import TestClient
 
+from gw2radar.api import state
 from gw2radar.api.main import app
+from gw2radar.db.session import close_database, configure_database
 
 
 client = TestClient(app)
@@ -96,6 +102,50 @@ def test_player_os_trial_feedback_review_blocks_sensitive_fields() -> None:
     review = response.json()["data"]["trial_feedback_review"]
     assert review["overall_status"] == "privacy_boundary_violation"
     assert review["findings"][0]["severity"] == "critical"
+
+
+def test_player_os_trial_feedback_audit_feeds_metrics_and_backlog() -> None:
+    temp_dir = Path(".test_tmp") / f"player-os-trial-feedback-audit-{uuid4().hex}"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        configure_database(f"sqlite:///{temp_dir / 'trial-feedback.db'}")
+        state.reset_cached_graph()
+        local_client = TestClient(app)
+        feedback = _trial_feedback(ready=False, missing_row="deep_link")
+
+        saved = local_client.post(
+            "/api/v1/player-os/trial-feedback/review/audit",
+            json={"feedback": feedback, "reviewer": "trial-support"},
+        )
+        assert saved.status_code == 200
+        saved_payload = saved.json()["data"]
+        assert saved_payload["trial_feedback_review"]["overall_status"] == "deep_link_not_opened"
+        record = saved_payload["trial_feedback_audit_record"]
+        assert record["source"] == "player_os_trial_feedback"
+        assert record["properties"]["stores_raw_feedback"] is False
+        assert record["properties"]["stores_raw_api_key"] is False
+        assert "raw_key" not in str(record)
+
+        listed = local_client.get("/api/v1/player-os/trial-feedback/review/audit?reviewer=trial-support")
+        assert listed.status_code == 200
+        assert listed.json()["data"]["trial_feedback_audit"]["records"][0]["overall_status"] == "deep_link_not_opened"
+
+        metrics = local_client.get("/api/v1/player-os/trial-feedback/review/audit/metrics?reviewer=trial-support")
+        assert metrics.status_code == 200
+        metrics_payload = metrics.json()["data"]["trial_feedback_metrics"]
+        assert metrics_payload["schema_version"] == "gw2radar.player_os_trial_feedback_metrics.v1"
+        assert metrics_payload["total_records"] == 1
+        assert metrics_payload["top_blockers"][0]["key"] == "deep_link_not_opened"
+
+        backlog = local_client.get("/api/v1/player-os/trial-feedback/review/audit/backlog?reviewer=trial-support")
+        assert backlog.status_code == 200
+        backlog_payload = backlog.json()["data"]["trial_feedback_backlog"]
+        assert backlog_payload["schema_version"] == "gw2radar.player_os_trial_feedback_backlog.v1"
+        assert backlog_payload["backlog_items"][0]["blocker_id"] == "deep_link_not_opened"
+        assert backlog_payload["unmapped_blockers"] == []
+    finally:
+        close_database()
+        shutil.rmtree(temp_dir, ignore_errors=True)
 
 
 def _trial_feedback(ready: bool, missing_row: str | None = None) -> dict:
