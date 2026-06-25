@@ -5,6 +5,8 @@ const loadSampleButton = document.querySelector("#load-sample-button");
 const clearButton = document.querySelector("#clear-button");
 const copyTemplateButton = document.querySelector("#copy-template-button");
 const saveAuditButton = document.querySelector("#save-audit-button");
+const reviewPlayerOsFeedbackButton = document.querySelector("#review-player-os-feedback-button");
+const loadPlayerOsFeedbackSampleButton = document.querySelector("#load-player-os-feedback-sample-button");
 const refreshAuditButton = document.querySelector("#refresh-audit-button");
 const exportAuditButton = document.querySelector("#export-audit-button");
 const refreshMetricsButton = document.querySelector("#refresh-metrics-button");
@@ -70,6 +72,10 @@ const summary = document.querySelector("#support-summary");
 const findingList = document.querySelector("#finding-list");
 const replyTemplate = document.querySelector("#reply-template");
 const reviewerName = document.querySelector("#reviewer-name");
+const playerOsFeedbackInput = document.querySelector("#player-os-feedback-json");
+const playerOsFeedbackSummary = document.querySelector("#player-os-feedback-summary");
+const playerOsFeedbackFindings = document.querySelector("#player-os-feedback-findings");
+const playerOsFeedbackReply = document.querySelector("#player-os-feedback-reply");
 const auditList = document.querySelector("#audit-list");
 const auditStatusFilter = document.querySelector("#audit-status-filter");
 const auditSeverityFilter = document.querySelector("#audit-severity-filter");
@@ -161,6 +167,34 @@ const sampleBundle = {
   redaction_policy: ["Raw API keys are excluded."],
 };
 
+const samplePlayerOsFeedback = {
+  schema_version: "gw2radar.player_os_trial_feedback.v1",
+  exported_at: "2026-06-25T00:00:00.000Z",
+  checklist: {
+    schema_version: "gw2radar.player_os_trial_checklist.v1",
+    status: "ready",
+    ready_count: 5,
+    total_count: 5,
+    plan_id: "plan-sample",
+    report_id: "report-sample",
+    last_bridge: { target_view: "legendary", action_id: "action-1" },
+    rows: [
+      { id: "intent", label: "Intent captured", ready: true, evidence: "legendary" },
+      { id: "plan", label: "Plan generated", ready: true, evidence: "plan-sample" },
+      { id: "deep_link", label: "Deep-link opened", ready: true, evidence: "legendary" },
+      { id: "report_preview", label: "Report preview opened", ready: true, evidence: "report-sample" },
+      { id: "feedback_packet", label: "Feedback metadata ready", ready: true, evidence: "metadata_only_ready" },
+    ],
+    safety_boundary: "Metadata-only trial feedback; no raw API keys, private payloads, or automated actions.",
+  },
+  player_os_context: {
+    plan_id: "plan-sample",
+    report_id: "report-sample",
+    last_bridge: { target_view: "legendary", action_id: "action-1" },
+  },
+  safety_boundary: "Metadata-only trial feedback; no raw API keys, private payloads, or automated actions.",
+};
+
 function setReviewState(review) {
   lastReview = review;
   output.textContent = JSON.stringify(review, null, 2);
@@ -250,6 +284,55 @@ async function saveAuditRecord() {
   summary.textContent = `Audit saved: ${payload.audit_record?.case_id || "unknown case"}. Raw bundle was not stored.`;
   output.textContent = JSON.stringify(payload, null, 2);
   await refreshAuditRecords();
+}
+
+async function reviewPlayerOsTrialFeedback() {
+  let feedback;
+  try {
+    feedback = JSON.parse(playerOsFeedbackInput?.value || "{}");
+  } catch (error) {
+    playerOsFeedbackSummary.textContent = `Invalid JSON: ${error.message}`;
+    playerOsFeedbackFindings.innerHTML = "";
+    playerOsFeedbackReply.value = "The Player OS trial feedback is not valid JSON. Please export a fresh feedback file.";
+    return;
+  }
+  const response = await fetch("/api/v1/player-os/trial-feedback/review", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ feedback }),
+  });
+  const payload = await response.json();
+  renderPlayerOsFeedbackReview(payload?.data?.trial_feedback_review || {});
+}
+
+function renderPlayerOsFeedbackReview(review) {
+  const status = review.overall_status || "manual_review";
+  playerOsFeedbackSummary.textContent = `${status}: ${review.summary || "Manual review required."} Gates ${review.ready_gate_count || 0}/${review.total_gate_count || 0}.`;
+  playerOsFeedbackFindings.innerHTML = "";
+  const findings = Array.isArray(review.findings) ? review.findings : [];
+  if (!findings.length) {
+    const empty = document.createElement("div");
+    empty.className = "support-finding info";
+    empty.textContent = "No blocking Player OS feedback findings.";
+    playerOsFeedbackFindings.appendChild(empty);
+  }
+  for (const finding of findings) {
+    const item = document.createElement("article");
+    item.className = `support-finding ${finding.severity || "info"}`;
+    const title = document.createElement("strong");
+    title.textContent = finding.title || finding.finding_id;
+    const message = document.createElement("p");
+    message.textContent = finding.player_message || "";
+    const action = document.createElement("p");
+    action.textContent = `Action: ${finding.recommended_action || "Manual review required."}`;
+    const evidence = document.createElement("code");
+    evidence.textContent = (finding.evidence_refs || []).join(", ") || "no evidence path";
+    item.append(title, message, action, evidence);
+    playerOsFeedbackFindings.appendChild(item);
+  }
+  playerOsFeedbackReply.value =
+    review.player_reply_template || "Review the Player OS metadata-only feedback and keep the no-secret boundary.";
+  output.textContent = JSON.stringify(review, null, 2);
 }
 
 async function refreshAuditRecords() {
@@ -1130,6 +1213,12 @@ clearButton?.addEventListener("click", () => {
 });
 
 saveAuditButton?.addEventListener("click", saveAuditRecord);
+
+reviewPlayerOsFeedbackButton?.addEventListener("click", reviewPlayerOsTrialFeedback);
+
+loadPlayerOsFeedbackSampleButton?.addEventListener("click", () => {
+  playerOsFeedbackInput.value = JSON.stringify(samplePlayerOsFeedback, null, 2);
+});
 
 refreshAuditButton?.addEventListener("click", refreshAuditRecords);
 

@@ -77,6 +77,29 @@
           </ul>
         </section>
 
+        <section class="panel" aria-label="Player OS trial feedback review">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Player OS</p>
+              <h2>Trial Feedback Review</h2>
+            </div>
+            <div class="button-row">
+              <button id="review-player-os-feedback-button" type="button">Review feedback</button>
+              <button id="load-player-os-feedback-sample-button" type="button">Load sample</button>
+            </div>
+          </div>
+          <label>
+            Paste trial feedback JSON
+            <textarea id="player-os-feedback-json" rows="10" spellcheck="false" placeholder='{"schema_version":"gw2radar.player_os_trial_feedback.v1"}'></textarea>
+          </label>
+          <div id="player-os-feedback-summary" class="result-summary">No Player OS trial feedback reviewed yet.</div>
+          <div id="player-os-feedback-findings" class="support-finding-list" aria-live="polite"></div>
+          <label>
+            Player OS reply template
+            <textarea id="player-os-feedback-reply" rows="6" readonly></textarea>
+          </label>
+        </section>
+
         <section class="panel" aria-label="Recent support review audit records">
           <div class="section-head">
             <div>

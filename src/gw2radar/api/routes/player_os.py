@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 from gw2radar.api.envelope import ApiDataEnvelope
 from gw2radar.player_os.intent.intent_templates import get_intent_template, list_intent_templates
 from gw2radar.player_os.orchestration import player_os_orchestrator as os
+from gw2radar.player_os.trial_feedback_review import review_player_os_trial_feedback
 
 
 router = APIRouter(prefix="/api/v1", tags=["player-os"])
@@ -46,6 +47,10 @@ class WhatIfRequest(BaseModel):
 
 class ReportReviseRequest(BaseModel):
     raw_revision_text: str
+
+
+class TrialFeedbackReviewRequest(BaseModel):
+    feedback: dict = Field(default_factory=dict)
 
 
 @router.post("/intents/parse", response_model=ApiDataEnvelope)
@@ -219,3 +224,9 @@ def get_now() -> ApiDataEnvelope:
 def post_now_recompute() -> ApiDataEnvelope:
     plan = os.build_now_result()
     return ApiDataEnvelope(data={"now": plan.model_dump(mode="json")})
+
+
+@router.post("/player-os/trial-feedback/review", response_model=ApiDataEnvelope)
+def post_player_os_trial_feedback_review(request: TrialFeedbackReviewRequest) -> ApiDataEnvelope:
+    review = review_player_os_trial_feedback(request.feedback)
+    return ApiDataEnvelope(data={"trial_feedback_review": review.model_dump(mode="json")})
