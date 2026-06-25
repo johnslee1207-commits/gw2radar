@@ -49,6 +49,11 @@ VALIDATION_PROFILES: dict[str, ValidationProfile] = {
                 (PYTHON, "harness\\run_player_use_path_audit.py"),
             ),
             ValidationStep(
+                "player_os",
+                "Player OS intent, workflow, revision, governance, and API regression.",
+                (PYTHON, "-m", "pytest", "tests\\player_os", "-q"),
+            ),
+            ValidationStep(
                 "spec_registry",
                 "Spec registry and backlog index freshness check.",
                 (PYTHON, "harness\\run_spec_registry.py", "--check"),

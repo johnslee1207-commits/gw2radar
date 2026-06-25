@@ -1,0 +1,19 @@
+template_id: returner.casual_legendary_start
+name: Return and start a legendary slowly
+domain: returner
+description: Blend returner recovery with conservative legendary progress.
+default_intent_type: returner
+default_constraints:
+  pace: casual
+  goal_id: gw2:goal:aurora
+  conservative_sell_policy: true
+required_permissions:
+  - account
+  - characters
+  - inventories
+  - wallet
+  - progression
+recommended_next_questions:
+  - Which legendary are you considering?
+  - How much time can you play each day?
+enabled: true

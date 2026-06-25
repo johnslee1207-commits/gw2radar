@@ -1,0 +1,16 @@
+template_id: account.do_not_sell_check
+name: Do-not-sell check
+domain: account
+description: Protect account materials that are likely needed for active goals.
+default_intent_type: legendary
+default_constraints:
+  conservative_sell_policy: true
+  goal_id: gw2:goal:aurora
+required_permissions:
+  - account
+  - inventories
+  - wallet
+  - progression
+recommended_next_questions:
+  - Which goal should be protected?
+enabled: true

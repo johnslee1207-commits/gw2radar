@@ -31,12 +31,13 @@ python harness/run_validation_profile.py full
 - `stage`: default stage gate for normal development; runs `fast` then `smoke`.
 - `release`: milestone / release gate; runs `fast`, `smoke`, then `full`.
 - `fast`: shared delivery lifecycle contract, productized report regression,
-  player use-path semantic maturity audit, spec registry freshness, and partial
-  spec reconciliation freshness, MVP closure readiness, post-MVP roadmap
-  freshness, operational hardening readiness freshness, and operator release
-  packet readiness freshness, final closeout dashboard freshness, real user
-  trial defect triage readiness freshness, AegisRadar reference borrowing
-  assessment freshness, and delivery maturity audit freshness.
+  player use-path semantic maturity audit, Player OS intent / workflow /
+  revision regression, spec registry freshness, and partial spec reconciliation
+  freshness, MVP closure readiness, post-MVP roadmap freshness, operational
+  hardening readiness freshness, and operator release packet readiness
+  freshness, final closeout dashboard freshness, real user trial defect triage
+  readiness freshness, AegisRadar reference borrowing assessment freshness, and
+  delivery maturity audit freshness.
 - `smoke`: MVP smoke, player UI E2E smoke, and account connection diagnostic.
 - `full`: complete `pytest` regression.
 
@@ -217,6 +218,18 @@ report artifact metadata. It writes
 `docs/ui/PLAYER_USE_PATH_COMPLETENESS_AUDIT.md` with an executable checklist,
 semantic graph summary, known limits, and next priority. The audit is
 summary-only and must not include raw API keys or private source payloads.
+
+## Player OS Regression Command
+
+```bash
+python -m pytest tests/player_os -q
+```
+
+This regression path verifies the Player OS intent builder: deterministic
+intent parsing, template selection, workflow startup, governance gates, plan
+revision, what-if analysis, report revision, `/api/v1` route contracts, and
+the player-facing `/start`, `/now`, `/templates`, `/help`, `/wizard/*`,
+`/plan/revise`, and `/report/revise` pages.
 
 ## Spec Registry Backlog Command
 

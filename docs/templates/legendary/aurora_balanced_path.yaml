@@ -1,0 +1,17 @@
+template_id: legendary.aurora_balanced_path
+name: Aurora Balanced Path
+domain: legendary
+description: Balance time, gold, and do-not-sell protection for Aurora.
+default_intent_type: legendary
+default_constraints:
+  goal_id: gw2:goal:aurora
+  spending_mode: balanced
+  conservative_sell_policy: true
+required_permissions:
+  - account
+  - inventories
+  - wallet
+  - progression
+recommended_next_questions:
+  - Do you prefer fast progress or low gold spending?
+enabled: true

@@ -1,0 +1,21 @@
+template_id: returner.long_break_open_world
+name: I am returning after a long break
+domain: returner
+description: Recover your account and get a safe 7-day open-world plan.
+default_intent_type: returner
+default_constraints:
+  pace: casual
+  preferred_modes:
+    - open_world
+  conservative_sell_policy: true
+required_permissions:
+  - account
+  - characters
+  - inventories
+  - wallet
+  - progression
+recommended_next_questions:
+  - How long have you been away?
+  - Which game mode do you want to return to?
+  - Do you have a preferred profession?
+enabled: true

@@ -1,0 +1,15 @@
+template_id: market.goal_watch
+name: Goal cost and market watch
+domain: market
+description: Review goal cost signals without automated trading or profit claims.
+default_intent_type: market_watch
+default_constraints:
+  goal_id: gw2:goal:aurora
+  no_automated_trading: true
+required_permissions:
+  - account
+  - inventories
+  - wallet
+recommended_next_questions:
+  - Which goal or item should be watched?
+enabled: true

@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>GW2Radar Player OS</title>
+    <link rel="stylesheet" href="/player-ui/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="hero-panel">
+        <p class="eyebrow">GW2Radar Player OS</p>
+        <h1>Say what you want to do next.</h1>
+        <p>
+          Build a GW2 progression plan from intent. The system checks account readiness, routes to the right workflow,
+          and returns advisory actions with evidence, warnings, and safety boundaries.
+        </p>
+      </section>
+
+      <section class="panel">
+        <div class="panel-title">
+          <span class="marker green"></span>
+          <h2>Start From Intent</h2>
+        </div>
+        <form id="intent-form" class="form-grid">
+          <label>
+            Goal
+            <textarea id="intent-text" rows="4">I want to craft Aurora cheaply and avoid WvW.</textarea>
+          </label>
+          <div class="button-row">
+            <button type="submit" class="primary-action">Build plan</button>
+            <button type="button" class="secondary-action" id="now-button">What should I do now?</button>
+          </div>
+        </form>
+        <div id="intent-output" class="compact-list">Enter a goal or choose a template.</div>
+      </section>
+
+      <section class="dashboard-grid">
+        <article class="panel">
+          <div class="panel-title">
+            <span class="marker amber"></span>
+            <h2>Templates</h2>
+          </div>
+          <div id="template-gallery" class="compact-list">Loading templates...</div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-title">
+            <span class="marker green"></span>
+            <h2>Plan</h2>
+          </div>
+          <div id="plan-output" class="compact-list">No plan yet.</div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-title">
+            <span class="marker amber"></span>
+            <h2>Revise</h2>
+          </div>
+          <form id="revision-form" class="form-grid">
+            <label>
+              Revision
+              <textarea id="revision-text" rows="3">I only have 30 minutes per day.</textarea>
+            </label>
+            <div class="button-row">
+              <button type="submit" class="secondary-action">Revise plan</button>
+              <button type="button" class="secondary-action" id="what-if-button">What if?</button>
+            </div>
+          </form>
+          <div id="revision-output" class="compact-list">Plan revisions preserve evidence and assumptions.</div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-title">
+            <span class="marker red"></span>
+            <h2>Help</h2>
+          </div>
+          <div class="button-row">
+            <button type="button" class="secondary-action" id="diagnose-button">Auto diagnose</button>
+            <a class="secondary-action" href="/support">Support handoff</a>
+            <button type="button" class="secondary-action" id="delete-key-button">Delete API key</button>
+          </div>
+          <div id="help-output" class="compact-list">Diagnostics are privacy-safe and never ask for raw keys.</div>
+        </article>
+      </section>
+    </main>
+
+    <script>
+      let currentPlanId = null;
+
+      async function fetchJson(url, options = {}) {
+        const response = await fetch(url, {
+          headers: { "content-type": "application/json", ...(options.headers || {}) },
+          ...options,
+        });
+        const payload = await response.json();
+        if (!response.ok || payload.ok === false) {
+          throw new Error(payload.error?.message || response.statusText);
+        }
+        return payload;
+      }
+
+      function row(label, text, tone = "info") {
+        const item = document.createElement("div");
+        item.className = `compact-list-row ${tone}`;
+        const strong = document.createElement("strong");
+        const span = document.createElement("span");
+        strong.textContent = label;
+        span.textContent = text;
+        item.append(strong, span);
+        return item;
+      }
+
+      function renderPlan(plan) {
+        const target = document.querySelector("#plan-output");
+        target.innerHTML = "";
+        if (!plan) {
+          target.textContent = "No plan yet.";
+          return;
+        }
+        currentPlanId = plan.plan_id;
+        target.append(row(plan.title, plan.focus, "info"));
+        for (const action of plan.top_actions || []) {
+          target.append(row(action.title, `${action.reason} · ${action.safety_boundary}`, action.urgency === "high" ? "warn" : "info"));
+        }
+        for (const warning of plan.warnings || []) {
+          target.append(row("Warning", warning, "warn"));
+        }
+      }
+
+      function renderIntent(result) {
+        const target = document.querySelector("#intent-output");
+        target.innerHTML = "";
+        target.append(row("Intent", `${result.intent.intent_type} · confidence ${result.intent.confidence}`, "info"));
+        target.append(row("Workflow", `${result.workflow.workflow_type} · ${result.workflow.status}`, result.workflow.status === "ready" ? "info" : "warn"));
+        target.append(row("Governance", result.governance.status, result.governance.status === "ready" ? "info" : "warn"));
+        for (const question of result.intent.warnings || []) {
+          target.append(row("Note", question, "warn"));
+        }
+        renderPlan(result.plan);
+      }
+
+      async function loadTemplates() {
+        const payload = await fetchJson("/api/v1/templates");
+        const gallery = document.querySelector("#template-gallery");
+        gallery.innerHTML = "";
+        for (const template of payload.data.templates || []) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "secondary-action";
+          button.textContent = template.name;
+          button.addEventListener("click", async () => {
+            const started = await fetchJson(`/api/v1/templates/${template.template_id}/start`, { method: "POST" });
+            renderIntent(started.data.intent_start);
+          });
+          const item = row(template.domain, template.description, "info");
+          item.appendChild(button);
+          gallery.appendChild(item);
+        }
+      }
+
+      document.querySelector("#intent-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const rawText = document.querySelector("#intent-text").value;
+        const payload = await fetchJson("/api/v1/intents/start", {
+          method: "POST",
+          body: JSON.stringify({ raw_text: rawText }),
+        });
+        renderIntent(payload.data.intent_start);
+      });
+
+      document.querySelector("#now-button").addEventListener("click", async () => {
+        const payload = await fetchJson("/api/v1/now");
+        renderPlan(payload.data.now);
+      });
+
+      document.querySelector("#revision-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        if (!currentPlanId) {
+          document.querySelector("#revision-output").textContent = "Build a plan before revising it.";
+          return;
+        }
+        const payload = await fetchJson(`/api/v1/plans/${currentPlanId}/revise`, {
+          method: "POST",
+          body: JSON.stringify({ raw_revision_text: document.querySelector("#revision-text").value }),
+        });
+        const output = document.querySelector("#revision-output");
+        output.innerHTML = "";
+        output.append(row("Changed", JSON.stringify(payload.data.diff.changed_constraints), "info"));
+        output.append(row("Summary", payload.data.diff.summary, "info"));
+        renderPlan(payload.data.plan);
+      });
+
+      document.querySelector("#what-if-button").addEventListener("click", async () => {
+        if (!currentPlanId) {
+          document.querySelector("#revision-output").textContent = "Build a plan before running what-if.";
+          return;
+        }
+        const payload = await fetchJson(`/api/v1/plans/${currentPlanId}/what-if`, {
+          method: "POST",
+          body: JSON.stringify({ raw_text: document.querySelector("#revision-text").value }),
+        });
+        const output = document.querySelector("#revision-output");
+        output.innerHTML = "";
+        output.append(row("Feasibility", payload.data.what_if.feasibility, "info"));
+        output.append(row("Plan delta", payload.data.what_if.plan_delta, "info"));
+      });
+
+      document.querySelector("#diagnose-button").addEventListener("click", async () => {
+        const payload = await fetchJson("/account/first-run-summary");
+        const output = document.querySelector("#help-output");
+        output.innerHTML = "";
+        output.append(row(payload.summary_status || "status", payload.player_message || "No summary available.", payload.summary_status === "ready" ? "info" : "warn"));
+      });
+
+      document.querySelector("#delete-key-button").addEventListener("click", async () => {
+        await fetchJson("/account/api-key", { method: "DELETE" });
+        document.querySelector("#help-output").textContent = "API key deleted locally.";
+      });
+
+      loadTemplates();
+    </script>
+  </body>
+</html>

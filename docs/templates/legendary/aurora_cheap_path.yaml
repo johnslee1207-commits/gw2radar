@@ -1,0 +1,19 @@
+template_id: legendary.aurora_cheap_path
+name: Aurora Cheap Path
+domain: legendary
+description: Plan Aurora with minimum gold spending.
+default_intent_type: legendary
+default_constraints:
+  goal_id: gw2:goal:aurora
+  spending_mode: cheap
+  prefer_farming: true
+  conservative_sell_policy: true
+required_permissions:
+  - account
+  - inventories
+  - wallet
+  - progression
+recommended_next_questions:
+  - How much gold are you willing to spend?
+  - Do you want to avoid WvW or group content?
+enabled: true

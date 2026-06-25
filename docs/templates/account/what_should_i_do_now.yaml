@@ -1,0 +1,17 @@
+template_id: account.what_should_i_do_now
+name: What should I do now?
+domain: account
+description: Generate the top current actions from account readiness, goals, and evidence.
+default_intent_type: what_should_i_do_now
+default_constraints:
+  daily_time_limit: 30m
+  conservative_sell_policy: true
+required_permissions:
+  - account
+  - characters
+  - inventories
+  - wallet
+  - progression
+recommended_next_questions:
+  - How much time do you have today?
+enabled: true

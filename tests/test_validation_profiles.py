@@ -14,6 +14,7 @@ def test_validation_profiles_are_staged_and_stable() -> None:
         "delivery_lifecycle",
         "productized_report",
         "player_use_path_audit",
+        "player_os",
         "spec_registry",
         "spec_reconciliation",
         "closure_readiness",
@@ -40,6 +41,7 @@ def test_validation_profile_commands_use_project_entrypoints() -> None:
 
     assert any("tests\\test_delivery_lifecycle.py" in command for command in fast_commands)
     assert any("harness\\run_player_use_path_audit.py" in command for command in fast_commands)
+    assert any("tests\\player_os" in command for command in fast_commands)
     assert any("harness\\run_spec_registry.py --check" in command for command in fast_commands)
     assert any("harness\\run_spec_reconciliation.py --check" in command for command in fast_commands)
     assert any("harness\\run_closure_readiness.py --check" in command for command in fast_commands)
