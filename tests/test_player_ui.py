@@ -15,6 +15,14 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert "text/html" in response.headers["content-type"]
     assert "GW2Radar Player Dashboard" in response.text
     assert "Welcome to GW2Radar" in response.text
+    assert "Player OS Intent Builder" in response.text
+    assert "Build Player OS plan" in response.text
+    assert "What should I do now?" in response.text
+    assert "Open templates" in response.text
+    assert "Player OS Plan" in response.text
+    assert "Revise with 30m/day" in response.text
+    assert "What-if budget 100g" in response.text
+    assert "Open full Player OS" in response.text
     assert "Returner Diagnosis" in response.text
     assert "Readiness score" in response.text
     assert "Legendary Planner Pro" in response.text
@@ -231,6 +239,13 @@ def test_player_ui_static_assets_are_served() -> None:
     assert ".dashboard-grid" in css.text
     assert js.status_code == 200
     assert "/api/v1/legendary/recompute" in js.text
+    assert "/api/v1/intents/start" in js.text
+    assert "/api/v1/now" in js.text
+    assert "startPlayerOsIntent" in js.text
+    assert "loadPlayerOsNow" in js.text
+    assert "revisePlayerOsPlan" in js.text
+    assert "whatIfPlayerOsPlan" in js.text
+    assert "renderPlayerOsPlan" in js.text
     assert "/api/v1/builds/transition-plan" in js.text
     assert "/api/v1/builds/character-snapshots" in js.text
     assert "/api/v1/kb/rule-packs/build_upgrade_effects" in js.text

@@ -110,6 +110,19 @@
               <h3>Current intent</h3>
               <div class="result-summary" id="welcome-summary">No player intent selected yet.</div>
             </article>
+            <article class="panel wide">
+              <h3>Player OS Intent Builder</h3>
+              <p class="muted-copy">Turn a free-form GW2 goal into a safe manual plan without leaving the cockpit.</p>
+              <label class="field-label">
+                Goal
+                <textarea id="player-os-intent-text" rows="3">I want to craft Aurora cheaply and avoid WvW.</textarea>
+              </label>
+              <div class="button-row">
+                <button class="secondary-action" data-action="startPlayerOsIntent">Build Player OS plan</button>
+                <button class="secondary-action" data-action="loadPlayerOsNow">What should I do now?</button>
+                <a class="secondary-action" href="/templates">Open templates</a>
+              </div>
+            </article>
           </div>
         </section>
 
@@ -170,6 +183,27 @@
               <ol class="action-list" id="dashboard-week-actions">
                 <li>Refresh the dashboard to load account-aware weekly actions.</li>
               </ol>
+            </article>
+            <article class="panel">
+              <div class="panel-title">
+                <span class="marker green"></span>
+                <h3>Player OS Plan</h3>
+              </div>
+              <dl class="metric-list">
+                <div><dt>Intent</dt><dd id="player-os-intent-label">Not started</dd></div>
+                <div><dt>Workflow</dt><dd id="player-os-workflow-label">--</dd></div>
+                <div><dt>Governance</dt><dd id="player-os-governance-label">--</dd></div>
+              </dl>
+              <ol class="action-list" id="player-os-actions">
+                <li>Use the Player OS intent builder to generate a safe manual plan.</li>
+              </ol>
+              <div id="player-os-warnings" class="compact-list">No Player OS warnings yet.</div>
+              <div class="button-row">
+                <button class="secondary-action" data-action="startPlayerOsIntent">Build from welcome goal</button>
+                <button class="secondary-action" data-action="revisePlayerOsPlan">Revise with 30m/day</button>
+                <button class="secondary-action" data-action="whatIfPlayerOsPlan">What-if budget 100g</button>
+                <a class="secondary-action" href="/start">Open full Player OS</a>
+              </div>
             </article>
             <article class="panel">
               <div class="panel-title">

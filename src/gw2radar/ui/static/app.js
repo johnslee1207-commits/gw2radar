@@ -11,6 +11,8 @@ const state = {
   lastRouteBackfillCandidateId: "",
   lastRouteSourcePatchDraftId: "",
   lastRouteDraftSourceId: "",
+  playerOsPlanId: "",
+  playerOsReportId: "",
 };
 
 const storageKeys = {
@@ -543,6 +545,43 @@ function updateStatusFromKey(payload) {
 function renderDashboardPlan(plan) {
   renderActionList("#dashboard-today-actions", plan?.today_best_actions || []);
   renderActionList("#dashboard-week-actions", plan?.this_week_actions || []);
+}
+
+function renderPlayerOsPlan(payload) {
+  const plan = payload?.plan || payload?.data?.plan || payload?.result?.plan || payload;
+  const intent = payload?.intent || payload?.data?.intent || {};
+  const workflow = payload?.workflow || payload?.data?.workflow || {};
+  const report = payload?.report || payload?.data?.report || {};
+  const governance = payload?.governance || payload?.data?.governance || {};
+  const status = governance.status || (governance.passed === false ? "blocked" : "ready");
+  const intentLabel = document.querySelector("#player-os-intent-label");
+  const workflowLabel = document.querySelector("#player-os-workflow-label");
+  const governanceLabel = document.querySelector("#player-os-governance-label");
+  const warningBox = document.querySelector("#player-os-warnings");
+  if (plan?.plan_id) {
+    state.playerOsPlanId = plan.plan_id;
+  }
+  if (report?.report_id) {
+    state.playerOsReportId = report.report_id;
+  }
+  if (intentLabel) {
+    intentLabel.textContent = intent.intent_type || plan?.intent_type || "Player OS";
+  }
+  if (workflowLabel) {
+    workflowLabel.textContent = workflow.workflow_type || plan?.workflow_type || "planning";
+  }
+  if (governanceLabel) {
+    governanceLabel.textContent = status;
+  }
+  renderActionList("#player-os-actions", [plan?.top_action, ...(plan?.weekly_actions || [])].filter(Boolean));
+  if (warningBox) {
+    const warnings = [...(plan?.warnings || []), ...(governance.warnings || [])].filter(Boolean);
+    warningBox.textContent = warnings.length ? warnings.join(" ") : "Ready with no blocking governance warnings.";
+  }
+  if (plan?.title) {
+    markStep("plan", plan.title);
+    renderSummary("welcome", `${plan.title}: ${plan.focus || "manual advisory plan ready"}`);
+  }
 }
 
 function renderPermissionReport(report) {
@@ -2017,6 +2056,51 @@ const actions = {
     renderSummary("welcome", `Selected intent: ${intent}.`);
     markStep("plan", `Intent: ${intent}`);
   },
+  startPlayerOsIntent: () =>
+    run("dashboard", async () => {
+      const text =
+        document.querySelector("#player-os-intent-text")?.value ||
+        state.playerIntent ||
+        "What should I do next?";
+      const payload = await fetchJson("/api/v1/intents/start", {
+        method: "POST",
+        body: JSON.stringify({ raw_text: text, ui_constraints: { source: "player_cockpit" } }),
+      });
+      renderPlayerOsPlan(payload);
+      showView("dashboard");
+      return payload;
+    }),
+  loadPlayerOsNow: () =>
+    run("dashboard", async () => {
+      const payload = await fetchJson("/api/v1/now");
+      renderPlayerOsPlan(payload);
+      showView("dashboard");
+      return payload;
+    }),
+  revisePlayerOsPlan: () =>
+    run("dashboard", async () => {
+      if (!state.playerOsPlanId) {
+        throw new Error("Build a Player OS plan before revising it.");
+      }
+      const payload = await fetchJson(`/api/v1/plans/${state.playerOsPlanId}/revise`, {
+        method: "POST",
+        body: JSON.stringify({ raw_text: "I only have 30 minutes per day.", constraints_delta: { daily_time_limit: "30m" } }),
+      });
+      renderPlayerOsPlan(payload);
+      return payload;
+    }),
+  whatIfPlayerOsPlan: () =>
+    run("dashboard", async () => {
+      if (!state.playerOsPlanId) {
+        throw new Error("Build a Player OS plan before running what-if analysis.");
+      }
+      const payload = await fetchJson(`/api/v1/plans/${state.playerOsPlanId}/what-if`, {
+        method: "POST",
+        body: JSON.stringify({ raw_text: "What if my budget is 100g?", constraints_delta: { budget_gold_limit: "100" } }),
+      });
+      renderPlayerOsPlan({ plan: payload.revised_plan, governance: { status: "ready" } });
+      return payload;
+    }),
   refreshDashboard: () =>
     run("dashboard", async () => {
       const key = await fetchJson("/account/api-key/status");
