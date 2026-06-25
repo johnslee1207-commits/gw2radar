@@ -13,6 +13,8 @@ const state = {
   lastRouteDraftSourceId: "",
   playerOsPlanId: "",
   playerOsReportId: "",
+  lastPlayerOsPlan: null,
+  playerOsBridgeActions: {},
 };
 
 const storageKeys = {
@@ -548,11 +550,12 @@ function renderDashboardPlan(plan) {
 }
 
 function renderPlayerOsPlan(payload) {
-  const plan = payload?.plan || payload?.data?.plan || payload?.result?.plan || payload;
-  const intent = payload?.intent || payload?.data?.intent || {};
-  const workflow = payload?.workflow || payload?.data?.workflow || {};
-  const report = payload?.report || payload?.data?.report || {};
-  const governance = payload?.governance || payload?.data?.governance || {};
+  const envelope = payload?.data?.intent_start || payload?.data?.now || payload?.intent_start || payload?.now || payload;
+  const plan = envelope?.plan || payload?.data?.plan || payload?.result?.plan || envelope;
+  const intent = envelope?.intent || payload?.data?.intent || {};
+  const workflow = envelope?.workflow || payload?.data?.workflow || {};
+  const report = envelope?.report_preview || envelope?.report || payload?.data?.report || {};
+  const governance = envelope?.governance || payload?.data?.governance || {};
   const status = governance.status || (governance.passed === false ? "blocked" : "ready");
   const intentLabel = document.querySelector("#player-os-intent-label");
   const workflowLabel = document.querySelector("#player-os-workflow-label");
@@ -560,6 +563,7 @@ function renderPlayerOsPlan(payload) {
   const warningBox = document.querySelector("#player-os-warnings");
   if (plan?.plan_id) {
     state.playerOsPlanId = plan.plan_id;
+    state.lastPlayerOsPlan = plan;
   }
   if (report?.report_id) {
     state.playerOsReportId = report.report_id;
@@ -573,7 +577,9 @@ function renderPlayerOsPlan(payload) {
   if (governanceLabel) {
     governanceLabel.textContent = status;
   }
-  renderActionList("#player-os-actions", [plan?.top_action, ...(plan?.weekly_actions || [])].filter(Boolean));
+  const topActions = plan?.top_actions || (plan?.top_action ? [plan.top_action] : []);
+  const weekActions = plan?.this_week || plan?.weekly_actions || [];
+  renderPlayerOsActionList("#player-os-actions", [...topActions, ...weekActions].filter(Boolean), plan);
   if (warningBox) {
     const warnings = [...(plan?.warnings || []), ...(governance.warnings || [])].filter(Boolean);
     warningBox.textContent = warnings.length ? warnings.join(" ") : "Ready with no blocking governance warnings.";
@@ -581,6 +587,108 @@ function renderPlayerOsPlan(payload) {
   if (plan?.title) {
     markStep("plan", plan.title);
     renderSummary("welcome", `${plan.title}: ${plan.focus || "manual advisory plan ready"}`);
+  }
+}
+
+function playerOsBridgeForAction(action, plan) {
+  const refs = (action?.evidence_refs || []).join(" ");
+  const title = `${action?.title || ""} ${action?.reason || ""}`.toLowerCase();
+  if (refs.includes("/api/v1/builds/character-snapshots")) {
+    return { targetView: "build", nextAction: "loadCharacterSnapshots", label: "Open Build snapshots" };
+  }
+  if (refs.includes("/api/v1/builds/fit")) {
+    return { targetView: "build", nextAction: "evaluateBuild", label: "Open Build Fit" };
+  }
+  if (refs.includes("/api/v1/builds/transition-plan")) {
+    return { targetView: "build", nextAction: "transitionPlan", label: "Open transition plan" };
+  }
+  if (refs.includes("/api/v1/legendary/recompute")) {
+    return { targetView: "legendary", nextAction: "legendaryRecompute", label: "Open Legendary Planner" };
+  }
+  if (refs.includes("/api/v1/legendary/do-not-sell") || title.includes("do-not-sell")) {
+    return { targetView: "legendary", nextAction: "legendaryDoNotSell", label: "Open do-not-sell" };
+  }
+  if (refs.includes("/api/v1/legendary/actions") || title.includes("cheap/fast")) {
+    return { targetView: "legendary", nextAction: "legendaryActions", label: "Open legendary actions" };
+  }
+  if (action?.linked_goal) {
+    return { targetView: "legendary", nextAction: "legendaryRecompute", label: "Open Legendary Planner" };
+  }
+  if (refs.includes("/api/v1/market") || title.includes("market") || title.includes("cost index")) {
+    return { targetView: "legendary", nextAction: "marketSignals", label: "Open Market Radar" };
+  }
+  if (refs.includes("/account/diagnostic")) {
+    return { targetView: "connect", nextAction: "connectionDiagnostic", label: "Open diagnostics" };
+  }
+  if (refs.includes("/api/v1/player/readiness") || refs.includes("/account/first-run-summary")) {
+    return { targetView: "dashboard", nextAction: "playerReadiness", label: "Open readiness" };
+  }
+  if (refs.includes("/api/v1/templates")) {
+    return { targetView: "dashboard", href: "/templates", label: "Open templates" };
+  }
+  if (plan?.intent_type === "build_fit") {
+    return { targetView: "build", nextAction: "loadCharacterSnapshots", label: "Open Build Fit" };
+  }
+  if (plan?.intent_type === "legendary") {
+    return { targetView: "legendary", nextAction: "legendaryRecompute", label: "Open Legendary Planner" };
+  }
+  return { targetView: "dashboard", nextAction: "playerReadiness", label: "Open dashboard" };
+}
+
+function renderPlayerOsActionList(selector, actionRows, plan) {
+  const list = document.querySelector(selector);
+  if (!list || !Array.isArray(actionRows)) {
+    return;
+  }
+  list.innerHTML = "";
+  state.playerOsBridgeActions = {};
+  actionRows.forEach((action, index) => {
+    const item = document.createElement("li");
+    const text = document.createElement("span");
+    const bridge = playerOsBridgeForAction(action, plan);
+    const bridgeId = `player-os-bridge-${index}`;
+    text.textContent = action.reason ? `${action.title} - ${action.reason}` : action.title;
+    item.appendChild(text);
+    state.playerOsBridgeActions[bridgeId] = { bridge, action, plan };
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "secondary-action";
+    button.dataset.action = "openPlayerOsBridge";
+    button.dataset.bridgeId = bridgeId;
+    button.textContent = bridge.label;
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      actions.openPlayerOsBridge(bridgeId);
+    });
+    item.appendChild(button);
+    list.appendChild(item);
+  });
+}
+
+function setFieldValue(selector, value) {
+  const field = document.querySelector(selector);
+  if (field && value !== undefined && value !== null && value !== "") {
+    field.value = value;
+  }
+}
+
+function prefillPlayerOsTargetContext(plan, action, bridge) {
+  const constraints = plan?.constraints || {};
+  const goal = action?.linked_goal || constraints.goal_id || "gw2:goal:aurora";
+  const mode = constraints.game_mode || "Open World";
+  const profession = constraints.preferred_profession || plan?.profession || "";
+  const specialization = constraints.preferred_specialization || plan?.specialization || profession;
+  if (bridge.targetView === "legendary") {
+    setFieldValue("#legendary-goal", goal);
+    setFieldValue("#legendary-priority", constraints.urgency === "high" ? "1" : "2");
+    setFieldValue("#market-item-name", goal.includes("aurora") ? "Mystic Coin" : "Goal material");
+  }
+  if (bridge.targetView === "build") {
+    setFieldValue("#build-name", specialization ? `${specialization} Player OS Draft` : "Player OS Build Draft");
+    setFieldValue("#build-profession", profession);
+    setFieldValue("#build-spec", specialization);
+    setFieldValue("#build-mode", mode);
+    setFieldValue("#build-cost", constraints.budget_gold_limit);
   }
 }
 
@@ -2101,6 +2209,25 @@ const actions = {
       renderPlayerOsPlan({ plan: payload.revised_plan, governance: { status: "ready" } });
       return payload;
     }),
+  openPlayerOsBridge: (bridgeId) => {
+    const entry = state.playerOsBridgeActions[bridgeId];
+    if (!entry) {
+      renderSummary("dashboard", "Player OS bridge action is no longer available. Rebuild the plan.");
+      return;
+    }
+    const { bridge, action, plan } = entry;
+    prefillPlayerOsTargetContext(plan, action, bridge);
+    if (bridge.href) {
+      window.location.href = bridge.href;
+      return;
+    }
+    showView(bridge.targetView);
+    renderSummary(
+      bridge.targetView,
+      `Player OS context loaded from "${action.title}". Review the prefilled fields, then run ${bridge.nextAction || "the next manual action"}.`,
+    );
+    markStep("plan", `Player OS -> ${bridge.targetView}`);
+  },
   refreshDashboard: () =>
     run("dashboard", async () => {
       const key = await fetchJson("/account/api-key/status");

@@ -246,6 +246,12 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "revisePlayerOsPlan" in js.text
     assert "whatIfPlayerOsPlan" in js.text
     assert "renderPlayerOsPlan" in js.text
+    assert "openPlayerOsBridge" in js.text
+    assert "playerOsBridgeForAction" in js.text
+    assert "prefillPlayerOsTargetContext" in js.text
+    assert "#legendary-goal" in js.text
+    assert "#build-profession" in js.text
+    assert "Review the prefilled fields" in js.text
     assert "/api/v1/builds/transition-plan" in js.text
     assert "/api/v1/builds/character-snapshots" in js.text
     assert "/api/v1/kb/rule-packs/build_upgrade_effects" in js.text
