@@ -21,6 +21,7 @@ const storageKeys = {
   activeView: "gw2radar.player.activeView",
   activeBuildId: "gw2radar.player.activeBuildId",
   playerIntent: "gw2radar.player.intent",
+  playerOsContext: "gw2radar.player.playerOsContext",
   reportHistory: "gw2radar.player.reportHistory",
 };
 
@@ -472,10 +473,13 @@ function downloadText(filename, text, type = "text/plain") {
 }
 
 function debugBundleClientState() {
+  const playerOsContext = readJsonStorage(storageKeys.playerOsContext, null);
   return {
     active_view: readStorage(storageKeys.activeView),
     active_build_id: state.activeBuildId || readStorage(storageKeys.activeBuildId),
     player_intent: state.playerIntent || readStorage(storageKeys.playerIntent),
+    player_os_plan_id: playerOsContext?.plan?.plan_id || "",
+    player_os_last_bridge: playerOsContext?.last_bridge?.target_view || "",
     report_history_count: reportHistory().length,
   };
 }
@@ -493,6 +497,22 @@ function reportHistory() {
 function addReportHistory(entry) {
   const history = [entry, ...reportHistory()].slice(0, 12);
   writeStorage(storageKeys.reportHistory, JSON.stringify(history));
+}
+
+function readJsonStorage(key, fallback = null) {
+  const raw = readStorage(key, "");
+  if (!raw) {
+    return fallback;
+  }
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return fallback;
+  }
+}
+
+function writeJsonStorage(key, value) {
+  writeStorage(key, JSON.stringify(value));
 }
 
 async function fetchJson(path, options = {}) {
@@ -588,6 +608,69 @@ function renderPlayerOsPlan(payload) {
     markStep("plan", plan.title);
     renderSummary("welcome", `${plan.title}: ${plan.focus || "manual advisory plan ready"}`);
   }
+  persistPlayerOsContext({
+    plan,
+    intent_type: intent.intent_type || plan?.intent_type || "",
+    workflow_type: workflow.workflow_type || "",
+    governance_status: status,
+    report_id: report.report_id || "",
+  });
+}
+
+function safePlayerOsPlan(plan) {
+  if (!plan || !plan.plan_id) {
+    return null;
+  }
+  return {
+    schema_version: plan.schema_version,
+    plan_id: plan.plan_id,
+    intent_id: plan.intent_id,
+    workflow_id: plan.workflow_id,
+    intent_type: plan.intent_type,
+    title: plan.title,
+    focus: plan.focus,
+    top_actions: plan.top_actions || [],
+    this_week: plan.this_week || [],
+    assumptions: plan.assumptions || [],
+    warnings: plan.warnings || [],
+    evidence_refs: plan.evidence_refs || [],
+    constraints: plan.constraints || {},
+    safety_boundaries: plan.safety_boundaries || [],
+    freshness_notes: plan.freshness_notes || [],
+    version: plan.version || 1,
+  };
+}
+
+function persistPlayerOsContext(update) {
+  const current = readJsonStorage(storageKeys.playerOsContext, {}) || {};
+  const next = {
+    schema_version: "gw2radar.player_os_context.v1",
+    ...current,
+    ...update,
+    plan: safePlayerOsPlan(update.plan || current.plan),
+    saved_at: new Date().toISOString(),
+  };
+  if (!next.plan) {
+    return;
+  }
+  writeJsonStorage(storageKeys.playerOsContext, next);
+}
+
+function restorePlayerOsContext() {
+  const saved = readJsonStorage(storageKeys.playerOsContext, null);
+  if (!saved?.plan?.plan_id) {
+    return;
+  }
+  renderPlayerOsPlan({
+    plan: saved.plan,
+    governance: { status: saved.governance_status || "restored" },
+    workflow: { workflow_type: saved.workflow_type || "restored" },
+  });
+  state.playerOsPlanId = saved.plan.plan_id;
+  state.playerOsReportId = saved.report_id || "";
+  state.lastPlayerOsPlan = saved.plan;
+  const savedAt = saved.saved_at ? ` Saved ${saved.saved_at}.` : "";
+  renderSummary("dashboard", `Restored Player OS plan: ${saved.plan.title}.${savedAt}`);
 }
 
 function playerOsBridgeForAction(action, plan) {
@@ -2217,6 +2300,17 @@ const actions = {
     }
     const { bridge, action, plan } = entry;
     prefillPlayerOsTargetContext(plan, action, bridge);
+    persistPlayerOsContext({
+      plan,
+      last_bridge: {
+        action_title: action.title,
+        target_view: bridge.targetView,
+        next_action: bridge.nextAction || "",
+        href: bridge.href || "",
+        label: bridge.label,
+        selected_at: new Date().toISOString(),
+      },
+    });
     if (bridge.href) {
       window.location.href = bridge.href;
       return;
@@ -2611,6 +2705,7 @@ const actions = {
       });
       updateStatusFromKey({ has_key: false });
       removeStorage(storageKeys.activeBuildId);
+      removeStorage(storageKeys.playerOsContext);
       removeStorage(storageKeys.reportHistory);
       return payload;
     }),
@@ -3874,6 +3969,7 @@ function restoreLocalState() {
   if (savedView && document.querySelector(`#${savedView}`)) {
     showView(savedView);
   }
+  restorePlayerOsContext();
 }
 
 restoreLocalState();

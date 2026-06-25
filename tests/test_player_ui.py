@@ -249,6 +249,12 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "openPlayerOsBridge" in js.text
     assert "playerOsBridgeForAction" in js.text
     assert "prefillPlayerOsTargetContext" in js.text
+    assert "gw2radar.player.playerOsContext" in js.text
+    assert "persistPlayerOsContext" in js.text
+    assert "restorePlayerOsContext" in js.text
+    assert "safePlayerOsPlan" in js.text
+    assert "player_os_plan_id" in js.text
+    assert "removeStorage(storageKeys.playerOsContext)" in js.text
     assert "#legendary-goal" in js.text
     assert "#build-profession" in js.text
     assert "Review the prefilled fields" in js.text
