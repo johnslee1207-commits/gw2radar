@@ -202,6 +202,7 @@
                 <button class="secondary-action" data-action="startPlayerOsIntent">Build from welcome goal</button>
                 <button class="secondary-action" data-action="revisePlayerOsPlan">Revise with 30m/day</button>
                 <button class="secondary-action" data-action="whatIfPlayerOsPlan">What-if budget 100g</button>
+                <button class="secondary-action" data-action="openPlayerOsReport">Open Player OS report</button>
                 <a class="secondary-action" href="/start">Open full Player OS</a>
               </div>
             </article>
@@ -849,6 +850,16 @@ achievement_api_access</textarea>
                 <button data-action="showReportHistory">Previous reports</button>
                 <button class="secondary-action" data-action="clearReportHistory">Clear local history</button>
               </div>
+            </article>
+            <article class="panel form-panel">
+              <h3>Player OS report handoff</h3>
+              <label>Player OS report id <input id="player-os-report-id" placeholder="report-preview id" /></label>
+              <div class="button-grid">
+                <button data-action="openPlayerOsReport">Open Player OS report</button>
+                <button data-action="revisePlayerOsReport">Revise Player OS report</button>
+                <button data-action="showReportHistory">Previous reports</button>
+              </div>
+              <div class="compact-list" id="player-os-report-status">Build a Player OS plan before opening its report preview.</div>
             </article>
           </div>
           <div class="result-summary" id="reports-summary">No report summary yet.</div>

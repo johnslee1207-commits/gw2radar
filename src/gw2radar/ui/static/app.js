@@ -391,6 +391,9 @@ function summarizeResult(target, payload) {
     return "Build workflow updated. Imported build ids are saved locally for this browser.";
   }
   if (target === "reports") {
+    if (data?.report?.schema_version === "gw2radar.player_os_report.v1") {
+      return `Player OS report preview ready: ${data.report.title} with ${data.report.sections?.length || 0} sections.`;
+    }
     if (data?.job) {
       return "Report job created or loaded. Use the artifact id to open the exported report.";
     }
@@ -587,6 +590,7 @@ function renderPlayerOsPlan(payload) {
   }
   if (report?.report_id) {
     state.playerOsReportId = report.report_id;
+    setFieldValue("#player-os-report-id", report.report_id);
   }
   if (intentLabel) {
     intentLabel.textContent = intent.intent_type || plan?.intent_type || "Player OS";
@@ -614,6 +618,37 @@ function renderPlayerOsPlan(payload) {
     workflow_type: workflow.workflow_type || "",
     governance_status: status,
     report_id: report.report_id || "",
+  });
+}
+
+function renderPlayerOsReport(report) {
+  const status = document.querySelector("#player-os-report-status");
+  if (!report) {
+    if (status) {
+      status.textContent = "No Player OS report preview is available yet.";
+    }
+    return;
+  }
+  state.playerOsReportId = report.report_id || state.playerOsReportId;
+  setFieldValue("#player-os-report-id", state.playerOsReportId);
+  if (status) {
+    const sectionCount = report.sections?.length || 0;
+    const warningCount = report.warnings?.length || 0;
+    status.textContent = `${report.title || "Player OS report"} ready with ${sectionCount} sections and ${warningCount} warnings.`;
+  }
+  markStep("report", "Player OS report ready");
+  addReportHistory({
+    report_id: report.report_id || "",
+    plan_id: report.plan_id || state.playerOsPlanId || "",
+    artifact_id: "",
+    job_id: "",
+    report_type: "player_os_preview",
+    format: "json_preview",
+    captured_at: new Date().toISOString(),
+  });
+  persistPlayerOsContext({
+    plan: state.lastPlayerOsPlan,
+    report_id: report.report_id || state.playerOsReportId || "",
   });
 }
 
@@ -669,6 +704,7 @@ function restorePlayerOsContext() {
   state.playerOsPlanId = saved.plan.plan_id;
   state.playerOsReportId = saved.report_id || "";
   state.lastPlayerOsPlan = saved.plan;
+  setFieldValue("#player-os-report-id", state.playerOsReportId);
   const savedAt = saved.saved_at ? ` Saved ${saved.saved_at}.` : "";
   renderSummary("dashboard", `Restored Player OS plan: ${saved.plan.title}.${savedAt}`);
 }
@@ -3830,6 +3866,33 @@ const actions = {
     const jobId = document.querySelector("#report-job-id").value;
     return run("reports", () => fetchJson(`/api/v1/reports/jobs/${encodeURIComponent(jobId)}`));
   },
+  openPlayerOsReport: () =>
+    run("reports", async () => {
+      const reportId = document.querySelector("#player-os-report-id").value || state.playerOsReportId;
+      if (!reportId) {
+        throw new Error("Build a Player OS plan before opening its report preview.");
+      }
+      const payload = await fetchJson(`/api/v1/reports/${encodeURIComponent(reportId)}`);
+      const report = payload?.data?.report || {};
+      renderPlayerOsReport(report);
+      showView("reports");
+      return payload;
+    }),
+  revisePlayerOsReport: () =>
+    run("reports", async () => {
+      const reportId = document.querySelector("#player-os-report-id").value || state.playerOsReportId;
+      if (!reportId) {
+        throw new Error("Open a Player OS report before revising it.");
+      }
+      const payload = await fetchJson(`/api/v1/reports/${encodeURIComponent(reportId)}/revise`, {
+        method: "POST",
+        body: JSON.stringify({ raw_revision_text: "Prepare a concise player handoff version while preserving evidence and assumptions." }),
+      });
+      const report = payload?.data?.report || {};
+      renderPlayerOsReport(report);
+      showView("reports");
+      return payload;
+    }),
   showReportHistory: () =>
     run("reports", async () => ({
       report_history: reportHistory(),
