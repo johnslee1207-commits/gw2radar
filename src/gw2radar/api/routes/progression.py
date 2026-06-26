@@ -29,12 +29,14 @@ def post_progression_decision_top_k(request: ProgressionDecisionRequest) -> ApiD
     init_db()
     with db_session.SessionLocal() as session:
         rules = list_rules(session)
-    result = build_progression_decisions(
-        graph,
-        request.goal_id,
-        rules,
-        top_k=request.top_k,
-    )
+    with db_session.SessionLocal() as session:
+        result = build_progression_decisions(
+            graph,
+            request.goal_id,
+            rules,
+            top_k=request.top_k,
+            session=session,
+        )
     save_graph(graph)
     return ApiDataEnvelope(data={"decision_result": result.model_dump(mode="json")})
 
@@ -75,11 +77,13 @@ def _build_plan(request: ProgressionDecisionRequest):
     init_db()
     with db_session.SessionLocal() as session:
         rules = list_rules(session)
-    decisions = build_progression_decisions(
-        graph,
-        request.goal_id,
-        rules,
-        top_k=request.top_k,
-    )
+    with db_session.SessionLocal() as session:
+        decisions = build_progression_decisions(
+            graph,
+            request.goal_id,
+            rules,
+            top_k=request.top_k,
+            session=session,
+        )
     save_graph(graph)
     return build_seven_day_plan(decisions)

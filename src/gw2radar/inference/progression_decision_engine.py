@@ -1,5 +1,7 @@
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
+from gw2radar.db.models import MarketSnapshotModel
 from gw2radar.graph.graph_query import GraphData
 from gw2radar.inference.action_generator import generate_actions
 from gw2radar.kb.kb_explanation import KnowledgeBackedExplanation, explain_action_with_kb
@@ -50,9 +52,10 @@ def build_progression_decisions(
     rules: list[KnowledgeRule],
     *,
     top_k: int = 5,
+    session: Session | None = None,
 ) -> ProgressionDecisionResult:
     actions = graph.actions_for_goal(goal_id) or generate_actions(graph, goal_id)
-    candidates = [_candidate_for_action(action, rules) for action in actions]
+    candidates = [_candidate_for_action(action, rules, session=session) for action in actions]
     candidates.sort(key=lambda item: (item.final_score, item.base_score, item.action_id), reverse=True)
     limited = candidates[: max(1, min(top_k, 25))]
     ranked = [candidate.model_copy(update={"rank": index}) for index, candidate in enumerate(limited, start=1)]
@@ -79,19 +82,57 @@ def build_progression_decisions(
     )
 
 
-def _market_execution_risk(action: Action) -> tuple[str | None, str | None]:
+def _latest_market_liquidity(entity_id: str, session: Session | None) -> tuple[float, float, str | None]:
+    if session is None:
+        return (1.0, 0.0, None)
+    rows = (
+        session.query(MarketSnapshotModel)
+        .filter(MarketSnapshotModel.item_id == entity_id)
+        .order_by(MarketSnapshotModel.observed_at.desc())
+        .limit(5)
+        .all()
+    )
+    if not rows:
+        return (0.0, 0.0, "No market price snapshots available.")
+    latest = rows[0]
+    volume = latest.volume or 0
+    liquidity = min(volume / 10000, 1.0)
+    average = sum(r.sell_price_copper for r in rows) / len(rows)
+    if average:
+        spread = sum(abs(r.sell_price_copper - average) for r in rows) / len(rows)
+        volatility = min(spread / average, 1.0)
+    else:
+        volatility = 0.0
+    return (round(liquidity, 3), round(volatility, 3), None)
+
+
+def _market_execution_risk(action: Action, session: Session | None = None) -> tuple[str | None, str | None]:
     at = action.action_type.value
-    props = action.properties or {}
-    liquidity = props.get("liquidity_score", 1.0) if isinstance(props, dict) else 1.0
+    if action.target_entity_id:
+        liquidity, volatility, snap_err = _latest_market_liquidity(action.target_entity_id, session)
+    else:
+        liquidity, volatility, snap_err = 1.0, 0.0, None
     if at == "buy":
-        return ("price_volatility_risk", "Buy timing depends on market price; consider observing before committing.")
+        if snap_err:
+            return ("price_volatility_risk", snap_err)
+        if volatility > 0.3:
+            return ("price_volatility_risk", f"High volatility ({volatility:.2f}); consider observing before committing.")
+        return ("timing_risk", "Buy timing depends on market price; review current snapshots before committing.")
     if at == "sell_surplus":
-        if isinstance(liquidity, (int, float)) and liquidity < 0.3:
+        if snap_err:
+            return ("liquidity_risk", snap_err)
+        if liquidity < 0.3:
             return ("liquidity_risk", f"Low liquidity ({liquidity:.2f}); selling may take time at a fair price.")
+        if volatility > 0.3:
+            return ("price_volatility_risk", f"Price is volatile ({volatility:.2f}); review trend before listing.")
         return ("timing_risk", "Surplus sell is price-sensitive; review trend before listing.")
     if at == "watch_price":
         return (None, None)
     if at == "exchange":
+        if snap_err:
+            return ("spread_risk", snap_err)
+        if liquidity < 0.3:
+            return ("liquidity_risk", f"Low liquidity ({liquidity:.2f}); exchange may have wide spread.")
         return ("spread_risk", "Exchange spread may reduce effective value; compare buy/sell prices.")
     if at == "craft":
         return ("material_cost_risk", "Crafting cost depends on current material prices; verify before committing.")
@@ -100,14 +141,14 @@ def _market_execution_risk(action: Action) -> tuple[str | None, str | None]:
     return (None, None)
 
 
-def _candidate_for_action(action: Action, rules: list[KnowledgeRule]) -> ProgressionDecisionCandidate:
+def _candidate_for_action(action: Action, rules: list[KnowledgeRule], *, session: Session | None = None) -> ProgressionDecisionCandidate:
     explanations = explain_action_with_kb(action, rules)
     matched_rules = [_rule_by_id(rules, explanation.rule_id) for explanation in explanations]
     reviewed_rules = [rule for rule in matched_rules if rule is not None and _reviewed_enabled(rule)]
     kb_delta = min(0.25, sum(max(0.0, rule.priority_delta) for rule in reviewed_rules))
     final_score = min(1.0, round(action.priority_score + kb_delta, 4))
     warnings = _warnings_for_action(action, explanations)
-    execution_risk, liquidity_reason = _market_execution_risk(action)
+    execution_risk, liquidity_reason = _market_execution_risk(action, session=session)
     return ProgressionDecisionCandidate(
         rank=0,
         action_id=action.id,
