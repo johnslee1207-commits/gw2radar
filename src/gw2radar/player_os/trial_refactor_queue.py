@@ -88,6 +88,38 @@ TASK_TEMPLATES: dict[str, dict] = {
             "Refresh the trial checklist immediately after bridge confirmation.",
         ],
     },
+    "target_result_not_run": {
+        "refactor_scope": "Player OS target result action prominence",
+        "target_files": [
+            "src/gw2radar/ui/static/app.js",
+            "src/gw2radar/ui/static/player.html",
+        ],
+        "api_routes": ["/api/v1/player-os/trial-feedback/review"],
+        "steps": [
+            "Keep the next target-module result action visible after deep-link navigation.",
+            "Disable trial-ready messaging until the target result action is completed.",
+            "Write last_result metadata only after the expected action succeeds.",
+        ],
+    },
+    "target_result_empty_after_run": {
+        "refactor_scope": "Target-module empty result diagnostics",
+        "target_files": [
+            "src/gw2radar/ui/static/app.js",
+            "src/gw2radar/player_os/trial_feedback_review.py",
+            "src/gw2radar/api/routes/player_dashboard.py",
+        ],
+        "api_routes": [
+            "/api/v1/legendary/recompute",
+            "/api/v1/builds/fit",
+            "/api/v1/market/signals",
+            "/api/v1/player/readiness",
+        ],
+        "steps": [
+            "Map target action result payloads to explicit empty/ready diagnostics.",
+            "Preserve the result status in trial feedback metadata.",
+            "Show a support-safe next action when a target module returns empty output.",
+        ],
+    },
     "report_preview_not_opened": {
         "refactor_scope": "Player OS report handoff confirmation",
         "target_files": [

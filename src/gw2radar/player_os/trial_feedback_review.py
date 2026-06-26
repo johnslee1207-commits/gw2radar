@@ -48,6 +48,8 @@ class PlayerOsTrialFeedbackReview(BaseModel):
     plan_id: str | None = None
     report_id: str | None = None
     last_bridge_target: str | None = None
+    last_result_action: str | None = None
+    last_result_status: str | None = None
     findings: list[PlayerOsTrialFeedbackFinding] = Field(default_factory=list)
     player_reply_template: str
     operator_next_actions: list[str] = Field(default_factory=list)
@@ -89,6 +91,8 @@ def create_player_os_trial_feedback_audit(
             "plan_id": review.plan_id,
             "report_id": review.report_id,
             "last_bridge_target": review.last_bridge_target,
+            "last_result_action": review.last_result_action,
+            "last_result_status": review.last_result_status,
             "evidence_refs": [ref for finding in review.findings for ref in finding.evidence_refs],
             "redaction_boundary": list(review.redaction_boundary),
             "stores_raw_feedback": False,
@@ -173,6 +177,9 @@ def review_player_os_trial_feedback(feedback: dict[str, Any]) -> PlayerOsTrialFe
         )
 
     rows = _rows_by_id(checklist.get("rows"))
+    context = _as_dict(feedback.get("player_os_context"))
+    last_bridge = _as_dict(context.get("last_bridge") or checklist.get("last_bridge"))
+    last_result = _as_dict(context.get("last_result") or checklist.get("last_result"))
     _append_gate_finding(
         findings,
         rows,
@@ -203,6 +210,18 @@ def review_player_os_trial_feedback(feedback: dict[str, Any]) -> PlayerOsTrialFe
         "Click one Player OS action button, verify the target module opens, then continue the module-specific result flow.",
         "checklist.rows.deep_link",
     )
+    if "target_result" in rows and rows["target_result"].get("ready") is not True:
+        expected_action = _string_or_none(last_bridge.get("next_action") or last_bridge.get("nextAction"))
+        findings.append(
+            _finding(
+                "target_result_not_run",
+                "warning",
+                "Target module result action was not run",
+                "The Player OS action opened a target module, but the expected result action has not completed yet.",
+                f"Run {expected_action or 'the highlighted target result action'} in the opened module, then export trial feedback again.",
+                ["checklist.rows.target_result", "player_os_context.last_bridge.next_action"],
+            )
+        )
     _append_gate_finding(
         findings,
         rows,
@@ -226,6 +245,18 @@ def review_player_os_trial_feedback(feedback: dict[str, Any]) -> PlayerOsTrialFe
 
     ready_count = _int_value(checklist.get("ready_count"))
     total_count = _int_value(checklist.get("total_count"))
+    result_status = _string_or_none(last_result.get("status"))
+    if not findings and _target_result_status_is_empty(result_status):
+        findings.append(
+            _finding(
+                "target_result_empty_after_run",
+                "warning",
+                "Target module result action completed but produced no confirmed output",
+                "The Player OS target action appears to have run, but its result status still indicates empty, missing, failed, or blocked output.",
+                "Run the target module action again and export an account debug bundle if the module still shows no visible result.",
+                ["player_os_context.last_result.status", "player_os_context.last_result.action_id"],
+            )
+        )
     if not findings and checklist.get("status") == "ready":
         findings.append(
             _finding(
@@ -252,6 +283,7 @@ def _review(
 ) -> PlayerOsTrialFeedbackReview:
     context = _as_dict(feedback.get("player_os_context"))
     last_bridge = _as_dict(context.get("last_bridge") or checklist.get("last_bridge"))
+    last_result = _as_dict(context.get("last_result") or checklist.get("last_result"))
     overall_status = _overall_status(findings)
     return PlayerOsTrialFeedbackReview(
         feedback_schema_version=feedback_schema,
@@ -264,6 +296,8 @@ def _review(
         plan_id=_string_or_none(context.get("plan_id") or checklist.get("plan_id")),
         report_id=_string_or_none(context.get("report_id") or checklist.get("report_id")),
         last_bridge_target=_string_or_none(last_bridge.get("target_view") or last_bridge.get("targetView")),
+        last_result_action=_string_or_none(last_result.get("action_id") or last_result.get("actionId")),
+        last_result_status=_string_or_none(last_result.get("status")),
         findings=findings,
         player_reply_template=_reply_template(overall_status, findings),
         operator_next_actions=_operator_next_actions(overall_status),
@@ -280,6 +314,8 @@ def _overall_status(findings: list[PlayerOsTrialFeedbackFinding]) -> str:
         "intent_not_captured",
         "plan_not_generated",
         "deep_link_not_opened",
+        "target_result_not_run",
+        "target_result_empty_after_run",
         "report_preview_not_opened",
         "feedback_packet_incomplete",
         "result_generation_empty",
@@ -300,6 +336,8 @@ def _summary(overall_status: str) -> str:
         "intent_not_captured": "The player needs to start from a recognized Player OS intent.",
         "plan_not_generated": "The Player OS plan did not generate next actions.",
         "deep_link_not_opened": "The player has not opened a plan action into a target module.",
+        "target_result_not_run": "The player opened a target module but has not run the expected result action.",
+        "target_result_empty_after_run": "The target result action ran, but the target module still reports no confirmed output.",
         "report_preview_not_opened": "The Player OS report preview handoff has not been opened.",
         "feedback_packet_incomplete": "The trial feedback was exported before all required gates were ready.",
         "result_generation_empty": "Player OS gates are ready; inspect the target module result step next.",
@@ -335,6 +373,8 @@ def _operator_next_actions(overall_status: str) -> list[str]:
         "intent_not_captured": ["Guide the player to start from the Player OS intent box or template list."],
         "plan_not_generated": ["Check `/api/v1/intents/start` and plan panel rendering.", "Ask for a screenshot of the plan panel if needed."],
         "deep_link_not_opened": ["Ask which Player OS action button was clicked.", "Verify the target module deep-link opens."],
+        "target_result_not_run": ["Ask the player to run the expected target result action shown after the Player OS deep-link."],
+        "target_result_empty_after_run": ["Inspect the target module output state.", "Collect an account debug bundle if the target module still shows no visible result."],
         "report_preview_not_opened": ["Ask the player to open the Player OS report preview.", "Verify Reports view bridge state."],
         "feedback_packet_incomplete": ["Have the player complete all checklist gates before export."],
         "result_generation_empty": ["Identify the last bridge target.", "Run the target module result action and collect a debug bundle if still empty."],
@@ -399,6 +439,19 @@ def _find_sensitive_paths(value: Any, prefix: str = "$") -> list[str]:
         for index, child in enumerate(value):
             paths.extend(_find_sensitive_paths(child, f"{prefix}[{index}]"))
     return paths
+
+
+def _target_result_status_is_empty(status: str | None) -> bool:
+    return str(status or "").lower() in {
+        "empty",
+        "missing",
+        "no_result",
+        "no_results",
+        "failed",
+        "blocked",
+        "incomplete",
+        "unknown",
+    }
 
 
 def _highest_severity(severities: list[str]) -> str:

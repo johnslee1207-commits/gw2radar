@@ -297,6 +297,32 @@ PLAYBOOKS: dict[str, SupportReviewPlaybookItem] = {
         priority="P1",
         evidence_needed=["checklist.rows.deep_link", "player_os_context.last_bridge.target_view"],
     ),
+    "target_result_not_run": SupportReviewPlaybookItem(
+        blocker_id="target_result_not_run",
+        title="Player OS target result action was not run",
+        support_steps=[
+            "Confirm the Player OS deep-link target module opened.",
+            "Ask the player to run the next result action displayed in the module.",
+            "Ask for fresh trial feedback after the target result action completes.",
+        ],
+        player_reply_template="Player OS opened the target module, but the expected result action has not run yet. Please run the next result action shown in GW2Radar, then export trial feedback again. Do not send raw API keys or private payloads.",
+        product_fix_suggestion="Make the target module result action more prominent after every Player OS deep-link and keep it visible until completion.",
+        priority="P1",
+        evidence_needed=["checklist.rows.target_result", "player_os_context.last_bridge.next_action"],
+    ),
+    "target_result_empty_after_run": SupportReviewPlaybookItem(
+        blocker_id="target_result_empty_after_run",
+        title="Player OS target result action ran but output is empty",
+        support_steps=[
+            "Inspect the target module result status from trial feedback.",
+            "Ask the player to rerun the target result action once.",
+            "If output remains empty, collect a separate account debug bundle for that module path.",
+        ],
+        player_reply_template="The target result action appears to have run, but GW2Radar still did not confirm visible output. Please rerun that module action once; if it is still empty, export an account debug bundle. Do not send your raw API key.",
+        product_fix_suggestion="Add module-specific empty-result diagnostics after Player OS target actions complete.",
+        priority="P1",
+        evidence_needed=["player_os_context.last_result.status", "player_os_context.last_result.action_id"],
+    ),
     "report_preview_not_opened": SupportReviewPlaybookItem(
         blocker_id="report_preview_not_opened",
         title="Player OS report preview was not opened",

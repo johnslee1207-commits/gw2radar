@@ -93,6 +93,40 @@ def test_player_os_trial_feedback_review_flags_incomplete_deep_link() -> None:
     assert review["operator_next_actions"]
 
 
+def test_player_os_trial_feedback_review_flags_target_result_not_run() -> None:
+    response = client.post(
+        "/api/v1/player-os/trial-feedback/review",
+        json={"feedback": _trial_feedback(ready=False, include_target_result=True, missing_row="target_result")},
+    )
+
+    assert response.status_code == 200
+    review = response.json()["data"]["trial_feedback_review"]
+    assert review["overall_status"] == "target_result_not_run"
+    assert review["last_bridge_target"] == "legendary"
+    assert review["findings"][0]["finding_id"] == "target_result_not_run"
+    assert "checklist.rows.target_result" in review["findings"][0]["evidence_refs"]
+
+
+def test_player_os_trial_feedback_review_flags_empty_result_after_target_action() -> None:
+    feedback = _trial_feedback(ready=True, include_target_result=True)
+    feedback["player_os_context"]["last_result"] = {
+        "action_id": "legendaryRecompute",
+        "action_label": "Cheap/fast path",
+        "target_view": "legendary",
+        "status": "empty",
+    }
+    feedback["checklist"]["last_result"] = feedback["player_os_context"]["last_result"]
+
+    response = client.post("/api/v1/player-os/trial-feedback/review", json={"feedback": feedback})
+
+    assert response.status_code == 200
+    review = response.json()["data"]["trial_feedback_review"]
+    assert review["overall_status"] == "target_result_empty_after_run"
+    assert review["last_result_action"] == "legendaryRecompute"
+    assert review["last_result_status"] == "empty"
+    assert review["findings"][0]["finding_id"] == "target_result_empty_after_run"
+
+
 def test_player_os_trial_feedback_review_blocks_sensitive_fields() -> None:
     feedback = _trial_feedback(ready=True)
     feedback["raw_key"] = "do-not-store"
@@ -170,7 +204,7 @@ def test_player_os_trial_feedback_audit_feeds_metrics_and_backlog() -> None:
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
-def _trial_feedback(ready: bool, missing_row: str | None = None) -> dict:
+def _trial_feedback(ready: bool, missing_row: str | None = None, include_target_result: bool = False) -> dict:
     rows = [
         {"id": "intent", "label": "Intent captured", "ready": True, "evidence": "legendary"},
         {"id": "plan", "label": "Plan generated", "ready": True, "evidence": "plan-sample"},
@@ -178,6 +212,8 @@ def _trial_feedback(ready: bool, missing_row: str | None = None) -> dict:
         {"id": "report_preview", "label": "Report preview opened", "ready": True, "evidence": "report-sample"},
         {"id": "feedback_packet", "label": "Feedback metadata ready", "ready": True, "evidence": "metadata_only_ready"},
     ]
+    if include_target_result:
+        rows.insert(3, {"id": "target_result", "label": "Target result completed", "ready": True, "evidence": "Cheap/fast path"})
     for row in rows:
         if row["id"] == missing_row:
             row["ready"] = False
@@ -189,17 +225,17 @@ def _trial_feedback(ready: bool, missing_row: str | None = None) -> dict:
             "schema_version": "gw2radar.player_os_trial_checklist.v1",
             "status": "ready" if ready else "in_progress",
             "ready_count": ready_count,
-            "total_count": 5,
+            "total_count": len(rows),
             "plan_id": "plan-sample",
             "report_id": "report-sample",
-            "last_bridge": {"target_view": "legendary", "action_id": "action-1"},
+            "last_bridge": {"target_view": "legendary", "action_id": "action-1", "next_action": "legendaryRecompute"},
             "rows": rows,
             "safety_boundary": "Metadata-only trial feedback; no raw API keys, private payloads, or automated actions.",
         },
         "player_os_context": {
             "plan_id": "plan-sample",
             "report_id": "report-sample",
-            "last_bridge": {"target_view": "legendary", "action_id": "action-1"},
+            "last_bridge": {"target_view": "legendary", "action_id": "action-1", "next_action": "legendaryRecompute"},
         },
         "safety_boundary": "Metadata-only trial feedback; no raw API keys, private payloads, or automated actions.",
     }
