@@ -1,5 +1,5 @@
 :root {
-  color-scheme: light;
+  color-scheme: light dark;
   --bg: #f6f5f1;
   --surface: #ffffff;
   --surface-soft: #f0eee7;
@@ -14,6 +14,31 @@
   --teal: #2b6f73;
   --focus: #245c7a;
   --shadow: 0 14px 34px rgba(27, 32, 30, 0.1);
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --transition: 150ms ease;
+
+  --conf-high: #2f855a;
+  --conf-mid: #b7791f;
+  --conf-low: #b83232;
+  --liq-bar-bg: #e2e0d8;
+  --liq-bar-fill: #2b6f73;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121716;
+    --surface: #1e2523;
+    --surface-soft: #252d2a;
+    --ink: #e2e0d8;
+    --muted: #8f9591;
+    --line: #2d3532;
+    --nav: #0a0f0e;
+    --nav-soft: #17211e;
+    --shadow: 0 14px 34px rgba(0, 0, 0, 0.4);
+    --liq-bar-bg: #2d3532;
+  }
 }
 
 * {
@@ -454,6 +479,12 @@ label + label {
   border-color: rgba(183, 121, 31, 0.32);
   background: #fff8e6;
   color: #744210;
+}
+
+.compact-list-row.danger {
+  border-color: rgba(184, 50, 50, 0.32);
+  background: #fff0f0;
+  color: #8b1a1a;
 }
 
 .compact-list-row.info {
@@ -1037,4 +1068,79 @@ label + label {
   .button-grid {
     display: grid;
   }
+}
+
+/* Trust / confidence indicators */
+
+.conf-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  line-height: 1.4;
+}
+
+.conf-badge.high {
+  background: rgba(47, 133, 90, 0.12);
+  color: var(--green);
+}
+
+.conf-badge.mid {
+  background: rgba(183, 121, 31, 0.12);
+  color: var(--amber);
+}
+
+.conf-badge.low {
+  background: rgba(184, 50, 50, 0.12);
+  color: var(--red);
+}
+
+.liq-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+}
+
+.liq-bar-track {
+  width: 48px;
+  height: 4px;
+  background: var(--liq-bar-bg);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.liq-bar-fill {
+  height: 100%;
+  background: var(--liq-bar-fill);
+  border-radius: 2px;
+  transition: width var(--transition);
+}
+
+.risk-pill {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.risk-pill.high {
+  background: rgba(184, 50, 50, 0.12);
+  color: var(--red);
+}
+
+.risk-pill.medium {
+  background: rgba(183, 121, 31, 0.12);
+  color: var(--amber);
+}
+
+.risk-pill.low {
+  background: rgba(47, 133, 90, 0.12);
+  color: var(--green);
 }

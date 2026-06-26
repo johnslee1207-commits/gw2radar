@@ -17,6 +17,7 @@ class DomainRulePackId(StrEnum):
     MARKET_RETENTION = "market_retention"
     GUILD_PRIVACY_READINESS = "guild_privacy_readiness"
     CREATOR_SIGNAL_SAFETY = "creator_signal_safety"
+    LEGENDARY_MATERIAL_POLICY = "legendary_material_policy"
 
 
 class DomainRulePack(BaseModel):
@@ -128,6 +129,16 @@ def _build_pack(pack_id: DomainRulePackId) -> DomainRulePack:
             evidence_refs=["docs/knowledge_base/guild/member_privacy_policy.md"],
             rules=_guild_rules(),
         )
+    if pack_id == DomainRulePackId.LEGENDARY_MATERIAL_POLICY:
+        return DomainRulePack(
+            pack_id=pack_id,
+            title="Reviewed Legendary Material Policy Rules",
+            domain=KnowledgeDomain.LEGENDARY,
+            summary="Reserve materials across active goals, protect do-not-sell items, and explain safe surplus boundaries.",
+            evidence_refs=["docs/knowledge_base/legendary/material_policy.md"],
+            rules=_legendary_material_rules(),
+        )
+
     rules = _creator_rules()
     for rule in rules:
         validate_no_forbidden_copy_markers(rule.recommendation)
@@ -140,6 +151,64 @@ def _build_pack(pack_id: DomainRulePackId) -> DomainRulePack:
         evidence_refs=["docs/knowledge_base/creator/community_signal_policy.md"],
         rules=rules,
     )
+
+
+def _legendary_material_rules() -> list[KnowledgeRuleInput]:
+    evidence = ["docs/knowledge_base/legendary/material_policy.md"]
+    return [
+        KnowledgeRuleInput(
+            name="Legendary reserve multi-goal materials",
+            domain=KnowledgeDomain.LEGENDARY,
+            condition="article_links_any_entity:gw2:item:mystic_coin",
+            recommendation="Reserve mystic coins across all active legendary goals before treating any as sellable surplus.",
+            action_type=ActionType.RESERVE_FOR_GOAL.value,
+            priority_delta=0.3,
+            explanation_template="A material may be required by multiple goals; reserving prevents accidental do-not-sell violation.",
+            evidence_refs=evidence,
+            confidence=0.9,
+            review_status=KnowledgeReviewStatus.REVIEWED,
+            enabled=False,
+        ),
+        KnowledgeRuleInput(
+            name="Legendary do-not-sell reviewed before selling",
+            domain=KnowledgeDomain.LEGENDARY,
+            condition="article_links_any_entity:gw2:item:glob_of_ectoplasm",
+            recommendation="Review the do-not-sell list before selling any legendary-related material, even if quantity appears surplus.",
+            action_type=ActionType.HOLD.value,
+            priority_delta=0.25,
+            explanation_template="Globs of Ectoplasm are used in many legendary crafts; a surplus today may become a deficit after the next goal plan recompute.",
+            evidence_refs=evidence,
+            confidence=0.88,
+            review_status=KnowledgeReviewStatus.REVIEWED,
+            enabled=False,
+        ),
+        KnowledgeRuleInput(
+            name="Legendary cheap path before expensive buy",
+            domain=KnowledgeDomain.LEGENDARY,
+            condition="article_links_any_entity:gw2:currency:unbound_magic",
+            recommendation="Evaluate cheap and fast route options before committing to expensive TP purchases for map-currencies.",
+            action_type=ActionType.HOLD.value,
+            priority_delta=0.2,
+            explanation_template="Map currencies like Unbound Magic can be earned through daily routes instead of bought on the TP; prefer acquisition over purchase.",
+            evidence_refs=evidence,
+            confidence=0.85,
+            review_status=KnowledgeReviewStatus.REVIEWED,
+            enabled=False,
+        ),
+        KnowledgeRuleInput(
+            name="Legendary gift crafting before TP",
+            domain=KnowledgeDomain.LEGENDARY,
+            condition="article_links_any_entity:gw2:item:mystic_clover",
+            recommendation="Prefer crafting gifts over buying finished components when materials are available in storage.",
+            action_type=ActionType.CRAFT.value,
+            priority_delta=0.18,
+            explanation_template="Gift crafting uses account-bound materials and daily cooldowns; it is often cheaper than buying the finished gift from the TP.",
+            evidence_refs=evidence,
+            confidence=0.82,
+            review_status=KnowledgeReviewStatus.REVIEWED,
+            enabled=False,
+        ),
+    ]
 
 
 def _returner_rules() -> list[KnowledgeRuleInput]:

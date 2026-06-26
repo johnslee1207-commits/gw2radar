@@ -1276,6 +1276,12 @@ function renderValueBreakdown(selector, rows, emptyText) {
   }
 }
 
+function confLabel(c) {
+  if (c >= 0.9) return "high";
+  if (c >= 0.7) return "mid";
+  return "low";
+}
+
 function renderTopHoldings(holdings) {
   const element = document.querySelector("#value-top-holdings");
   if (!element) {
@@ -1289,14 +1295,26 @@ function renderTopHoldings(holdings) {
   for (const holding of holdings.slice(0, 8)) {
     const item = document.createElement("div");
     const name = document.createElement("strong");
-    const detail = document.createElement("span");
+    const meta = document.createElement("div");
     item.className = "compact-list-row";
     const trust = holding.risk_reason ? "warn" : holding.confidence >= 0.7 ? "info" : "warn";
     item.classList.add(trust);
-    const risk = holding.risk_reason ? ` ⚠ ${holding.risk_reason}` : "";
+
     name.textContent = holding.canonical_name || holding.entity_id;
-    detail.textContent = `${formatCopper(holding.value_buy_copper || 0)} · ${holding.location_type || "unknown"} · ${holding.valuation_status || "unknown"} · conf ${holding.confidence?.toFixed(2) || "?"} · liq ${holding.liquidity_score?.toFixed(2) || "?"}${risk}`;
-    item.append(name, detail);
+
+    const val = formatCopper(holding.value_buy_copper || 0);
+    const badge = document.createElement("span");
+    badge.className = `conf-badge ${confLabel(holding.confidence || 0)}`;
+    badge.textContent = `${(holding.confidence * 100 || 0).toFixed(0)}%`;
+
+    const liqWidth = Math.round((holding.liquidity_score || 0) * 100);
+    const liqHtml = `<span class="liq-bar"><span class="liq-bar-track"><span class="liq-bar-fill" style="width:${liqWidth}%"></span></span>${liqWidth}%</span>`;
+
+    meta.innerHTML = `${val} · ${holding.location_type || "unknown"} · ${badge.outerHTML} · ${liqHtml}`;
+    if (holding.risk_reason) {
+      meta.innerHTML += `<span class="risk-pill ${confLabel(holding.confidence || 0)}">${holding.risk_reason}</span>`;
+    }
+    item.append(name, meta);
     element.appendChild(item);
   }
 }
