@@ -709,20 +709,81 @@ function playerOsResultActionLabel(actionId) {
   return labels[actionId] || actionId || "target result action";
 }
 
+function playerOsResultStatusIsReady(status) {
+  return ["ready", "success", "completed", "ok"].includes(String(status || "").toLowerCase());
+}
+
+function normalizePlayerOsResultStatus(status) {
+  const normalized = String(status || "").toLowerCase();
+  if (["ready", "success", "completed", "ok"].includes(normalized)) {
+    return "ready";
+  }
+  if (["empty", "missing", "no_result", "no_results"].includes(normalized)) {
+    return "empty";
+  }
+  if (["failed", "error"].includes(normalized)) {
+    return "failed";
+  }
+  if (["blocked", "incomplete", "unknown"].includes(normalized)) {
+    return normalized;
+  }
+  return normalized || "unknown";
+}
+
+function playerOsArrayHasItems(value) {
+  return Array.isArray(value) && value.length > 0;
+}
+
+function playerOsTargetResultStatus(actionId, payload) {
+  const data = payload?.data || {};
+  const explicitStatus =
+    data.status ||
+    data.summary_status ||
+    data.planner?.status ||
+    data.fit?.status ||
+    data.market_radar?.status ||
+    payload?.status;
+  const hasExplicitStatus = explicitStatus !== undefined && explicitStatus !== null && explicitStatus !== "";
+  const normalizedExplicitStatus = normalizePlayerOsResultStatus(explicitStatus);
+  if (hasExplicitStatus && ["failed", "blocked", "incomplete", "empty", "missing", "unknown"].includes(normalizedExplicitStatus)) {
+    return normalizedExplicitStatus;
+  }
+  if (actionId === "legendaryRecompute") {
+    const planner = data.planner || {};
+    return playerOsArrayHasItems(planner.cheap_path) ||
+      playerOsArrayHasItems(planner.fast_path) ||
+      playerOsArrayHasItems(planner.shared_requirements) ||
+      playerOsArrayHasItems(planner.daily_route) ||
+      playerOsArrayHasItems(planner.weekly_route)
+      ? "ready"
+      : "empty";
+  }
+  if (actionId === "evaluateBuild") {
+    const fit = data.fit || {};
+    return fit.score || playerOsArrayHasItems(fit.matches) || fit.transition_plan ? "ready" : "empty";
+  }
+  if (actionId === "marketSignals") {
+    return playerOsArrayHasItems(data.signals) ? "ready" : "empty";
+  }
+  if (actionId === "playerReadiness") {
+    const readiness = data.readiness || {};
+    return playerOsArrayHasItems(readiness.checks) && (readiness.readiness_label || typeof readiness.readiness_score === "number")
+      ? "ready"
+      : "empty";
+  }
+  if (hasExplicitStatus && normalizedExplicitStatus && normalizedExplicitStatus !== "unknown") {
+    return normalizedExplicitStatus;
+  }
+  return payload?.data ? "ready" : "missing";
+}
+
 function recordPlayerOsTargetResult(actionId, payload, targetView) {
   const context = readJsonStorage(storageKeys.playerOsContext, {}) || {};
   const expected = context.last_bridge?.next_action || "";
   if (!context.last_bridge?.target_view || (expected && expected !== actionId)) {
     return;
   }
-  const resultStatus =
-    payload?.data?.status ||
-    payload?.data?.summary_status ||
-    payload?.data?.planner?.status ||
-    payload?.data?.fit?.status ||
-    payload?.data?.market_radar?.status ||
-    payload?.status ||
-    "ready";
+  const resultStatus = playerOsTargetResultStatus(actionId, payload);
   persistPlayerOsContext({
     last_result: {
       action_id: actionId,
@@ -766,7 +827,8 @@ function playerOsTrialChecklist() {
   const hasBridge = Boolean(context.last_bridge?.target_view);
   const hasReport = Boolean(context.report_id || state.playerOsReportId);
   const expectedResultAction = context.last_bridge?.next_action || "";
-  const hasTargetResult = Boolean(context.last_result?.action_id && (!expectedResultAction || context.last_result.action_id === expectedResultAction));
+  const hasExpectedResultAction = Boolean(context.last_result?.action_id && (!expectedResultAction || context.last_result.action_id === expectedResultAction));
+  const hasTargetResult = hasExpectedResultAction && playerOsResultStatusIsReady(context.last_result?.status);
   const rows = [
     {
       id: "intent",
@@ -795,7 +857,9 @@ function playerOsTrialChecklist() {
       id: "target_result",
       label: "Target result completed",
       ready: hasTargetResult,
-      evidence: context.last_result?.action_label || "missing",
+      evidence: context.last_result?.action_label
+        ? `${context.last_result.action_label} (${context.last_result.status || "unknown"})`
+        : "missing",
       next: expectedResultAction
         ? `Run ${playerOsResultActionLabel(expectedResultAction)} in the opened target module.`
         : "Open a Player OS deep-link action first.",

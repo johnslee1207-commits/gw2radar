@@ -273,6 +273,16 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "Target result completed" in js.text
     assert "recordPlayerOsTargetResult" in js.text
     assert "playerOsResultActionLabel" in js.text
+    assert "playerOsTargetResultStatus" in js.text
+    assert "playerOsResultStatusIsReady" in js.text
+    assert "normalizePlayerOsResultStatus" in js.text
+    assert 'actionId === "legendaryRecompute"' in js.text
+    assert 'actionId === "evaluateBuild"' in js.text
+    assert 'actionId === "marketSignals"' in js.text
+    assert 'actionId === "playerReadiness"' in js.text
+    assert "playerOsArrayHasItems(data.signals)" in js.text
+    assert "playerOsArrayHasItems(readiness.checks)" in js.text
+    assert "playerOsResultStatusIsReady(context.last_result?.status)" in js.text
     assert "last_result" in js.text
     assert "Next result action" in js.text
     assert "loadPlayerOsTrialChecklist" in js.text
