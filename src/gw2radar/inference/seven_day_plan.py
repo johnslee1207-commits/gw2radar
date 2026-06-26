@@ -57,7 +57,7 @@ class SevenDayPlan(BaseModel):
 
 def build_seven_day_plan(decision_result: ProgressionDecisionResult) -> SevenDayPlan:
     candidates = decision_result.candidates
-    nodes = [_node_for_candidate(candidate) for candidate in candidates]
+    nodes = _schedule_nodes(candidates)
     edges = _dependency_edges(nodes)
     days = [
         SevenDayPlanDay(
@@ -177,11 +177,84 @@ def render_seven_day_plan_csv(plan: SevenDayPlan) -> str:
     return output.getvalue()
 
 
-def _node_for_candidate(candidate: ProgressionDecisionCandidate) -> SevenDayPlanNode:
-    day = ((candidate.rank - 1) % 7) + 1
+def _action_type_priority(at: str) -> int:
+    order = {
+        "do_daily": 0,
+        "do_weekly": 0,
+        "watch_price": 1,
+        "reserve_for_goal": 1,
+        "farm": 2,
+        "buy": 3,
+        "exchange": 3,
+        "craft": 4,
+        "sell_surplus": 4,
+        "hold": 5,
+        "complete_achievement": 5,
+        "complete_collection_step": 5,
+        "generate_daily_plan": 6,
+        "generate_weekly_plan": 6,
+    }
+    return order.get(at, 5)
+
+
+def _action_type_group(at: str) -> str:
+    if at in {"do_daily", "do_weekly"}:
+        return "routine"
+    if at in {"watch_price", "buy", "sell_surplus", "exchange"}:
+        return "market"
+    if at in {"farm", "craft"}:
+        return "gather_craft"
+    if at in {"reserve_for_goal", "hold"}:
+        return "portfolio"
+    if at in {"complete_achievement", "complete_collection_step"}:
+        return "achievement"
+    return "other"
+
+
+def _schedule_nodes(candidates: list[ProgressionDecisionCandidate]) -> list[SevenDayPlanNode]:
+    nodes: list[SevenDayPlanNode] = []
+    group_budget: dict[str, int] = {}
+    for index, candidate in enumerate(candidates, start=1):
+        node = _node_for_candidate(candidate, index)
+        nodes.append(node)
+        group = _action_type_group(candidate.action_type)
+        group_budget[group] = group_budget.get(group, 0) + node.estimated_minutes
+
+    nodes.sort(key=lambda n: (_action_type_priority(n.action_type), -n.final_score, n.title))
+
+    day_load: list[int] = [0] * 8
+    day_group_count: dict[int, set[str]] = {d: set() for d in range(1, 8)}
+
+    for node in nodes:
+        placed = False
+        for day in range(1, 8):
+            group = _action_type_group(node.action_type)
+            if day_load[day] + node.estimated_minutes <= 120 and group not in day_group_count[day]:
+                node.day = day
+                day_load[day] += node.estimated_minutes
+                day_group_count[day].add(group)
+                placed = True
+                break
+        if not placed:
+            for day in range(1, 8):
+                if day_load[day] + node.estimated_minutes <= 120:
+                    node.day = day
+                    day_load[day] += node.estimated_minutes
+                    placed = True
+                    break
+        if not placed:
+            lightest = min(range(1, 8), key=lambda d: day_load[d])
+            node.day = lightest
+            day_load[lightest] += node.estimated_minutes
+
+    nodes.sort(key=lambda n: (n.day, _action_type_priority(n.action_type), -n.final_score))
+    return nodes
+
+
+def _node_for_candidate(candidate: ProgressionDecisionCandidate, rank: int) -> SevenDayPlanNode:
     return SevenDayPlanNode(
-        node_id=f"plan-node-{candidate.rank}",
-        day=day,
+        node_id=f"plan-node-{rank}",
+        day=1,
         action_id=candidate.action_id,
         title=candidate.title,
         action_type=candidate.action_type,
@@ -196,18 +269,59 @@ def _node_for_candidate(candidate: ProgressionDecisionCandidate) -> SevenDayPlan
 
 def _dependency_edges(nodes: list[SevenDayPlanNode]) -> list[SevenDayPlanEdge]:
     edges: list[SevenDayPlanEdge] = []
-    for index, node in enumerate(nodes[1:], start=1):
-        previous = nodes[index - 1]
-        edges.append(
-            SevenDayPlanEdge(
-                edge_id=f"plan-edge-{index}",
-                source_node_id=previous.node_id,
-                target_node_id=node.node_id,
-                relation="review_before_next_step",
-                rationale="Review the previous manual step and update local facts before relying on the next candidate.",
+    edge_id = 0
+
+    node_by_id = {n.node_id: n for n in nodes}
+    for node in nodes:
+        deps = _dependency_targets(node, node_by_id)
+        for dep in deps:
+            edge_id += 1
+            edges.append(
+                SevenDayPlanEdge(
+                    edge_id=f"plan-edge-{edge_id}",
+                    source_node_id=dep.node_id,
+                    target_node_id=node.node_id,
+                    relation="blocks",
+                    rationale=dep.rationale,
+                )
             )
-        )
+
+    if not edges and len(nodes) > 1:
+        for i in range(1, len(nodes)):
+            edge_id += 1
+            edges.append(
+                SevenDayPlanEdge(
+                    edge_id=f"plan-edge-{edge_id}",
+                    source_node_id=nodes[i - 1].node_id,
+                    target_node_id=nodes[i].node_id,
+                    relation="review_before_next_step",
+                    rationale="Review the previous manual step and update local facts before relying on the next candidate.",
+                )
+            )
     return edges
+
+
+def _dependency_targets(node: SevenDayPlanNode, all_nodes: dict[str, SevenDayPlanNode]) -> list[SevenDayPlanEdge]:
+    deps: list[SevenDayPlanEdge] = []
+    at = node.action_type
+    same_item = [n for n in all_nodes.values() if n.action_id != node.action_id and n.node_id != node.node_id]
+
+    if at == "buy":
+        watchers = [n for n in same_item if n.action_type == "watch_price"]
+        for w in watchers:
+            deps.append(SevenDayPlanEdge(edge_id="", source_node_id=w.node_id, target_node_id=node.node_id, relation="blocks", rationale="Observe price before committing to a purchase."))
+
+    if at == "craft":
+        gatherers = [n for n in same_item if n.action_type in {"farm", "buy"}]
+        for g in gatherers:
+            deps.append(SevenDayPlanEdge(edge_id="", source_node_id=g.node_id, target_node_id=node.node_id, relation="blocks", rationale="Gather or buy materials before crafting."))
+
+    if at == "sell_surplus":
+        watchers = [n for n in same_item if n.action_type == "watch_price"]
+        for w in watchers:
+            deps.append(SevenDayPlanEdge(edge_id="", source_node_id=w.node_id, target_node_id=node.node_id, relation="blocks", rationale="Review price trend before listing surplus."))
+
+    return deps
 
 
 def _estimated_minutes(candidate: ProgressionDecisionCandidate) -> int:
