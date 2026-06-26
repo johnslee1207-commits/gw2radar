@@ -111,6 +111,13 @@
         return item;
       }
 
+      function planActionTone(action) {
+        if (action.execution_risk) return "warn";
+        if (action.risk_reason) return "warn";
+        if (action.confidence < 0.7) return "warn";
+        return action.urgency === "high" ? "warn" : "info";
+      }
+
       function renderPlan(plan) {
         const target = document.querySelector("#plan-output");
         target.innerHTML = "";
@@ -121,7 +128,10 @@
         currentPlanId = plan.plan_id;
         target.append(row(plan.title, plan.focus, "info"));
         for (const action of plan.top_actions || []) {
-          target.append(row(action.title, `${action.reason} · ${action.safety_boundary}`, action.urgency === "high" ? "warn" : "info"));
+          const detail = `${action.reason} · ${action.safety_boundary} · conf ${action.confidence?.toFixed(2) || "?"}`;
+          const risk = action.risk_reason ? ` ⚠ ${action.risk_reason}` : "";
+          const execRisk = action.liquidity_reason ? ` · liq: ${action.liquidity_reason}` : "";
+          target.append(row(action.title, detail + risk + execRisk, planActionTone(action)));
         }
         for (const warning of plan.warnings || []) {
           target.append(row("Warning", warning, "warn"));

@@ -101,6 +101,9 @@ class MarketSignal(BaseModel):
     sellable_surplus_quantity: float = 0.0
     reserved_for_goal_ids: list[str] = Field(default_factory=list)
     evidence_refs: list[str] = Field(default_factory=list)
+    confidence: float = 1.0
+    liquidity_score: float = 0.0
+    risk_reason: str | None = None
 
 
 class MarketRadarReport(BaseModel):
@@ -357,6 +360,7 @@ def infer_market_signals(
                         list(graph.evidence.keys()),
                         value_by_entity.get(item_id),
                         reservations.get(item_id),
+                        trend,
                     )
                 )
             else:
@@ -369,6 +373,7 @@ def infer_market_signals(
                         list(graph.evidence.keys()),
                         value_by_entity.get(item_id),
                         reservations.get(item_id),
+                        trend,
                     )
                 )
         else:
@@ -381,6 +386,7 @@ def infer_market_signals(
                     list(graph.evidence.keys()),
                     value_by_entity.get(item_id),
                     reservations.get(item_id),
+                    trend,
                 )
             )
 
@@ -402,6 +408,7 @@ def infer_market_signals(
                     list(graph.evidence.keys()),
                     value_holding,
                     reservations.get(state.entity_id),
+                    trends.get(state.entity_id),
                 )
             )
     return signals
@@ -519,9 +526,23 @@ def _checked_signal(
     evidence_refs: list[str],
     value_holding=None,
     reservation: dict | None = None,
+    trend: PriceTrend | None = None,
 ) -> MarketSignal:
     validate_market_language(explanation)
     reservation = reservation or {}
+    base_confidence = value_holding.confidence if value_holding else 1.0
+    liquidity = trend.liquidity_score if trend else (value_holding.liquidity_score if value_holding else 0.0)
+    if liquidity < 0.3 and base_confidence > 0.5:
+        base_confidence = 0.5
+    risk = None
+    if signal_type == MarketSignalType.CONSIDER_SELL_SURPLUS and liquidity < 0.3:
+        risk = f"Low liquidity ({liquidity:.2f}); selling may take time at a fair price."
+    elif signal_type == MarketSignalType.BUY_WAIT:
+        risk = "Price is above recent average; waiting may reduce cost."
+    elif signal_type == MarketSignalType.HOLD:
+        risk = "Required by an active goal; verify reservations before selling."
+    if not risk and value_holding and value_holding.risk_reason:
+        risk = value_holding.risk_reason
     return MarketSignal(
         item_id=item_id,
         item_name=item_name,
@@ -534,6 +555,9 @@ def _checked_signal(
         sellable_surplus_quantity=float(reservation.get("sellable_surplus_quantity", 0.0) or 0.0),
         reserved_for_goal_ids=list(reservation.get("reserved_for_goal_ids", [])),
         evidence_refs=evidence_refs,
+        confidence=round(base_confidence, 2),
+        liquidity_score=round(liquidity, 3),
+        risk_reason=risk,
     )
 
 

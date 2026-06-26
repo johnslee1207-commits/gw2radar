@@ -44,6 +44,10 @@ def test_market_api_watchlist_signals_index_and_paid_report() -> None:
         assert signals.status_code == 200
         assert signals.json()["data"]["account_value_evidence"]["schema_version"] == "gw2radar.account_value_evidence_bridge.v1"
         assert signals.json()["data"]["account_value_evidence"]["remediation_summary"]
+        for signal in signals.json()["data"]["signals"]:
+            assert "confidence" in signal
+            assert "liquidity_score" in signal
+            assert signal["confidence"] > 0
         assert locked.status_code == 403
 
         with db_session.SessionLocal() as session:

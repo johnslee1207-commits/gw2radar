@@ -92,14 +92,14 @@ def _returner(intent: PlayerIntent) -> tuple[WorkflowState, PlayerPlan]:
         title="Returner Recovery Plan",
         focus=f"Restart safely with {profession} while protecting progress toward {goal}.",
         top_actions=[
-            PlanAction(title="Run connection diagnostic", reason="Confirms key, permissions, sync, private layer, and Build Fit bridge.", urgency="high", evidence_refs=["/account/diagnostic"]),
-            PlanAction(title="Open Account Readiness", reason="Finds stale systems and blocked account-aware workflows before choosing a goal.", evidence_refs=["/api/v1/player/readiness"]),
-            PlanAction(title="Protect do-not-sell materials", reason="Avoids selling materials that may be needed for active legendary goals.", linked_goal=goal, evidence_refs=["/api/v1/legendary/do-not-sell"]),
+            PlanAction(title="Run connection diagnostic", reason="Confirms key, permissions, sync, private layer, and Build Fit bridge.", urgency="high", confidence=0.95, evidence_refs=["/account/diagnostic"]),
+            PlanAction(title="Open Account Readiness", reason="Finds stale systems and blocked account-aware workflows before choosing a goal.", confidence=0.85, evidence_refs=["/api/v1/player/readiness"]),
+            PlanAction(title="Protect do-not-sell materials", reason="Avoids selling materials that may be needed for active legendary goals.", linked_goal=goal, confidence=0.85, evidence_refs=["/api/v1/legendary/do-not-sell"]),
         ],
         this_week=[
-            PlanAction(title="Day 1: recover account state", reason="Sync, inspect readiness, and pick the safest character."),
-            PlanAction(title="Day 2-3: rebuild routine", reason="Use short open-world actions before committing to expensive upgrades."),
-            PlanAction(title="Day 4-7: resume goal progress", reason="Start only the reviewed Aurora-safe actions that match your constraints.", linked_goal=goal),
+            PlanAction(title="Day 1: recover account state", reason="Sync, inspect readiness, and pick the safest character.", confidence=0.9),
+            PlanAction(title="Day 2-3: rebuild routine", reason="Use short open-world actions before committing to expensive upgrades.", confidence=0.75, risk_reason="Generic advice; verify against actual account state."),
+            PlanAction(title="Day 4-7: resume goal progress", reason="Start only the reviewed Aurora-safe actions that match your constraints.", linked_goal=goal, confidence=0.7, risk_reason="Depends on account sync completeness; review readiness first."),
         ],
     )
     return workflow, plan
@@ -121,13 +121,13 @@ def _legendary(intent: PlayerIntent) -> tuple[WorkflowState, PlayerPlan]:
         title="Legendary Goal Plan",
         focus=f"Plan {goal} with spending mode {intent.constraints.get('spending_mode', 'balanced')} and avoided modes: {avoid}.",
         top_actions=[
-            PlanAction(title="Recompute legendary portfolio", reason="Builds shared requirements, missing items, and do-not-sell guidance.", urgency="high", linked_goal=goal, evidence_refs=["/api/v1/legendary/recompute"]),
-            PlanAction(title="Review do-not-sell", reason="Protects materials that should not be liquidated for short-term gold.", linked_goal=goal, evidence_refs=["/api/v1/legendary/do-not-sell"]),
-            PlanAction(title="Choose cheap/fast path", reason="Applies budget and play-mode constraints to the action plan.", linked_goal=goal, evidence_refs=["/api/v1/legendary/actions"]),
+            PlanAction(title="Recompute legendary portfolio", reason="Builds shared requirements, missing items, and do-not-sell guidance.", urgency="high", linked_goal=goal, confidence=0.9, evidence_refs=["/api/v1/legendary/recompute"]),
+            PlanAction(title="Review do-not-sell", reason="Protects materials that should not be liquidated for short-term gold.", linked_goal=goal, confidence=0.85, evidence_refs=["/api/v1/legendary/do-not-sell"]),
+            PlanAction(title="Choose cheap/fast path", reason="Applies budget and play-mode constraints to the action plan.", linked_goal=goal, confidence=0.8, risk_reason="Path selection depends on current market prices; review before committing.", execution_risk="price_volatility_risk", liquidity_reason="Cost estimates use latest snapshots; verify prices before large purchases.", evidence_refs=["/api/v1/legendary/actions"]),
         ],
         this_week=[
-            PlanAction(title="Finish low-risk daily progress", reason="Prefer repeatable, reviewed tasks over speculative purchases.", linked_goal=goal),
-            PlanAction(title="Defer unsupported route constraints", reason="If WvW avoidance cannot be verified, mark it as an assumption.", linked_goal=goal),
+            PlanAction(title="Finish low-risk daily progress", reason="Prefer repeatable, reviewed tasks over speculative purchases.", linked_goal=goal, confidence=0.9),
+            PlanAction(title="Defer unsupported route constraints", reason="If WvW avoidance cannot be verified, mark it as an assumption.", linked_goal=goal, confidence=0.7, risk_reason="Constraint verification depends on KB rule coverage and player state."),
         ],
     )
     return workflow, plan
@@ -150,12 +150,12 @@ def _build_fit(intent: PlayerIntent) -> tuple[WorkflowState, PlayerPlan]:
         title="Build Fit Plan",
         focus=f"Check whether your account can play {target}{budget_text}.",
         top_actions=[
-            PlanAction(title="Load synced character snapshot", reason="Build Fit needs character gear before it can score account fit.", urgency="high", evidence_refs=["/api/v1/builds/character-snapshots"]),
-            PlanAction(title="Run fit score", reason="Compares reviewed build requirements against available account gear.", evidence_refs=["/api/v1/builds/fit"]),
-            PlanAction(title="Review transition plan", reason="Shows reusable gear, missing upgrades, cost estimate, and budget alternative.", evidence_refs=["/api/v1/builds/transition-plan"]),
+            PlanAction(title="Load synced character snapshot", reason="Build Fit needs character gear before it can score account fit.", urgency="high", confidence=0.95, evidence_refs=["/api/v1/builds/character-snapshots"]),
+            PlanAction(title="Run fit score", reason="Compares reviewed build requirements against available account gear.", confidence=0.85, evidence_refs=["/api/v1/builds/fit"]),
+            PlanAction(title="Review transition plan", reason="Shows reusable gear, missing upgrades, cost estimate, and budget alternative.", confidence=0.8, risk_reason="Cost estimates depend on current market snapshots.", execution_risk="material_cost_risk", liquidity_reason="Verify TP prices before committing to upgrade purchases.", evidence_refs=["/api/v1/builds/transition-plan"]),
         ],
         this_week=[
-            PlanAction(title="Use budget alternative first", reason="Avoids over-spending until the selected build and patch freshness are reviewed."),
+            PlanAction(title="Use budget alternative first", reason="Avoids over-spending until the selected build and patch freshness are reviewed.", confidence=0.75, risk_reason="Patch freshness affects build viability; verify before committing.", execution_risk="material_cost_risk", liquidity_reason="Budget alternatives may use different TP-listed materials; compare prices."),
         ],
         warnings=["Unreviewed build sources cannot drive strong recommendations."],
     )
@@ -177,13 +177,13 @@ def _now(intent: PlayerIntent) -> tuple[WorkflowState, PlayerPlan]:
         title="What Should I Do Now?",
         focus=f"Pick the highest-signal manual actions for the next {time_limit}.",
         top_actions=[
-            PlanAction(title="Refresh first-run summary", reason="Shows whether account-aware outputs are ready or blocked.", urgency="high", evidence_refs=["/account/first-run-summary"]),
-            PlanAction(title="Do one protected goal action", reason="Keeps progress aligned with do-not-sell and account readiness.", linked_goal=intent.goal_id or intent.constraints.get("goal_id")),
-            PlanAction(title="Save a support-safe snapshot if output is still empty", reason="Creates metadata-only evidence for trial defect triage.", evidence_refs=["/account/debug-bundle"]),
+            PlanAction(title="Refresh first-run summary", reason="Shows whether account-aware outputs are ready or blocked.", urgency="high", confidence=0.95, evidence_refs=["/account/first-run-summary"]),
+            PlanAction(title="Do one protected goal action", reason="Keeps progress aligned with do-not-sell and account readiness.", linked_goal=intent.goal_id or intent.constraints.get("goal_id"), confidence=0.8, risk_reason="Goal protection depends on active reservations being up-to-date.", execution_risk="timing_risk", liquidity_reason="Check do-not-sell and market prices before buying or selling materials."),
+            PlanAction(title="Save a support-safe snapshot if output is still empty", reason="Creates metadata-only evidence for trial defect triage.", confidence=0.9, evidence_refs=["/account/debug-bundle"]),
         ],
         this_week=[
-            PlanAction(title="Review readiness history", reason="Compare sync and price-refresh changes before changing strategy."),
-            PlanAction(title="Generate one report preview", reason="Use a deterministic report to preserve assumptions and evidence."),
+            PlanAction(title="Review readiness history", reason="Compare sync and price-refresh changes before changing strategy.", confidence=0.85),
+            PlanAction(title="Generate one report preview", reason="Use a deterministic report to preserve assumptions and evidence.", confidence=0.9),
         ],
     )
     return workflow, plan
@@ -203,7 +203,7 @@ def _clarify(intent: PlayerIntent) -> tuple[WorkflowState, PlayerPlan]:
         title="Clarify Player Goal",
         focus="The request needs one more choice before a strong plan can be generated.",
         top_actions=[
-            PlanAction(title="Choose a template", reason="Templates keep the plan deterministic and evidence-backed.", urgency="high", evidence_refs=["/api/v1/templates"]),
+            PlanAction(title="Choose a template", reason="Templates keep the plan deterministic and evidence-backed.", urgency="high", confidence=0.6, risk_reason="Intent is unclear; template selection may not match your actual goal.", evidence_refs=["/api/v1/templates"]),
         ],
         this_week=[],
         warnings=["Low-confidence intent cannot produce a strong recommendation."],

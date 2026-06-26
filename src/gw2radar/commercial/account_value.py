@@ -67,6 +67,9 @@ class AccountValueHolding(BaseModel):
     reserved_for_goal_ids: list[str] = Field(default_factory=list)
     price_observed_at: datetime | None = None
     warning_codes: list[str] = Field(default_factory=list)
+    confidence: float = 1.0
+    liquidity_score: float = 0.0
+    risk_reason: str | None = None
 
 
 class AccountValueSummary(BaseModel):
@@ -641,6 +644,31 @@ def _latest_market_snapshots(session: Session) -> dict[str, MarketSnapshotModel]
     return latest
 
 
+def _holding_confidence(warning_codes: list[str]) -> float:
+    base = 0.95
+    if "missing_price" in warning_codes:
+        base = 0.3
+    elif "stale_price" in warning_codes:
+        base = 0.6
+    elif "account_bound" in warning_codes:
+        base = 0.5
+    if "reserved_for_goal" in warning_codes:
+        base = max(base - 0.15, 0.1)
+    return round(base, 2)
+
+
+def _holding_risk_reason(warning_codes: list[str]) -> str | None:
+    if "missing_price" in warning_codes:
+        return "No market price data available for this holding."
+    if "stale_price" in warning_codes:
+        return "Price data is older than 48 hours and may not reflect current market conditions."
+    if "account_bound" in warning_codes:
+        return "This holding is account-bound and cannot be sold on the trading post."
+    if "reserved_for_goal" in warning_codes:
+        return "Partly reserved for an active legendary goal; surplus may still be available."
+    return None
+
+
 def _value_holding(
     holding: AccountHolding,
     latest_prices: dict[str, MarketSnapshotModel],
@@ -673,8 +701,12 @@ def _value_holding(
             sellable_surplus_quantity=sellable_surplus_quantity,
             reserved_for_goal_ids=reserved_for_goal_ids,
             warning_codes=warning_codes,
+            confidence=1.0,
+            liquidity_score=1.0,
+            risk_reason=_holding_risk_reason(warning_codes),
         )
     if holding.tradable is False:
+        wc = [*warning_codes, "account_bound"]
         return AccountValueHolding(
             holding_id=holding.holding_id,
             entity_id=holding.entity_id,
@@ -686,12 +718,16 @@ def _value_holding(
             reserved_quantity=reserved_quantity,
             sellable_surplus_quantity=sellable_surplus_quantity,
             reserved_for_goal_ids=reserved_for_goal_ids,
-            warning_codes=[*warning_codes, "account_bound"],
+            warning_codes=wc,
+            confidence=_holding_confidence(wc),
+            liquidity_score=0.0,
+            risk_reason=_holding_risk_reason(wc),
         )
     snapshot = latest_prices.get(holding.entity_id)
     if snapshot is None and holding.item_id is not None:
         snapshot = latest_prices.get(f"gw2:item:{holding.item_id}") or latest_prices.get(str(holding.item_id))
     if snapshot is None:
+        wc = [*warning_codes, "missing_price"]
         return AccountValueHolding(
             holding_id=holding.holding_id,
             entity_id=holding.entity_id,
@@ -703,13 +739,17 @@ def _value_holding(
             reserved_quantity=reserved_quantity,
             sellable_surplus_quantity=sellable_surplus_quantity,
             reserved_for_goal_ids=reserved_for_goal_ids,
-            warning_codes=[*warning_codes, "missing_price"],
+            warning_codes=wc,
+            confidence=_holding_confidence(wc),
+            liquidity_score=0.0,
+            risk_reason=_holding_risk_reason(wc),
         )
     observed_at = _aware(snapshot.observed_at)
     if observed_at < stale_cutoff:
         warning_codes.append("stale_price")
     buy_value = int(holding.quantity * snapshot.buy_price_copper)
     sell_value = int(holding.quantity * snapshot.sell_price_copper)
+    liquidity = min(snapshot.volume / 10000, 1.0) if snapshot.volume else 0.0
     return AccountValueHolding(
         holding_id=holding.holding_id,
         entity_id=holding.entity_id,
@@ -728,6 +768,9 @@ def _value_holding(
         reserved_for_goal_ids=reserved_for_goal_ids,
         price_observed_at=observed_at,
         warning_codes=warning_codes,
+        confidence=_holding_confidence(warning_codes),
+        liquidity_score=round(liquidity, 3),
+        risk_reason=_holding_risk_reason(warning_codes),
     )
 
 

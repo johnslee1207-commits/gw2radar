@@ -1140,6 +1140,9 @@ function renderAccountValueSummary(snapshot) {
     return;
   }
   const summary = snapshot.summary || {};
+  const top = snapshot.top_holdings || [];
+  const avgConf = top.length ? top.reduce((s, h) => s + (h.confidence || 0), 0) / top.length : 0;
+  const avgLiq = top.length ? top.reduce((s, h) => s + (h.liquidity_score || 0), 0) / top.length : 0;
   const rows = [
     ["Buy value", formatCopper(summary.total_value_buy_copper || 0)],
     ["Net sell", formatCopper(summary.net_sell_value_copper || 0)],
@@ -1148,6 +1151,8 @@ function renderAccountValueSummary(snapshot) {
     ["Account-bound", `${summary.account_bound_holding_count || 0}`],
     ["Price coverage", `${snapshot.diagnostics?.price_coverage_percent || 0}%`],
     ["Warnings", `${snapshot.warnings?.length || 0}`],
+    ["Avg confidence", `${avgConf.toFixed(2)}`],
+    ["Avg liquidity", `${avgLiq.toFixed(2)}`],
   ];
   grid.innerHTML = "";
   for (const [label, value] of rows) {
@@ -1286,8 +1291,11 @@ function renderTopHoldings(holdings) {
     const name = document.createElement("strong");
     const detail = document.createElement("span");
     item.className = "compact-list-row";
+    const trust = holding.risk_reason ? "warn" : holding.confidence >= 0.7 ? "info" : "warn";
+    item.classList.add(trust);
+    const risk = holding.risk_reason ? ` ⚠ ${holding.risk_reason}` : "";
     name.textContent = holding.canonical_name || holding.entity_id;
-    detail.textContent = `${formatCopper(holding.value_buy_copper || 0)} · ${holding.location_type || "unknown"} · ${holding.valuation_status || "unknown"}`;
+    detail.textContent = `${formatCopper(holding.value_buy_copper || 0)} · ${holding.location_type || "unknown"} · ${holding.valuation_status || "unknown"} · conf ${holding.confidence?.toFixed(2) || "?"} · liq ${holding.liquidity_score?.toFixed(2) || "?"}${risk}`;
     item.append(name, detail);
     element.appendChild(item);
   }
@@ -1749,6 +1757,28 @@ function renderAccountValueEvidenceBridge(selector, bridge) {
   }
   for (const action of (bridge.remediation_summary || []).slice(0, 3)) {
     appendCompactBridgeRow(element, "Action", action, "warn");
+  }
+}
+
+function renderMarketSignalsList(signals) {
+  const element = document.querySelector("#market-signals-list");
+  if (!element) { return; }
+  element.innerHTML = "";
+  if (!signals || !signals.length) {
+    element.textContent = "No market signals for this goal.";
+    return;
+  }
+  for (const signal of signals.slice(0, 10)) {
+    const item = document.createElement("div");
+    const name = document.createElement("strong");
+    const detail = document.createElement("span");
+    const tone = signal.risk_reason ? "warn" : signal.confidence >= 0.7 ? "info" : "warn";
+    item.className = `compact-list-row ${tone}`;
+    name.textContent = `${signal.item_name || signal.item_id} [${signal.signal_type}]`;
+    const risk = signal.risk_reason ? ` ⚠ ${signal.risk_reason}` : "";
+    detail.textContent = `val ${signal.value_buy_copper || 0} · conf ${signal.confidence?.toFixed(2) || "?"} · liq ${signal.liquidity_score?.toFixed(2) || "?"}${risk}`;
+    item.append(name, detail);
+    element.appendChild(item);
   }
 }
 
@@ -3346,6 +3376,7 @@ const actions = {
     run("legendary", async () => {
       const payload = await fetchJson("/api/v1/market/signals?goal_id=gw2:goal:aurora");
       renderAccountValueEvidenceBridge("#market-value-evidence", payload?.data?.account_value_evidence);
+      renderMarketSignalsList(payload?.data?.signals || []);
       recordPlayerOsTargetResult("marketSignals", payload, "legendary");
       return payload;
     }),

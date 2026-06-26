@@ -80,6 +80,15 @@ def test_account_value_snapshot_uses_latest_prices_and_marks_unpriced() -> None:
         assert "never guarantees returns" in " ".join(payload["safety_boundaries"])
         assert "raw_payload" not in str(payload)
 
+        for holding in payload["top_holdings"]:
+            assert "confidence" in holding
+            assert "liquidity_score" in holding
+            assert holding["confidence"] > 0
+        ecto = next(h for h in payload["top_holdings"] if h["entity_id"] == "gw2:item:19721")
+        assert ecto["liquidity_score"] == 1.0
+        assert ecto["risk_reason"] is None
+        assert ecto["confidence"] == 0.95
+
         markdown = render_account_value_snapshot_markdown(snapshot)
         csv = render_account_value_snapshot_csv(snapshot)
         assert "# Account Value Snapshot" in markdown

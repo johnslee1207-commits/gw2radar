@@ -28,6 +28,8 @@ class ProgressionDecisionCandidate(BaseModel):
     action: dict
     manual_action_boundary: str = "Candidate is informational only and requires manual player review."
     no_auto_execution: bool = True
+    execution_risk: str | None = None
+    liquidity_reason: str | None = None
 
 
 class ProgressionDecisionResult(BaseModel):
@@ -77,6 +79,27 @@ def build_progression_decisions(
     )
 
 
+def _market_execution_risk(action: Action) -> tuple[str | None, str | None]:
+    at = action.action_type.value
+    props = action.properties or {}
+    liquidity = props.get("liquidity_score", 1.0) if isinstance(props, dict) else 1.0
+    if at == "buy":
+        return ("price_volatility_risk", "Buy timing depends on market price; consider observing before committing.")
+    if at == "sell_surplus":
+        if isinstance(liquidity, (int, float)) and liquidity < 0.3:
+            return ("liquidity_risk", f"Low liquidity ({liquidity:.2f}); selling may take time at a fair price.")
+        return ("timing_risk", "Surplus sell is price-sensitive; review trend before listing.")
+    if at == "watch_price":
+        return (None, None)
+    if at == "exchange":
+        return ("spread_risk", "Exchange spread may reduce effective value; compare buy/sell prices.")
+    if at == "craft":
+        return ("material_cost_risk", "Crafting cost depends on current material prices; verify before committing.")
+    if at in {"do_daily", "do_weekly", "farm", "complete_achievement", "complete_collection_step"}:
+        return (None, None)
+    return (None, None)
+
+
 def _candidate_for_action(action: Action, rules: list[KnowledgeRule]) -> ProgressionDecisionCandidate:
     explanations = explain_action_with_kb(action, rules)
     matched_rules = [_rule_by_id(rules, explanation.rule_id) for explanation in explanations]
@@ -84,6 +107,7 @@ def _candidate_for_action(action: Action, rules: list[KnowledgeRule]) -> Progres
     kb_delta = min(0.25, sum(max(0.0, rule.priority_delta) for rule in reviewed_rules))
     final_score = min(1.0, round(action.priority_score + kb_delta, 4))
     warnings = _warnings_for_action(action, explanations)
+    execution_risk, liquidity_reason = _market_execution_risk(action)
     return ProgressionDecisionCandidate(
         rank=0,
         action_id=action.id,
@@ -102,6 +126,8 @@ def _candidate_for_action(action: Action, rules: list[KnowledgeRule]) -> Progres
         evidence_refs=list(dict.fromkeys([*action.evidence_refs, *_kb_evidence_refs(explanations)])),
         kb_explanations=explanations,
         action=action.model_dump(mode="json"),
+        execution_risk=execution_risk,
+        liquidity_reason=liquidity_reason,
     )
 
 

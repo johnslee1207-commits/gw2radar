@@ -49,6 +49,12 @@ def test_account_value_and_market_signals_respect_multi_goal_reservations() -> N
         assert mystic_coin_holding.reserved_quantity > 0
         assert set(mystic_coin_holding.reserved_for_goal_ids) == {"gw2:goal:aurora", "gw2:goal:vision"}
         assert "reserved_for_goal" in mystic_coin_holding.warning_codes
+        assert mystic_coin_holding.confidence < 0.95
+        assert mystic_coin_holding.liquidity_score >= 0
+        assert mystic_coin_holding.risk_reason is not None
+        for signal in signals:
+            assert signal.confidence > 0
+            assert signal.liquidity_score >= 0
         assert not any(
             signal.item_id == "gw2:item:mystic_coin"
             and signal.signal_type is MarketSignalType.CONSIDER_SELL_SURPLUS

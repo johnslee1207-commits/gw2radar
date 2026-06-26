@@ -96,6 +96,11 @@ class PlanAction(BaseModel):
     linked_goal: str | None = None
     evidence_refs: list[str] = Field(default_factory=list)
     safety_boundary: str = "advisory_manual_action_only"
+    confidence: float = 1.0
+    liquidity_note: str | None = None
+    risk_reason: str | None = None
+    execution_risk: str | None = None
+    liquidity_reason: str | None = None
 
 
 class PlayerPlan(BaseModel):

@@ -107,6 +107,7 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert "Build value evidence" in response.text
     assert "Run cheap/fast path to inspect account value evidence." in response.text
     assert "Load market signals to inspect account value evidence." in response.text
+    assert "Market signals appear here." in response.text
     assert "Run fit score or transition plan to inspect account value evidence." in response.text
     assert "Export value MD" in response.text
     assert "Export value CSV" in response.text
