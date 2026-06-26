@@ -86,7 +86,9 @@ def test_kb_promotion_plan_api_exports_json_markdown_and_csv() -> None:
         assert response.status_code == 200
         plan = response.json()["data"]["plan"]
         assert plan["distillable_article_count"] == 1
-        assert plan["rule_packs"] == []
+        assert len(plan["rule_packs"]) >= 1
+        legendary_packs = [p for p in plan["rule_packs"] if p["domain"] == "legendary"]
+        assert len(legendary_packs) >= 1
         assert markdown.status_code == 200
         assert markdown.headers["content-type"].startswith("text/markdown")
         assert "KB Promotion Plan" in markdown.text
