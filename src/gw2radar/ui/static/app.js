@@ -22,6 +22,7 @@ const storageKeys = {
   activeBuildId: "gw2radar.player.activeBuildId",
   playerIntent: "gw2radar.player.intent",
   playerOsContext: "gw2radar.player.playerOsContext",
+  liveKeyResultDiagnostic: "gw2radar.player.liveKeyResultDiagnostic",
   reportHistory: "gw2radar.player.reportHistory",
 };
 
@@ -477,12 +478,18 @@ function downloadText(filename, text, type = "text/plain") {
 
 function debugBundleClientState() {
   const playerOsContext = readJsonStorage(storageKeys.playerOsContext, null);
+  const liveKeyDiagnostic =
+    readJsonStorage(storageKeys.liveKeyResultDiagnostic, null) ||
+    playerOsContext?.live_key_result_diagnostic ||
+    null;
   return {
     active_view: readStorage(storageKeys.activeView),
     active_build_id: state.activeBuildId || readStorage(storageKeys.activeBuildId),
     player_intent: state.playerIntent || readStorage(storageKeys.playerIntent),
     player_os_plan_id: playerOsContext?.plan?.plan_id || "",
     player_os_last_bridge: playerOsContext?.last_bridge?.target_view || "",
+    live_key_result_status: liveKeyDiagnostic?.status || "",
+    live_key_result_blocker: liveKeyDiagnostic?.blocker || "",
     report_history_count: reportHistory().length,
   };
 }
@@ -771,6 +778,12 @@ function playerOsTargetResultStatus(actionId, payload) {
       ? "ready"
       : "empty";
   }
+  if (actionId === "connectionDiagnostic") {
+    if (payload?.summary_status === "ready") {
+      return "ready";
+    }
+    return payload?.summary_status ? "blocked" : "missing";
+  }
   if (hasExplicitStatus && normalizedExplicitStatus && normalizedExplicitStatus !== "unknown") {
     return normalizedExplicitStatus;
   }
@@ -797,6 +810,14 @@ function recordPlayerOsTargetResult(actionId, payload, targetView) {
       ].filter(Boolean),
     },
   });
+  renderLiveKeyResultDiagnostic({
+    targetResult: {
+      action_id: actionId,
+      action_label: playerOsResultActionLabel(actionId),
+      target_view: targetView || context.last_bridge.target_view || "",
+      status: resultStatus,
+    },
+  });
   renderPlayerOsTrialChecklist();
 }
 
@@ -821,6 +842,7 @@ function restorePlayerOsContext() {
 
 function playerOsTrialChecklist() {
   const context = readJsonStorage(storageKeys.playerOsContext, {}) || {};
+  const liveKeyDiagnostic = readJsonStorage(storageKeys.liveKeyResultDiagnostic, null) || context.live_key_result_diagnostic || null;
   const plan = context.plan || state.lastPlayerOsPlan || {};
   const hasPlan = Boolean(plan.plan_id);
   const hasActions = (plan.top_actions?.length || 0) + (plan.this_week?.length || 0) > 0;
@@ -888,6 +910,7 @@ function playerOsTrialChecklist() {
     report_id: context.report_id || state.playerOsReportId || "",
     last_bridge: context.last_bridge || null,
     last_result: context.last_result || null,
+    live_key_result_diagnostic: liveKeyDiagnostic,
     rows,
     safety_boundary: "Metadata-only trial feedback; no raw API keys, private payloads, or automated actions.",
   };
@@ -2019,6 +2042,149 @@ function renderFirstRunSummary(summary) {
       .join(" · ");
     appendCompactBridgeRow(list, target.label || "Result", detail, target.status === "ready" ? "info" : "warn");
   }
+  renderLiveKeyResultDiagnostic({ firstRun: summary });
+}
+
+function buildLiveKeyResultDiagnostic({ firstRun = null, diagnostic = null, targetResult = null } = {}) {
+  const checks = Array.isArray(diagnostic?.checks) ? diagnostic.checks : [];
+  const firstBlockedTarget = (firstRun?.result_targets || []).find((target) => target.status && target.status !== "ready");
+  const failedCheck = checks.find((check) => check.status === "fail");
+  const warningCheck = checks.find((check) => check.status === "warn");
+  const lastResultStatus = normalizePlayerOsResultStatus(targetResult?.status);
+  const base = {
+    schema_version: "gw2radar.live_key_result_diagnostic.v1",
+    status: "unknown",
+    blocker: "Refresh first-run summary or run connection diagnostic to classify the empty result.",
+    next_action: "Run Explain empty results.",
+    evidence_refs: ["/account/first-run-summary"],
+    safe_to_share: true,
+  };
+  if (firstRun?.summary_status === "missing_key" || failedCheck?.check_id === "api_key_stored") {
+    return {
+      ...base,
+      status: "blocked_missing_key",
+      blocker: "No saved GW2 API key is visible to GW2Radar.",
+      next_action: "Paste and save a read-only GW2 API key, then check permissions.",
+      evidence_refs: ["/account/api-key/status", "/account/first-run-summary"],
+    };
+  }
+  if (firstRun?.summary_status === "limited_permissions" || failedCheck?.check_id === "permissions_ready") {
+    const missing = diagnostic?.permission_report?.missing_required_permissions || [];
+    return {
+      ...base,
+      status: "blocked_permissions",
+      blocker: missing.length ? `Missing required permissions: ${missing.join(", ")}.` : "Required key permissions are missing or unavailable.",
+      next_action: "Create or update the key with account-aware permissions, then re-run diagnostic.",
+      evidence_refs: ["/account/api-key/permissions", "/account/diagnostic"],
+    };
+  }
+  if (firstRun?.summary_status === "sync_not_started" || warningCheck?.check_id === "sync_job_visible") {
+    return {
+      ...base,
+      status: "waiting_for_sync",
+      blocker: "The key looks usable, but no account sync job is visible yet.",
+      next_action: "Click Sync now, then run the local worker or drain one job.",
+      evidence_refs: ["/api/v1/account/sync/status", "/account/first-run-summary"],
+    };
+  }
+  if (firstRun?.summary_status === "sync_pending") {
+    return {
+      ...base,
+      status: "waiting_for_sync_completion",
+      blocker: "Account sync is queued, syncing, delayed, or waiting for worker completion.",
+      next_action: "Run Sync worker or Drain one job, then refresh status.",
+      evidence_refs: ["/api/v1/account/sync/health", "/api/v1/account/sync/drain-one"],
+    };
+  }
+  if (["sync_failed", "private_layer_empty"].includes(firstRun?.summary_status) || warningCheck?.check_id === "private_snapshot_written") {
+    return {
+      ...base,
+      status: "waiting_for_private_layer",
+      blocker: "The sync lifecycle is visible, but private account summaries have not been written.",
+      next_action: "Drain or retry sync, then run connection diagnostic again.",
+      evidence_refs: ["/account/diagnostic", "/api/v1/account/sync/drain-one"],
+    };
+  }
+  if (["character_snapshot_empty", "gear_bridge_empty"].includes(firstRun?.summary_status) || warningCheck?.check_id === "build_fit_bridge_ready") {
+    return {
+      ...base,
+      status: "waiting_for_synced_gear",
+      blocker: "Private summaries exist, but synced character gear is not ready for Build Fit.",
+      next_action: "Load character snapshots or resync with character and inventories permissions.",
+      evidence_refs: ["/api/v1/builds/character-snapshots", "/account/diagnostic"],
+    };
+  }
+  if (firstBlockedTarget) {
+    return {
+      ...base,
+      status: firstBlockedTarget.status || "blocked_target",
+      blocker: firstBlockedTarget.blocker || `${firstBlockedTarget.label || "Target"} is not ready yet.`,
+      next_action: firstBlockedTarget.next_action || "Follow the first-run result target action.",
+      evidence_refs: ["/account/first-run-summary", `result_target.${firstBlockedTarget.target_id || "unknown"}`],
+    };
+  }
+  if (targetResult?.action_id && !playerOsResultStatusIsReady(lastResultStatus)) {
+    return {
+      ...base,
+      status: `target_result_${lastResultStatus}`,
+      blocker: `${playerOsResultActionLabel(targetResult.action_id)} completed with ${lastResultStatus} output.`,
+      next_action: "Run the target action once more; if still empty, export trial feedback and an account debug bundle.",
+      evidence_refs: ["player_os_context.last_result", "/api/v1/player-os/trial-feedback/review"],
+    };
+  }
+  if (firstRun?.summary_status === "ready" || diagnostic?.summary_status === "ready") {
+    return {
+      ...base,
+      status: "ready",
+      blocker: "Live key lifecycle is ready; missing output is likely in the selected module flow or visible UI step.",
+      next_action: "Run the highlighted target module action and export feedback if output remains empty.",
+      evidence_refs: ["/account/diagnostic", "/account/first-run-summary", "player_os_context.last_result"],
+    };
+  }
+  return base;
+}
+
+function renderLiveKeyResultDiagnostic({ firstRun = null, diagnostic = null, targetResult = null } = {}) {
+  const context = readJsonStorage(storageKeys.playerOsContext, {}) || {};
+  const savedModel = readJsonStorage(storageKeys.liveKeyResultDiagnostic, null);
+  const currentFirstRun = firstRun || context.live_key_first_run || null;
+  const currentDiagnostic = diagnostic || context.live_key_connection_diagnostic || null;
+  const currentTargetResult = targetResult || context.last_result || null;
+  const model = buildLiveKeyResultDiagnostic({
+    firstRun: currentFirstRun,
+    diagnostic: currentDiagnostic,
+    targetResult: currentTargetResult,
+  });
+  const nextModel = model.status === "unknown" && savedModel ? savedModel : model;
+  writeJsonStorage(storageKeys.liveKeyResultDiagnostic, nextModel);
+  persistPlayerOsContext({
+    live_key_first_run: currentFirstRun,
+    live_key_connection_diagnostic: currentDiagnostic
+      ? {
+          schema_version: currentDiagnostic.schema_version,
+          summary_status: currentDiagnostic.summary_status,
+          checks: (currentDiagnostic.checks || []).map((check) => ({
+            check_id: check.check_id,
+            status: check.status,
+            severity: check.severity,
+            player_message: check.player_message,
+          })),
+          permission_report: {
+            missing_required_permissions: currentDiagnostic.permission_report?.missing_required_permissions || [],
+          },
+        }
+      : null,
+    live_key_result_diagnostic: nextModel,
+  });
+  const list = document.querySelector("#live-key-result-diagnostic");
+  if (!list) {
+    return nextModel;
+  }
+  list.innerHTML = "";
+  appendCompactBridgeRow(list, nextModel.status, nextModel.blocker, nextModel.status === "ready" ? "info" : "warn");
+  appendCompactBridgeRow(list, "Next", nextModel.next_action, nextModel.status === "ready" ? "info" : "warn");
+  appendCompactBridgeRow(list, "Evidence", nextModel.evidence_refs.join(", "), "info");
+  return nextModel;
 }
 
 function diagnosticDetailsText(details) {
@@ -2926,6 +3092,7 @@ const actions = {
       renderConnectionDiagnostic(payload);
       const firstRun = await fetchJson("/account/first-run-summary");
       renderFirstRunSummary(firstRun);
+      renderLiveKeyResultDiagnostic({ firstRun, diagnostic: payload });
       markStep("connect", payload.summary_status === "ready" ? "Connection ready" : "Connection needs review", payload.summary_status === "ready");
       recordPlayerOsTargetResult("connectionDiagnostic", payload, "connect");
       if (payload.summary_status === "ready") {
@@ -2970,6 +3137,7 @@ const actions = {
       updateStatusFromKey({ has_key: false });
       removeStorage(storageKeys.activeBuildId);
       removeStorage(storageKeys.playerOsContext);
+      removeStorage(storageKeys.liveKeyResultDiagnostic);
       removeStorage(storageKeys.reportHistory);
       return payload;
     }),
@@ -4276,6 +4444,7 @@ function restoreLocalState() {
   }
   restorePlayerOsContext();
   renderPlayerOsTrialChecklist();
+  renderLiveKeyResultDiagnostic();
 }
 
 restoreLocalState();

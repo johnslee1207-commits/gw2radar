@@ -50,6 +50,8 @@ class DebugBundleRequest(BaseModel):
     active_view: str | None = None
     active_build_id: str | None = None
     player_intent: str | None = None
+    live_key_result_status: str | None = None
+    live_key_result_blocker: str | None = None
     report_history_count: int = 0
 
 
@@ -111,6 +113,8 @@ def post_account_debug_bundle(request: DebugBundleRequest) -> dict:
                 "active_view": request.active_view,
                 "active_build_id_present": bool(request.active_build_id),
                 "player_intent": request.player_intent,
+                "live_key_result_status": request.live_key_result_status,
+                "live_key_result_blocker": request.live_key_result_blocker,
                 "report_history_count": max(0, int(request.report_history_count or 0)),
             },
             "key_status": diagnostic["key_status"],

@@ -120,6 +120,8 @@ def test_account_debug_bundle_exports_privacy_safe_state_without_private_payload
                 "active_view": "connect",
                 "active_build_id": "build_secret_local_id",
                 "player_intent": "build_fit",
+                "live_key_result_status": "waiting_for_synced_gear",
+                "live_key_result_blocker": "Synced gear is not ready for Build Fit.",
                 "report_history_count": 3,
             },
         )
@@ -130,6 +132,8 @@ def test_account_debug_bundle_exports_privacy_safe_state_without_private_payload
         assert payload["schema_version"] == "gw2radar.account_debug_bundle.v1"
         assert payload["client_state"]["active_view"] == "connect"
         assert payload["client_state"]["active_build_id_present"] is True
+        assert payload["client_state"]["live_key_result_status"] == "waiting_for_synced_gear"
+        assert payload["client_state"]["live_key_result_blocker"] == "Synced gear is not ready for Build Fit."
         assert payload["client_state"]["report_history_count"] == 3
         assert payload["diagnostic_summary"]["summary_status"] == "ready"
         assert payload["snapshot_summary"]["synced_character_snapshot_count"] == 1

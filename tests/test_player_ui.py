@@ -92,6 +92,8 @@ def test_player_ui_page_serves_player_workbench() -> None:
     assert "Readiness history" in response.text
     assert "Save two readiness snapshots to compare sync and price-refresh changes." in response.text
     assert "Account Value Coverage" in response.text
+    assert "Live-key result diagnostic" in response.text
+    assert "Run Explain empty results or Run connection diagnostic to classify missing account-aware output." in response.text
     assert "Location breakdown" in response.text
     assert "Status breakdown" in response.text
     assert "Source diagnostics" in response.text
@@ -462,6 +464,20 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "gw2radar.api_key_permissions.v1" in js.text
     assert "gw2radar.account_connection_diagnostic.v1" in js.text
     assert "gw2radar.account_result_visibility.v1" in js.text
+    assert "gw2radar.live_key_result_diagnostic.v1" in js.text
+    assert "gw2radar.player.liveKeyResultDiagnostic" in js.text
+    assert "renderLiveKeyResultDiagnostic" in js.text
+    assert "buildLiveKeyResultDiagnostic" in js.text
+    assert "live_key_result_diagnostic" in js.text
+    assert "live_key_result_status" in js.text
+    assert "live_key_result_blocker" in js.text
+    assert "blocked_missing_key" in js.text
+    assert "blocked_permissions" in js.text
+    assert "waiting_for_sync" in js.text
+    assert "waiting_for_private_layer" in js.text
+    assert "waiting_for_synced_gear" in js.text
+    assert "target_result_" in js.text
+    assert 'actionId === "connectionDiagnostic"' in js.text
     assert "Result visibility" in js.text
     assert "blocked or waiting" in js.text
     assert "gw2radar.player.activeView" in js.text
