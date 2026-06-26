@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -11,6 +12,30 @@ from gw2radar.ontology.relation_types import RelationType
 
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+class FreshnessStatus(StrEnum):
+    FRESH = "fresh"
+    STALE = "stale"
+    UNKNOWN = "unknown"
+
+
+class ReviewStatus(StrEnum):
+    PENDING = "pending"
+    REVIEWED = "reviewed"
+    NEEDS_REVIEW = "needs_review"
+
+
+class QAStatus(StrEnum):
+    PASS = "pass"
+    FAIL = "fail"
+    UNTESTED = "untested"
+
+
+class ObjectRef(BaseModel):
+    source: str
+    ref_id: str | None = None
+    privacy_scope: str = "private_summary_only"
 
 
 class Evidence(BaseModel):
@@ -36,6 +61,10 @@ class Entity(BaseModel):
     properties: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
+    freshness_status: FreshnessStatus = FreshnessStatus.UNKNOWN
+    review_status: ReviewStatus = ReviewStatus.PENDING
+    qa_status: QAStatus = QAStatus.UNTESTED
+    source_refs: list[ObjectRef] = Field(default_factory=list)
 
 
 class Relation(BaseModel):
