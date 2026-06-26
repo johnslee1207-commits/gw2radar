@@ -17,6 +17,8 @@ from gw2radar.commercial.legendary_planner import (
 from gw2radar.commercial.report_engine import ReportExportFormat, generate_report_job
 from gw2radar.db import session as db_session
 from gw2radar.db.init_db import init_db
+from gw2radar.ontology.mappers import enrich_goal_entities
+from gw2radar.ontology.ontology_qa import run_qa_suite
 
 router = APIRouter(prefix="/api/v1/legendary", tags=["legendary"])
 
@@ -91,10 +93,16 @@ def get_legendary_do_not_sell() -> ApiDataEnvelope:
 @router.post("/report", response_model=ApiDataEnvelope)
 def post_legendary_report(request: LegendaryReportRequest) -> ApiDataEnvelope:
     graph = get_graph()
+    enrich_goal_entities(graph)
+    qa = run_qa_suite(graph, checks=["goal_requirement_resolves", "evidence_refs_exist", "private_data_not_public"])
     init_db()
     with db_session.SessionLocal() as session:
         result = recompute_legendary_plan(session, graph, user_id=DEFAULT_USER_ID)
-        markdown = render_legendary_planner_report(result)
+        qa_section = "\n".join(
+            f"- {r.check_name}: {'PASS' if r.passed else 'FAIL'} — {r.message}"
+            for r in qa.results
+        )
+        markdown = render_legendary_planner_report(result) + f"\n\n## Ontology QA\n\n{qa_section}\n"
         try:
             job = generate_report_job(
                 session,
@@ -107,4 +115,4 @@ def post_legendary_report(request: LegendaryReportRequest) -> ApiDataEnvelope:
             )
         except PermissionError as exc:
             raise HTTPException(status_code=403, detail=str(exc)) from exc
-    return ApiDataEnvelope(data={"job": job.model_dump(mode="json")})
+    return ApiDataEnvelope(data={"qa": qa.summary(), "job": job.model_dump(mode="json")})

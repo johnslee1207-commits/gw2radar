@@ -20,6 +20,7 @@ from gw2radar.api.routes.guilds import guild_router, team_router
 from gw2radar.api.routes.kb import router as kb_router
 from gw2radar.api.routes.legendary import router as legendary_router
 from gw2radar.api.routes.market import router as market_router
+from gw2radar.api.routes.ontology import router as ontology_router
 from gw2radar.api.routes.ops import router as ops_router
 from gw2radar.api.routes.player_dashboard import router as player_dashboard_router
 from gw2radar.api.routes.player_os import router as player_os_router
@@ -81,6 +82,7 @@ app.include_router(account_router)
 app.include_router(account_sync_router)
 app.include_router(achievement_routes_router)
 app.include_router(public_refresh_router)
+app.include_router(ontology_router)
 app.include_router(ops_router)
 app.include_router(player_dashboard_router)
 app.include_router(player_os_router)
