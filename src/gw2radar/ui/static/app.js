@@ -693,6 +693,52 @@ function persistPlayerOsContext(update) {
   writeJsonStorage(storageKeys.playerOsContext, next);
 }
 
+function playerOsResultActionLabel(actionId) {
+  const labels = {
+    loadCharacterSnapshots: "Load character snapshots",
+    evaluateBuild: "Fit score",
+    transitionPlan: "Transition plan",
+    legendaryRecompute: "Cheap/fast path",
+    legendaryDoNotSell: "Do-not-sell",
+    legendaryActions: "Legendary actions",
+    marketSignals: "Market signals",
+    goalCostIndex: "Goal cost index",
+    connectionDiagnostic: "Run connection diagnostic",
+    playerReadiness: "Check readiness",
+  };
+  return labels[actionId] || actionId || "target result action";
+}
+
+function recordPlayerOsTargetResult(actionId, payload, targetView) {
+  const context = readJsonStorage(storageKeys.playerOsContext, {}) || {};
+  const expected = context.last_bridge?.next_action || "";
+  if (!context.last_bridge?.target_view || (expected && expected !== actionId)) {
+    return;
+  }
+  const resultStatus =
+    payload?.data?.status ||
+    payload?.data?.summary_status ||
+    payload?.data?.planner?.status ||
+    payload?.data?.fit?.status ||
+    payload?.data?.market_radar?.status ||
+    payload?.status ||
+    "ready";
+  persistPlayerOsContext({
+    last_result: {
+      action_id: actionId,
+      action_label: playerOsResultActionLabel(actionId),
+      target_view: targetView || context.last_bridge.target_view || "",
+      status: resultStatus,
+      completed_at: new Date().toISOString(),
+      evidence_refs: [
+        context.last_bridge?.next_action ? `player_os.next_action.${context.last_bridge.next_action}` : "",
+        context.last_bridge?.target_view ? `player_os.target_view.${context.last_bridge.target_view}` : "",
+      ].filter(Boolean),
+    },
+  });
+  renderPlayerOsTrialChecklist();
+}
+
 function restorePlayerOsContext() {
   const saved = readJsonStorage(storageKeys.playerOsContext, null);
   if (!saved?.plan?.plan_id) {
@@ -719,6 +765,8 @@ function playerOsTrialChecklist() {
   const hasActions = (plan.top_actions?.length || 0) + (plan.this_week?.length || 0) > 0;
   const hasBridge = Boolean(context.last_bridge?.target_view);
   const hasReport = Boolean(context.report_id || state.playerOsReportId);
+  const expectedResultAction = context.last_bridge?.next_action || "";
+  const hasTargetResult = Boolean(context.last_result?.action_id && (!expectedResultAction || context.last_result.action_id === expectedResultAction));
   const rows = [
     {
       id: "intent",
@@ -738,8 +786,19 @@ function playerOsTrialChecklist() {
       id: "deep_link",
       label: "Deep-link opened",
       ready: hasBridge,
-      evidence: context.last_bridge?.target_view || "missing",
+      evidence: hasBridge
+        ? `${context.last_bridge?.target_view || "target"} -> ${playerOsResultActionLabel(expectedResultAction)}`
+        : "missing",
       next: "Open one Player OS action into Legendary, Build, Market, or readiness.",
+    },
+    {
+      id: "target_result",
+      label: "Target result completed",
+      ready: hasTargetResult,
+      evidence: context.last_result?.action_label || "missing",
+      next: expectedResultAction
+        ? `Run ${playerOsResultActionLabel(expectedResultAction)} in the opened target module.`
+        : "Open a Player OS deep-link action first.",
     },
     {
       id: "report_preview",
@@ -751,9 +810,9 @@ function playerOsTrialChecklist() {
     {
       id: "feedback_packet",
       label: "Feedback metadata ready",
-      ready: hasPlan && hasBridge && hasReport,
-      evidence: hasPlan && hasBridge && hasReport ? "metadata_only_ready" : "incomplete",
-      next: "Export trial feedback JSON after plan, deep-link, and report preview are ready.",
+      ready: hasPlan && hasBridge && hasTargetResult && hasReport,
+      evidence: hasPlan && hasBridge && hasTargetResult && hasReport ? "metadata_only_ready" : "incomplete",
+      next: "Export trial feedback JSON after plan, deep-link, target result, and report preview are ready.",
     },
   ];
   return {
@@ -764,6 +823,7 @@ function playerOsTrialChecklist() {
     plan_id: plan.plan_id || "",
     report_id: context.report_id || state.playerOsReportId || "",
     last_bridge: context.last_bridge || null,
+    last_result: context.last_result || null,
     rows,
     safety_boundary: "Metadata-only trial feedback; no raw API keys, private payloads, or automated actions.",
   };
@@ -2433,7 +2493,7 @@ const actions = {
     showView(bridge.targetView);
     renderSummary(
       bridge.targetView,
-      `Player OS context loaded from "${action.title}". Review the prefilled fields, then run ${bridge.nextAction || "the next manual action"}.`,
+      `Player OS context loaded from "${action.title}". Review the prefilled fields, then run ${playerOsResultActionLabel(bridge.nextAction)}. Next result action: ${playerOsResultActionLabel(bridge.nextAction)}.`,
     );
     markStep("plan", `Player OS -> ${bridge.targetView}`);
   },
@@ -2453,6 +2513,7 @@ const actions = {
           plan_id: checklist.plan_id,
           report_id: checklist.report_id,
           last_bridge: checklist.last_bridge,
+          last_result: checklist.last_result,
         },
         safety_boundary: checklist.safety_boundary,
       };
@@ -2496,6 +2557,7 @@ const actions = {
       renderAccountValueSummary(value?.data?.account_value_snapshot || {});
       const readiness = await fetchJson("/api/v1/player/readiness");
       renderPlayerReadiness(readiness?.data?.readiness || {});
+      recordPlayerOsTargetResult("playerReadiness", readiness, "dashboard");
       return { sync, value, readiness };
     }),
   exportPlayerReadinessMarkdown: () =>
@@ -2801,6 +2863,7 @@ const actions = {
       const firstRun = await fetchJson("/account/first-run-summary");
       renderFirstRunSummary(firstRun);
       markStep("connect", payload.summary_status === "ready" ? "Connection ready" : "Connection needs review", payload.summary_status === "ready");
+      recordPlayerOsTargetResult("connectionDiagnostic", payload, "connect");
       if (payload.summary_status === "ready") {
         markStep("plan", "Account bridge ready");
       }
@@ -2995,14 +3058,25 @@ const actions = {
       return payload;
     }),
   legendaryPortfolio: () => run("legendary", () => fetchJson("/api/v1/legendary/portfolio")),
-  legendaryActions: () => run("legendary", () => fetchJson("/api/v1/legendary/actions")),
+  legendaryActions: () =>
+    run("legendary", async () => {
+      const payload = await fetchJson("/api/v1/legendary/actions");
+      recordPlayerOsTargetResult("legendaryActions", payload, "legendary");
+      return payload;
+    }),
   legendaryRecompute: () =>
     run("legendary", async () => {
       const payload = await fetchJson("/api/v1/legendary/recompute", { method: "POST" });
       renderAccountValueEvidenceBridge("#legendary-value-evidence", payload?.data?.planner?.account_value_evidence);
+      recordPlayerOsTargetResult("legendaryRecompute", payload, "legendary");
       return payload;
     }),
-  legendaryDoNotSell: () => run("legendary", () => fetchJson("/api/v1/legendary/do-not-sell")),
+  legendaryDoNotSell: () =>
+    run("legendary", async () => {
+      const payload = await fetchJson("/api/v1/legendary/do-not-sell");
+      recordPlayerOsTargetResult("legendaryDoNotSell", payload, "legendary");
+      return payload;
+    }),
   legendaryReport: () =>
     run("legendary", () =>
       fetchJson("/api/v1/legendary/report", {
@@ -3040,6 +3114,7 @@ const actions = {
     run("legendary", async () => {
       const payload = await fetchJson("/api/v1/market/signals?goal_id=gw2:goal:aurora");
       renderAccountValueEvidenceBridge("#market-value-evidence", payload?.data?.account_value_evidence);
+      recordPlayerOsTargetResult("marketSignals", payload, "legendary");
       return payload;
     }),
   loadAchievementRouteSources: () =>
@@ -3874,6 +3949,7 @@ const actions = {
         body: JSON.stringify({ build_id: requireActiveBuildId(), account_gear: accountGearPayload() }),
       });
       renderAccountValueEvidenceBridge("#build-value-evidence", payload?.data?.fit?.transition_plan?.account_value_evidence);
+      recordPlayerOsTargetResult("evaluateBuild", payload, "build");
       return payload;
     }),
   transitionPlan: () =>
@@ -3883,6 +3959,7 @@ const actions = {
         body: JSON.stringify({ build_id: requireActiveBuildId(), account_gear: accountGearPayload() }),
       });
       renderAccountValueEvidenceBridge("#build-value-evidence", payload?.data?.transition_plan?.account_value_evidence);
+      recordPlayerOsTargetResult("transitionPlan", payload, "build");
       return payload;
     }),
   buildFreshness: () => run("build", () => fetchJson(`/api/v1/builds/${encodeURIComponent(requireActiveBuildId())}/patch-freshness`)),

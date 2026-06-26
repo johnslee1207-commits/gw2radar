@@ -269,6 +269,12 @@ def test_player_ui_static_assets_are_served() -> None:
     assert "Prepare a concise player handoff version" in js.text
     assert "playerOsTrialChecklist" in js.text
     assert "renderPlayerOsTrialChecklist" in js.text
+    assert "target_result" in js.text
+    assert "Target result completed" in js.text
+    assert "recordPlayerOsTargetResult" in js.text
+    assert "playerOsResultActionLabel" in js.text
+    assert "last_result" in js.text
+    assert "Next result action" in js.text
     assert "loadPlayerOsTrialChecklist" in js.text
     assert "exportPlayerOsTrialFeedback" in js.text
     assert "gw2radar.player_os_trial_checklist.v1" in js.text
