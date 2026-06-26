@@ -2,11 +2,16 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+import logging
+
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from gw2radar.api.envelope import http_exception_handler
+from gw2radar.api.envelope import ApiError, ApiErrorEnvelope, http_exception_handler
+
+logger = logging.getLogger("gw2radar.api")
 from gw2radar.api.routes.acquisition import router as acquisition_router
 from gw2radar.api.routes.account import router as account_router
 from gw2radar.api.routes.account_sync import router as account_sync_router
@@ -43,6 +48,20 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(title="GW2Radar MVP 0.1", lifespan=lifespan)
 app.add_exception_handler(StarletteHTTPException, http_exception_handler)
+
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    logger.info("request method=%s path=%s", request.method, request.url.path)
+    try:
+        response = await call_next(request)
+        if response.status_code >= 400:
+            logger.warning("response status=%d method=%s path=%s", response.status_code, request.method, request.url.path)
+        return response
+    except Exception as exc:
+        logger.exception("unhandled method=%s path=%s", request.method, request.url.path)
+        envelope = ApiErrorEnvelope(error=ApiError(code="internal_error", message="An unexpected error occurred."))
+        return JSONResponse(status_code=500, content=envelope.model_dump(mode="json"))
 app.mount(
     "/player-ui",
     StaticFiles(directory=Path(__file__).resolve().parents[1] / "ui" / "static"),
