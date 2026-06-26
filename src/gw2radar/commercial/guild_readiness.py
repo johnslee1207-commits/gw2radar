@@ -6,6 +6,8 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from gw2radar.db.models import ConsentRecordModel, GuildModel, TeamMemberModel, TeamModel, utc_now
+from gw2radar.graph.graph_query import GraphData
+from gw2radar.ontology.mappers.guild_mapper import compute_member_readiness_from_graph, enrich_guild_entities
 
 
 DEFAULT_USER_ID = "local-user"
@@ -163,7 +165,7 @@ def revoke_member_consent(session: Session, team_id: str, member_id: str) -> Con
     return _consent_from_model(consent)
 
 
-def compute_team_readiness(session: Session, team_id: str) -> TeamReadinessResult:
+def compute_team_readiness(session: Session, team_id: str, graph: GraphData | None = None) -> TeamReadinessResult:
     team = session.get(TeamModel, team_id)
     if team is None:
         raise ValueError("Team not found.")
@@ -171,6 +173,12 @@ def compute_team_readiness(session: Session, team_id: str) -> TeamReadinessResul
     consenting = [member for member in members if _has_active_consent(session, team_id, member.member_id)]
     coverage = _role_coverage(consenting)
     summaries = [_summary_for_member(session, team_id, member) for member in members]
+    if graph is not None:
+        enrich_guild_entities(graph)
+        for member in consenting:
+            graph_score = compute_member_readiness_from_graph(member.user_id, graph)
+            if graph_score > 0:
+                member.readiness_score = max(member.readiness_score, graph_score)
     missing = [item.role for item in coverage if not item.covered]
     readiness = (
         sum(member.readiness_score for member in consenting) / len(consenting)
@@ -189,6 +197,15 @@ def compute_team_readiness(session: Session, team_id: str) -> TeamReadinessResul
 
 
 def render_guild_readiness_report(result: TeamReadinessResult) -> str:
+    heatmap_rows = []
+    for role in REQUIRED_ROLES:
+        found = next((r for r in result.role_coverage if r.role == role), None)
+        status = "covered" if found and found.covered else "missing"
+        count = found.member_count if found else 0
+        bar = "█" * count + "░" * max(0, 3 - count)
+        heatmap_rows.append(f"| {role:<12} | {status:<8} | {count} | {bar} |")
+    heatmap = "\n".join(heatmap_rows)
+
     lines = [
         "# Guild Readiness Report",
         "",
@@ -196,7 +213,12 @@ def render_guild_readiness_report(result: TeamReadinessResult) -> str:
         f"Mode: {result.team.game_mode}",
         f"Readiness score: {result.readiness_score:.2f}",
         "",
-        "## Role Coverage",
+        "## Role Coverage Heatmap",
+        "| Role         | Status    | Count | Coverage |",
+        "|--------------|-----------|-------|----------|",
+        heatmap,
+        "",
+        "## Details",
         *[f"- {role.role}: {'covered' if role.covered else 'missing'} ({role.member_count} members)" for role in result.role_coverage],
         "",
         "## Privacy-Safe Member Summary",
