@@ -1,0 +1,154 @@
+domain: "RF Simulation"
+version: "1.0"
+description: "Radio Frequency wireless simulation domain"
+
+nodes:
+  - type: "Scene"
+    description: "A 3D scene configuration for simulation"
+    properties:
+      - name: "id (string, required)"
+      - name: "name (string)"
+      - name: "frequency (float, required)"
+    constraints:
+      - "id must be unique"
+
+  - type: "ChannelModel"
+    description: "Channel propagation model"
+    properties:
+      - name: "id (string, required)"
+      - name: "model_type (string, required)"
+
+  - type: "ExecutionRun"
+    description: "A single simulation execution"
+    properties:
+      - name: "run_id (string, required)"
+      - name: "status (enum: pending/running/completed/failed)"
+    constraints: []
+    lifecycle:
+      states: ["pending", "running", "completed", "failed"]
+      initial_state: "pending"
+      transitions:
+        - from: "pending"
+          to: "running"
+          trigger: "start_run"
+        - from: "running"
+          to: "completed"
+          trigger: "finish_run"
+        - from: "running"
+          to: "failed"
+          trigger: "fail_run"
+      invariants:
+        - "completed and failed are terminal states"
+
+  - type: "Measurement"
+    description: "Measurement data from a run"
+    properties:
+      - name: "id (string, required)"
+      - name: "value (float)"
+    constraints: []
+
+  - type: "Evidence"
+    description: "Proof of simulation execution and results"
+    properties:
+      - name: "evidence_id (string, required)"
+      - name: "hash (string, required)"
+      - name: "chain_intact (bool)"
+    constraints: []
+
+  - type: "Report"
+    description: "Published simulation report"
+    properties:
+      - name: "report_id (string, required)"
+      - name: "status (enum: draft/reviewed/published)"
+    constraints:
+      - "published reports must have evidence"
+
+edges:
+  - type: "generates"
+    description: "An execution run generates evidence"
+    source: ["ExecutionRun"]
+    target: ["Evidence"]
+    cardinality: "1:N"
+
+  - type: "compiles_to"
+    description: "Evidence compiles into a report"
+    source: ["Evidence"]
+    target: ["Report"]
+    cardinality: "N:1"
+
+  - type: "executed_by"
+    description: "A measurement is executed by a run"
+    source: ["Measurement"]
+    target: ["ExecutionRun"]
+    cardinality: "N:1"
+
+  - type: "produces"
+    description: "A run produces measurements"
+    source: ["ExecutionRun"]
+    target: ["Measurement"]
+    cardinality: "1:N"
+
+  - type: "evidenced_by"
+    description: "A report is evidenced by evidence"
+    source: ["Report"]
+    target: ["Evidence"]
+    cardinality: "N:N"
+
+  - type: "cites"
+    description: "A report cites another report"
+    source: ["Report"]
+    target: ["Report"]
+    cardinality: "N:N"
+
+events:
+  - name: "scenario_loaded"
+    description: "A simulation scenario is loaded"
+    source: "Scene"
+    triggers: ["validate_scene"]
+    produces: []
+
+  - name: "config_compiled"
+    description: "Configuration is compiled"
+    source: "ChannelModel"
+    triggers: ["validate_config"]
+    produces: []
+
+  - name: "run_completed"
+    description: "Execution run completed"
+    source: "ExecutionRun"
+    triggers: ["generate_evidence", "notify_user"]
+    produces: ["Evidence", "Report"]
+
+  - name: "evidence_generated"
+    description: "Evidence is generated"
+    source: "Evidence"
+    triggers: ["bind_evidence_chain"]
+    produces: []
+
+  - name: "report_published"
+    description: "Report is published"
+    source: "Report"
+    triggers: ["generate_publication_notice"]
+    produces: []
+
+type_aliases:
+  - local_type: "Measurement"
+    equivalent_to: "Evidence"
+    source_domain: "RF Simulation"
+    confidence: 0.9
+
+rules:
+  - name: "replay_requires_seed"
+    description: "Run seed must be non-zero for replayability"
+    rule: "ExecutionRun.seed must be non-zero"
+    severity: "error"
+
+  - name: "report_requires_evidence"
+    description: "Report must have at least one Evidence via compiles_to"
+    rule: "Report requires Evidence"
+    severity: "error"
+
+  - name: "config_hash_nonzero"
+    description: "Config hash must be non-zero"
+    rule: "ChannelModel.hash must be non-zero"
+    severity: "warn"

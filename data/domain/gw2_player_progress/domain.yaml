@@ -1,0 +1,158 @@
+domain: "GW2 Player Progress"
+version: "1.0"
+description: "Guild Wars 2 player progression domain"
+
+nodes:
+  - type: "Account"
+    description: "Player account"
+    properties:
+      - name: "account_id (string, required)"
+      - name: "level (int, min:1, max:80)"
+      - name: "status (enum: active/frozen/closed)"
+    constraints:
+      - "account_id must be unique"
+    lifecycle:
+      states: ["active", "frozen", "closed"]
+      initial_state: "active"
+      transitions:
+        - from: "active"
+          to: "frozen"
+          trigger: "freeze_account"
+        - from: "frozen"
+          to: "active"
+          trigger: "unfreeze_account"
+        - from: "active"
+          to: "closed"
+          trigger: "close_account"
+        - from: "frozen"
+          to: "closed"
+          trigger: "close_account"
+      invariants:
+        - "closed is a terminal state"
+
+  - type: "Item"
+    description: "In-game item"
+    properties:
+      - name: "id (string, required)"
+      - name: "name (string)"
+      - name: "tradable (bool)"
+    constraints: []
+
+  - type: "Goal"
+    description: "Player goal (e.g. legendary weapon)"
+    properties:
+      - name: "goal_id (string, required)"
+      - name: "goal_type (string)"
+    constraints: []
+
+  - type: "Build"
+    description: "Character build configuration"
+    properties:
+      - name: "build_id (string, required)"
+      - name: "name (string)"
+    constraints: []
+
+  - type: "Currency"
+    description: "In-game currency"
+    properties:
+      - name: "id (string, required)"
+      - name: "name (string)"
+    constraints: []
+
+  - type: "CraftingRecipe"
+    description: "Recipe for crafting items"
+    properties:
+      - name: "recipe_id (string, required)"
+      - name: "output_item_id (string)"
+    constraints: []
+
+  - type: "Map"
+    description: "In-game map"
+    properties:
+      - name: "map_id (string, required)"
+      - name: "name (string)"
+    constraints: []
+
+  - type: "Material"
+    description: "Crafting material"
+    properties:
+      - name: "material_id (string, required)"
+      - name: "name (string)"
+    constraints: []
+
+  - type: "Achievement"
+    description: "Player achievement"
+    properties:
+      - name: "achievement_id (string, required)"
+      - name: "name (string)"
+      - name: "completed (bool)"
+    constraints: []
+
+edges:
+  - type: "required_by"
+    source: ["Goal"]
+    target: ["Item", "Material"]
+    cardinality: "N:N"
+
+  - type: "produces"
+    source: ["CraftingRecipe"]
+    target: ["Item"]
+    cardinality: "1:N"
+
+  - type: "consumes"
+    source: ["CraftingRecipe"]
+    target: ["Material"]
+    cardinality: "N:N"
+
+  - type: "depends_on"
+    source: ["Goal"]
+    target: ["Achievement"]
+    cardinality: "N:N"
+
+  - type: "requires"
+    source: ["Goal"]
+    target: ["Item"]
+    cardinality: "N:N"
+
+  - type: "holds"
+    source: ["Account"]
+    target: ["Currency"]
+    cardinality: "1:N"
+
+  - type: "owned_by"
+    source: ["Account"]
+    target: ["Item", "Material"]
+    cardinality: "1:N"
+
+events:
+  - name: "item_crafted"
+    source: "CraftingRecipe"
+    triggers: ["update_inventory"]
+    produces: ["Item"]
+
+  - name: "goal_completed"
+    source: "Goal"
+    triggers: ["notify_player", "update_achievements"]
+    produces: ["Achievement"]
+
+  - name: "build_optimized"
+    source: "Build"
+    triggers: ["recalculate_stats"]
+    produces: ["Build"]
+
+type_aliases:
+  - local_type: "Material"
+    equivalent_to: "Item"
+    source_domain: "GW2 Player Progress"
+    confidence: 0.95
+
+rules:
+  - name: "legendary_requires_gift"
+    description: "Legendary goal requires Gift of Mastery"
+    rule: "Goal requires Item"
+    severity: "info"
+
+  - name: "crafting_requires_materials"
+    description: "Crafting recipe requires materials"
+    rule: "CraftingRecipe requires Material"
+    severity: "error"
