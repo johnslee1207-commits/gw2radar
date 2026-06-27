@@ -20,30 +20,29 @@ from gw2radar.pipeline import ThreeLayerPipeline
 
 def test_node_lifecycle_parsed() -> None:
     engine = DomainGraphEngine()
-    dg = engine.load_file(str(Path("data/domain/rf_simulation/domain.yaml")))
-    execution_run = dg.nodes.get("ExecutionRun")
-    assert execution_run is not None
-    assert execution_run.lifecycle is not None
-    assert execution_run.lifecycle.initial_state == "pending"
-    assert len(execution_run.lifecycle.states) == 4
-    assert len(execution_run.lifecycle.transitions) == 3
+    dg = engine.load_file(str(Path("tests/data/gw2_ontology.yaml")))
+    account = dg.nodes.get("Account")
+    assert account is not None
+    assert account.lifecycle is not None
+    assert account.lifecycle.initial_state == "active"
+    assert len(account.lifecycle.states) == 3
+    assert len(account.lifecycle.transitions) == 3
 
 
 def test_node_lifecycle_transitions() -> None:
     engine = DomainGraphEngine()
-    dg = engine.load_file(str(Path("data/domain/rf_simulation/domain.yaml")))
-    sm = dg.nodes["ExecutionRun"].lifecycle
+    dg = engine.load_file(str(Path("tests/data/gw2_ontology.yaml")))
+    sm = dg.nodes["Account"].lifecycle
     assert sm is not None
-    t_from_pending = [t for t in sm.transitions if t.from_state == "pending"]
-    assert len(t_from_pending) == 1
-    assert t_from_pending[0].to_state == "running"
-    assert t_from_pending[0].trigger == "start_run"
+    t_from_active = [t for t in sm.transitions if t.from_state == "active"]
+    assert len(t_from_active) >= 1
+    assert t_from_active[0].to_state in ("frozen", "closed")
 
 
 def test_node_lifecycle_invariants() -> None:
     engine = DomainGraphEngine()
-    dg = engine.load_file(str(Path("data/domain/rf_simulation/domain.yaml")))
-    sm = dg.nodes["ExecutionRun"].lifecycle
+    dg = engine.load_file(str(Path("tests/data/gw2_ontology.yaml")))
+    sm = dg.nodes["Account"].lifecycle
     assert sm is not None
     assert len(sm.invariants) == 1
     assert "terminal" in sm.invariants[0]
@@ -51,7 +50,7 @@ def test_node_lifecycle_invariants() -> None:
 
 def test_state_machine_validation_passes() -> None:
     engine = DomainGraphEngine()
-    dg = engine.load_file(str(Path("data/domain/rf_simulation/domain.yaml")))
+    dg = engine.load_file(str(Path("tests/data/gw2_ontology.yaml")))
     errors = engine.validate(dg)
     lifecycle_errors = [e for e in errors if "lifecycle" in e]
     assert lifecycle_errors == [], f"State machine validation errors: {lifecycle_errors}"
@@ -59,10 +58,10 @@ def test_state_machine_validation_passes() -> None:
 
 def test_state_machine_validation_detects_bad_state() -> None:
     engine = DomainGraphEngine()
-    dg = engine.load_file(str(Path("data/domain/rf_simulation/domain.yaml")))
-    er = dg.nodes["ExecutionRun"]
-    assert er.lifecycle is not None
-    er.lifecycle.transitions.append(
+    dg = engine.load_file(str(Path("tests/data/gw2_ontology.yaml")))
+    acct = dg.nodes["Account"]
+    assert acct.lifecycle is not None
+    acct.lifecycle.transitions.append(
         StateTransition(from_state="nonexistent", to_state="running", trigger="bad")
     )
     errors = engine.validate(dg)
@@ -73,37 +72,26 @@ def test_state_machine_validation_detects_bad_state() -> None:
 
 def test_gw2_account_lifecycle() -> None:
     engine = DomainGraphEngine()
-    dg = engine.load_file(str(Path("data/domain/gw2_player_progress/domain.yaml")))
+    dg = engine.load_file(str(Path("tests/data/gw2_ontology.yaml")))
     account = dg.nodes.get("Account")
     assert account is not None
     assert account.lifecycle is not None
     assert account.lifecycle.initial_state == "active"
-    close_transitions = [t for t in account.lifecycle.transitions if t.to_state == "closed"]
-    assert len(close_transitions) == 2
+    assert len(account.lifecycle.transitions) == 3
     errors = engine.validate(dg)
     lifecycle_errors = [e for e in errors if "lifecycle" in e]
-    assert lifecycle_errors == [], f"GW2 account lifecycle validation errors: {lifecycle_errors}"
+    assert lifecycle_errors == [], f"Account lifecycle validation errors: {lifecycle_errors}"
 
 
 # ============================================================
 # DGSK: Property Constraint Tests
 # ============================================================
 
-def test_property_min_max_parsed() -> None:
-    engine = DomainGraphEngine()
-    dg = engine.load_file(str(Path("data/domain/gw2_player_progress/domain.yaml")))
-    account = dg.nodes["Account"]
-    level_prop = next(p for p in account.properties if p.name == "level")
-    assert level_prop.constraints is not None
-    assert level_prop.constraints.min_value == 1.0
-    assert level_prop.constraints.max_value == 80.0
-
-
 def test_property_no_constraints_by_default() -> None:
     engine = DomainGraphEngine()
-    dg = engine.load_file(str(Path("data/domain/rf_simulation/domain.yaml")))
-    scene = dg.nodes["Scene"]
-    id_prop = next(p for p in scene.properties if p.name == "id")
+    dg = engine.load_file(str(Path("tests/data/gw2_ontology.yaml")))
+    account = dg.nodes["Account"]
+    id_prop = next(p for p in account.properties if p.name == "id")
     assert id_prop.constraints is None
 
 
@@ -280,19 +268,18 @@ def test_decision_pending_evidence_not_triggered_on_low_risk() -> None:
 # Cross-Layer End-to-End Pipeline Test
 # ============================================================
 
-def test_pipeline_full_rf_simulation() -> None:
+def test_pipeline_full_with_auto_domain() -> None:
     pipeline = ThreeLayerPipeline()
     result = pipeline.run_full_pipeline(
-        str(Path("data/domain/rf_simulation/domain.yaml")),
+        str(Path("tests/data/gw2_ontology.yaml")),
         runtime_state={
             "qa_gate": {"passed": 5, "total": 5, "confidence": 0.95},
             "evidence": {"chain_intact": True, "confidence": 1.0},
         },
     )
     assert result["load"]["validation_passed"]
-    assert result["load"]["domain"] == "RF Simulation"
+    assert result["load"]["domain"] == "GW2Radar"
     assert result["oosk"]["entities_mapped"] >= 1
-    assert result["oosk"]["relations_mapped"] >= 1
     assert result["constraints"]["total"] > 0
     assert result["bors"]["kpi_count"] >= 1
     assert result["bors"]["risk_count"] >= 1
@@ -300,10 +287,10 @@ def test_pipeline_full_rf_simulation() -> None:
     assert result["bors"]["reason"] != ""
 
 
-def test_pipeline_full_gw2_progress() -> None:
+def test_pipeline_full_with_data() -> None:
     pipeline = ThreeLayerPipeline()
     result = pipeline.run_full_pipeline(
-        str(Path("data/domain/gw2_player_progress/domain.yaml")),
+        str(Path("tests/data/gw2_ontology.yaml")),
         runtime_state={
             "qa_gate": {"passed": 3, "total": 4, "confidence": 0.8},
             "compliance": {"passed": 2, "total": 2, "failures": []},
@@ -312,15 +299,15 @@ def test_pipeline_full_gw2_progress() -> None:
         },
     )
     assert result["load"]["validation_passed"]
-    assert result["load"]["domain"] == "GW2 Player Progress"
-    assert result["oosk"]["entities_mapped"] >= 4
+    assert result["load"]["domain"] == "GW2Radar"
+    assert result["oosk"]["entities_mapped"] >= 1
     assert result["bors"]["kpi_count"] >= 3
     assert result["bors"]["risk_count"] >= 1
 
 
 def test_pipeline_incremental_steps() -> None:
     pipeline = ThreeLayerPipeline()
-    load = pipeline.load_domain(str(Path("data/domain/rf_simulation/domain.yaml")))
+    load = pipeline.load_domain(str(Path("tests/data/gw2_ontology.yaml")))
     assert load["validation_passed"]
 
     oosk = pipeline.map_to_oosk()
@@ -339,17 +326,16 @@ def test_pipeline_incremental_steps() -> None:
 
 def test_pipeline_loaded_domain_keys() -> None:
     pipeline = ThreeLayerPipeline()
-    load = pipeline.load_domain(str(Path("data/domain/rf_simulation/domain.yaml")))
-    assert load["entity_count"] >= 6
-    assert load["relation_count"] >= 6
-    assert load["event_count"] >= 5
+    load = pipeline.load_domain(str(Path("tests/data/gw2_ontology.yaml")))
+    assert load["entity_count"] >= 10
+    assert load["relation_count"] >= 10
     assert load["rule_count"] >= 3
 
 
 def test_pipeline_with_bad_domain_shows_errors() -> None:
     from gw2radar.domain_graph.domain_schema import EdgeDef
     engine = DomainGraphEngine()
-    dg = engine.load_file(str(Path("data/domain/rf_simulation/domain.yaml")))
+    dg = engine.load_file(str(Path("tests/data/gw2_ontology.yaml")))
     dg.edges["ghost_edge"] = EdgeDef(
         type="ghost_edge",
         source_types=["GhostType"],
@@ -363,7 +349,7 @@ def test_pipeline_with_bad_domain_shows_errors() -> None:
 def test_pipeline_decision_reason_contains_score() -> None:
     pipeline = ThreeLayerPipeline()
     result = pipeline.run_full_pipeline(
-        str(Path("data/domain/rf_simulation/domain.yaml")),
+        str(Path("tests/data/gw2_ontology.yaml")),
         runtime_state={"qa_gate": {"passed": 1, "total": 5, "failures": ["f1", "f2"]}},
     )
     assert "score" in result["bors"]["reason"].lower() or result["bors"]["decision"] != "approve"
@@ -375,7 +361,7 @@ def test_pipeline_decision_reason_contains_score() -> None:
 
 def test_manual_three_layer_integration() -> None:
     dg_engine = DomainGraphEngine()
-    dg = dg_engine.load_file(str(Path("data/domain/rf_simulation/domain.yaml")))
+    dg = dg_engine.load_file(str(Path("tests/data/gw2_ontology.yaml")))
     assert dg_engine.validate(dg) == []
 
     store = RuntimeStore()

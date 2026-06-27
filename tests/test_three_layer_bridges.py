@@ -60,17 +60,17 @@ def test_discover_compile_to_oosk() -> None:
 
 def test_serialize_round_trip() -> None:
     engine = DomainGraphEngine()
-    original = engine.load_file(str(Path("data/domain/rf_simulation/domain.yaml")))
+    original = engine.load_file(str(Path("tests/data/gw2_ontology.yaml")))
     data = domain_graph_to_dict(original)
-    assert data["domain"] == "RF Simulation"
-    assert len(data["nodes"]) >= 6
-    assert len(data["edges"]) >= 6
+    assert data["domain"] == "GW2Radar"
+    assert len(data["nodes"]) >= 10
+    assert len(data["edges"]) >= 10
 
 
 def test_serialize_then_reload() -> None:
     import tempfile
     engine = DomainGraphEngine()
-    original = engine.load_file(str(Path("data/domain/rf_simulation/domain.yaml")))
+    original = engine.load_file(str(Path("tests/data/gw2_ontology.yaml")))
     with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
         tmp_path = f.name
     try:
@@ -85,9 +85,9 @@ def test_serialize_then_reload() -> None:
 
 def test_serialize_gw2_domain() -> None:
     engine = DomainGraphEngine()
-    dg = engine.load_file(str(Path("data/domain/gw2_player_progress/domain.yaml")))
+    dg = engine.load_file(str(Path("tests/data/gw2_ontology.yaml")))
     data = domain_graph_to_dict(dg)
-    assert data["domain"] == "GW2 Player Progress"
+    assert data["domain"] == "GW2Radar"
     assert any("lifecycle" in n for n in data["nodes"])
 
 
@@ -277,7 +277,7 @@ def test_audit_trail_clear() -> None:
 def test_pipeline_audit_records() -> None:
     pipeline = ThreeLayerPipeline()
     result = pipeline.run_full_pipeline(
-        str(Path("data/domain/rf_simulation/domain.yaml")),
+        str(Path("tests/data/gw2_ontology.yaml")),
         runtime_state={"qa_gate": {"passed": 5, "total": 5}},
     )
     assert "audit" in result
@@ -288,7 +288,7 @@ def test_pipeline_audit_records() -> None:
 def test_pipeline_trends_integration() -> None:
     pipeline = ThreeLayerPipeline()
     result = pipeline.run_full_pipeline(
-        str(Path("data/domain/rf_simulation/domain.yaml")),
+        str(Path("tests/data/gw2_ontology.yaml")),
         runtime_state={"qa_gate": {"passed": 5, "total": 5}},
     )
     assert "trends" in result
@@ -297,7 +297,7 @@ def test_pipeline_trends_integration() -> None:
 
 def test_pipeline_action_bridge_available() -> None:
     pipeline = ThreeLayerPipeline()
-    pipeline.load_domain(str(Path("data/domain/rf_simulation/domain.yaml")))
+    pipeline.load_domain(str(Path("tests/data/gw2_ontology.yaml")))
     pipeline.map_to_oosk()
     assert pipeline.action_bridge is not None
     actions = pipeline.action_bridge.list_actions()

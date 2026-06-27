@@ -47,7 +47,7 @@ def test_runtime_mapper() -> None:
 
     store = RuntimeStore()
     engine = DomainGraphEngine()
-    dg = engine.load_file(str(Path("data/domain/rf_simulation/domain.yaml")))
+    dg = engine.load_file(str(Path("tests/data/gw2_ontology.yaml")))
     mapper = RuntimeMapper()
     mapper.map_domain_to_store(dg, store)
     assert store.get_entity("dg:Evidence") is not None

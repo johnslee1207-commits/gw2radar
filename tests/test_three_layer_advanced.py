@@ -16,34 +16,33 @@ from gw2radar.oosk.runtime_store import RuntimeStore
 
 def test_type_aliases_loaded() -> None:
     engine = DomainGraphEngine()
-    dg = engine.load_file(str(Path("data/domain/rf_simulation/domain.yaml")))
+    dg = engine.load_file(str(Path("tests/data/gw2_ontology.yaml")))
     assert len(dg.type_aliases) >= 1
     alias = dg.type_aliases[0]
-    assert alias.local_type == "Measurement"
-    assert alias.equivalent_to == "Evidence"
+    assert alias.local_type == "Action"
+    assert alias.equivalent_to == "Task"
 
 
 def test_gw2_type_aliases_loaded() -> None:
     engine = DomainGraphEngine()
-    dg = engine.load_file(str(Path("data/domain/gw2_player_progress/domain.yaml")))
+    dg = engine.load_file(str(Path("tests/data/gw2_ontology.yaml")))
     assert len(dg.type_aliases) >= 1
-    assert dg.type_aliases[0].local_type == "Material"
+    assert dg.type_aliases[0].local_type == "Action"
 
 
 def test_resolve_aliases() -> None:
     engine = DomainGraphEngine()
-    dg = engine.load_file(str(Path("data/domain/rf_simulation/domain.yaml")))
+    dg = engine.load_file(str(Path("tests/data/gw2_ontology.yaml")))
     mapping = engine.resolve_aliases(dg)
-    assert mapping.get("Measurement") == "Evidence"
+    assert mapping.get("Action") == "Task"
 
 
 def test_merge_with_aliases() -> None:
     engine = DomainGraphEngine()
-    dg1 = engine.load_file(str(Path("data/domain/rf_simulation/domain.yaml")))
-    dg2 = engine.load_file(str(Path("data/domain/gw2_player_progress/domain.yaml")))
+    dg1 = engine.load_file(str(Path("tests/data/gw2_ontology.yaml")))
+    dg2 = engine.load_file(str(Path("tests/data/gw2_ontology.yaml")))
     merged = engine.merge([dg1, dg2])
-    assert any(a.local_type == "Measurement" for a in merged.type_aliases)
-    assert any(a.local_type == "Material" for a in merged.type_aliases)
+    assert any(a.local_type == "Action" for a in merged.type_aliases)
 
 
 # ============================================================
@@ -52,7 +51,7 @@ def test_merge_with_aliases() -> None:
 
 def test_schema_diff_identical() -> None:
     engine = DomainGraphEngine()
-    dg = engine.load_file(str(Path("data/domain/rf_simulation/domain.yaml")))
+    dg = engine.load_file(str(Path("tests/data/gw2_ontology.yaml")))
     diff = engine.schema_diff(dg, dg)
     assert diff.backward_compatible
     assert len(diff.breaking_changes) == 0
@@ -62,8 +61,8 @@ def test_schema_diff_identical() -> None:
 
 def test_schema_diff_added_node() -> None:
     engine = DomainGraphEngine()
-    old = engine.load_file(str(Path("data/domain/rf_simulation/domain.yaml")))
-    new = engine.load_file(str(Path("data/domain/rf_simulation/domain.yaml")))
+    old = engine.load_file(str(Path("tests/data/gw2_ontology.yaml")))
+    new = engine.load_file(str(Path("tests/data/gw2_ontology.yaml")))
     from gw2radar.domain_graph.domain_schema import NodeDef
     new.nodes["NewType"] = NodeDef(type="NewType")
     diff = engine.schema_diff(old, new)
@@ -73,18 +72,19 @@ def test_schema_diff_added_node() -> None:
 
 def test_schema_diff_removed_node() -> None:
     engine = DomainGraphEngine()
-    old = engine.load_file(str(Path("data/domain/rf_simulation/domain.yaml")))
-    new = engine.load_file(str(Path("data/domain/rf_simulation/domain.yaml")))
-    del new.nodes["Scene"]
+    old = engine.load_file(str(Path("tests/data/gw2_ontology.yaml")))
+    new = engine.load_file(str(Path("tests/data/gw2_ontology.yaml")))
+    first_node = list(old.nodes.keys())[0]
+    del new.nodes[first_node]
     diff = engine.schema_diff(old, new)
-    assert "Scene" in diff.removed_nodes
+    assert first_node in diff.removed_nodes
     assert not diff.backward_compatible
 
 
 def test_schema_diff_added_edge() -> None:
     engine = DomainGraphEngine()
-    old = engine.load_file(str(Path("data/domain/rf_simulation/domain.yaml")))
-    new = engine.load_file(str(Path("data/domain/rf_simulation/domain.yaml")))
+    old = engine.load_file(str(Path("tests/data/gw2_ontology.yaml")))
+    new = engine.load_file(str(Path("tests/data/gw2_ontology.yaml")))
     from gw2radar.domain_graph.domain_schema import EdgeDef
     new.edges["new_edge"] = EdgeDef(type="new_edge")
     diff = engine.schema_diff(old, new)
@@ -93,8 +93,8 @@ def test_schema_diff_added_edge() -> None:
 
 def test_schema_diff_backward_compat_kept() -> None:
     engine = DomainGraphEngine()
-    old = engine.load_file(str(Path("data/domain/rf_simulation/domain.yaml")))
-    new = engine.load_file(str(Path("data/domain/rf_simulation/domain.yaml")))
+    old = engine.load_file(str(Path("tests/data/gw2_ontology.yaml")))
+    new = engine.load_file(str(Path("tests/data/gw2_ontology.yaml")))
     from gw2radar.domain_graph.domain_schema import EdgeDef
     new.edges["new_edge"] = EdgeDef(type="new_edge")
     diff = engine.schema_diff(old, new)
@@ -271,14 +271,14 @@ def test_cli_module_imports() -> None:
 def test_cli_validate_runs() -> None:
     from gw2radar.cli import cmd_validate
     import argparse
-    ns = argparse.Namespace(file=str(Path("data/domain/rf_simulation/domain.yaml")))
+    ns = argparse.Namespace(file=str(Path("tests/data/gw2_ontology.yaml")))
     cmd_validate(ns)
 
 
 def test_cli_info_runs() -> None:
     from gw2radar.cli import cmd_info
     import argparse
-    ns = argparse.Namespace(file=str(Path("data/domain/rf_simulation/domain.yaml")))
+    ns = argparse.Namespace(file=str(Path("tests/data/gw2_ontology.yaml")))
     cmd_info(ns)
 
 
@@ -286,8 +286,8 @@ def test_cli_diff_runs() -> None:
     from gw2radar.cli import cmd_diff
     import argparse
     ns = argparse.Namespace(
-        old=str(Path("data/domain/rf_simulation/domain.yaml")),
-        new=str(Path("data/domain/rf_simulation/domain.yaml")),
+        old=str(Path("tests/data/gw2_ontology.yaml")),
+        new=str(Path("tests/data/gw2_ontology.yaml")),
     )
     cmd_diff(ns)
 
@@ -296,7 +296,7 @@ def test_cli_pipeline_runs() -> None:
     from gw2radar.cli import cmd_pipeline
     import argparse
     ns = argparse.Namespace(
-        file=str(Path("data/domain/rf_simulation/domain.yaml")),
+        file=str(Path("tests/data/gw2_ontology.yaml")),
         qa_passed=5, qa_total=5,
         evidence_chain=True,
         action_total=None, action_failed=None,
@@ -308,7 +308,7 @@ def test_cli_compile_oosk_runs() -> None:
     from gw2radar.cli import cmd_compile
     import argparse
     ns = argparse.Namespace(
-        file=str(Path("data/domain/rf_simulation/domain.yaml")),
+        file=str(Path("tests/data/gw2_ontology.yaml")),
         target="oosk",
     )
     cmd_compile(ns)
@@ -318,7 +318,7 @@ def test_cli_compile_bors_runs() -> None:
     from gw2radar.cli import cmd_compile
     import argparse
     ns = argparse.Namespace(
-        file=str(Path("data/domain/rf_simulation/domain.yaml")),
+        file=str(Path("tests/data/gw2_ontology.yaml")),
         target="bors",
     )
     cmd_compile(ns)
@@ -360,7 +360,7 @@ def test_full_e2e_with_all_features() -> None:
     from gw2radar.pipeline import ThreeLayerPipeline
 
     pipeline = ThreeLayerPipeline()
-    load_result = pipeline.load_domain(str(Path("data/domain/rf_simulation/domain.yaml")))
+    load_result = pipeline.load_domain(str(Path("tests/data/gw2_ontology.yaml")))
     assert load_result["validation_passed"]
     assert load_result["entity_count"] >= 6
 

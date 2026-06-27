@@ -48,6 +48,15 @@ class RuntimeMapper:
         "cites": RelationType.REQUIRES,
     }
 
+    @staticmethod
+    def _ensure_mappings() -> dict[str, RelationType]:
+        m: dict[str, RelationType] = dict(RuntimeMapper._RELATION_MAP)
+        for rel in RelationType:
+            clean = rel.value.replace("_", " ").title().replace(" ", "")
+            if clean not in m:
+                m[clean] = rel
+        return m
+
     def map_domain_to_store(self, dg: DomainGraph, store: RuntimeStore) -> None:
         for ntype, nd in dg.nodes.items():
             entity_type = self._ENTITY_MAP.get(ntype)
@@ -65,7 +74,8 @@ class RuntimeMapper:
             store.add_entity(entity)
 
         for etype, ed in dg.edges.items():
-            predicate = self._RELATION_MAP.get(etype, RelationType.REQUIRES)
+            full_map = self._ensure_mappings()
+            predicate = full_map.get(etype, RelationType.REQUIRES)
             for src in ed.source_types:
                 src_id = f"dg:{src}"
                 for tgt in ed.target_types:

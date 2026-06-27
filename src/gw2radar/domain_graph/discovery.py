@@ -6,6 +6,9 @@ from gw2radar.domain_graph.domain_schema import (
     EdgeDef,
     NodeDef,
     NodeProperty,
+    StateMachine,
+    StateTransition,
+    TypeAlias,
 )
 from gw2radar.ontology.action_types import ActionType
 from gw2radar.ontology.entity_types import EntityType
@@ -17,10 +20,10 @@ def discover_from_enums(domain_name: str = "GW2Radar") -> DomainGraph:
     dg = DomainGraph(
         domain=domain_name,
         version="1.0",
-        description=f"Auto-discovered from existing ontology enums",
+        description="Auto-discovered from existing ontology enums",
     )
     for et in EntityType:
-        clean_name = et.value.replace("_", " ").title().replace(" ", "")
+        clean_name = _clean(et.value)
         props = []
         if et == EntityType.ACCOUNT:
             props = [
@@ -41,19 +44,42 @@ def discover_from_enums(domain_name: str = "GW2Radar") -> DomainGraph:
         else:
             props = [NodeProperty(name="id", prop_type="string", required=True)]
 
-        dg.nodes[clean_name] = NodeDef(
-            type=clean_name,
-            description=f"Entity type: {et.value}",
-            properties=props,
-        )
+        if et == EntityType.ACCOUNT:
+            nd = NodeDef(
+                type=clean_name,
+                description="Player account entity",
+                properties=props,
+                lifecycle=StateMachine(
+                    states=["active", "frozen", "closed"],
+                    initial_state="active",
+                    transitions=[
+                        StateTransition(from_state="active", to_state="frozen", trigger="freeze"),
+                        StateTransition(from_state="frozen", to_state="active", trigger="unfreeze"),
+                        StateTransition(from_state="active", to_state="closed", trigger="close"),
+                    ],
+                    invariants=["closed is terminal"],
+                ),
+            )
+        else:
+            nd = NodeDef(
+                type=clean_name,
+                description=f"Entity type: {et.value}",
+                properties=props,
+            )
+        dg.nodes[clean_name] = nd
 
     for rt in RelationType:
-        clean_name = rt.value.replace("_", " ").title().replace(" ", "")
+        clean_name = _clean(rt.value)
         dg.edges[clean_name] = EdgeDef(
             type=clean_name,
             description=f"Relation type: {rt.value}",
             cardinality="N:N",
         )
+
+    dg.type_aliases = [
+        TypeAlias(local_type="Action", equivalent_to="Task",
+                  source_domain="GW2Radar", confidence=0.85),
+    ]
 
     dg.rules = [
         DomainRule(
@@ -77,6 +103,10 @@ def discover_from_enums(domain_name: str = "GW2Radar") -> DomainGraph:
     ]
 
     return dg
+
+
+def _clean(v: str) -> str:
+    return v.replace("_", " ").title().replace(" ", "")
 
 
 def discover_graph_layers() -> list[dict]:

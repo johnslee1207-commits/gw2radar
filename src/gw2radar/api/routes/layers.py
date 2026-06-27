@@ -24,7 +24,7 @@ router = APIRouter(prefix="/api/v1/layers", tags=["layers"])
 
 
 @router.post("/dgsk/load", response_model=ApiDataEnvelope)
-def post_dgsk_load(domain_path: str = "data/domain/rf_simulation/domain.yaml") -> ApiDataEnvelope:
+def post_dgsk_load(domain_path: str = "tests/data/gw2_ontology.yaml") -> ApiDataEnvelope:
     engine = DomainGraphEngine()
     path = str(Path(domain_path))
     try:
@@ -45,7 +45,7 @@ def post_dgsk_load(domain_path: str = "data/domain/rf_simulation/domain.yaml") -
 
 
 @router.post("/dgsk/compile/oosk", response_model=ApiDataEnvelope)
-def post_dgsk_compile_oosk(domain_path: str = "data/domain/rf_simulation/domain.yaml") -> ApiDataEnvelope:
+def post_dgsk_compile_oosk(domain_path: str = "tests/data/gw2_ontology.yaml") -> ApiDataEnvelope:
     engine = DomainGraphEngine()
     dg = engine.load_file(str(Path(domain_path)))
     registry = engine.compile_to_oosk(dg)
@@ -58,7 +58,7 @@ def post_dgsk_compile_oosk(domain_path: str = "data/domain/rf_simulation/domain.
 
 
 @router.post("/dgsk/compile/bors", response_model=ApiDataEnvelope)
-def post_dgsk_compile_bors(domain_path: str = "data/domain/rf_simulation/domain.yaml") -> ApiDataEnvelope:
+def post_dgsk_compile_bors(domain_path: str = "tests/data/gw2_ontology.yaml") -> ApiDataEnvelope:
     engine = DomainGraphEngine()
     dg = engine.load_file(str(Path(domain_path)))
     mappings = engine.compile_to_bors(dg)
@@ -88,7 +88,7 @@ def post_dgsk_diff(old_path: str, new_path: str) -> ApiDataEnvelope:
 
 
 @router.post("/oosk/map", response_model=ApiDataEnvelope)
-def post_oosk_map(domain_path: str = "data/domain/rf_simulation/domain.yaml") -> ApiDataEnvelope:
+def post_oosk_map(domain_path: str = "tests/data/gw2_ontology.yaml") -> ApiDataEnvelope:
     engine = DomainGraphEngine()
     dg = engine.load_file(str(Path(domain_path)))
     store = RuntimeStore()
@@ -103,7 +103,7 @@ def post_oosk_map(domain_path: str = "data/domain/rf_simulation/domain.yaml") ->
 
 
 @router.post("/oosk/constraints", response_model=ApiDataEnvelope)
-def post_oosk_constraints(domain_path: str = "data/domain/rf_simulation/domain.yaml") -> ApiDataEnvelope:
+def post_oosk_constraints(domain_path: str = "tests/data/gw2_ontology.yaml") -> ApiDataEnvelope:
     engine = DomainGraphEngine()
     dg = engine.load_file(str(Path(domain_path)))
     store = RuntimeStore()
@@ -223,7 +223,7 @@ def post_bors_decision_graph() -> ApiDataEnvelope:
 
 @router.post("/pipeline", response_model=ApiDataEnvelope)
 def post_pipeline(
-    domain_path: str = "data/domain/rf_simulation/domain.yaml",
+    domain_path: str = "tests/data/gw2_ontology.yaml",
 ) -> ApiDataEnvelope:
     pipeline = ThreeLayerPipeline()
     result = pipeline.run_full_pipeline(

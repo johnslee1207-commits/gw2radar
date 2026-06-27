@@ -1,0 +1,171 @@
+domain: GW2Radar
+version: '1.0'
+description: Auto-discovered from existing ontology enums
+nodes:
+- type: Account
+  description: Player account entity
+  properties:
+  - name: id(required)
+  - name: name
+  lifecycle:
+    states:
+    - active
+    - frozen
+    - closed
+    initial_state: active
+    transitions:
+    - from: active
+      to: frozen
+      trigger: freeze
+    - from: frozen
+      to: active
+      trigger: unfreeze
+    - from: active
+      to: closed
+      trigger: close
+    invariants:
+    - closed is terminal
+- type: Character
+  description: 'Entity type: character'
+  properties:
+  - name: id(required)
+- type: Goal
+  description: 'Entity type: goal'
+  properties:
+  - name: id(required)
+  - name: goal_type
+- type: Item
+  description: 'Entity type: item'
+  properties:
+  - name: id(required)
+  - name: name
+  - name: tradable(bool)
+- type: Material
+  description: 'Entity type: material'
+  properties:
+  - name: id(required)
+- type: Currency
+  description: 'Entity type: currency'
+  properties:
+  - name: id(required)
+- type: Recipe
+  description: 'Entity type: recipe'
+  properties:
+  - name: id(required)
+- type: Achievement
+  description: 'Entity type: achievement'
+  properties:
+  - name: id(required)
+- type: Collection
+  description: 'Entity type: collection'
+  properties:
+  - name: id(required)
+- type: Task
+  description: 'Entity type: task'
+  properties:
+  - name: id(required)
+- type: Action
+  description: 'Entity type: action'
+  properties:
+  - name: id(required)
+- type: TradingPostPrice
+  description: 'Entity type: trading_post_price'
+  properties:
+  - name: id(required)
+- type: Source
+  description: 'Entity type: source'
+  properties:
+  - name: id(required)
+- type: Evidence
+  description: 'Entity type: evidence'
+  properties:
+  - name: id(required)
+edges:
+- type: Requires
+  source: []
+  target: []
+  cardinality: N:N
+  description: 'Relation type: requires'
+- type: Consumes
+  source: []
+  target: []
+  cardinality: N:N
+  description: 'Relation type: consumes'
+- type: Produces
+  source: []
+  target: []
+  cardinality: N:N
+  description: 'Relation type: produces'
+- type: UsedIn
+  source: []
+  target: []
+  cardinality: N:N
+  description: 'Relation type: used_in'
+- type: Unlocks
+  source: []
+  target: []
+  cardinality: N:N
+  description: 'Relation type: unlocks'
+- type: PartOf
+  source: []
+  target: []
+  cardinality: N:N
+  description: 'Relation type: part_of'
+- type: OwnedBy
+  source: []
+  target: []
+  cardinality: N:N
+  description: 'Relation type: owned_by'
+- type: HasPrice
+  source: []
+  target: []
+  cardinality: N:N
+  description: 'Relation type: has_price'
+- type: MissingForGoal
+  source: []
+  target: []
+  cardinality: N:N
+  description: 'Relation type: missing_for_goal'
+- type: AdvancesGoal
+  source: []
+  target: []
+  cardinality: N:N
+  description: 'Relation type: advances_goal'
+- type: BlocksGoal
+  source: []
+  target: []
+  cardinality: N:N
+  description: 'Relation type: blocks_goal'
+- type: ReservesForGoal
+  source: []
+  target: []
+  cardinality: N:N
+  description: 'Relation type: reserves_for_goal'
+- type: ReservedForGoal
+  source: []
+  target: []
+  cardinality: N:N
+  description: 'Relation type: reserved_for_goal'
+- type: AcquiredBy
+  source: []
+  target: []
+  cardinality: N:N
+  description: 'Relation type: acquired_by'
+rules:
+- name: data_freshness_required
+  rule: Entity.freshness must be fresh
+  severity: error
+  description: Entities must have fresh data for decisions
+- name: evidence_chain_required
+  rule: Decision requires Evidence
+  severity: error
+  description: Decisions require intact evidence chain
+- name: private_data_protected
+  rule: Entity.layer must not be public
+  severity: error
+  description: Private player data must not leak to public layer
+type_aliases:
+- local_type: Action
+  equivalent_to: Task
+  source_domain: GW2Radar
+  confidence: 0.85
