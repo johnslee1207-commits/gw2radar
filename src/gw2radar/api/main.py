@@ -13,6 +13,7 @@ from gw2radar.api.envelope import ApiError, ApiErrorEnvelope, http_exception_han
 
 logger = logging.getLogger("gw2radar.api")
 from gw2radar.api.routes.acquisition import router as acquisition_router
+from gw2radar.api.routes.layers import router as layers_router
 from gw2radar.api.routes.account import router as account_router
 from gw2radar.api.routes.account_sync import router as account_sync_router
 from gw2radar.api.routes.achievement_routes import router as achievement_routes_router
@@ -69,6 +70,27 @@ app.mount(
 )
 
 
+@app.get("/")
+def landing() -> dict:
+    return {
+        "service": "GW2Radar MVP 0.1",
+        "docs": "/docs",
+        "openapi": "/openapi.json",
+        "layers": {
+            "dgsk": "/api/v1/layers/dgsk/load",
+            "oosk": "/api/v1/layers/oosk/map",
+            "bors": "/api/v1/layers/bors/decide",
+            "pipeline": "/api/v1/layers/pipeline",
+        },
+        "ontology": "/api/v1/ontology",
+        "endpoints": {
+            "health": "/health",
+            "mock_load": "/mock/load",
+            "player_ui": "/player-ui",
+        },
+    }
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
@@ -110,3 +132,4 @@ app.include_router(security_router)
 app.include_router(acquisition_router)
 app.include_router(progression_router)
 app.include_router(saas_router)
+app.include_router(layers_router)
